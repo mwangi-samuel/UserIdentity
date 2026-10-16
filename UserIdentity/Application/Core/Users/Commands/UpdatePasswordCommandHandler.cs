@@ -31,7 +31,7 @@ public class UpdatePasswordCommandHandler(
 {
   private readonly UserManager<IdentityUser> _userManager = userManager;
 
-  public async Task<UpdatePasswordViewModel> UpdateItemAsync(UpdatePasswordCommand command, string userId)
+  public async Task<UpdatePasswordViewModel> UpdateItemAsync(UpdatePasswordCommand command, string userId, CancellationToken cancellationToken = default)
   {
     try
     {

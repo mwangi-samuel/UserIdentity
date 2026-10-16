@@ -17,7 +17,7 @@ namespace UserIdentity.Persistence.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "9.0.11")
+                .HasAnnotation("ProductVersion", "10.0.13")
                 .HasAnnotation("Relational:MaxIdentifierLength", 64);
 
             MySqlModelBuilderExtensions.AutoIncrementColumns(modelBuilder);
@@ -329,8 +329,8 @@ namespace UserIdentity.Persistence.Migrations
 
                     b.Property<string>("AppSecretKey")
                         .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("varchar(100)")
+                        .HasMaxLength(600)
+                        .HasColumnType("varchar(600)")
                         .HasColumnName("app_secret_key");
 
                     b.Property<string>("BaseUrl")
@@ -408,6 +408,7 @@ namespace UserIdentity.Persistence.Migrations
                         .HasName("pk_registered_apps");
 
                     b.HasIndex("AppName")
+                        .IsUnique()
                         .HasDatabaseName("ix_registered_apps_app_name");
 
                     b.ToTable("registered_apps", (string)null);

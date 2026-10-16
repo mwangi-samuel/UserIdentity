@@ -28,7 +28,7 @@ public class GetRoleClaimsQueryHandler(
   private readonly RoleManager<IdentityRole> _roleManager = roleManager;
   private readonly IJwtTokenHandler _jwtTokenHandler = jwtTokenHandler;
 
-  public async Task<RoleClaimsViewModel> GetItemsAsync(GetRoleClaimsQuery query)
+  public async Task<RoleClaimsViewModel> GetItemsAsync(GetRoleClaimsQuery query, CancellationToken cancellationToken = default)
   {
     var role = await _roleManager.FindByIdAsync(query.RoleId) ?? throw new NoRecordException(query.RoleId, "Role");
 
@@ -57,7 +57,7 @@ public class GetRoleClaimsQueryHandler(
 
   }
 
-  public async Task<RoleClaimsForRolesViewModels> GetItemsAsync(GetRoleClaimsForRolesQuery getRoleClaimsForRolesQuery)
+  public async Task<RoleClaimsForRolesViewModels> GetItemsAsync(GetRoleClaimsForRolesQuery getRoleClaimsForRolesQuery, CancellationToken cancellationToken = default)
   {
     HashSet<string> roleClaims = [];
 

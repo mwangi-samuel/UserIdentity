@@ -22,7 +22,7 @@ public class AppCallbackService(
 
   private const string targetServiceName = "AppCallback";
 
-  public async Task SendCallbackRequestAsync(UserUpdateEvent userUpdateEvent)
+  public async Task SendCallbackRequestAsync(UserUpdateEvent userUpdateEvent, CancellationToken cancellationToken = default)
   {
     var externalServiceName = userUpdateEvent.RegisteredApp.AppName!;
     var externalServiceUrl = userUpdateEvent.RegisteredApp.CallbackUrl!;
@@ -54,6 +54,6 @@ public class AppCallbackService(
       foreach (var header in userUpdateEvent.RegisteredApp.CallbackHeaders)
         requestMessage = requestMessage.WithRequestHeader(header.Key, header.Value);
 
-    await _httpClientHelper.SendRequestAsync(targetServiceName, requestMessage);
+    await _httpClientHelper.SendRequestAsync(targetServiceName, requestMessage, cancellationToken);
   }
 }

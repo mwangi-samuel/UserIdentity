@@ -21,7 +21,7 @@ public class MessageManagerUserUpdatedKafkaMessageEventHandler(
 {
   private readonly IUpdateItemCommandHandler<ConfirmUserCommand, ConfirmUserViewModel> _updateItemCommandHandler = updateItemCommandHandler;
 
-  public async Task HandleEventAsync(MessageManagerUserUpdatedKafkaMessageEvent eventItem)
+  public async Task HandleEventAsync(MessageManagerUserUpdatedKafkaMessageEvent eventItem, CancellationToken cancellationToken = default)
   {
     if (eventItem.MessageValue.Action == MessageAction.WELCOME_USER)
     {
@@ -30,7 +30,7 @@ public class MessageManagerUserUpdatedKafkaMessageEventHandler(
         UserId = eventItem.MessageValue.CorrelationId
       };
 
-      await _updateItemCommandHandler.UpdateItemAsync(command, eventItem.MessageKey);
+      await _updateItemCommandHandler.UpdateItemAsync(command, eventItem.MessageKey, cancellationToken);
     }
   }
 }

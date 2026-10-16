@@ -25,7 +25,7 @@ public class ConfirmUserCommandHandler(
 {
   private readonly UserManager<IdentityUser> _userManager = userManager;
 
-  public async Task<ConfirmUserViewModel> UpdateItemAsync(ConfirmUserCommand command, string userId)
+  public async Task<ConfirmUserViewModel> UpdateItemAsync(ConfirmUserCommand command, string userId, CancellationToken cancellationToken = default)
   {
     var userDetails = await _userManager.FindByIdAsync(command.UserId) ?? throw new NoRecordException(command.UserId, EntityTypes.USER.Description());
 

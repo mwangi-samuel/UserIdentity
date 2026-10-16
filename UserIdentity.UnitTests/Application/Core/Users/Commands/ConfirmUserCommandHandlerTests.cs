@@ -20,7 +20,7 @@ public class ConfirmUserCommandHandlerTests
 
   public ConfirmUserCommandHandlerTests()
   {
-    _userManager = A.Fake<UserManager<IdentityUser>>();
+    _userManager = IdentityFakes.UserManager();
   }
 
   [Fact]

@@ -17,7 +17,7 @@ public class DeleteRoleCommandHandler(
 {
   private readonly RoleManager<IdentityRole> _roleManager = roleManager;
 
-  public async Task<DeleteRecordViewModel> DeleteItemAsync(DeleteRoleCommand command, string userId)
+  public async Task<DeleteRecordViewModel> DeleteItemAsync(DeleteRoleCommand command, string userId, CancellationToken cancellationToken = default)
   {
     var role = await _roleManager.FindByIdAsync(command.RoleId) ?? throw new NoRecordException(command.RoleId, "Role");
 

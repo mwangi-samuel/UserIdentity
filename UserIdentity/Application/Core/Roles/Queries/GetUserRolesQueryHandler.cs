@@ -21,7 +21,7 @@ public class GetUserRolesQueryHandler(
   private readonly RoleManager<IdentityRole> _roleManager = roleManager;
   private readonly UserManager<IdentityUser> _userManager = userManager;
 
-  public async Task<UserRolesViewModel> GetItemsAsync(GetUserRolesQuery query)
+  public async Task<UserRolesViewModel> GetItemsAsync(GetUserRolesQuery query, CancellationToken cancellationToken = default)
   {
 
     var user = await _userManager.FindByIdAsync(query.UserId) ?? throw new NoRecordException(query.UserId, "User");

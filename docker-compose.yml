@@ -64,6 +64,7 @@ services:
       KeySetOptions__PrivateKeyPassPhrase: S3T@G00dPa22Phr@S3
       KeySetOptions__PrivateKeyPath: EDDSA_PRIVATE_KEY # Ensure you have this in your environment
       KeySetOptions__PublicKeyPath: EDDSA_PUBLIC_KEY # Ensure you have this in your environment
+      AppSecretOptions__Keys__key1: 8b8+SqUqHQIaDnTHPsD301/TGpz0PD+lvBInpKEvTv0= # Dev only - use a secret store elsewhere
       Serilog__MinimumLevel: Warning
     depends_on:
       - db

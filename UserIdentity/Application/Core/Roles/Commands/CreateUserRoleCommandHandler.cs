@@ -30,7 +30,7 @@ public class CreateUserRoleCommandHandler(
   private readonly UserManager<IdentityUser> _userManager = userManager;
   private readonly IGetItemsQueryHandler<GetUserRolesQuery, UserRolesViewModel> _getUserRolesQueryHandler = getUserRolesQueryHandler;
 
-  public async Task<UserRolesViewModel> CreateItemAsync(CreateUserRoleCommand command, string userid)
+  public async Task<UserRolesViewModel> CreateItemAsync(CreateUserRoleCommand command, string userid, CancellationToken cancellationToken = default)
   {
     var user = await _userManager.FindByIdAsync(command.UserId) ?? throw new NoRecordException(command.UserId + "", "User");
 
@@ -48,7 +48,7 @@ public class CreateUserRoleCommandHandler(
 
     // remove roles from cache
 
-    var resolvedRoles = await _getUserRolesQueryHandler.GetItemsAsync(new GetUserRolesQuery { UserId = command.UserId });
+    var resolvedRoles = await _getUserRolesQueryHandler.GetItemsAsync(new GetUserRolesQuery { UserId = command.UserId }, cancellationToken);
 
     return resolvedRoles;
   }

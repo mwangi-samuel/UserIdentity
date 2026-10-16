@@ -34,7 +34,7 @@ public class ResetPasswordCommandHandlerTests : IClassFixture<TestSettingsFixtur
   {
     _testSettings = testSettings;
 
-    _userManager = A.Fake<UserManager<IdentityUser>>();
+    _userManager = IdentityFakes.UserManager();
     _machineDateTime = A.Fake<IMachineDateTime>();
     _unitOfWork = A.Fake<IUnitOfWork>();
     _userRepository = A.Fake<IUserRepository>();

@@ -25,12 +25,12 @@ public class GetInviteCodeQueryHandler(
 
   private readonly IInviteCodeRepository _inviteCodeRepository = inviteCodeRepository;
 
-  public async Task<InviteCodeViewModel> GetItemAsync(GetInviteCodeQuery query)
+  public async Task<InviteCodeViewModel> GetItemAsync(GetInviteCodeQuery query, CancellationToken cancellationToken = default)
   {
 
     var dto = query.InviteCodeId.HasValue
-      ? await _inviteCodeRepository.GetEntityDTOByIdAsync(query.InviteCodeId!.Value)
-      : InviteCodeDTO.FromEntityDetailed((await _inviteCodeRepository.GetEntityByAlternateIdAsync(new() { UserEmail = query.UserEmail! }, QueryCondition.MUST_EXIST))!);
+      ? await _inviteCodeRepository.GetEntityDTOByIdAsync(query.InviteCodeId!.Value, cancellationToken)
+      : InviteCodeDTO.FromEntityDetailed((await _inviteCodeRepository.GetEntityByAlternateIdAsync(new() { UserEmail = query.UserEmail! }, QueryCondition.MUST_EXIST, cancellationToken))!);
 
     return new InviteCodeViewModel
     {

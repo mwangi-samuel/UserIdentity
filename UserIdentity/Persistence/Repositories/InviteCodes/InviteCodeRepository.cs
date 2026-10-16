@@ -15,13 +15,13 @@ public class InviteCodeRepository(
  ) : EntityRepository<InviteCodeEntity, long>(dbContext), IInviteCodeRepository
 {
   private readonly AppDbContext _dbContext = dbContext;
-  public async Task<InviteCodeEntity?> GetEntityByAlternateIdAsync(InviteCodeEntity entity, QueryCondition queryCondition)
+  public async Task<InviteCodeEntity?> GetEntityByAlternateIdAsync(InviteCodeEntity entity, QueryCondition queryCondition, CancellationToken cancellationToken = default)
   {
     var userEmail = ObjectUtil.RequireNonNullValue(entity.UserEmail, nameof(entity.UserEmail));
 
     var existingEntity = await _dbContext.InviteCode
       .Include(e => e.App)
-      .SingleOrDefaultAsync(e => e.UserEmail == userEmail);
+      .SingleOrDefaultAsync(e => e.UserEmail == userEmail, cancellationToken);
 
     return queryCondition switch
     {
@@ -31,11 +31,11 @@ public class InviteCodeRepository(
     };
   }
 
-  public async Task<InviteCodeDTO> GetEntityDTOByIdAsync(long id)
+  public async Task<InviteCodeDTO> GetEntityDTOByIdAsync(long id, CancellationToken cancellationToken = default)
   {
     return await _dbContext.InviteCode
       .Where(e => e.Id == id && !e.IsDeleted)
       .Select(InviteCodeDTO.Detailed)
-      .SingleOrDefaultAsync() ?? throw new NoRecordException($"{id}", EntityTypes.INVITE_CODE.Description());
+      .SingleOrDefaultAsync(cancellationToken) ?? throw new NoRecordException($"{id}", EntityTypes.INVITE_CODE.Description());
   }
 }

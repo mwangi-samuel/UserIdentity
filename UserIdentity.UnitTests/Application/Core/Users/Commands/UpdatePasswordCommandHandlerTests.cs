@@ -20,7 +20,7 @@ public class UpdatePasswordCommandHandlerTests
   public UpdatePasswordCommandHandlerTests()
   {
 
-    _userManager = A.Fake<UserManager<IdentityUser>>();
+    _userManager = IdentityFakes.UserManager();
 
   }
 

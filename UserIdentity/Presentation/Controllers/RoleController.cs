@@ -47,7 +47,7 @@ public class RoleController(
   [HttpGet]
   public async Task<ActionResult<RolesViewModel>> GetRolesAsync()
   {
-    var vm = await _getRolesQueryHandler.GetItemsAsync(new GetRolesQuery { });
+    var vm = await _getRolesQueryHandler.GetItemsAsync(new GetRolesQuery { }, RequestAborted);
     return ResolveGetItemsActionResult(vm);
   }
 
@@ -56,7 +56,7 @@ public class RoleController(
   [Route("{roleId}")]
   public async Task<ActionResult<RoleViewModel>> GetRoleAsync(string roleId)
   {
-    var vm = await _getRoleQueryHandler.GetItemAsync(new GetRoleQuery { RoleId = roleId });
+    var vm = await _getRoleQueryHandler.GetItemAsync(new GetRoleQuery { RoleId = roleId }, RequestAborted);
     return ResolveGetItemActionResult(vm);
   }
 
@@ -64,7 +64,7 @@ public class RoleController(
   [HttpPost]
   public async Task<ActionResult<RoleViewModel>> CreateRoleAsync(CreateRoleCommand command)
   {
-    var vm = await _createRoleCommandHandler.CreateItemAsync(command, LoggedInUserId);
+    var vm = await _createRoleCommandHandler.CreateItemAsync(command, LoggedInUserId, RequestAborted);
     return ResolveCreateItemActionResult(vm);
   }
 
@@ -75,7 +75,7 @@ public class RoleController(
   {
     command.RoleId = roleId;
 
-    var vm = await _updateRoleCommandHandler.UpdateItemAsync(command, LoggedInUserId);
+    var vm = await _updateRoleCommandHandler.UpdateItemAsync(command, LoggedInUserId, RequestAborted);
     return ResolveUpdateItemActionResult(vm);
   }
 
@@ -85,7 +85,7 @@ public class RoleController(
   [Route("{roleId}")]
   public async Task<ActionResult<DeleteRecordViewModel>> DeleteRoleAsync(string roleId)
   {
-    var vm = await _deleteRoleCommandHandler.DeleteItemAsync(new DeleteRoleCommand { RoleId = roleId }, LoggedInUserId);
+    var vm = await _deleteRoleCommandHandler.DeleteItemAsync(new DeleteRoleCommand { RoleId = roleId }, LoggedInUserId, RequestAborted);
     return ResolveDeleteItemActionResult(vm);
   }
 
@@ -94,7 +94,7 @@ public class RoleController(
   [Route("user/{userId}")]
   public async Task<ActionResult<UserRolesViewModel>> GetUserRolesAsync(string userId)
   {
-    var vm = await _getUserRolesQueryHandler.GetItemsAsync(new GetUserRolesQuery { UserId = userId });
+    var vm = await _getUserRolesQueryHandler.GetItemsAsync(new GetUserRolesQuery { UserId = userId }, RequestAborted);
     return ResolveGetItemsActionResult(vm);
   }
 
@@ -104,9 +104,9 @@ public class RoleController(
   [Route("user")]
   public async Task<ActionResult<UserRolesViewModel>> CreateUserRoleAsync(CreateUserRoleCommand command)
   {
-    var vm = await _createUserRoleCommandHandler.CreateItemAsync(command, LoggedInUserId);
+    var vm = await _createUserRoleCommandHandler.CreateItemAsync(command, LoggedInUserId, RequestAborted);
 
-    vm.ResolveCreateDownloadRights(UserScopeClaims, EntityName);
+    vm.ResolveCreateDownloadRights(UserScopeClaims, ScopeResource, IsAdmin);
     vm.ResolveRequestStatus(RequestStatus.SUCCESSFUL, ItemStatusMessage.CREATE_ITEM_SUCCESSFUL);
 
     return StatusCode((int)HttpStatusCode.Created, vm);
@@ -124,7 +124,7 @@ public class RoleController(
   [Route("claim")]
   public async Task<ActionResult<RoleClaimViewModel>> CreateRoleClaimAsync(CreateRoleClaimCommand command)
   {
-    var vm = await _createRoleClaimCommandHandler.CreateItemAsync(command, LoggedInUserId);
+    var vm = await _createRoleClaimCommandHandler.CreateItemAsync(command, LoggedInUserId, RequestAborted);
     return ResolveCreateItemActionResult(vm);
   }
 
@@ -133,7 +133,7 @@ public class RoleController(
   [Route("claim/{roleId}")]
   public async Task<ActionResult<RoleClaimsViewModel>> GetRoleClaimsAsync(string roleId)
   {
-    var vm = await _getRoleClaimsQueryHandler.GetItemsAsync(new GetRoleClaimsQuery { RoleId = roleId });
+    var vm = await _getRoleClaimsQueryHandler.GetItemsAsync(new GetRoleClaimsQuery { RoleId = roleId }, RequestAborted);
     return ResolveGetItemsActionResult(vm);
   }
 
@@ -142,7 +142,7 @@ public class RoleController(
   [Route("claim")]
   public async Task<ActionResult<DeleteRecordViewModel>> DeleteRoleClaimAsync(DeleteRoleClaimCommand command)
   {
-    var vm = await _deleteRoleClaimCommandHandler.DeleteItemAsync(command, LoggedInUserId);
+    var vm = await _deleteRoleClaimCommandHandler.DeleteItemAsync(command, LoggedInUserId, RequestAborted);
     return ResolveDeleteItemActionResult(vm);
   }
 }

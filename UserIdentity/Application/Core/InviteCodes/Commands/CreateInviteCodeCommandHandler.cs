@@ -21,15 +21,15 @@ public class CreateInviteCodeCommandHandler(
   ) : BaseAuditableItemCommandHandler<long, InviteCodeEntity, IInviteCodeRepository>(unitOfWork, inviteCodeRepository, machineDateTime),
       ICreateItemCommandHandler<CreateInviteCodeCommand, InviteCodeViewModel>
 {
-  public async Task<InviteCodeViewModel> CreateItemAsync(CreateInviteCodeCommand command, string userId)
+  public async Task<InviteCodeViewModel> CreateItemAsync(CreateInviteCodeCommand command, string userId, CancellationToken cancellationToken = default)
   {
     var entity = (InviteCodeEntity)command;
 
-    await CreateEntityItemAsync(entity, userId);
+    await CreateEntityItemAsync(entity, userId, cancellationToken);
 
     return new InviteCodeViewModel
     {
-      InviteCode = await _repository.GetEntityDTOByIdAsync(entity.Id)
+      InviteCode = await _repository.GetEntityDTOByIdAsync(entity.Id, cancellationToken)
     };
   }
 }

@@ -21,15 +21,15 @@ public class CreateWaitListCommandHandler(
   ) : BaseAuditableItemCommandHandler<long, WaitListEntity, IWaitListRepository>(unitOfWork, waitListRepository, machineDateTime),
       ICreateItemCommandHandler<CreateWaitListCommand, WaitListViewModel>
 {
-  public async Task<WaitListViewModel> CreateItemAsync(CreateWaitListCommand command, string userId)
+  public async Task<WaitListViewModel> CreateItemAsync(CreateWaitListCommand command, string userId, CancellationToken cancellationToken = default)
   {
     var entity = (WaitListEntity)command;
 
-    await CreateEntityItemAsync(entity, userId);
+    await CreateEntityItemAsync(entity, userId, cancellationToken);
 
     return new WaitListViewModel
     {
-      WaitList = await _repository.GetEntityDTOByIdAsync(entity.Id)
+      WaitList = await _repository.GetEntityDTOByIdAsync(entity.Id, cancellationToken)
     };
   }
 }

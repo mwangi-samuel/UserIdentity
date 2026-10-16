@@ -2,8 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 
 using PolyzenKit.Application.Core.Interfaces;
-using PolyzenKit.Application.Core.RegisteredApps.Queries;
-using PolyzenKit.Application.Core.RegisteredApps.ViewModels;
+using PolyzenKit.Application.Core.RegisteredApps.Resolvers;
 using PolyzenKit.Common.Utilities;
 using PolyzenKit.Presentation.Controllers;
 
@@ -18,14 +17,14 @@ public class InviteCodeController(
   ICreateItemCommandHandler<CreateInviteCodeCommand, InviteCodeViewModel> createItemCommandHandler,
   IGetItemQueryHandler<GetInviteCodeQuery, InviteCodeViewModel> getItemQueryHandler,
 
-  IGetItemQueryHandler<GetRegisteredAppQuery, RegisteredAppViewModel> getRegisteredAppQueryHandler
+  IRegisteredAppResolver registeredAppResolver
   ) : BaseController
 {
 
   private readonly ICreateItemCommandHandler<CreateInviteCodeCommand, InviteCodeViewModel> _createItemCommandHandler = createItemCommandHandler;
   private readonly IGetItemQueryHandler<GetInviteCodeQuery, InviteCodeViewModel> _getItemQueryHandler = getItemQueryHandler;
 
-  private readonly IGetItemQueryHandler<GetRegisteredAppQuery, RegisteredAppViewModel> _getRegisteredAppQueryHandler = getRegisteredAppQueryHandler;
+  private readonly IRegisteredAppResolver _registeredAppResolver = registeredAppResolver;
 
 
   [Authorize(Policy = ZenConstants.ADMIN_USER_POLICY)]
@@ -33,7 +32,7 @@ public class InviteCodeController(
   [Route("{id}")]
   public async Task<ActionResult<InviteCodeViewModel>> GetInviteCode(long id)
   {
-    var vm = await _getItemQueryHandler.GetItemAsync(new GetInviteCodeQuery { InviteCodeId = id });
+    var vm = await _getItemQueryHandler.GetItemAsync(new GetInviteCodeQuery { InviteCodeId = id }, RequestAborted);
     return ResolveGetItemActionResult(vm, true);
   }
 
@@ -42,7 +41,7 @@ public class InviteCodeController(
   [Route("email/{email}")]
   public async Task<ActionResult<InviteCodeViewModel>> GetInviteCodeByEmail(string email)
   {
-    var vm = await _getItemQueryHandler.GetItemAsync(new GetInviteCodeQuery { UserEmail = email });
+    var vm = await _getItemQueryHandler.GetItemAsync(new GetInviteCodeQuery { UserEmail = email }, RequestAborted);
     return ResolveGetItemActionResult(vm, true);
   }
 
@@ -51,11 +50,11 @@ public class InviteCodeController(
   [Route("")]
   public async Task<ActionResult<InviteCodeViewModel>> CreateInviteCode(CreateInviteCodeCommand command)
   {
-    var registeredAppDTO = await GetAppNameAsync(_getRegisteredAppQueryHandler);
+    var registeredApp = await GetRegisteredAppAsync(_registeredAppResolver);
 
-    command.AppId = registeredAppDTO.Id;
+    command.AppId = registeredApp.Id;
 
-    var vm = await _createItemCommandHandler.CreateItemAsync(command, LoggedInUserId);
+    var vm = await _createItemCommandHandler.CreateItemAsync(command, LoggedInUserId, RequestAborted);
     return ResolveCreateItemActionResult(vm, true);
   }
 
