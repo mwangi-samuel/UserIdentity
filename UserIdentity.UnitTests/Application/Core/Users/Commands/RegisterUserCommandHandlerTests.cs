@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Security.Claims;
 using System.Threading;
@@ -7,6 +8,7 @@ using System.Threading.Tasks;
 using FakeItEasy;
 
 using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 using PolyzenKit.Application.Core.Interfaces;
@@ -57,6 +59,7 @@ public class RegisterUserCommandHandlerTests
   private readonly IOptions<GoogleRecaptchaSettings> _googleRecaptchaSettingsOptions;
   private readonly IGoogleRecaptchaService _googleRecaptchaService;
   private readonly IGetItemsQueryHandler<GetRoleClaimsForRolesQuery, RoleClaimsForRolesViewModels> _getRoleClaimsQueryHandler;
+  private readonly ILogHelper<RegisterUserCommandHandler> _logHelper;
 
   public RegisterUserCommandHandlerTests()
   {
@@ -76,6 +79,7 @@ public class RegisterUserCommandHandlerTests
     _googleRecaptchaSettingsOptions = A.Fake<IOptions<GoogleRecaptchaSettings>>();
     _googleRecaptchaService = A.Fake<IGoogleRecaptchaService>();
     _getRoleClaimsQueryHandler = A.Fake<IGetItemsQueryHandler<GetRoleClaimsForRolesQuery, RoleClaimsForRolesViewModels>>();
+    _logHelper = A.Fake<ILogHelper<RegisterUserCommandHandler>>();
 
     A.CallTo(() => _googleRecaptchaSettingsOptions.Value).Returns(new GoogleRecaptchaSettings { Enabled = false });
     A.CallTo(() => _unitOfWork.BeginTransactionAsync()).Returns(Task.CompletedTask);
@@ -246,6 +250,34 @@ public class RegisterUserCommandHandlerTests
     A.CallTo(() => _userUpdateEventHandler.HandleEventAsync(A<UserUpdateEvent>.That.Matches(e => e.UserContent.FirstName == command.FirstName))).MustHaveHappenedOnceExactly();
   }
 
+  [Fact]
+  public async Task Create_User_When_Publishing_User_Created_Event_Fails_Logs_Error_And_Returns_AuthUser()
+  {
+    var command = GetRegisterUserCommand();
+    var defaultRole = new IdentityRole(GetDefaultRoleName());
+
+    A.CallTo(() => _roleManager.FindByNameAsync(defaultRole.Name!)).Returns(defaultRole);
+    A.CallTo(() => _userManager.FindByNameAsync(command.UserName)).Returns((IdentityUser?)null);
+    A.CallTo(() => _userManager.FindByEmailAsync(command.UserEmail!)).Returns((IdentityUser?)null);
+    A.CallTo(() => _userManager.CreateAsync(A<IdentityUser>._, command.UserPassword)).Returns(IdentityResult.Success);
+    A.CallTo(() => _userManager.AddToRoleAsync(A<IdentityUser>._, defaultRole.Name!)).Returns(IdentityResult.Success);
+    A.CallTo(() => _userManager.GenerateEmailConfirmationTokenAsync(A<IdentityUser>._)).Returns("token");
+    A.CallTo(() => _userUpdateEventHandler.HandleEventAsync(A<UserUpdateEvent>._, A<CancellationToken>._))
+        .ThrowsAsync(new InvalidOperationException("broker unavailable"));
+
+    var handler = GetRegisterUserCommandHandler();
+
+    var vm = await handler.CreateItemAsync(command, TestStringHelper.UserId);
+
+    Assert.NotNull(vm.User);
+    Assert.Equal(command.FirstName, vm.User.FirstName);
+
+    A.CallTo(() => _unitOfWork.CommitTransactionAsync(A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+    A.CallTo(() => _unitOfWork.RollbackTransactionAsync(A<CancellationToken>._)).MustNotHaveHappened();
+    A.CallTo(() => _userUpdateEventHandler.HandleEventAsync(A<UserUpdateEvent>._, CancellationToken.None)).MustHaveHappenedOnceExactly();
+    A.CallTo(() => _logHelper.LogEvent(LogLevel.Error, A<InvalidOperationException>._, A<string>._, A<object?[]>._)).MustHaveHappenedOnceExactly();
+  }
+
   private RegisterUserCommandHandler GetRegisterUserCommandHandler()
   {
     return new RegisterUserCommandHandler(
@@ -264,7 +296,8 @@ public class RegisterUserCommandHandlerTests
         _userUpdateEventHandler,
         _googleRecaptchaSettingsOptions,
         _googleRecaptchaService,
-        _getRoleClaimsQueryHandler
+        _getRoleClaimsQueryHandler,
+        _logHelper
     );
   }
 
