@@ -5,8 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 
 using PolyzenKit.Application.Core.Extensions;
 using PolyzenKit.Application.Core.Interfaces;
-using PolyzenKit.Application.Core.RegisteredApps.Queries;
-using PolyzenKit.Application.Core.RegisteredApps.ViewModels;
+using PolyzenKit.Application.Core.RegisteredApps.Resolvers;
 using PolyzenKit.Application.Enums;
 using PolyzenKit.Common.Utilities;
 using PolyzenKit.Domain.DTO;
@@ -33,7 +32,7 @@ public class UserController(
     IUpdateItemCommandHandler<ConfirmUpdatePasswordTokenCommand, ConfirmUpdatePasswordTokenViewModel> confirmUpdatePasswordTokenCommandHandler,
     IUpdateItemCommandHandler<UpdatePasswordCommand, UpdatePasswordViewModel> updatePasswordCommandHandler,
 
-    IGetItemQueryHandler<GetRegisteredAppQuery, RegisteredAppViewModel> getRegisteredAppQueryHandler
+    IRegisteredAppResolver registeredAppResolver
     ) : BaseController
 {
   private readonly IGetItemQueryHandler<GetUserQuery, UserViewModel> _getUserQueryHandler = getUserQueryHandler;
@@ -44,7 +43,7 @@ public class UserController(
   private readonly IUpdateItemCommandHandler<ConfirmUpdatePasswordTokenCommand, ConfirmUpdatePasswordTokenViewModel> _confirmUpdatePasswordTokenCommandHandler = confirmUpdatePasswordTokenCommandHandler;
   private readonly IUpdateItemCommandHandler<UpdatePasswordCommand, UpdatePasswordViewModel> _updatePasswordCommandHandler = updatePasswordCommandHandler;
 
-  private readonly IGetItemQueryHandler<GetRegisteredAppQuery, RegisteredAppViewModel> _getRegisteredAppQueryHandler = getRegisteredAppQueryHandler;
+  private readonly IRegisteredAppResolver _registeredAppResolver = registeredAppResolver;
 
 
   [Authorize(Policy = ZenConstants.ADMIN_OR_SAME_USER_POLICY)]
@@ -52,7 +51,7 @@ public class UserController(
   [Route("{userId}")]
   public async Task<ActionResult<UserViewModel>> GetUser(string userId)
   {
-    var vm = await _getUserQueryHandler.GetItemAsync(new GetUserQuery { UserId = userId });
+    var vm = await _getUserQueryHandler.GetItemAsync(new GetUserQuery { UserId = userId }, RequestAborted);
     return ResolveGetItemActionResult(vm, vm.User.OwnedByLoggedInUser(LoggedInUserId));
   }
 
@@ -61,9 +60,9 @@ public class UserController(
   [Route("register")]
   public async Task<ActionResult<AuthUserViewModel>> CreateUser(RegisterUserCommand command)
   {
-    command.RegisteredApp = await GetAppNameAsync(_getRegisteredAppQueryHandler);
+    command.RegisteredApp = await GetRegisteredAppAsync(_registeredAppResolver);
 
-    var vm = await _registerUserCommandHandler.CreateItemAsync(command, LoggedInUserId);
+    var vm = await _registerUserCommandHandler.CreateItemAsync(command, LoggedInUserId, RequestAborted);
     return ResolveCreateItemActionResult(vm, true);
   }
 
@@ -72,10 +71,10 @@ public class UserController(
   [Route("register-for-service")]
   public async Task<ActionResult<AuthUserViewModel>> CreateUserForService(RegisterUserCommand command)
   {
-    command.RegisteredApp = await GetAppNameAsync(_getRegisteredAppQueryHandler);
+    command.RegisteredApp = await GetRegisteredAppAsync(_registeredAppResolver);
     command.RequestSource = RequestSource.API;
 
-    var vm = await _registerUserCommandHandler.CreateItemAsync(command, LoggedInUserId);
+    var vm = await _registerUserCommandHandler.CreateItemAsync(command, LoggedInUserId, RequestAborted);
     return ResolveCreateItemActionResult(vm, true);
   }
 
@@ -84,11 +83,11 @@ public class UserController(
   [Route("login")]
   public async Task<ActionResult<AuthUserViewModel>> LoginUser(LoginUserCommand command)
   {
-    command.RegisteredApp = await GetAppNameAsync(_getRegisteredAppQueryHandler);
+    command.RegisteredApp = await GetRegisteredAppAsync(_registeredAppResolver);
 
-    var vm = await _loginUserCommandHandler.CreateItemAsync(command, LoggedInUserId);
+    var vm = await _loginUserCommandHandler.CreateItemAsync(command, LoggedInUserId, RequestAborted);
 
-    vm.ResolveEditDeleteRights(UserScopeClaims, EntityName, true);
+    vm.ResolveEditDeleteRights(UserScopeClaims, ScopeResource, true);
     vm.ResolveRequestStatus(RequestStatus.SUCCESSFUL, ItemStatusMessage.FETCH_ITEM_SUCCESSFUL, "Login successful");
 
     return StatusCode((int)HttpStatusCode.OK, vm);
@@ -99,7 +98,7 @@ public class UserController(
   [Route("refresh-token")]
   public async Task<ActionResult<AccessTokenViewModel>> RefreshToken(ExchangeRefreshTokenCommand command)
   {
-    var vm = await _exchangeRefreshTokenCommandHandler.UpdateItemAsync(command, LoggedInUserId);
+    var vm = await _exchangeRefreshTokenCommandHandler.UpdateItemAsync(command, LoggedInUserId, RequestAborted);
 
     vm.EditEnabled = true;
     vm.ResolveRequestStatus(RequestStatus.SUCCESSFUL, ItemStatusMessage.FETCH_ITEM_SUCCESSFUL, "Refresh token generated successfully");
@@ -111,7 +110,7 @@ public class UserController(
   [Route("reset-password")]
   public async Task<ActionResult<AccessTokenViewModel>> ResetPassword(ResetPasswordCommand command)
   {
-    var vm = await _resetPasswordCommandHandler.CreateItemAsync(command, LoggedInUserId);
+    var vm = await _resetPasswordCommandHandler.CreateItemAsync(command, LoggedInUserId, RequestAborted);
     vm.ResolveRequestStatus(RequestStatus.SUCCESSFUL, ItemStatusMessage.FETCH_ITEM_SUCCESSFUL, "Password reset request successful");
     return StatusCode((int)HttpStatusCode.OK, vm);
   }
@@ -121,7 +120,7 @@ public class UserController(
   [Route("confirm-update-password-token")]
   public async Task<ActionResult<AccessTokenViewModel>> ConfirmPasswordToken(ConfirmUpdatePasswordTokenCommand command)
   {
-    var vm = await _confirmUpdatePasswordTokenCommandHandler.UpdateItemAsync(command, LoggedInUserId);
+    var vm = await _confirmUpdatePasswordTokenCommandHandler.UpdateItemAsync(command, LoggedInUserId, RequestAborted);
 
     var httpStatusCode = HttpStatusCode.OK;
     if (vm.TokenPasswordResult.UpdatePasswordTokenConfirmed)
@@ -142,7 +141,7 @@ public class UserController(
   [Route("update-password")]
   public async Task<ActionResult<AccessTokenViewModel>> UpdatePassword(UpdatePasswordCommand command)
   {
-    var vm = await _updatePasswordCommandHandler.UpdateItemAsync(command, LoggedInUserId);
+    var vm = await _updatePasswordCommandHandler.UpdateItemAsync(command, LoggedInUserId, RequestAborted);
 
     var httpStatusCode = HttpStatusCode.OK;
     if (vm.UpdatePasswordResult.PassWordUpdated)

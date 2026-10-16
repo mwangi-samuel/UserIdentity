@@ -14,6 +14,7 @@ using UserIdentity.Application.Core.Users.Queries;
 using UserIdentity.Application.Core.Users.ViewModels;
 using UserIdentity.Domain.Users;
 using UserIdentity.Persistence.Repositories.Users;
+using UserIdentity.UnitTests.TestUtils;
 
 using Xunit;
 
@@ -28,7 +29,7 @@ public class GetUserQueryHandlerTests
 
   public GetUserQueryHandlerTests()
   {
-    _userManager = A.Fake<UserManager<IdentityUser>>();
+    _userManager = IdentityFakes.UserManager();
     _userRepository = A.Fake<IUserRepository>();
     _getRoleClaimsQueryHandler = A.Fake<IGetItemsQueryHandler<GetRoleClaimsForRolesQuery, RoleClaimsForRolesViewModels>>();
   }

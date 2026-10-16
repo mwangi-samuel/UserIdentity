@@ -20,7 +20,7 @@ public class GetRoleQueryHandler(
 {
   private readonly RoleManager<IdentityRole> _roleManager = roleManager;
 
-  public async Task<RoleViewModel> GetItemAsync(GetRoleQuery query)
+  public async Task<RoleViewModel> GetItemAsync(GetRoleQuery query, CancellationToken cancellationToken = default)
   {
 
     var role = await _roleManager.FindByIdAsync(query.RoleId) ?? throw new NoRecordException(query.RoleId, "Role");

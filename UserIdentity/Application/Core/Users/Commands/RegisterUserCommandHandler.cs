@@ -117,7 +117,7 @@ public class RegisterUserCommandHandler(
 
   private readonly IGetItemsQueryHandler<GetRoleClaimsForRolesQuery, RoleClaimsForRolesViewModels> _getRoleClaimsQueryHandler = getRoleClaimsQueryHandler;
 
-  public async Task<AuthUserViewModel> CreateItemAsync(RegisterUserCommand command, string userId)
+  public async Task<AuthUserViewModel> CreateItemAsync(RegisterUserCommand command, string userId, CancellationToken cancellationToken = default)
   {
 
     // Confirm Google Recaptcha Token is valid before processing
@@ -125,7 +125,7 @@ public class RegisterUserCommandHandler(
     {
       var googleRecaptchaToken = ObjectUtil.RequireNonNullValue(command.GoogleRecaptchaToken, nameof(command.GoogleRecaptchaToken), $"{nameof(command.GoogleRecaptchaToken)} is required");
 
-      if (!await _googleRecaptchaService.VerifyTokenAsync(googleRecaptchaToken))
+      if (!await _googleRecaptchaService.VerifyTokenAsync(googleRecaptchaToken, cancellationToken))
         throw new InvalidDataException($"Invalid {nameof(command.GoogleRecaptchaToken)} provided");
     }
 
@@ -134,7 +134,7 @@ public class RegisterUserCommandHandler(
     var userDefaultRole = ResolveDefaultRole(registeredAppName);
 
     // Start DB Transaction
-    await _unitOfWork.BeginTransactionAsync();
+    await _unitOfWork.BeginTransactionAsync(cancellationToken);
 
     // Check if invite code is required for current app
     var inviteCodeRequired = command.RegisteredApp?.RequireInviteCode ?? false;
@@ -149,7 +149,7 @@ public class RegisterUserCommandHandler(
       if (command.InviteCode == null)
         throw new InvalidDataException("A valid invite code is required when signing up.");
 
-      inviteCodeEntity = (await _inviteCodeRepository.GetEntityByAlternateIdAsync(new() { UserEmail = command.UserEmail! }, QueryCondition.MUST_EXIST))!;
+      inviteCodeEntity = (await _inviteCodeRepository.GetEntityByAlternateIdAsync(new() { UserEmail = command.UserEmail! }, QueryCondition.MUST_EXIST, cancellationToken))!;
 
       if (!string.Equals(command.InviteCode, inviteCodeEntity.InviteCode, StringComparison.OrdinalIgnoreCase) || inviteCodeEntity.Applied)
         throw new InvalidDataException("A valid invite code is required when signing up.");
@@ -229,7 +229,7 @@ public class RegisterUserCommandHandler(
 
 
       var userRoles = new List<string> { userDefaultRole };
-      var roleClaimsVm = await _getRoleClaimsQueryHandler.GetItemsAsync(new GetRoleClaimsForRolesQuery { Roles = userRoles });
+      var roleClaimsVm = await _getRoleClaimsQueryHandler.GetItemsAsync(new GetRoleClaimsForRolesQuery { Roles = userRoles }, cancellationToken);
 
 
       // We only include the accessToken in the payload, when user is confirmed.
@@ -269,7 +269,7 @@ public class RegisterUserCommandHandler(
       }
 
       // Commit DB Transaction 
-      await _unitOfWork.CommitTransactionAsync();
+      await _unitOfWork.CommitTransactionAsync(cancellationToken);
 
       // Publish User Created Event
       _ = HandleEventAsync(userDetails, newUser, command.RegisteredApp, command.RequestSource);

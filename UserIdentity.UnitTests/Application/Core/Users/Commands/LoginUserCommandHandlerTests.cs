@@ -51,7 +51,7 @@ public class LoginUserCommandHandlerTests
     _identityOptions = A.Fake<IOptions<IdentityOptions>>();
     _jwtTokenHandler = A.Fake<IJwtTokenHandler>();
     _tokenFactory = A.Fake<ITokenFactory>();
-    _userManager = A.Fake<UserManager<IdentityUser>>();
+    _userManager = IdentityFakes.UserManager();
     _unitOfWork = A.Fake<IUnitOfWork>();
     _refreshTokenRepository = A.Fake<IRefreshTokenRepository>();
     _machineDateTime = new MachineDateTime();

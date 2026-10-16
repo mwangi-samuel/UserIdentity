@@ -39,7 +39,7 @@ public class ResetPasswordCommandHandler(
   private readonly IUserRepository _userRepository = userRepository;
   private readonly IConfiguration _configuration = configuration;
 
-  public async Task<ResetPasswordViewModel> CreateItemAsync(ResetPasswordCommand command, string userId)
+  public async Task<ResetPasswordViewModel> CreateItemAsync(ResetPasswordCommand command, string userId, CancellationToken cancellationToken = default)
   {
 
     var resetPasswordMessage = _configuration.GetEnvironmentVariable("DefaultResetPasswordMessage", "Kindly check your email for instructions to reset your password");
@@ -61,7 +61,7 @@ public class ResetPasswordCommandHandler(
     var resetPasswordToken = await _userManager.GeneratePasswordResetTokenAsync(existingUser);
 
     // update user details record
-    var existingEntity = await _userRepository.GetEntityItemAsync(existingUser.Id);
+    var existingEntity = await _userRepository.GetEntityItemAsync(existingUser.Id, cancellationToken);
 
     existingEntity.ForgotPasswordToken = resetPasswordToken;
 
@@ -69,7 +69,7 @@ public class ResetPasswordCommandHandler(
 
     _userRepository.UpdateEntityItem(existingEntity);
 
-    await _unitOfWork.SaveChangesAsync();
+    await _unitOfWork.SaveChangesAsync(cancellationToken);
 
     var emailToken = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(resetPasswordToken));
 

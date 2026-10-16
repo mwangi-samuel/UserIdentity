@@ -25,7 +25,7 @@ public class CreateRoleCommandHandler(
 {
   private readonly RoleManager<IdentityRole> _roleManager = roleManager;
 
-  public async Task<RoleViewModel> CreateItemAsync(CreateRoleCommand command, string userid)
+  public async Task<RoleViewModel> CreateItemAsync(CreateRoleCommand command, string userid, CancellationToken cancellationToken = default)
   {
     var existingRole = await _roleManager.FindByNameAsync(command.RoleName);
 

@@ -2,8 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 
 using PolyzenKit.Application.Core.Interfaces;
-using PolyzenKit.Application.Core.RegisteredApps.Queries;
-using PolyzenKit.Application.Core.RegisteredApps.ViewModels;
+using PolyzenKit.Application.Core.RegisteredApps.Resolvers;
 using PolyzenKit.Common.Utilities;
 using PolyzenKit.Presentation.Controllers;
 
@@ -17,21 +16,21 @@ public class WaitListController(
    ICreateItemCommandHandler<CreateWaitListCommand, WaitListViewModel> createItemCommandHandler,
    IGetItemQueryHandler<GetWaitListQuery, WaitListViewModel> getItemQueryHandler,
 
-   IGetItemQueryHandler<GetRegisteredAppQuery, RegisteredAppViewModel> getRegisteredAppQueryHandler
+   IRegisteredAppResolver registeredAppResolver
   ) : BaseController
 {
 
   private readonly ICreateItemCommandHandler<CreateWaitListCommand, WaitListViewModel> _createItemCommandHandler = createItemCommandHandler;
   private readonly IGetItemQueryHandler<GetWaitListQuery, WaitListViewModel> _getItemQueryHandler = getItemQueryHandler;
 
-  private readonly IGetItemQueryHandler<GetRegisteredAppQuery, RegisteredAppViewModel> _getRegisteredAppQueryHandler = getRegisteredAppQueryHandler;
+  private readonly IRegisteredAppResolver _registeredAppResolver = registeredAppResolver;
 
   [Authorize(Policy = ZenConstants.ADMIN_USER_POLICY)]
   [HttpGet]
   [Route("{id}")]
   public async Task<ActionResult<WaitListViewModel>> GetWaitList(long id)
   {
-    var vm = await _getItemQueryHandler.GetItemAsync(new GetWaitListQuery { WaitListId = id });
+    var vm = await _getItemQueryHandler.GetItemAsync(new GetWaitListQuery { WaitListId = id }, RequestAborted);
     return ResolveGetItemActionResult(vm, true);
   }
 
@@ -40,7 +39,7 @@ public class WaitListController(
   [Route("email/{email}")]
   public async Task<ActionResult<WaitListViewModel>> GetWaitListByEmail(string email)
   {
-    var vm = await _getItemQueryHandler.GetItemAsync(new GetWaitListQuery { UserEmail = email });
+    var vm = await _getItemQueryHandler.GetItemAsync(new GetWaitListQuery { UserEmail = email }, RequestAborted);
     return ResolveGetItemActionResult(vm, true);
   }
 
@@ -49,11 +48,11 @@ public class WaitListController(
   [Route("")]
   public async Task<ActionResult<WaitListViewModel>> CreateWaitList(CreateWaitListCommand command)
   {
-    var registeredAppDTO = await GetAppNameAsync(_getRegisteredAppQueryHandler);
+    var registeredApp = await GetRegisteredAppAsync(_registeredAppResolver);
 
-    command.AppId = registeredAppDTO.Id;
+    command.AppId = registeredApp.Id;
 
-    var vm = await _createItemCommandHandler.CreateItemAsync(command, LoggedInUserId);
+    var vm = await _createItemCommandHandler.CreateItemAsync(command, LoggedInUserId, RequestAborted);
     return ResolveCreateItemActionResult(vm, true);
   }
 

@@ -17,13 +17,13 @@ public class WaitListRepository(
 
   private readonly AppDbContext _dbContext = dbContext;
 
-  public async Task<WaitListEntity?> GetEntityByAlternateIdAsync(WaitListEntity entity, QueryCondition queryCondition)
+  public async Task<WaitListEntity?> GetEntityByAlternateIdAsync(WaitListEntity entity, QueryCondition queryCondition, CancellationToken cancellationToken = default)
   {
     var userEmail = ObjectUtil.RequireNonNullValue(entity.UserEmail, nameof(entity.UserEmail));
 
     var existingEntity = await _dbContext.WaitList
       .Include(e => e.App)
-      .SingleOrDefaultAsync(e => e.UserEmail == userEmail);
+      .SingleOrDefaultAsync(e => e.UserEmail == userEmail, cancellationToken);
 
     return queryCondition switch
     {
@@ -34,11 +34,11 @@ public class WaitListRepository(
 
   }
 
-  public async Task<WaitListDTO> GetEntityDTOByIdAsync(long id)
+  public async Task<WaitListDTO> GetEntityDTOByIdAsync(long id, CancellationToken cancellationToken = default)
   {
     return await _dbContext.WaitList
       .Where(e => e.Id == id && !e.IsDeleted)
       .Select(WaitListDTO.Detailed)
-      .SingleOrDefaultAsync() ?? throw new NoRecordException($"{id}", EntityTypes.WAIT_LIST.Description());
+      .SingleOrDefaultAsync(cancellationToken) ?? throw new NoRecordException($"{id}", EntityTypes.WAIT_LIST.Description());
   }
 }

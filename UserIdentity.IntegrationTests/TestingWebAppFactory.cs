@@ -1,4 +1,6 @@
-﻿using System.Threading.Tasks;
+﻿using System;
+using System.Security.Cryptography;
+using System.Threading.Tasks;
 
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -6,6 +8,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using PolyzenKit.Common.Utilities;
 using PolyzenKit.Infrastructure.ExternalServices;
 using PolyzenKit.Infrastructure.Kafka;
+using PolyzenKit.Infrastructure.Security.AppSecrets;
 using PolyzenKit.Infrastructure.Security.KeySets;
 using PolyzenKit.Persistence.Settings;
 
@@ -83,6 +86,9 @@ public class TestingWebAppFactory : WebApplicationFactory<Program>, IAsyncLifeti
     builder.UseSetting("EDDSA_PRIVATE_KEY", EdDsaHelper.ConvertToPem(keyPair.Private, privateKeyPassPhrase));
     builder.UseSetting("EDDSA_PUBLIC_KEY", EdDsaHelper.ConvertToPem(keyPair.Public));
     builder.UseSetting($"{nameof(KeySetOptions)}:{nameof(KeySetOptions.PrivateKeyPassPhrase)}", privateKeyPassPhrase);
+
+    // Override app secret encryption key - "key1" is the CurrentKeyId in appsettings.json
+    builder.UseSetting($"{nameof(AppSecretOptions)}:{nameof(AppSecretOptions.Keys)}:key1", Convert.ToBase64String(RandomNumberGenerator.GetBytes(32)));
 
     // Override Google Recaptcha Settings
     builder.UseSetting($"{nameof(GoogleRecaptchaSettings)}:{nameof(GoogleRecaptchaSettings.Enabled)}", "true");
