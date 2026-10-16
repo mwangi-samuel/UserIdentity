@@ -28,7 +28,6 @@ using WireMock.ResponseBuilders;
 using WireMock.Server;
 
 using Xunit;
-using Xunit.Abstractions;
 
 namespace UserIdentity.IntegrationTests.Presentation.Controllers;
 
@@ -1380,6 +1379,6 @@ public class UserControllerTests(
   {
     // verify calls to wiremock
     var logs = _wireMock.LogEntries;
-    Assert.Contains(logs, l => l.RequestMessage.Path == "/siteverify");
+    Assert.Contains(logs, l => l.RequestMessage?.Path == "/siteverify");
   }
 }

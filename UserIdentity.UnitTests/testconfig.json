@@ -1,0 +1,8 @@
+{
+  "platformOptions": {
+    "Coverlet": {
+      "format": "cobertura",
+      "excludeByFile": "**/*Migrations/*.cs,**/Program.cs"
+    }
+  }
+}

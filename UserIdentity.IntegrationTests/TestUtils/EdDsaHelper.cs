@@ -24,7 +24,7 @@ internal static class EdDsaHelper
     var pemWriter = new PemWriter(stringWriter);
     if (passphrase != null)
     {
-      var encryptor = new Pkcs8Generator(key, Pkcs8Generator.PbeSha1_3DES)
+      var encryptor = new Pkcs8Generator(key, Pkcs8Generator.PbeWithShaAnd3KeyTripleDesCbc)
       {
         Password = passphrase.ToCharArray()
       };
