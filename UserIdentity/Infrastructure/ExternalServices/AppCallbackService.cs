@@ -14,11 +14,13 @@ public class AppCallbackService(
     IHttpClientHelper httpClientHelper,
     IJwtTokenHandler jwtTokenHandler,
     IHttpContextAccessor httpContextAccessor,
-    IOptions<RoleSettings> roleSettingsOptions
+    IOptions<RoleSettings> roleSettingsOptions,
+    TimeProvider timeProvider
     ) : BaseExternalService(jwtTokenHandler, httpContextAccessor, roleSettingsOptions),
             IAppCallbackService
 {
   private readonly IHttpClientHelper _httpClientHelper = httpClientHelper;
+  private readonly TimeProvider _timeProvider = timeProvider;
 
   private const string targetServiceName = "AppCallback";
 
@@ -53,6 +55,10 @@ public class AppCallbackService(
     if (userUpdateEvent.RegisteredApp.CallbackHeaders != null && userUpdateEvent.RegisteredApp.CallbackHeaders.Count > 0)
       foreach (var header in userUpdateEvent.RegisteredApp.CallbackHeaders)
         requestMessage = requestMessage.WithRequestHeader(header.Key, header.Value);
+
+    // Signed last so app-defined callback headers cannot replace X-Timestamp / X-Signature.
+    // The app verifies the body with its secret (see HmacSignatureUtil.IsValidSignature).
+    await requestMessage.WithHmacSignatureAsync(userUpdateEvent.RegisteredApp.AppSecretKey, _timeProvider, cancellationToken);
 
     await _httpClientHelper.SendRequestAsync(targetServiceName, requestMessage, cancellationToken);
   }
