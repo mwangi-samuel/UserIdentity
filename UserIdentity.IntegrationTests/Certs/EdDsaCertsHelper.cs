@@ -3,7 +3,6 @@
 using UserIdentity.IntegrationTests.TestUtils;
 
 using Xunit;
-using Xunit.Abstractions;
 
 namespace UserIdentity.IntegrationTests.Certs;
 

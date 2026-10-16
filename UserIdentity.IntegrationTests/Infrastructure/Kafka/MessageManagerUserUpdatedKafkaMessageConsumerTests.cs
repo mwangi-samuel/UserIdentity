@@ -5,7 +5,6 @@ using PolyzenKit.Application.Core.Messages.Events;
 using PolyzenKit.Common.Enums;
 
 using Xunit;
-using Xunit.Abstractions;
 
 namespace UserIdentity.IntegrationTests.Infrastructure.Kafka;
 

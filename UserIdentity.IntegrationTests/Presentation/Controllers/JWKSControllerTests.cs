@@ -8,7 +8,6 @@ using Newtonsoft.Json.Linq;
 using UserIdentity.IntegrationTests.TestUtils;
 
 using Xunit;
-using Xunit.Abstractions;
 
 namespace UserIdentity.IntegrationTests.Presentation.Controllers;
 
@@ -53,6 +52,32 @@ public class JWKSControllerTests(
     Assert.Equal("Ed25519", keysetList?[0]["crv"]);
     Assert.NotNull(keysetList?[0]["x"]);
     Assert.NotNull(keysetList?[0]["kid"]);
+  }
+
+  [Fact]
+  public async Task Get_KeySets_Without_Api_Key_Returns_KeySets()
+  {
+    // Arrange - the JWKS endpoint is listed in ApiKeySettings:ExcludedUris, so callers need no X-Api-Key
+    using var request = new HttpRequestMessage(HttpMethod.Get, _baseUri);
+
+    // Act
+    var response = await _httpClient.SendAsync(request);
+
+    // Assert
+    Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+  }
+
+  [Fact]
+  public async Task Get_Non_Excluded_Endpoint_Without_Api_Key_Returns_Unauthorized()
+  {
+    // Arrange
+    using var request = new HttpRequestMessage(HttpMethod.Get, "/api/v1/role");
+
+    // Act
+    var response = await _httpClient.SendAsync(request);
+
+    // Assert
+    Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
   }
 
 }

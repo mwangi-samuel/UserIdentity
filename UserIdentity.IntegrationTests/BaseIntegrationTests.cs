@@ -26,12 +26,11 @@ using UserIdentity.IntegrationTests.TestUtils;
 using UserIdentity.Persistence;
 
 using Xunit;
-using Xunit.Abstractions;
 
 namespace UserIdentity.IntegrationTests;
 
 [Collection("Integration Tests")]
-public class BaseIntegrationTests : IDisposable, IAsyncLifetime
+public class BaseIntegrationTests : IAsyncLifetime
 {
   private readonly IServiceScope _scope;
   private readonly Func<Task> _resetDatabase;
@@ -120,14 +119,13 @@ public class BaseIntegrationTests : IDisposable, IAsyncLifetime
     };
   }
 
-  public void Dispose()
+  public async ValueTask InitializeAsync() => await _resetDatabase();
+
+  public ValueTask DisposeAsync()
   {
     _httpClient.Dispose();
     _scope.Dispose();
     GC.SuppressFinalize(this);
+    return ValueTask.CompletedTask;
   }
-
-  public async Task InitializeAsync() => await _resetDatabase();
-
-  public Task DisposeAsync() => Task.CompletedTask;
 }
