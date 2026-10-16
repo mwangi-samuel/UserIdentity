@@ -54,6 +54,9 @@ builder.Services.AddAppAuthorization(builder.Configuration);
 // Api Key Settings
 builder.Services.AddAppApiKeySettings(builder.Configuration);
 
+// Registered Apps - app secret encryption & app resolution
+builder.Services.AddAppRegisteredApps(builder.Configuration);
+
 // Health Checks
 builder.Services.AddHealthChecks();
 

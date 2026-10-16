@@ -25,7 +25,7 @@ public class UpdateRoleCommandHandler(
 {
   private readonly RoleManager<IdentityRole> _roleManager = roleManager;
 
-  public async Task<RoleViewModel> UpdateItemAsync(UpdateRoleCommand command, string userId)
+  public async Task<RoleViewModel> UpdateItemAsync(UpdateRoleCommand command, string userId, CancellationToken cancellationToken = default)
   {
     var role = await _roleManager.FindByIdAsync(command.RoleId!) ?? throw new NoRecordException(command.RoleId, "Role");
 

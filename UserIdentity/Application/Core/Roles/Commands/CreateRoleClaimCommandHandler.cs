@@ -32,7 +32,7 @@ public class CreateRoleClaimCommandHandler(
   private readonly RoleManager<IdentityRole> _roleManager = roleManager;
   private readonly IJwtTokenHandler _jwtTokenHandler = jwtTokenHandler;
 
-  public async Task<RoleClaimViewModel> CreateItemAsync(CreateRoleClaimCommand command, string userId)
+  public async Task<RoleClaimViewModel> CreateItemAsync(CreateRoleClaimCommand command, string userId, CancellationToken cancellationToken = default)
   {
     // Confirm role exists
     var role = await _roleManager.FindByIdAsync(command.RoleId) ?? throw new NoRecordException(command.RoleId, "Role");

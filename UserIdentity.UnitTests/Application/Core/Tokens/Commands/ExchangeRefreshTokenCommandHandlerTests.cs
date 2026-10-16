@@ -47,7 +47,7 @@ public class ExchangeRefreshTokenCommandHandlerTests
   {
     _jwtTokenHandler = A.Fake<IJwtTokenHandler>();
     _tokenFactory = A.Fake<ITokenFactory>();
-    _userManager = A.Fake<UserManager<IdentityUser>>();
+    _userManager = IdentityFakes.UserManager();
     _unitOfWork = A.Fake<IUnitOfWork>();
     _refreshTokenRepository = A.Fake<IRefreshTokenRepository>();
     _machineDateTime = new MachineDateTime();
@@ -71,7 +71,7 @@ public class ExchangeRefreshTokenCommandHandlerTests
       RefreshToken = "SampleInvalidRefreshToken"
     };
 
-    A.CallTo(() => _jwtTokenHandler.ValidateTokenAsync(command.AccessToken)).Returns(Task.FromResult(tokenValidationResult));
+    A.CallTo(() => _jwtTokenHandler.ValidateTokenAsync(command.AccessToken!, false)).Returns(Task.FromResult(tokenValidationResult));
     A.CallTo(() => _jwtTokenHandler.ResolveTokenValue<string?>(tokenValidationResult, JwtRegisteredClaimNames.Sub)).Returns(userId);
     A.CallTo(() => _jwtTokenHandler.ResolveTokenValue<string?>(tokenValidationResult, JwtRegisteredClaimNames.Name)).Returns(userName);
     A.CallTo(() => _jwtTokenHandler.ResolveTokenValue<string?>(tokenValidationResult, JwtRegisteredClaimNames.Azp)).Returns((string?)null);
@@ -97,7 +97,7 @@ public class ExchangeRefreshTokenCommandHandlerTests
     {
     };
 
-    A.CallTo(() => _jwtTokenHandler.ValidateTokenAsync(command.AccessToken)).Returns(Task.FromResult(tokenValidationResult));
+    A.CallTo(() => _jwtTokenHandler.ValidateTokenAsync(command.AccessToken!, false)).Returns(Task.FromResult(tokenValidationResult));
     A.CallTo(() => _jwtTokenHandler.ResolveTokenValue<string?>(tokenValidationResult, JwtRegisteredClaimNames.Sub)).Returns(TestStringHelper.UserId);
     A.CallTo(() => _jwtTokenHandler.ResolveTokenValue<string?>(tokenValidationResult, JwtRegisteredClaimNames.Name)).Returns(TestStringHelper.UserName);
     A.CallTo(() => _jwtTokenHandler.ResolveTokenValue<string?>(tokenValidationResult, JwtRegisteredClaimNames.Azp)).Returns("TestApp");
@@ -148,7 +148,7 @@ public class ExchangeRefreshTokenCommandHandlerTests
     {
     };
 
-    A.CallTo(() => _jwtTokenHandler.ValidateTokenAsync(command.AccessToken)).Returns(Task.FromResult(tokenValidationResult));
+    A.CallTo(() => _jwtTokenHandler.ValidateTokenAsync(command.AccessToken!, false)).Returns(Task.FromResult(tokenValidationResult));
     A.CallTo(() => _jwtTokenHandler.ResolveTokenValue<string?>(tokenValidationResult, JwtRegisteredClaimNames.Sub)).Returns(TestStringHelper.UserId);
     A.CallTo(() => _jwtTokenHandler.ResolveTokenValue<string?>(tokenValidationResult, JwtRegisteredClaimNames.Name)).Returns(TestStringHelper.UserName);
     A.CallTo(() => _jwtTokenHandler.ResolveTokenValue<string?>(tokenValidationResult, JwtRegisteredClaimNames.Azp)).Returns("TestApp");

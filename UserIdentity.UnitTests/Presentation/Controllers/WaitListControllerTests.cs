@@ -1,4 +1,5 @@
 using System.Net;
+using System.Threading;
 using System.Threading.Tasks;
 
 using FakeItEasy;
@@ -6,8 +7,7 @@ using FakeItEasy;
 using Microsoft.AspNetCore.Mvc;
 
 using PolyzenKit.Application.Core.Interfaces;
-using PolyzenKit.Application.Core.RegisteredApps.Queries;
-using PolyzenKit.Application.Core.RegisteredApps.ViewModels;
+using PolyzenKit.Application.Core.RegisteredApps.Resolvers;
 using PolyzenKit.Application.Enums;
 using PolyzenKit.Domain.RegisteredApps;
 
@@ -28,13 +28,13 @@ public class WaitListControllerTests
 
   private readonly ICreateItemCommandHandler<CreateWaitListCommand, WaitListViewModel> _createWaitListCommandHandler;
   private readonly IGetItemQueryHandler<GetWaitListQuery, WaitListViewModel> _getWaitListQueryHandler;
-  private readonly IGetItemQueryHandler<GetRegisteredAppQuery, RegisteredAppViewModel> _getRegisteredAppQueryHandler;
+  private readonly IRegisteredAppResolver _registeredAppResolver;
 
   public WaitListControllerTests()
   {
     _createWaitListCommandHandler = A.Fake<ICreateItemCommandHandler<CreateWaitListCommand, WaitListViewModel>>();
     _getWaitListQueryHandler = A.Fake<IGetItemQueryHandler<GetWaitListQuery, WaitListViewModel>>();
-    _getRegisteredAppQueryHandler = A.Fake<IGetItemQueryHandler<GetRegisteredAppQuery, RegisteredAppViewModel>>();
+    _registeredAppResolver = A.Fake<IRegisteredAppResolver>();
   }
 
   [Fact]
@@ -122,13 +122,10 @@ public class WaitListControllerTests
       UserEmail = "new@example.com"
     };
 
-    var registeredAppVM = new RegisteredAppViewModel
+    var registeredApp = new RegisteredAppEntity
     {
-      RegisteredApp = new RegisteredAppDTO
-      {
-        Id = appId,
-        AppName = appName
-      }
+      Id = appId,
+      AppName = appName
     };
 
     var waitListVM = new WaitListViewModel
@@ -142,8 +139,8 @@ public class WaitListControllerTests
       }
     };
 
-    A.CallTo(() => _getRegisteredAppQueryHandler.GetItemAsync(A<GetRegisteredAppQuery>._))
-        .Returns(registeredAppVM);
+    A.CallTo(() => _registeredAppResolver.GetActiveAppAsync(A<string>._, A<CancellationToken>._))
+        .Returns(registeredApp);
     A.CallTo(() => _createWaitListCommandHandler.CreateItemAsync(A<CreateWaitListCommand>._, TestStringHelper.UserId))
         .Returns(waitListVM);
 
@@ -164,7 +161,7 @@ public class WaitListControllerTests
     Assert.Contains(RequestStatus.SUCCESSFUL.Description(), vm?.RequestStatus);
     Assert.Contains(ItemStatusMessage.CREATE_ITEM_SUCCESSFUL.Description(), vm?.StatusMessage);
 
-    A.CallTo(() => _getRegisteredAppQueryHandler.GetItemAsync(A<GetRegisteredAppQuery>._)).MustHaveHappenedOnceExactly();
+    A.CallTo(() => _registeredAppResolver.GetActiveAppAsync(A<string>._, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
     A.CallTo(() => _createWaitListCommandHandler.CreateItemAsync(A<CreateWaitListCommand>._, TestStringHelper.UserId)).MustHaveHappenedOnceExactly();
   }
 
@@ -180,13 +177,10 @@ public class WaitListControllerTests
       UserEmail = "anonymous@example.com"
     };
 
-    var registeredAppVM = new RegisteredAppViewModel
+    var registeredApp = new RegisteredAppEntity
     {
-      RegisteredApp = new RegisteredAppDTO
-      {
-        Id = appId,
-        AppName = appName
-      }
+      Id = appId,
+      AppName = appName
     };
 
     var waitListVM = new WaitListViewModel
@@ -200,8 +194,8 @@ public class WaitListControllerTests
       }
     };
 
-    A.CallTo(() => _getRegisteredAppQueryHandler.GetItemAsync(A<GetRegisteredAppQuery>._))
-        .Returns(registeredAppVM);
+    A.CallTo(() => _registeredAppResolver.GetActiveAppAsync(A<string>._, A<CancellationToken>._))
+        .Returns(registeredApp);
     A.CallTo(() => _createWaitListCommandHandler.CreateItemAsync(A<CreateWaitListCommand>._, A<string>._))
         .Returns(waitListVM);
 
@@ -225,6 +219,6 @@ public class WaitListControllerTests
     return new WaitListController(
         _createWaitListCommandHandler,
         _getWaitListQueryHandler,
-        _getRegisteredAppQueryHandler);
+        _registeredAppResolver);
   }
 }

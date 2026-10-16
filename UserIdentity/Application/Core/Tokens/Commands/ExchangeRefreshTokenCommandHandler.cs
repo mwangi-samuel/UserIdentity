@@ -50,12 +50,13 @@ public class ExchangeRefreshTokenCommandHandler(
 
   private readonly IGetItemsQueryHandler<GetRoleClaimsForRolesQuery, RoleClaimsForRolesViewModels> _getRoleClaimsQueryHandler = getRoleClaimsQueryHandler;
 
-  public async Task<ExchangeRefreshTokenViewModel> UpdateItemAsync(ExchangeRefreshTokenCommand command, string userId)
+  public async Task<ExchangeRefreshTokenViewModel> UpdateItemAsync(ExchangeRefreshTokenCommand command, string userId, CancellationToken cancellationToken = default)
   {
     var requestAccessToken = ObjectUtil.RequireNonNullValue(command.AccessToken, nameof(command.AccessToken));
     var requestRefreshToken = ObjectUtil.RequireNonNullValue(command.RefreshToken, nameof(command.RefreshToken));
 
-    var tokenValidationResult = await _jwtTokenHandler.ValidateTokenAsync(requestAccessToken);
+    // The access token being exchanged is expected to have expired, so only its signature and claims are validated
+    var tokenValidationResult = await _jwtTokenHandler.ValidateTokenAsync(requestAccessToken, validateLifetime: false);
 
     var tokenUserId = _jwtTokenHandler.ResolveTokenValue<string?>(tokenValidationResult, JwtRegisteredClaimNames.Sub);
     var tokenUserName = _jwtTokenHandler.ResolveTokenValue<string?>(tokenValidationResult, JwtRegisteredClaimNames.Name);
@@ -70,12 +71,12 @@ public class ExchangeRefreshTokenCommandHandler(
       Token = requestRefreshToken
     };
 
-    var existingEntity = await _refreshTokenRepository.GetEntityByAlternateIdAsync(tokenEntity, QueryCondition.MAY_OR_MAY_NOT_EXIST)
+    var existingEntity = await _refreshTokenRepository.GetEntityByAlternateIdAsync(tokenEntity, QueryCondition.MAY_OR_MAY_NOT_EXIST, cancellationToken)
         ?? throw new SecurityTokenException("Invalid refresh token provided");
 
     var userRoles = await _userManager.GetRolesAsync(new IdentityUser { Id = tokenUserId });
 
-    var userRoleClaims = await _getRoleClaimsQueryHandler.GetItemsAsync(new GetRoleClaimsForRolesQuery { Roles = userRoles });
+    var userRoleClaims = await _getRoleClaimsQueryHandler.GetItemsAsync(new GetRoleClaimsForRolesQuery { Roles = userRoles }, cancellationToken);
 
     var updateRefreshToken = _tokenFactory.GenerateToken();
 
@@ -86,7 +87,7 @@ public class ExchangeRefreshTokenCommandHandler(
 
     _refreshTokenRepository.UpdateEntityItem(existingEntity);
 
-    await _unitOfWork.SaveChangesAsync();
+    await _unitOfWork.SaveChangesAsync(cancellationToken);
 
     return new ExchangeRefreshTokenViewModel
     {

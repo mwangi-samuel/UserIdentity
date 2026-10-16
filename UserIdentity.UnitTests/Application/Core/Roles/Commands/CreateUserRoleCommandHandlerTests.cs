@@ -26,7 +26,7 @@ public class CreateUserRoleCommandHandlerTests
   public CreateUserRoleCommandHandlerTests()
   {
     _roleManager = A.Fake<RoleManager<IdentityRole>>();
-    _userManager = A.Fake<UserManager<IdentityUser>>();
+    _userManager = IdentityFakes.UserManager();
     _getUserRolesQueryHandler = A.Fake<IGetItemsQueryHandler<GetUserRolesQuery, UserRolesViewModel>>();
   }
 

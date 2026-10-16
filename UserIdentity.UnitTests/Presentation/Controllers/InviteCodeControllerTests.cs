@@ -1,4 +1,5 @@
 using System.Net;
+using System.Threading;
 using System.Threading.Tasks;
 
 using FakeItEasy;
@@ -6,8 +7,7 @@ using FakeItEasy;
 using Microsoft.AspNetCore.Mvc;
 
 using PolyzenKit.Application.Core.Interfaces;
-using PolyzenKit.Application.Core.RegisteredApps.Queries;
-using PolyzenKit.Application.Core.RegisteredApps.ViewModels;
+using PolyzenKit.Application.Core.RegisteredApps.Resolvers;
 using PolyzenKit.Application.Enums;
 using PolyzenKit.Domain.RegisteredApps;
 
@@ -28,13 +28,13 @@ public class InviteCodeControllerTests
 
   private readonly ICreateItemCommandHandler<CreateInviteCodeCommand, InviteCodeViewModel> _createInviteCodeCommandHandler;
   private readonly IGetItemQueryHandler<GetInviteCodeQuery, InviteCodeViewModel> _getInviteCodeQueryHandler;
-  private readonly IGetItemQueryHandler<GetRegisteredAppQuery, RegisteredAppViewModel> _getRegisteredAppQueryHandler;
+  private readonly IRegisteredAppResolver _registeredAppResolver;
 
   public InviteCodeControllerTests()
   {
     _createInviteCodeCommandHandler = A.Fake<ICreateItemCommandHandler<CreateInviteCodeCommand, InviteCodeViewModel>>();
     _getInviteCodeQueryHandler = A.Fake<IGetItemQueryHandler<GetInviteCodeQuery, InviteCodeViewModel>>();
-    _getRegisteredAppQueryHandler = A.Fake<IGetItemQueryHandler<GetRegisteredAppQuery, RegisteredAppViewModel>>();
+    _registeredAppResolver = A.Fake<IRegisteredAppResolver>();
   }
 
   [Fact]
@@ -127,13 +127,10 @@ public class InviteCodeControllerTests
       UserEmail = "new@example.com"
     };
 
-    var registeredAppVM = new RegisteredAppViewModel
+    var registeredApp = new RegisteredAppEntity
     {
-      RegisteredApp = new RegisteredAppDTO
-      {
-        Id = appId,
-        AppName = appName
-      }
+      Id = appId,
+      AppName = appName
     };
 
     var inviteCodeVM = new InviteCodeViewModel
@@ -148,8 +145,8 @@ public class InviteCodeControllerTests
       }
     };
 
-    A.CallTo(() => _getRegisteredAppQueryHandler.GetItemAsync(A<GetRegisteredAppQuery>._))
-        .Returns(registeredAppVM);
+    A.CallTo(() => _registeredAppResolver.GetActiveAppAsync(A<string>._, A<CancellationToken>._))
+        .Returns(registeredApp);
     A.CallTo(() => _createInviteCodeCommandHandler.CreateItemAsync(A<CreateInviteCodeCommand>._, TestStringHelper.UserId))
         .Returns(inviteCodeVM);
 
@@ -171,7 +168,7 @@ public class InviteCodeControllerTests
     Assert.Contains(RequestStatus.SUCCESSFUL.Description(), vm?.RequestStatus);
     Assert.Contains(ItemStatusMessage.CREATE_ITEM_SUCCESSFUL.Description(), vm?.StatusMessage);
 
-    A.CallTo(() => _getRegisteredAppQueryHandler.GetItemAsync(A<GetRegisteredAppQuery>._)).MustHaveHappenedOnceExactly();
+    A.CallTo(() => _registeredAppResolver.GetActiveAppAsync(A<string>._, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
     A.CallTo(() => _createInviteCodeCommandHandler.CreateItemAsync(A<CreateInviteCodeCommand>._, TestStringHelper.UserId)).MustHaveHappenedOnceExactly();
   }
 
@@ -180,6 +177,6 @@ public class InviteCodeControllerTests
     return new InviteCodeController(
         _createInviteCodeCommandHandler,
         _getInviteCodeQueryHandler,
-        _getRegisteredAppQueryHandler);
+        _registeredAppResolver);
   }
 }

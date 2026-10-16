@@ -23,17 +23,17 @@ public class UpdateInviteCodeCommandHandler(
   ) : BaseAuditableItemCommandHandler<long, InviteCodeEntity, IInviteCodeRepository>(unitOfWork, inviteCodeRepository, machineDateTime),
      IUpdateItemCommandHandler<UpdateInviteCodeCommand, InviteCodeViewModel>
 {
-  public async Task<InviteCodeViewModel> UpdateItemAsync(UpdateInviteCodeCommand command, string userId)
+  public async Task<InviteCodeViewModel> UpdateItemAsync(UpdateInviteCodeCommand command, string userId, CancellationToken cancellationToken = default)
   {
-    var entity = await _repository.GetEntityItemAsync(command.InviteCodeId);
+    var entity = await _repository.GetEntityItemAsync(command.InviteCodeId, cancellationToken);
 
     entity.Applied = command.Applied;
 
-    await UpdateEntityItemAsync(entity, userId);
+    await UpdateEntityItemAsync(entity, userId, cancellationToken);
 
     return new InviteCodeViewModel
     {
-      InviteCode = await _repository.GetEntityDTOByIdAsync(command.InviteCodeId)
+      InviteCode = await _repository.GetEntityDTOByIdAsync(command.InviteCodeId, cancellationToken)
     };
   }
 }

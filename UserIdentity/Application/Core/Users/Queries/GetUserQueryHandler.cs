@@ -31,15 +31,15 @@ public class GetUserQueryHandler(
   private readonly IUserRepository _userRepository = userRepository;
   private readonly IGetItemsQueryHandler<GetRoleClaimsForRolesQuery, RoleClaimsForRolesViewModels> _getRoleClaimsQueryHandler = getRoleClaimsQueryHandler;
 
-  public async Task<UserViewModel> GetItemAsync(GetUserQuery query)
+  public async Task<UserViewModel> GetItemAsync(GetUserQuery query, CancellationToken cancellationToken = default)
   {
     var user = await _userManager.FindByIdAsync(query.UserId) ?? throw new NoRecordException($"{query.UserId}", EntityTypes.USER.Description());
 
-    var userDetails = await _userRepository.GetEntityItemAsync(query.UserId);
+    var userDetails = await _userRepository.GetEntityItemAsync(query.UserId, cancellationToken);
 
     var userRoles = await _userManager.GetRolesAsync(user);
 
-    var userRoleClaims = await _getRoleClaimsQueryHandler.GetItemsAsync(new GetRoleClaimsForRolesQuery { Roles = userRoles });
+    var userRoleClaims = await _getRoleClaimsQueryHandler.GetItemsAsync(new GetRoleClaimsForRolesQuery { Roles = userRoles }, cancellationToken);
 
     var userDTO = new UserDTO
     {

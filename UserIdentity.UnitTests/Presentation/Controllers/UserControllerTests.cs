@@ -7,8 +7,7 @@ using FakeItEasy;
 using Microsoft.AspNetCore.Mvc;
 
 using PolyzenKit.Application.Core.Interfaces;
-using PolyzenKit.Application.Core.RegisteredApps.Queries;
-using PolyzenKit.Application.Core.RegisteredApps.ViewModels;
+using PolyzenKit.Application.Core.RegisteredApps.Resolvers;
 using PolyzenKit.Application.Enums;
 
 using UserIdentity.Application.Core.Tokens.Commands;
@@ -36,7 +35,7 @@ public class UserControllerTests
   private readonly IUpdateItemCommandHandler<ConfirmUpdatePasswordTokenCommand, ConfirmUpdatePasswordTokenViewModel> _confirmUpdatePasswordTokenCommandHandler;
   private readonly IUpdateItemCommandHandler<UpdatePasswordCommand, UpdatePasswordViewModel> _updatePasswordCommandHandler;
 
-  private readonly IGetItemQueryHandler<GetRegisteredAppQuery, RegisteredAppViewModel> _getRegisteredAppQueryHandler;
+  private readonly IRegisteredAppResolver _registeredAppResolver;
 
 
   public UserControllerTests()
@@ -48,7 +47,7 @@ public class UserControllerTests
     _resetPasswordCommandHandler = A.Fake<ICreateItemCommandHandler<ResetPasswordCommand, ResetPasswordViewModel>>();
     _confirmUpdatePasswordTokenCommandHandler = A.Fake<IUpdateItemCommandHandler<ConfirmUpdatePasswordTokenCommand, ConfirmUpdatePasswordTokenViewModel>>();
     _updatePasswordCommandHandler = A.Fake<IUpdateItemCommandHandler<UpdatePasswordCommand, UpdatePasswordViewModel>>();
-    _getRegisteredAppQueryHandler = A.Fake<IGetItemQueryHandler<GetRegisteredAppQuery, RegisteredAppViewModel>>();
+    _registeredAppResolver = A.Fake<IRegisteredAppResolver>();
   }
 
   [Fact]
@@ -320,7 +319,7 @@ public class UserControllerTests
             _resetPasswordCommandHandler,
             _confirmUpdatePasswordTokenCommandHandler,
             _updatePasswordCommandHandler,
-            _getRegisteredAppQueryHandler
+            _registeredAppResolver
     );
 
   }

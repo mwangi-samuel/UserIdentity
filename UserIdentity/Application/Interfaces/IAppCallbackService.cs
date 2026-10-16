@@ -4,5 +4,5 @@ namespace UserIdentity.Application.Interfaces;
 
 public interface IAppCallbackService
 {
-  Task SendCallbackRequestAsync(UserUpdateEvent userUpdateEvent);
+  Task SendCallbackRequestAsync(UserUpdateEvent userUpdateEvent, CancellationToken cancellationToken = default);
 }

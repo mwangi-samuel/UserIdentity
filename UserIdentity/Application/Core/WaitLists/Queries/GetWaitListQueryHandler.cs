@@ -24,12 +24,12 @@ public class GetWaitListQueryHandler(
 {
   private readonly IWaitListRepository _waitListRepository = waitListRepository;
 
-  public async Task<WaitListViewModel> GetItemAsync(GetWaitListQuery query)
+  public async Task<WaitListViewModel> GetItemAsync(GetWaitListQuery query, CancellationToken cancellationToken = default)
   {
 
     var dto = query.WaitListId.HasValue
-      ? await _waitListRepository.GetEntityDTOByIdAsync(query.WaitListId!.Value)
-      : WaitListDTO.FromEntityDetailed((await _waitListRepository.GetEntityByAlternateIdAsync(new() { UserEmail = query.UserEmail! }, QueryCondition.MUST_EXIST))!);
+      ? await _waitListRepository.GetEntityDTOByIdAsync(query.WaitListId!.Value, cancellationToken)
+      : WaitListDTO.FromEntityDetailed((await _waitListRepository.GetEntityByAlternateIdAsync(new() { UserEmail = query.UserEmail! }, QueryCondition.MUST_EXIST, cancellationToken))!);
 
     return new WaitListViewModel { WaitList = dto };
   }
