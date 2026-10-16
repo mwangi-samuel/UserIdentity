@@ -1,7 +1,8 @@
-# Run tests with Coverage
-dotnet test --settings coverlet.runsettings
+# Run tests with Coverage (Microsoft Testing Platform + coverlet.MTP)
+dotnet test --project UserIdentity.UnitTests/UserIdentity.UnitTests.csproj --coverlet
 # Generate Coverage Report
-reportgenerator -reports:"Path\To\TestProject\TestResults\{guid}\coverage.cobertura.xml" -targetdir:"coveragereport" -reporttypes:Html
+reportgenerator -reports:"Path\To\TestProject\TestResults\coverage.cobertura.*.xml" -targetdir:"coveragereport" -reporttypes:Html
 
-# Adding Migration
-dotnet-ef migrations add -c MigrationName
+# Adding Migration (dotnet-ef is pinned in dotnet-tools.json)
+dotnet tool restore
+dotnet ef migrations add MigrationName --project UserIdentity

@@ -13,12 +13,12 @@ jobs:
 
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v3
+        uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 9.0.x
+          dotnet-version: 10.0.x
 
       - name: Restore dependencies
         run: dotnet restore
@@ -27,7 +27,7 @@ jobs:
         run: dotnet build --no-restore
 
       - name: Unit Tests
-        run: dotnet test ./UserIdentity.UnitTests/UserIdentity.UnitTests.csproj --settings ./UserIdentity.UnitTests/coverlet.runsettings --no-build --verbosity normal
+        run: dotnet test --project ./UserIdentity.UnitTests/UserIdentity.UnitTests.csproj --no-build --coverlet
 
       - name: Integration Tests
-        run: dotnet test ./UserIdentity.IntegrationTests/UserIdentity.IntegrationTests.csproj --settings ./UserIdentity.IntegrationTests/coverlet.runsettings --no-build --verbosity normal
+        run: dotnet test --project ./UserIdentity.IntegrationTests/UserIdentity.IntegrationTests.csproj --no-build --coverlet

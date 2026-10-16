@@ -10,7 +10,7 @@
             "request": "launch",
             "preLaunchTask": "build",
             // If you have changed target frameworks, make sure to update the program path.
-            "program": "${workspaceFolder}/UserIdentity/bin/Debug/net6.0/UserIdentity.dll",
+            "program": "${workspaceFolder}/UserIdentity/bin/Debug/net10.0/UserIdentity.dll",
             "args": [],
             "cwd": "${workspaceFolder}/UserIdentity",
             "stopAtEntry": false,
