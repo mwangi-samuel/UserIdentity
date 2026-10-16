@@ -62,7 +62,7 @@ public class GetUserRolesQueryHandlerTests
     List<string>? userRoles = default;
 
     A.CallTo(() => _userManager.FindByIdAsync(query.UserId)).Returns(user);
-    A.CallTo(() => _userManager.GetRolesAsync(user)).Returns(userRoles);
+    A.CallTo(() => _userManager.GetRolesAsync(user)).Returns(userRoles!);
 
     GetUserRolesQueryHandler handler = new(_roleManager, _userManager);
 
@@ -72,8 +72,6 @@ public class GetUserRolesQueryHandlerTests
     // Assert
     Assert.IsType<UserRolesViewModel>(vm);
     Assert.Empty(vm.UserRoles);
-    foreach (var item in vm.UserRoles)
-      Assert.Contains(item, userRoles);
   }
 
 

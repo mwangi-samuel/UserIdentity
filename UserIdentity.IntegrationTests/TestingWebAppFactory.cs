@@ -40,21 +40,19 @@ public class TestingWebAppFactory : WebApplicationFactory<Program>, IAsyncLifeti
 
     WireMockServer = WireMockServer.Start();
 
-    _mysqlContainer = new MySqlBuilder()
-        .WithImage("mysql:8.4.0")
+    _mysqlContainer = new MySqlBuilder("mysql:8.4.0")
         .WithUsername(_dbUserName)
         .WithPassword(_dbUserPassword)
         .WithDatabase(_dbName)
         .Build();
 
-    _redpandaContainer = new RedpandaBuilder()
-        .WithImage("redpandadata/redpanda:v25.3.3")
+    _redpandaContainer = new RedpandaBuilder("redpandadata/redpanda:v25.3.3")
         .Build();
   }
 
 
 
-  public async Task InitializeAsync()
+  public async ValueTask InitializeAsync()
   {
     await Task.WhenAll(
       _mysqlContainer.StartAsync(),
@@ -96,15 +94,18 @@ public class TestingWebAppFactory : WebApplicationFactory<Program>, IAsyncLifeti
 
   }
 
-  public new async Task DisposeAsync()
+  public override async ValueTask DisposeAsync()
   {
-    WireMockServer.Stop();
-    WireMockServer.Dispose();
+    // Stop the app first, so its Kafka consumers shut down before the broker goes away
+    await base.DisposeAsync();
 
     await _redpandaContainer.DisposeAsync();
 
     await _mysqlContainer.DisposeAsync();
 
-    await base.DisposeAsync();
+    WireMockServer.Stop();
+    WireMockServer.Dispose();
+
+    GC.SuppressFinalize(this);
   }
 }
