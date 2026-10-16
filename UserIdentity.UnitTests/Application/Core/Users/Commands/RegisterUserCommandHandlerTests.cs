@@ -62,7 +62,7 @@ public class RegisterUserCommandHandlerTests
   {
     _roleSettings = A.Fake<IOptions<RoleSettings>>();
     _identityOptions = A.Fake<IOptions<IdentityOptions>>();
-    _userManager = A.Fake<UserManager<IdentityUser>>();
+    _userManager = IdentityFakes.UserManager();
     _roleManager = A.Fake<RoleManager<IdentityRole>>();
     _unitOfWork = A.Fake<IUnitOfWork>();
     _userRepository = A.Fake<IUserRepository>();

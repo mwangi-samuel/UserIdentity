@@ -18,7 +18,7 @@ public class GetRolesQueryHandler(
 {
   private readonly RoleManager<IdentityRole> _roleManager = roleManager;
 
-  public async Task<RolesViewModel> GetItemsAsync(GetRolesQuery query)
+  public async Task<RolesViewModel> GetItemsAsync(GetRolesQuery query, CancellationToken cancellationToken = default)
   {
     var roles = _roleManager
     .Roles

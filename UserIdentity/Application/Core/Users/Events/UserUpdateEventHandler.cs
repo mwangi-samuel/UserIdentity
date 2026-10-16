@@ -44,10 +44,10 @@ public class UserUpdateEventHandler(
 
   private const string _userUpdateEventTopicKey = "UserUpdated";
 
-  public async Task HandleEventAsync(UserUpdateEvent eventItem)
+  public async Task HandleEventAsync(UserUpdateEvent eventItem, CancellationToken cancellationToken = default)
   {
     if (eventItem.RequestSource == RequestSource.UI && eventItem.RegisteredApp.CallbackUrl != null)
-      await _appCallbackService.SendCallbackRequestAsync(eventItem);
+      await _appCallbackService.SendCallbackRequestAsync(eventItem, cancellationToken);
 
     if (eventItem.EventType != CrudEvent.CREATE)
       return;
@@ -69,7 +69,7 @@ public class UserUpdateEventHandler(
       MessageAction.WELCOME_USER
     );
 
-    await _kafkaMessageProducer.ProduceAsync(messageEvent.CorrelationId, messageEvent, _userUpdateEventTopicKey);
+    await _kafkaMessageProducer.ProduceAsync(messageEvent.CorrelationId, messageEvent, _userUpdateEventTopicKey, cancellationToken);
 
   }
 }

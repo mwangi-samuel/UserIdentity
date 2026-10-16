@@ -27,7 +27,7 @@ public class ConfirmUpdatePasswordTokenCommandHandler(
 {
   private readonly IUserRepository _userRepository = userRepository;
 
-  public async Task<ConfirmUpdatePasswordTokenViewModel> UpdateItemAsync(ConfirmUpdatePasswordTokenCommand command, string userId)
+  public async Task<ConfirmUpdatePasswordTokenViewModel> UpdateItemAsync(ConfirmUpdatePasswordTokenCommand command, string userId, CancellationToken cancellationToken = default)
   {
     try
     {
@@ -39,7 +39,7 @@ public class ConfirmUpdatePasswordTokenCommandHandler(
         ForgotPasswordToken = rawToken,
       };
 
-      var existingEntity = await _userRepository.GetEntityByAlternateIdAsync(userEntity, QueryCondition.MAY_OR_MAY_NOT_EXIST);
+      var existingEntity = await _userRepository.GetEntityByAlternateIdAsync(userEntity, QueryCondition.MAY_OR_MAY_NOT_EXIST, cancellationToken);
 
       return new ConfirmUpdatePasswordTokenViewModel
       {

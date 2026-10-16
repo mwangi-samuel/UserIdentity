@@ -64,7 +64,7 @@ public class LoginUserCommandHandler(
   private readonly IGetItemQueryHandler<GetUserQuery, UserViewModel> _getUserQueryHandler = getUserQueryHandler;
   private readonly IUserRegisteredAppRepository _userRegisteredAppRepository = userRegisteredAppRepository;
 
-  public async Task<AuthUserViewModel> CreateItemAsync(LoginUserCommand command, string userId)
+  public async Task<AuthUserViewModel> CreateItemAsync(LoginUserCommand command, string userId, CancellationToken cancellationToken = default)
   {
     var user = (
             await _userManager.FindByNameAsync(command.UserName)
@@ -80,7 +80,7 @@ public class LoginUserCommandHandler(
 
     try
     {
-      userDto = (await _getUserQueryHandler.GetItemAsync(new GetUserQuery { UserId = user.Id })).User;
+      userDto = (await _getUserQueryHandler.GetItemAsync(new GetUserQuery { UserId = user.Id }, cancellationToken)).User;
     }
     catch (NoRecordException ex)
     {
@@ -108,7 +108,7 @@ public class LoginUserCommandHandler(
 
       _refreshTokenRepository.CreateEntityItem(newRefreshToken);
 
-      await _unitOfWork.SaveChangesAsync();
+      await _unitOfWork.SaveChangesAsync(cancellationToken);
 
       userToken = new AccessTokenViewModel
       {

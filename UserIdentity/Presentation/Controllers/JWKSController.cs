@@ -19,7 +19,7 @@ public class JWKSController(
   [Route("keys")]
   public async Task<IActionResult> GetKeySetsAsync()
   {
-    var keySets = await _getKeySetsQueryHandler.GetItemsAsync(new GetKeySetsQuery { });
+    var keySets = await _getKeySetsQueryHandler.GetItemsAsync(new GetKeySetsQuery { }, RequestAborted);
 
     return StatusCode((int)HttpStatusCode.OK, keySets.KeySetList);
   }

@@ -15,6 +15,7 @@
 				"KeySetOptions__PrivateKeyPassPhrase": "S3T@G00dPa22Phr@S3",
 				"KeySetOptions__PrivateKeyPath": "EDDSA_PRIVATE_KEY",
 				"KeySetOptions__PublicKeyPath": "EDDSA_PUBLIC_KEY",
+				"AppSecretOptions__Keys__key1": "8b8+SqUqHQIaDnTHPsD301/TGpz0PD+lvBInpKEvTv0=",
 				"Serilog__MinimumLevel": "Warning"
 			},
 			"dotnetRunMessages": true,

@@ -28,7 +28,7 @@ public class DeleteRoleClaimCommandHandler(
   private readonly RoleManager<IdentityRole> _roleManager = roleManager;
   private readonly IJwtTokenHandler _jwtTokenHandler = jwtTokenHandler;
 
-  public async Task<DeleteRecordViewModel> DeleteItemAsync(DeleteRoleClaimCommand command, string userId)
+  public async Task<DeleteRecordViewModel> DeleteItemAsync(DeleteRoleClaimCommand command, string userId, CancellationToken cancellationToken = default)
   {
     // Confirm role exists
     var role = await _roleManager.FindByIdAsync(command.RoleId) ?? throw new NoRecordException(command.RoleId, "Role");

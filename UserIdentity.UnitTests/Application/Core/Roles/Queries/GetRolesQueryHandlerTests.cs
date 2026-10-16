@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Identity;
 
 using UserIdentity.Application.Core.Roles.Queries;
 using UserIdentity.Application.Core.Roles.ViewModels;
+using UserIdentity.UnitTests.TestUtils;
 
 using Xunit;
 
@@ -22,7 +23,7 @@ public class GetRolesQueryHandlerTests
   public GetRolesQueryHandlerTests()
   {
     _roleManager = A.Fake<RoleManager<IdentityRole>>();
-    _userManager = A.Fake<UserManager<IdentityUser>>();
+    _userManager = IdentityFakes.UserManager();
   }
 
   [Fact]
