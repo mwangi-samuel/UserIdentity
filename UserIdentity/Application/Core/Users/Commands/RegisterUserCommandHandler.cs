@@ -91,7 +91,8 @@ public class RegisterUserCommandHandler(
     IEventHandler<UserUpdateEvent> userUpdateEventHandler,
     IOptions<GoogleRecaptchaSettings> googleRecaptchaSettingsOptions,
     IGoogleRecaptchaService googleRecaptchaService,
-    IGetItemsQueryHandler<GetRoleClaimsForRolesQuery, RoleClaimsForRolesViewModels> getRoleClaimsQueryHandler
+    IGetItemsQueryHandler<GetRoleClaimsForRolesQuery, RoleClaimsForRolesViewModels> getRoleClaimsQueryHandler,
+    ILogHelper<RegisterUserCommandHandler> logHelper
     ) : ICreateItemCommandHandler<RegisterUserCommand, AuthUserViewModel>
 {
   private readonly RoleSettings _roleSettings = roleSettingsOptions.Value;
@@ -116,6 +117,8 @@ public class RegisterUserCommandHandler(
   private readonly IGoogleRecaptchaService _googleRecaptchaService = googleRecaptchaService;
 
   private readonly IGetItemsQueryHandler<GetRoleClaimsForRolesQuery, RoleClaimsForRolesViewModels> _getRoleClaimsQueryHandler = getRoleClaimsQueryHandler;
+
+  private readonly ILogHelper<RegisterUserCommandHandler> _logHelper = logHelper;
 
   public async Task<AuthUserViewModel> CreateItemAsync(RegisterUserCommand command, string userId, CancellationToken cancellationToken = default)
   {
@@ -271,7 +274,7 @@ public class RegisterUserCommandHandler(
       // Commit DB Transaction 
       await _unitOfWork.CommitTransactionAsync(cancellationToken);
 
-      // Publish User Created Event
+      // Publish User Created Event - not awaited, so a slow callback or broker does not delay the response
       _ = HandleEventAsync(userDetails, newUser, command.RegisteredApp, command.RequestSource);
 
       // Return registration results
@@ -328,6 +331,15 @@ public class RegisterUserCommandHandler(
       RequestSource = requestSource
     };
 
-    await _userUpdateEventHandler.HandleEventAsync(eventItem);
+    // Nothing awaits this task, so failures (callback errors, Kafka delivery failures) are logged here.
+    // It also outlives the request, so it must not use the request's cancellation token.
+    try
+    {
+      await _userUpdateEventHandler.HandleEventAsync(eventItem, CancellationToken.None);
+    }
+    catch (Exception ex)
+    {
+      _logHelper.LogEvent(LogLevel.Error, ex, "Failed to publish {EventType} event for user {UserId} of app {AppName}", eventItem.EventType, identityUser.Id, registeredAppEntity.AppName);
+    }
   }
 }
