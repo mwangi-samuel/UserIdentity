@@ -21,6 +21,16 @@ public record UserEventContent
   public bool PhoneNumberConfirmed { get; set; }
   public string? UserEmail { get; set; }
   public bool EmailConfirmed { get; set; }
+
+  public Dictionary<MessageAttribute, string> ToMessageAttributes() => new()
+  {
+    { MessageAttribute.RECIPIENT_EMAIL, UserEmail.EmptyIfNullOrWhiteSpace() },
+    { MessageAttribute.RECIPIENT_PHONE, PhoneNumber.EmptyIfNullOrWhiteSpace() },
+    { MessageAttribute.FIRST_NAME, FirstName.EmptyIfNullOrWhiteSpace() },
+    { MessageAttribute.LAST_NAME, LastName.EmptyIfNullOrWhiteSpace() },
+    { MessageAttribute.USER_NAME, UserName.EmptyIfNullOrWhiteSpace() },
+    { MessageAttribute.USER_ID, UserIdentityId.EmptyIfNullOrWhiteSpace() }
+  };
 }
 
 public record UserUpdateEvent : IBaseEvent
@@ -52,20 +62,10 @@ public class UserUpdateEventHandler(
     if (eventItem.EventType != CrudEvent.CREATE)
       return;
 
-    var attributes = new Dictionary<MessageAttribute, string>()
-    {
-      { MessageAttribute.RECIPIENT_EMAIL, eventItem.UserContent.UserEmail.EmptyIfNullOrWhiteSpace() },
-      { MessageAttribute.RECIPIENT_PHONE, eventItem.UserContent.PhoneNumber.EmptyIfNullOrWhiteSpace() },
-      { MessageAttribute.FIRST_NAME, eventItem.UserContent.FirstName.EmptyIfNullOrWhiteSpace() },
-      { MessageAttribute.LAST_NAME, eventItem.UserContent.LastName.EmptyIfNullOrWhiteSpace() },
-      { MessageAttribute.USER_NAME, eventItem.UserContent.UserName.EmptyIfNullOrWhiteSpace() },
-      { MessageAttribute.USER_ID, eventItem.UserContent.UserIdentityId.EmptyIfNullOrWhiteSpace() }
-    };
-
     var messageEvent = MessageEventFactory.Create(
       eventItem.UserContent.UserIdentityId,
       eventItem.RegisteredApp.AppName,
-      attributes,
+      eventItem.UserContent.ToMessageAttributes(),
       MessageAction.WELCOME_USER
     );
 

@@ -3,10 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
-using System.Text;
 using System.Threading.Tasks;
 
-using Microsoft.AspNetCore.WebUtilities;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.IdentityModel.Tokens;
 
 using Newtonsoft.Json;
@@ -16,12 +15,15 @@ using PolyzenKit.Application.Core.Messages.Events;
 using PolyzenKit.Common.Enums;
 using PolyzenKit.Common.Extensions;
 using PolyzenKit.Common.Utilities;
+using PolyzenKit.Infrastructure.Kafka;
+using PolyzenKit.Infrastructure.Security.Tokens;
 using PolyzenKit.Presentation.ValidationHelpers;
 
 using UserIdentity.Application.Core.Tokens.ViewModels;
 using UserIdentity.Application.Core.Users.Settings;
 using UserIdentity.Domain.Users;
 using UserIdentity.IntegrationTests.TestUtils;
+using UserIdentity.Presentation.Settings;
 
 using WireMock.RequestBuilders;
 using WireMock.ResponseBuilders;
@@ -39,6 +41,8 @@ public class UserControllerTests(
 {
 
   private readonly static string _baseUri = "/api/v1/user";
+
+  private readonly TestingWebAppFactory _testingWebAppFactory = testingWebAppFactory;
 
   private readonly WireMockServer _wireMock = testingWebAppFactory.WireMockServer;
 
@@ -356,7 +360,7 @@ public class UserControllerTests(
 
     await _pollyResiliencePipeline.ExecuteAsync(async token =>
     {
-      kafkaMessage = await _kafkaConsumerHelper.WaitAndConsumeUserUpdatedMessageAsync<MessageEvent>();
+      kafkaMessage = await _kafkaConsumerHelper.WaitAndConsumeUserUpdatedMessageAsync(userDetails!.Id);
       Assert.NotNull(kafkaMessage);
     }, TestContext.Current.CancellationToken);
 
@@ -436,7 +440,7 @@ public class UserControllerTests(
 
     await _pollyResiliencePipeline.ExecuteAsync(async token =>
     {
-      kafkaMessage = await _kafkaConsumerHelper.WaitAndConsumeUserUpdatedMessageAsync<MessageEvent>();
+      kafkaMessage = await _kafkaConsumerHelper.WaitAndConsumeUserUpdatedMessageAsync(userDetails!.Id);
       Assert.NotNull(kafkaMessage);
     }, TestContext.Current.CancellationToken);
 
@@ -851,6 +855,235 @@ public class UserControllerTests(
   }
 
   [Fact]
+  public async Task Login_Stores_Only_The_Hash_Of_The_Refresh_Token()
+  {
+    // Arrange
+    _testDbHelper.SeedDatabase();
+
+    // Act
+    (_, var refreshToken) = await _httpClient.LoginUserAsync(UserSettingHelper.UserName, UserSettingHelper.UserPassword);
+
+    // Assert
+    var refreshTokenEntities = _testDbHelper.GetRefreshTokenEntitiesWithNoTracking(UserSettingHelper.UserId);
+
+    Assert.DoesNotContain(refreshTokenEntities, r => r.Token == refreshToken);
+    Assert.Contains(refreshTokenEntities, r => r.Token == new TokenFactory().HashToken(refreshToken) && r.Expires > DateTime.UtcNow.AddDays(29));
+  }
+
+  [Fact]
+  public async Task Login_After_Too_Many_Failed_Attempts_Locks_Out_User()
+  {
+    // Arrange
+    _testDbHelper.SeedDatabase();
+
+    var user = _testDbHelper.GetIdentityUser(UserSettingHelper.UserId)!;
+    user.LockoutEnabled = true;
+    _testDbHelper.UpdateIdentityUser(user);
+
+    var wrongPasswordPayload = new
+    {
+      UserName = UserSettingHelper.UserName,
+      Password = UserSettingHelper.UserPassword + "123"
+    };
+
+    var requestPayload = new
+    {
+      UserName = UserSettingHelper.UserName,
+      Password = UserSettingHelper.UserPassword
+    };
+
+    for (var i = 0; i < 5; i++)
+      await _httpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/login", wrongPasswordPayload);
+
+    // Act
+    var response = await _httpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/login", requestPayload);
+
+    // Assert
+    var responseString = await response.ValidateRequestResponseAsync();
+
+    Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    var jsonObject = SerDeHelper.Deserialize<JObject>(responseString);
+
+    Assert.NotNull(jsonObject);
+
+    Assert.Equal("Request Failed", $"{jsonObject["requestStatus"]}");
+    Assert.Equal("Provided credentials are invalid", jsonObject["error"]?["message"]);
+
+    var lockedOutUser = _testDbHelper.GetIdentityUserWithNoTracking(UserSettingHelper.UserId);
+
+    Assert.NotNull(lockedOutUser?.LockoutEnd);
+    Assert.True(lockedOutUser.LockoutEnd > DateTimeOffset.UtcNow);
+  }
+
+  [Fact]
+  public async Task Login_Beyond_Rate_Limit_Returns_Too_Many_Requests()
+  {
+    // Arrange - rate limiting is off in the shared test host
+    await using var rateLimitedFactory = _testingWebAppFactory.WithWebHostBuilder(builder =>
+    {
+      builder.UseSetting($"{nameof(RateLimitSettings)}:{nameof(RateLimitSettings.Enabled)}", "true");
+      builder.UseSetting($"{nameof(RateLimitSettings)}:{nameof(RateLimitSettings.PermitLimit)}", "2");
+      builder.UseSetting($"{nameof(RateLimitSettings)}:{nameof(RateLimitSettings.WindowSeconds)}", "60");
+      builder.UseSetting($"{nameof(KafkaSettings)}:{nameof(KafkaSettings.ConsumerEnabled)}", "false");
+    });
+
+    using var httpClient = rateLimitedFactory.CreateClient();
+
+    var requestPayload = new
+    {
+      UserName = UserSettingHelper.UserName,
+      Password = UserSettingHelper.UserPassword
+    };
+
+    // Act
+    var allowedResponses = new List<HttpResponseMessage>
+    {
+      await httpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/login", requestPayload),
+      await httpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/login", requestPayload)
+    };
+
+    var response = await httpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/login", requestPayload);
+
+    // Assert
+    Assert.All(allowedResponses, r => Assert.NotEqual(HttpStatusCode.TooManyRequests, r.StatusCode));
+
+    var responseString = await response.ValidateRequestResponseAsync();
+
+    Assert.Equal(HttpStatusCode.TooManyRequests, response.StatusCode);
+    Assert.True(response.Headers.Contains("Retry-After"));
+
+    var jsonObject = SerDeHelper.Deserialize<JObject>(responseString);
+
+    Assert.NotNull(jsonObject);
+
+    Assert.Equal("Request Failed", $"{jsonObject["requestStatus"]}");
+    Assert.Equal("429 - TOO MANY REQUESTS", $"{jsonObject["statusMessage"]}");
+    Assert.Equal("Too many requests, try again later", jsonObject["error"]?["message"]);
+  }
+
+  [Fact]
+  public async Task Refresh_User_Token_With_Expired_Refresh_Token_Does_Not_Refresh_User_Token()
+  {
+    // Arrange
+    _testDbHelper.SeedDatabase();
+
+    (var userToken, var refreshToken) = await _httpClient.LoginUserAsync(UserSettingHelper.UserName, UserSettingHelper.UserPassword);
+
+    _testDbHelper.ExpireRefreshTokenEntities(UserSettingHelper.UserId);
+
+    var requestPayload = new
+    {
+      AccessToken = userToken,
+      RefreshToken = refreshToken
+    };
+
+    // Act
+    var response = await _httpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/refresh-token", requestPayload);
+
+    // Assert
+    var responseString = await response.ValidateRequestResponseAsync();
+
+    Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    var jsonObject = SerDeHelper.Deserialize<JObject>(responseString);
+
+    Assert.NotNull(jsonObject);
+
+    Assert.Equal("Request Failed", $"{jsonObject["requestStatus"]}");
+    Assert.Equal("Expired refresh token provided", jsonObject["error"]?["message"]);
+
+    Assert.Empty(_testDbHelper.GetRefreshTokenEntitiesWithNoTracking(UserSettingHelper.UserId));
+  }
+
+  [Fact]
+  public async Task Refresh_User_Token_With_Already_Used_Refresh_Token_Ends_Session()
+  {
+    // Arrange
+    _testDbHelper.SeedDatabase();
+
+    (var userToken, var refreshToken) = await _httpClient.LoginUserAsync(UserSettingHelper.UserName, UserSettingHelper.UserPassword);
+
+    var requestPayload = new
+    {
+      AccessToken = userToken,
+      RefreshToken = refreshToken
+    };
+
+    var firstResponse = await _httpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/refresh-token", requestPayload);
+
+    Assert.Equal(HttpStatusCode.OK, firstResponse.StatusCode);
+
+    var userTokenVM = SerDeHelper.Deserialize<JObject>(await firstResponse.ValidateRequestResponseAsync())?["userToken"]?.ToObject<AccessTokenViewModel>();
+
+    Assert.NotNull(userTokenVM?.RefreshToken);
+
+    // Act
+    var response = await _httpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/refresh-token", requestPayload);
+
+    // Assert
+    var responseString = await response.ValidateRequestResponseAsync();
+
+    Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    var jsonObject = SerDeHelper.Deserialize<JObject>(responseString);
+
+    Assert.NotNull(jsonObject);
+
+    Assert.Equal("Invalid refresh token provided", jsonObject["error"]?["message"]);
+
+    var newTokenResponse = await _httpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/refresh-token", new
+    {
+      AccessToken = userTokenVM.AccessToken?.Token,
+      userTokenVM.RefreshToken
+    });
+
+    Assert.Equal(HttpStatusCode.Unauthorized, newTokenResponse.StatusCode);
+  }
+
+  [Fact]
+  public async Task Logout_User_Ends_Session()
+  {
+    // Arrange
+    _testDbHelper.SeedDatabase();
+
+    (var userToken, var refreshToken) = await _httpClient.LoginUserAsync(UserSettingHelper.UserName, UserSettingHelper.UserPassword);
+
+    var httpRequest = ApiRequestHelper.CreateHttpRequestMessage(HttpMethod.Post, _baseUri + "/logout");
+    httpRequest.AddAuthHeader(userToken);
+    httpRequest.Content = SerDeHelper.ConvertToHttpContent(new { RefreshToken = refreshToken });
+
+    // Act
+    var response = await _httpClient.SendAsync(httpRequest, TestContext.Current.CancellationToken);
+
+    // Assert
+    var responseString = await response.ValidateRequestResponseAsync();
+
+    Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    var jsonObject = SerDeHelper.Deserialize<JObject>(responseString);
+
+    Assert.NotNull(jsonObject);
+
+    Assert.Equal("Request Successful", $"{jsonObject["requestStatus"]}");
+    Assert.Equal("Logout successful", $"{jsonObject["statusMessage"]}");
+
+    var refreshResponse = await _httpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/refresh-token", new
+    {
+      AccessToken = userToken,
+      RefreshToken = refreshToken
+    });
+
+    Assert.Equal(HttpStatusCode.Unauthorized, refreshResponse.StatusCode);
+  }
+
+  [Fact]
+  public async Task Logout_User_Without_Access_Token_Returns_Unauthorized()
+  {
+    // Act
+    var response = await _httpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/logout", new { RefreshToken = StringUtil.GenerateRandomString(32) });
+
+    // Assert
+    Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+  }
+
+  [Fact]
   public async Task Reset_Password_With_Invalid_Payload_Returns_Validation_Results()
   {
     // Arrange
@@ -885,50 +1118,18 @@ public class UserControllerTests(
 
     Assert.Equal(1, errorList?.Count);
 
-    Assert.True(errorList?.Any(x => x.Field == "UserEmail" && x.Message == "The UserEmail field is required.") ?? false);
+    Assert.True(errorList?.Any(x => x.Field == "UserName" && x.Message == "The UserName field is required.") ?? false);
   }
 
   [Fact]
-  public async Task Reset_Password_For_Existing_User_Resets_Password()
+  public async Task Reset_Password_For_Existing_User_Creates_Reset_Request()
   {
     // Arrange
     _testDbHelper.SeedDatabase();
 
     var requestPayload = new
     {
-      UserSettingHelper.UserEmail,
-    };
-
-    // Act
-    var response = await _httpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/reset-password", requestPayload);
-
-    // Assert
-    var responseString = await response.ValidateRequestResponseAsync();
-
-    Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-    var jsonObject = SerDeHelper.Deserialize<JObject>(responseString);
-
-    Assert.NotNull(jsonObject);
-
-
-    Assert.Equal("Request Successful", $"{jsonObject["requestStatus"]}");
-    Assert.Equal("Password reset request successful", $"{jsonObject["statusMessage"]}");
-
-
-    var resetPasswordDTO = jsonObject["resetPasswordDetails"]?.ToObject<ResetPasswordDTO>();
-
-    Assert.NotNull(resetPasswordDTO);
-  }
-
-  [Fact]
-  public async Task Reset_Password_For_Non_Existing_User_Returns_Success_Message()
-  {
-    // Arrange
-    _testDbHelper.SeedDatabase();
-
-    var requestPayload = new
-    {
-      UserEmail = "hello@test.com",
+      UserName = UserSettingHelper.UserEmail,
     };
 
     // Act
@@ -947,102 +1148,101 @@ public class UserControllerTests(
 
     var resetPasswordDTO = jsonObject["resetPasswordDetails"]?.ToObject<ResetPasswordDTO>();
 
-    Assert.NotNull(resetPasswordDTO);
+    Assert.NotNull(resetPasswordDTO?.ResetRequestId);
+
+    var passwordResetEntity = _testDbHelper.GetPasswordResetEntityWithNoTracking(UserSettingHelper.UserId);
+
+    Assert.NotNull(passwordResetEntity);
+    Assert.Equal(new TokenFactory().HashToken(resetPasswordDTO.ResetRequestId), passwordResetEntity.RequestId);
+    Assert.False(passwordResetEntity.Verified);
+    Assert.False(passwordResetEntity.Applied);
   }
 
   [Fact]
-  public async Task Reset_Password_For_Non_Existing_UserDetails_Record_Does_Not_Reset_Password()
+  public async Task Reset_Password_For_Non_Existing_User_Returns_Same_Response_Without_Creating_Reset_Request()
+  {
+    // Arrange
+    _testDbHelper.SeedDatabase();
+
+    var requestPayload = new
+    {
+      UserName = "hello@test.com",
+    };
+
+    // Act
+    var response = await _httpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/reset-password", requestPayload);
+
+    // Assert
+    var responseString = await response.ValidateRequestResponseAsync();
+
+    Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    var jsonObject = SerDeHelper.Deserialize<JObject>(responseString);
+
+    Assert.NotNull(jsonObject);
+
+    Assert.Equal("Request Successful", $"{jsonObject["requestStatus"]}");
+    Assert.Equal("Password reset request successful", $"{jsonObject["statusMessage"]}");
+
+    var resetPasswordDTO = jsonObject["resetPasswordDetails"]?.ToObject<ResetPasswordDTO>();
+
+    Assert.NotNull(resetPasswordDTO?.ResetRequestId);
+    Assert.Null(_testDbHelper.GetPasswordResetEntityWithNoTracking(UserSettingHelper.UserId));
+  }
+
+  [Fact]
+  public async Task Reset_Password_For_Non_Existing_UserDetails_Record_Does_Not_Create_Reset_Request()
   {
     // Arrange
     _testDbHelper.CreateIdentityUser();
 
     var requestPayload = new
     {
-      UserSettingHelper.UserEmail
+      UserSettingHelper.UserName
     };
-
 
     // Act
     var response = await _httpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/reset-password", requestPayload);
 
     // Assert
-    var responseString = await response.ValidateRequestResponseAsync();
+    await response.ValidateRequestResponseAsync();
 
-    Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
-
-    var jsonObject = SerDeHelper.Deserialize<JObject>(responseString);
-
-    Assert.NotNull(jsonObject);
-
-
-    Assert.Equal("Request Failed", $"{jsonObject["requestStatus"]}");
-    Assert.Equal("404 - NOT FOUND", $"{jsonObject["statusMessage"]}");
-
-    Assert.StartsWith("No record exists for the provided identifier - ", $"{jsonObject["error"]?["message"]}");
-
-    var dateTime = (DateTime?)jsonObject["error"]?["timestamp"];
-
-    Assert.NotNull(dateTime);
-    Assert.Equal(DateTime.UtcNow.Year, dateTime.Value.Year);
-    Assert.Equal(DateTime.UtcNow.Month, dateTime.Value.Month);
-    Assert.Equal(DateTime.UtcNow.Day, dateTime.Value.Day);
-  }
-
-
-  [Fact]
-  public async Task Confirm_Password_Token_With_Invalid_Payload_Returns_Validation_Results()
-  {
-    // Arrange
-    var requestPayload = new
-    {
-    };
-
-    // Act
-    var response = await _httpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/confirm-update-password-token", requestPayload);
-
-    // Assert
-    var responseString = await response.ValidateRequestResponseAsync();
-
-    Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-    var jsonObject = SerDeHelper.Deserialize<JObject>(responseString);
-
-    Assert.NotNull(jsonObject);
-
-    Assert.Equal("Request Failed", $"{jsonObject["requestStatus"]}");
-    Assert.Equal("400 - BAD REQUEST", $"{jsonObject["statusMessage"]}");
-
-    Assert.Equal("Validation Failed", jsonObject["error"]?["message"]);
-
-    var dateTime = (DateTime?)jsonObject["error"]?["timestamp"];
-
-    Assert.NotNull(dateTime);
-    Assert.Equal(DateTime.UtcNow.Year, dateTime.Value.Year);
-    Assert.Equal(DateTime.UtcNow.Month, dateTime.Value.Month);
-    Assert.Equal(DateTime.UtcNow.Day, dateTime.Value.Day);
-
-    var errorList = jsonObject["error"]?["errorList"]?.ToObject<List<ValidationError>>();
-
-    Assert.Equal(2, errorList?.Count);
-
-    Assert.True(errorList?.Any(x => x.Field == "ConfirmPasswordToken" && x.Message == "The ConfirmPasswordToken field is required.") ?? false);
-    Assert.True(errorList?.Any(x => x.Field == "UserId" && x.Message == "The UserId field is required.") ?? false);
+    Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    Assert.Null(_testDbHelper.GetPasswordResetEntityWithNoTracking(UserSettingHelper.UserId));
   }
 
   [Fact]
-  public async Task Confirm_Password_Token_With_Valid_Payload_Confirms_Password_Token()
+  public async Task Reset_Password_With_Verified_Code_Updates_Password_And_Ends_Sessions()
   {
     // Arrange
     _testDbHelper.SeedDatabase();
-    var resetPasswordToken = _testDbHelper.UpdateResetPasswordToken(UserSettingHelper.UserId);
 
-    var requestPayload = new
+    (var userToken, var refreshToken) = await _httpClient.LoginUserAsync(UserSettingHelper.UserName, UserSettingHelper.UserPassword);
+
+    var resetResponse = await _httpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/reset-password", new { UserSettingHelper.UserName });
+    var resetRequestId = SerDeHelper.Deserialize<JObject>(await resetResponse.ValidateRequestResponseAsync())?["resetPasswordDetails"]?["resetRequestId"]?.ToString();
+
+    Assert.NotNull(resetRequestId);
+
+    // Simulate MessageManager verifying the code
+    var attributes = new Dictionary<MessageAttribute, string>()
     {
-      ConfirmPasswordToken = resetPasswordToken,
-      UserSettingHelper.UserId
+      { MessageAttribute.USER_ID, resetRequestId }
     };
 
+    var messageEvent = MessageEventFactory.Create(resetRequestId, _registeredApp.AppName, attributes, MessageAction.PASSWORD_RESET, CrudEvent.UPDATE);
+
+    await _kafkaProducerHelper.ProduceUserMessageManagerUserUpdatedEventAsync(resetRequestId, messageEvent);
+
+    await _pollyResiliencePipeline.ExecuteAsync(token =>
+    {
+      Assert.True(_testDbHelper.GetPasswordResetEntityWithNoTracking(UserSettingHelper.UserId)?.Verified);
+      return ValueTask.CompletedTask;
+    }, TestContext.Current.CancellationToken);
+
+    var newPassword = "N3wP@ssword!";
+
     // Act
-    var response = await _httpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/confirm-update-password-token", requestPayload);
+    var response = await _httpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/update-password", new { ResetRequestId = resetRequestId, NewPassword = newPassword });
 
     // Assert
     var responseString = await response.ValidateRequestResponseAsync();
@@ -1053,82 +1253,24 @@ public class UserControllerTests(
     Assert.NotNull(jsonObject);
 
     Assert.Equal("Request Successful", $"{jsonObject["requestStatus"]}");
-    Assert.Equal("Token confirmation successful", $"{jsonObject["statusMessage"]}");
+    Assert.Equal("Password updated successfully", $"{jsonObject["statusMessage"]}");
+    Assert.True(jsonObject["updatePasswordResult"]?.ToObject<UpdatePasswordDTO>()?.PassWordUpdated);
 
+    Assert.True(_testDbHelper.GetPasswordResetEntityWithNoTracking(UserSettingHelper.UserId)?.Applied);
 
-    var resetPasswordDTO = jsonObject["tokenPasswordResult"]?.ToObject<ConfirmUpdatePasswordDTO>();
+    await _httpClient.LoginUserAsync(UserSettingHelper.UserName, newPassword);
 
-    Assert.NotNull(resetPasswordDTO);
-    Assert.True(resetPasswordDTO?.UpdatePasswordTokenConfirmed);
-  }
-
-
-  [Fact]
-  public async Task Confirm_Password_Token_With_Invalid_Token_Does_Not_Confirm_Password_Token()
-  {
-    // Arrange
-    _testDbHelper.SeedDatabase();
-    var resetPasswordToken = _testDbHelper.UpdateResetPasswordToken(UserSettingHelper.UserId);
-
-    var requestPayload = new
+    var refreshResponse = await _httpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/refresh-token", new
     {
-      ConfirmPasswordToken = resetPasswordToken + "897455\\f",
-      UserSettingHelper.UserId
-    };
+      AccessToken = userToken,
+      RefreshToken = refreshToken
+    });
 
-    // Act
-    var response = await _httpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/confirm-update-password-token", requestPayload);
+    Assert.Equal(HttpStatusCode.Unauthorized, refreshResponse.StatusCode);
 
-    // Assert
-    var responseString = await response.ValidateRequestResponseAsync();
+    var reuseResponse = await _httpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/update-password", new { ResetRequestId = resetRequestId, NewPassword = "An0therP@ssword!" });
 
-    Assert.Equal(HttpStatusCode.NotAcceptable, response.StatusCode);
-    var jsonObject = SerDeHelper.Deserialize<JObject>(responseString);
-
-    Assert.NotNull(jsonObject);
-
-    Assert.Equal("Request Failed", $"{jsonObject["requestStatus"]}");
-    Assert.Equal("Token confirmation failed", $"{jsonObject["statusMessage"]}");
-
-
-    var resetPasswordDTO = jsonObject["tokenPasswordResult"]?.ToObject<ConfirmUpdatePasswordDTO>();
-
-    Assert.NotNull(resetPasswordDTO);
-    Assert.False(resetPasswordDTO?.UpdatePasswordTokenConfirmed);
-  }
-
-  [Fact]
-  public async Task Confirm_Password_Token_With_Non_Existent_Token_Does_Not_Confirm_Password_Token()
-  {
-    // Arrange
-    _testDbHelper.SeedDatabase();
-    var resetPasswordToken = _testDbHelper.UpdateResetPasswordToken(UserSettingHelper.UserId);
-
-    var requestPayload = new
-    {
-      ConfirmPasswordToken = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(resetPasswordToken + "897455989")),
-      UserSettingHelper.UserId
-    };
-
-    // Act
-    var response = await _httpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/confirm-update-password-token", requestPayload);
-
-    // Assert
-    var responseString = await response.ValidateRequestResponseAsync();
-
-    Assert.Equal(HttpStatusCode.NotAcceptable, response.StatusCode);
-    var jsonObject = SerDeHelper.Deserialize<JObject>(responseString);
-
-    Assert.NotNull(jsonObject);
-
-    Assert.Equal("Request Failed", $"{jsonObject["requestStatus"]}");
-    Assert.Equal("Token confirmation failed", $"{jsonObject["statusMessage"]}");
-
-
-    var resetPasswordDTO = jsonObject["tokenPasswordResult"]?.ToObject<ConfirmUpdatePasswordDTO>();
-
-    Assert.NotNull(resetPasswordDTO);
-    Assert.False(resetPasswordDTO?.UpdatePasswordTokenConfirmed);
+    Assert.Equal(HttpStatusCode.NotAcceptable, reuseResponse.StatusCode);
   }
 
   [Fact]
@@ -1164,25 +1306,22 @@ public class UserControllerTests(
 
     var errorList = jsonObject["error"]?["errorList"]?.ToObject<List<ValidationError>>();
 
-    Assert.Equal(3, errorList?.Count);
+    Assert.Equal(2, errorList?.Count);
 
     Assert.True(errorList?.Any(x => x.Field == "NewPassword" && x.Message == "The NewPassword field is required.") ?? false);
-    Assert.True(errorList?.Any(x => x.Field == "UserId" && x.Message == "The UserId field is required.") ?? false);
-    Assert.True(errorList?.Any(x => x.Field == "PasswordResetToken" && x.Message == "The PasswordResetToken field is required.") ?? false);
+    Assert.True(errorList?.Any(x => x.Field == "ResetRequestId" && x.Message == "The ResetRequestId field is required.") ?? false);
   }
 
   [Fact]
-  public async Task Update_Password_For_Non_Existent_User_Does_Not_Update_Password()
+  public async Task Update_Password_With_Unknown_Reset_Request_Does_Not_Update_Password()
   {
     // Arrange
     _testDbHelper.SeedDatabase();
-    var resetPasswordToken = _testDbHelper.UpdateResetPasswordToken(UserSettingHelper.UserId);
 
     var requestPayload = new
     {
-      NewPassword = "12345",
-      UserId = Guid.NewGuid().ToString(),
-      PasswordResetToken = resetPasswordToken
+      ResetRequestId = StringUtil.GenerateRandomString(32),
+      NewPassword = "N3wP@ssword!"
     };
 
     // Act
@@ -1199,26 +1338,28 @@ public class UserControllerTests(
     Assert.Equal("Request Failed", $"{jsonObject["requestStatus"]}");
     Assert.Equal("Password update failed", $"{jsonObject["statusMessage"]}");
 
-
     var updatePasswordDTO = jsonObject["updatePasswordResult"]?.ToObject<UpdatePasswordDTO>();
 
     Assert.NotNull(updatePasswordDTO);
     Assert.False(updatePasswordDTO?.PassWordUpdated);
   }
 
-  [Fact]
-  public async Task Update_Password_With_Invalid_Payload_Does_Not_Update_Password()
+  [Theory]
+  [InlineData(false, false, 15)]
+  [InlineData(true, true, 15)]
+  [InlineData(true, false, -1)]
+  public async Task Update_Password_With_Unverified_Used_Or_Expired_Reset_Request_Does_Not_Update_Password(bool verified, bool applied, int expiresInMinutes)
   {
     // Arrange
     _testDbHelper.SeedDatabase();
-    var resetPasswordToken = _testDbHelper.UpdateResetPasswordToken(UserSettingHelper.UserId);
 
+    var resetRequestId = StringUtil.GenerateRandomString(32);
+    _testDbHelper.CreatePasswordResetEntity(resetRequestId, verified, applied, DateTime.UtcNow.AddMinutes(expiresInMinutes));
 
     var requestPayload = new
     {
-      NewPassword = "12345",
-      UserSettingHelper.UserId,
-      PasswordResetToken = resetPasswordToken
+      ResetRequestId = resetRequestId,
+      NewPassword = "N3wP@ssword!"
     };
 
     // Act
@@ -1232,29 +1373,25 @@ public class UserControllerTests(
 
     Assert.NotNull(jsonObject);
 
-    Assert.Equal("Request Failed", $"{jsonObject["requestStatus"]}");
     Assert.Equal("Password update failed", $"{jsonObject["statusMessage"]}");
+    Assert.False(jsonObject["updatePasswordResult"]?.ToObject<UpdatePasswordDTO>()?.PassWordUpdated);
 
-
-    var updatePasswordDTO = jsonObject["updatePasswordResult"]?.ToObject<UpdatePasswordDTO>();
-
-    Assert.NotNull(updatePasswordDTO);
-    Assert.False(updatePasswordDTO?.PassWordUpdated);
+    await _httpClient.LoginUserAsync(UserSettingHelper.UserName, UserSettingHelper.UserPassword);
   }
 
   [Fact]
-  public async Task Update_Password_With_Valid_Payload_Updates_Password()
+  public async Task Update_Password_With_Password_Not_Meeting_Rules_Returns_Validation_Errors()
   {
     // Arrange
     _testDbHelper.SeedDatabase();
-    var resetPasswordToken = _testDbHelper.UpdateResetPasswordToken(UserSettingHelper.UserId);
 
+    var resetRequestId = StringUtil.GenerateRandomString(32);
+    _testDbHelper.CreatePasswordResetEntity(resetRequestId);
 
     var requestPayload = new
     {
-      NewPassword = "12345P@ss",
-      UserSettingHelper.UserId,
-      PasswordResetToken = resetPasswordToken
+      ResetRequestId = resetRequestId,
+      NewPassword = "12345"
     };
 
     // Act
@@ -1263,89 +1400,16 @@ public class UserControllerTests(
     // Assert
     var responseString = await response.ValidateRequestResponseAsync();
 
-    Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-    var jsonObject = SerDeHelper.Deserialize<JObject>(responseString);
-
-    Assert.NotNull(jsonObject);
-
-    Assert.Equal("Request Successful", $"{jsonObject["requestStatus"]}");
-    Assert.Equal("Password updated successfully", $"{jsonObject["statusMessage"]}");
-
-
-    var updatePasswordDTO = jsonObject["updatePasswordResult"]?.ToObject<UpdatePasswordDTO>();
-
-    Assert.NotNull(updatePasswordDTO);
-    Assert.True(updatePasswordDTO?.PassWordUpdated);
-  }
-
-  [Fact]
-  public async Task Update_Password_With_Invalid_Token_Does_Not_Update_Password()
-  {
-    // Arrange
-    _testDbHelper.SeedDatabase();
-    var resetPasswordToken = _testDbHelper.UpdateResetPasswordToken(UserSettingHelper.UserId);
-
-    var requestPayload = new
-    {
-      NewPassword = "12345",
-      UserSettingHelper.UserId,
-      PasswordResetToken = resetPasswordToken + "897455\\f",
-    };
-
-    // Act
-    var response = await _httpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/update-password", requestPayload);
-
-    // Assert
-    var responseString = await response.ValidateRequestResponseAsync();
-
-    Assert.Equal(HttpStatusCode.NotAcceptable, response.StatusCode);
+    Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     var jsonObject = SerDeHelper.Deserialize<JObject>(responseString);
 
     Assert.NotNull(jsonObject);
 
     Assert.Equal("Request Failed", $"{jsonObject["requestStatus"]}");
-    Assert.Equal("Password update failed", $"{jsonObject["statusMessage"]}");
+    Assert.Equal("400 - BAD REQUEST", $"{jsonObject["statusMessage"]}");
+    Assert.Contains("Passwords must be at least 8 characters.", $"{jsonObject["error"]?["message"]}");
 
-
-    var updatePasswordDTO = jsonObject["updatePasswordResult"]?.ToObject<UpdatePasswordDTO>();
-
-    Assert.NotNull(updatePasswordDTO);
-    Assert.False(updatePasswordDTO?.PassWordUpdated);
-  }
-
-  [Fact]
-  public async Task Update_Password_With_Non_Existent_Token_Does_Not_Update_Password()
-  {
-    // Arrange
-    _testDbHelper.SeedDatabase();
-    var resetPasswordToken = _testDbHelper.UpdateResetPasswordToken(UserSettingHelper.UserId);
-
-    var requestPayload = new
-    {
-      NewPassword = "12345",
-      UserSettingHelper.UserId,
-      PasswordResetToken = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(StringUtil.GenerateRandomString(56))),
-    };
-
-    // Act
-    var response = await _httpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/update-password", requestPayload);
-
-    // Assert
-    var responseString = await response.ValidateRequestResponseAsync();
-
-    Assert.Equal(HttpStatusCode.NotAcceptable, response.StatusCode);
-    var jsonObject = SerDeHelper.Deserialize<JObject>(responseString);
-
-    Assert.NotNull(jsonObject);
-
-    Assert.Equal("Request Failed", $"{jsonObject["requestStatus"]}");
-    Assert.Equal("Password update failed", $"{jsonObject["statusMessage"]}");
-
-
-    var updatePasswordDTO = jsonObject["updatePasswordResult"]?.ToObject<UpdatePasswordDTO>();
-
-    Assert.NotNull(updatePasswordDTO);
-    Assert.False(updatePasswordDTO?.PassWordUpdated);
+    Assert.False(_testDbHelper.GetPasswordResetEntityWithNoTracking(UserSettingHelper.UserId)?.Applied);
   }
 
   private void SetUpGoogleRecaptchaEndpoint(string googleRecaptchaToken)

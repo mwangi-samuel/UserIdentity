@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using System.Threading.Tasks;
 
 using Microsoft.EntityFrameworkCore;
@@ -95,6 +96,71 @@ public class RefreshTokenRepositoryTests
 
     var saved = await context.RefreshToken.SingleAsync(x => x.Id == refreshToken.Id, cancellationToken: TestContext.Current.CancellationToken);
     Assert.Equal(refreshToken.Expires, saved.Expires);
+  }
+
+  [Fact]
+  public async Task GetEntityByPreviousTokenAsync_Returns_Entity_With_Matching_Previous_Token()
+  {
+    var context = AppDbContextTestFactory.GetAppDbContext();
+    var repository = new RefreshTokenRepository(context);
+    var refreshToken = BuildRefreshToken();
+    refreshToken.PreviousToken = Guid.NewGuid().ToString();
+
+    context.RefreshToken.Add(refreshToken);
+    await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+
+    var result = await repository.GetEntityByPreviousTokenAsync(refreshToken.UserId!, refreshToken.PreviousToken, TestContext.Current.CancellationToken);
+    var otherUserResult = await repository.GetEntityByPreviousTokenAsync(Guid.NewGuid().ToString(), refreshToken.PreviousToken, TestContext.Current.CancellationToken);
+
+    Assert.NotNull(result);
+    Assert.Equal(refreshToken.Id, result!.Id);
+    Assert.Null(otherUserResult);
+  }
+
+  [Fact]
+  public async Task RemoveExpiredEntityItemsAsync_Removes_Only_The_Users_Expired_RefreshTokens()
+  {
+    var context = AppDbContextTestFactory.GetAppDbContext();
+    var repository = new RefreshTokenRepository(context);
+    var activeToken = BuildRefreshToken();
+    var expiredToken = BuildRefreshToken();
+    expiredToken.UserId = activeToken.UserId;
+    expiredToken.Expires = DateTime.UtcNow.AddMinutes(-10);
+    var otherUserExpiredToken = BuildRefreshToken();
+    otherUserExpiredToken.Expires = DateTime.UtcNow.AddMinutes(-10);
+
+    context.RefreshToken.AddRange(activeToken, expiredToken, otherUserExpiredToken);
+    await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+
+    await repository.RemoveExpiredEntityItemsAsync(activeToken.UserId!, DateTime.UtcNow, TestContext.Current.CancellationToken);
+    await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+
+    var remainingIds = context.RefreshToken.Select(x => x.Id).ToList();
+    Assert.Contains(activeToken.Id, remainingIds);
+    Assert.DoesNotContain(expiredToken.Id, remainingIds);
+    Assert.Contains(otherUserExpiredToken.Id, remainingIds);
+  }
+
+  [Fact]
+  public async Task RemoveEntityItemsAsync_Removes_All_The_Users_RefreshTokens()
+  {
+    var context = AppDbContextTestFactory.GetAppDbContext();
+    var repository = new RefreshTokenRepository(context);
+    var firstToken = BuildRefreshToken();
+    var secondToken = BuildRefreshToken();
+    secondToken.UserId = firstToken.UserId;
+    var otherUserToken = BuildRefreshToken();
+
+    context.RefreshToken.AddRange(firstToken, secondToken, otherUserToken);
+    await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+
+    await repository.RemoveEntityItemsAsync(firstToken.UserId!, TestContext.Current.CancellationToken);
+    await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+
+    var remainingIds = context.RefreshToken.Select(x => x.Id).ToList();
+    Assert.DoesNotContain(firstToken.Id, remainingIds);
+    Assert.DoesNotContain(secondToken.Id, remainingIds);
+    Assert.Contains(otherUserToken.Id, remainingIds);
   }
 
   private static RefreshTokenEntity BuildRefreshToken()

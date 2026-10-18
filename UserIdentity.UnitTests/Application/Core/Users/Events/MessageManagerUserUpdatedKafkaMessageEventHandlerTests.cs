@@ -18,56 +18,72 @@ namespace UserIdentity.UnitTests.Application.Core.Users.Events;
 
 public class MessageManagerUserUpdatedKafkaMessageEventHandlerTests
 {
-  private readonly IUpdateItemCommandHandler<ConfirmUserCommand, ConfirmUserViewModel> _updateItemCommandHandler;
+  private readonly IUpdateItemCommandHandler<ConfirmUserCommand, ConfirmUserViewModel> _confirmUserCommandHandler;
+  private readonly IUpdateItemCommandHandler<VerifyPasswordResetCommand, VerifyPasswordResetViewModel> _verifyPasswordResetCommandHandler;
 
   public MessageManagerUserUpdatedKafkaMessageEventHandlerTests()
   {
-    _updateItemCommandHandler = A.Fake<IUpdateItemCommandHandler<ConfirmUserCommand, ConfirmUserViewModel>>();
+    _confirmUserCommandHandler = A.Fake<IUpdateItemCommandHandler<ConfirmUserCommand, ConfirmUserViewModel>>();
+    _verifyPasswordResetCommandHandler = A.Fake<IUpdateItemCommandHandler<VerifyPasswordResetCommand, VerifyPasswordResetViewModel>>();
   }
 
   [Fact]
-  public async Task HandleEventAsync_WhenActionIsWelcomeUser_CallsUpdateCommandHandler()
+  public async Task HandleEventAsync_WhenActionIsWelcomeUser_CallsConfirmUserCommandHandler()
   {
-    var eventItem = new MessageManagerUserUpdatedKafkaMessageEvent
-    {
-      MessageKey = "message-key",
-      MessageValue = new MessageEvent
-      {
-        Action = MessageAction.WELCOME_USER,
-        CorrelationId = "user-id",
-        RegisteredApp = "TestApp",
-        Attributes = new Dictionary<MessageAttribute, string>()
-      }
-    };
+    var eventItem = GetEventItem(MessageAction.WELCOME_USER, "user-id");
 
-    var handler = new MessageManagerUserUpdatedKafkaMessageEventHandler(_updateItemCommandHandler);
+    var handler = new MessageManagerUserUpdatedKafkaMessageEventHandler(_confirmUserCommandHandler, _verifyPasswordResetCommandHandler);
 
     await handler.HandleEventAsync(eventItem, TestContext.Current.CancellationToken);
 
-    A.CallTo(() => _updateItemCommandHandler.UpdateItemAsync(A<ConfirmUserCommand>.That.Matches(c => c.UserId == eventItem.MessageValue.CorrelationId), eventItem.MessageKey, A<CancellationToken>._))
+    A.CallTo(() => _confirmUserCommandHandler.UpdateItemAsync(A<ConfirmUserCommand>.That.Matches(c => c.UserId == eventItem.MessageValue.CorrelationId), eventItem.MessageKey, A<CancellationToken>._))
     .MustHaveHappenedOnceExactly();
+    A.CallTo(() => _verifyPasswordResetCommandHandler.UpdateItemAsync(A<VerifyPasswordResetCommand>._, A<string>._, A<CancellationToken>._))
+      .MustNotHaveHappened();
   }
 
   [Fact]
-  public async Task HandleEventAsync_WhenActionIsNotWelcomeUser_DoesNotCallUpdateCommandHandler()
+  public async Task HandleEventAsync_WhenActionIsPasswordReset_CallsVerifyPasswordResetCommandHandler()
   {
-    var eventItem = new MessageManagerUserUpdatedKafkaMessageEvent
+    var eventItem = GetEventItem(MessageAction.PASSWORD_RESET, "reset-request-id");
+
+    var handler = new MessageManagerUserUpdatedKafkaMessageEventHandler(_confirmUserCommandHandler, _verifyPasswordResetCommandHandler);
+
+    await handler.HandleEventAsync(eventItem, TestContext.Current.CancellationToken);
+
+    A.CallTo(() => _verifyPasswordResetCommandHandler.UpdateItemAsync(A<VerifyPasswordResetCommand>.That.Matches(c => c.ResetRequestId == eventItem.MessageValue.CorrelationId), eventItem.MessageKey, A<CancellationToken>._))
+    .MustHaveHappenedOnceExactly();
+    A.CallTo(() => _confirmUserCommandHandler.UpdateItemAsync(A<ConfirmUserCommand>._, A<string>._, A<CancellationToken>._))
+      .MustNotHaveHappened();
+  }
+
+  [Fact]
+  public async Task HandleEventAsync_WhenActionIsNotHandled_DoesNotCallAnyCommandHandler()
+  {
+    var eventItem = GetEventItem((MessageAction)999, "user-id");
+
+    var handler = new MessageManagerUserUpdatedKafkaMessageEventHandler(_confirmUserCommandHandler, _verifyPasswordResetCommandHandler);
+
+    await handler.HandleEventAsync(eventItem, TestContext.Current.CancellationToken);
+
+    A.CallTo(() => _confirmUserCommandHandler.UpdateItemAsync(A<ConfirmUserCommand>._, A<string>._, A<CancellationToken>._))
+      .MustNotHaveHappened();
+    A.CallTo(() => _verifyPasswordResetCommandHandler.UpdateItemAsync(A<VerifyPasswordResetCommand>._, A<string>._, A<CancellationToken>._))
+      .MustNotHaveHappened();
+  }
+
+  private static MessageManagerUserUpdatedKafkaMessageEvent GetEventItem(MessageAction action, string correlationId)
+  {
+    return new MessageManagerUserUpdatedKafkaMessageEvent
     {
       MessageKey = "message-key",
       MessageValue = new MessageEvent
       {
-        Action = (MessageAction)999,
-        CorrelationId = "user-id",
+        Action = action,
+        CorrelationId = correlationId,
         RegisteredApp = "TestApp",
         Attributes = new Dictionary<MessageAttribute, string>()
       }
     };
-
-    var handler = new MessageManagerUserUpdatedKafkaMessageEventHandler(_updateItemCommandHandler);
-
-    await handler.HandleEventAsync(eventItem, TestContext.Current.CancellationToken);
-
-    A.CallTo(() => _updateItemCommandHandler.UpdateItemAsync(A<ConfirmUserCommand>._, A<string>._, A<CancellationToken>._))
-      .MustNotHaveHappened();
   }
 }

@@ -6,6 +6,7 @@ using FakeItEasy;
 
 using Microsoft.AspNetCore.Mvc;
 
+using PolyzenKit.Application.Core;
 using PolyzenKit.Application.Core.Interfaces;
 using PolyzenKit.Application.Core.RegisteredApps.Resolvers;
 using PolyzenKit.Application.Enums;
@@ -31,8 +32,8 @@ public class UserControllerTests
   private readonly ICreateItemCommandHandler<RegisterUserCommand, AuthUserViewModel> _registerUserCommandHandler;
   private readonly ICreateItemCommandHandler<LoginUserCommand, AuthUserViewModel> _loginUserCommandHandler;
   private readonly IUpdateItemCommandHandler<ExchangeRefreshTokenCommand, ExchangeRefreshTokenViewModel> _exchangeRefreshTokenCommandHandler;
+  private readonly IDeleteItemCommandHandler<LogoutUserCommand, DeleteRecordViewModel> _logoutUserCommandHandler;
   private readonly ICreateItemCommandHandler<ResetPasswordCommand, ResetPasswordViewModel> _resetPasswordCommandHandler;
-  private readonly IUpdateItemCommandHandler<ConfirmUpdatePasswordTokenCommand, ConfirmUpdatePasswordTokenViewModel> _confirmUpdatePasswordTokenCommandHandler;
   private readonly IUpdateItemCommandHandler<UpdatePasswordCommand, UpdatePasswordViewModel> _updatePasswordCommandHandler;
 
   private readonly IRegisteredAppResolver _registeredAppResolver;
@@ -44,8 +45,8 @@ public class UserControllerTests
     _registerUserCommandHandler = A.Fake<ICreateItemCommandHandler<RegisterUserCommand, AuthUserViewModel>>();
     _loginUserCommandHandler = A.Fake<ICreateItemCommandHandler<LoginUserCommand, AuthUserViewModel>>();
     _exchangeRefreshTokenCommandHandler = A.Fake<IUpdateItemCommandHandler<ExchangeRefreshTokenCommand, ExchangeRefreshTokenViewModel>>();
+    _logoutUserCommandHandler = A.Fake<IDeleteItemCommandHandler<LogoutUserCommand, DeleteRecordViewModel>>();
     _resetPasswordCommandHandler = A.Fake<ICreateItemCommandHandler<ResetPasswordCommand, ResetPasswordViewModel>>();
-    _confirmUpdatePasswordTokenCommandHandler = A.Fake<IUpdateItemCommandHandler<ConfirmUpdatePasswordTokenCommand, ConfirmUpdatePasswordTokenViewModel>>();
     _updatePasswordCommandHandler = A.Fake<IUpdateItemCommandHandler<UpdatePasswordCommand, UpdatePasswordViewModel>>();
     _registeredAppResolver = A.Fake<IRegisteredAppResolver>();
   }
@@ -219,22 +220,47 @@ public class UserControllerTests
   }
 
   [Fact]
+  public async Task Logout_User_Logs_Out_User()
+  {
+    // Arrange
+    LogoutUserCommand command = new() { RefreshToken = "Refresh Token This" };
+
+    // Act
+    A.CallTo(() => _logoutUserCommandHandler.DeleteItemAsync(command, TestStringHelper.UserId)).Returns(new DeleteRecordViewModel());
+
+    var controller = GetUserController();
+    controller.UpdateContext(Controllername, addUserId: true, userId: TestStringHelper.UserId);
+    var actionResult = await controller.LogoutUser(command);
+    var result = actionResult?.Result as ObjectResult;
+    var vm = result?.Value as DeleteRecordViewModel;
+
+    // Assert
+    Assert.Equal((int)HttpStatusCode.OK, result?.StatusCode);
+
+    Assert.NotNull(vm);
+    Assert.Contains(RequestStatus.SUCCESSFUL.Description(), vm?.RequestStatus);
+    Assert.Contains("Logout successful", vm?.StatusMessage);
+    A.CallTo(() => _logoutUserCommandHandler.DeleteItemAsync(command, TestStringHelper.UserId)).MustHaveHappenedOnceExactly();
+  }
+
+  [Fact]
   public async Task Reset_Password_Resets_Password()
   {
     // Arrange
-    var userEmail = "user-email123@server.com";
+    var userName = "user-email123@server.com";
+    var resetRequestId = "ResetRequestId123";
 
-    var emailMessage = "Password reset email sent successfully";
+    var emailMessage = "Password reset code sent successfully";
     var resetMessage = "Password reset request successful";
 
-    ResetPasswordCommand command = new() { UserEmail = userEmail };
-    ResetPasswordViewModel resetPasswordVM = new() { ResetPasswordDetails = new ResetPasswordDTO { EmailMessage = emailMessage } };
+    ResetPasswordCommand command = new() { UserName = userName };
+    ResetPasswordViewModel resetPasswordVM = new() { ResetPasswordDetails = new ResetPasswordDTO { EmailMessage = emailMessage, ResetRequestId = resetRequestId } };
 
     // Act
     A.CallTo(() => _resetPasswordCommandHandler.CreateItemAsync(command, TestStringHelper.UserId)).Returns(resetPasswordVM);
 
     var controller = GetUserController();
-    controller.UpdateContext(Controllername, addUserId: true, userId: TestStringHelper.UserId);
+    controller.UpdateContext(Controllername, addUserId: true, userId: TestStringHelper.UserId, appName: "test-app");
     var actionResult = await controller.ResetPassword(command);
     var result = actionResult?.Result as ObjectResult;
     var vm = result?.Value as ResetPasswordViewModel;
@@ -244,38 +270,11 @@ public class UserControllerTests
 
     Assert.NotNull(vm);
     Assert.Equal(emailMessage, vm?.ResetPasswordDetails?.EmailMessage);
+    Assert.Equal(resetRequestId, vm?.ResetPasswordDetails?.ResetRequestId);
+    Assert.NotNull(command.RegisteredApp);
 
     Assert.Contains(RequestStatus.SUCCESSFUL.Description(), vm?.RequestStatus);
     Assert.Contains(resetMessage, vm?.StatusMessage);
-  }
-
-  [Fact]
-  public async Task Confirm_Password_Token_Confirm_Password_Token()
-  {
-    // Arrange
-    var confirmUpdatePasswordToken = "ConfirmUpdatePasswordToken";
-    var userId = Guid.NewGuid().ToString();
-
-    ConfirmUpdatePasswordTokenCommand command = new() { ConfirmPasswordToken = confirmUpdatePasswordToken, UserId = userId };
-    ConfirmUpdatePasswordTokenViewModel confirmUpdatePasswordTokenVM = new() { TokenPasswordResult = new ConfirmUpdatePasswordDTO { UpdatePasswordTokenConfirmed = true } };
-
-    // Act
-    A.CallTo(() => _confirmUpdatePasswordTokenCommandHandler.UpdateItemAsync(command, TestStringHelper.UserId)).Returns(confirmUpdatePasswordTokenVM);
-
-    var controller = GetUserController();
-    controller.UpdateContext(Controllername, addUserId: true, userId: TestStringHelper.UserId);
-    var actionResult = await controller.ConfirmPasswordToken(command);
-    var result = actionResult?.Result as ObjectResult;
-    var vm = result?.Value as ConfirmUpdatePasswordTokenViewModel;
-
-    // Assert
-    Assert.Equal((int)HttpStatusCode.OK, result?.StatusCode);
-
-    Assert.NotNull(vm);
-    Assert.True(vm?.TokenPasswordResult?.UpdatePasswordTokenConfirmed);
-
-    Assert.Contains(RequestStatus.SUCCESSFUL.Description(), vm?.RequestStatus);
-    Assert.Contains("Token confirmation successful", vm?.StatusMessage);
   }
 
   [Fact]
@@ -283,11 +282,10 @@ public class UserControllerTests
   {
 
     // Arrange
-    var userId = Guid.NewGuid().ToString();
     var newPassword = "NewPassword123";
-    var passwordresetToken = "PasswordResetToken123";
+    var resetRequestId = "ResetRequestId123";
 
-    UpdatePasswordCommand command = new() { UserId = userId, NewPassword = newPassword, PasswordResetToken = passwordresetToken };
+    UpdatePasswordCommand command = new() { ResetRequestId = resetRequestId, NewPassword = newPassword };
     UpdatePasswordViewModel updatePasswordViewModel = new() { UpdatePasswordResult = new UpdatePasswordDTO { PassWordUpdated = true } };
 
     // Act
@@ -316,8 +314,8 @@ public class UserControllerTests
             _registerUserCommandHandler,
             _loginUserCommandHandler,
             _exchangeRefreshTokenCommandHandler,
+            _logoutUserCommandHandler,
             _resetPasswordCommandHandler,
-            _confirmUpdatePasswordTokenCommandHandler,
             _updatePasswordCommandHandler,
             _registeredAppResolver
     );

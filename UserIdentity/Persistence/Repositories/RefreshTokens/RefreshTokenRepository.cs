@@ -23,4 +23,28 @@ public class RefreshTokenRepository(
 
     return queryCondition.Apply(existingEntity, userId);
   }
+
+  public async Task<RefreshTokenEntity?> GetEntityByPreviousTokenAsync(string userId, string previousToken, CancellationToken cancellationToken = default)
+  {
+    return await _appDbContext.RefreshToken
+        .SingleOrDefaultAsync(e => e.UserId == userId && e.PreviousToken == previousToken, cancellationToken);
+  }
+
+  public async Task RemoveExpiredEntityItemsAsync(string userId, DateTime now, CancellationToken cancellationToken = default)
+  {
+    var expiredEntities = await _appDbContext.RefreshToken
+        .Where(e => e.UserId == userId && e.Expires <= now)
+        .ToListAsync(cancellationToken);
+
+    _appDbContext.RefreshToken.RemoveRange(expiredEntities);
+  }
+
+  public async Task RemoveEntityItemsAsync(string userId, CancellationToken cancellationToken = default)
+  {
+    var existingEntities = await _appDbContext.RefreshToken
+        .Where(e => e.UserId == userId)
+        .ToListAsync(cancellationToken);
+
+    _appDbContext.RefreshToken.RemoveRange(existingEntities);
+  }
 }

@@ -4,8 +4,6 @@ using UserIdentity.Domain.Users;
 
 namespace UserIdentity.Persistence.Repositories.Users;
 
-public interface IUserRepository
-    : IEntityRepository<UserEntity, string>,
-    IItemEntityRepository<UserEntity, string>
+public interface IUserRepository : IEntityRepository<UserEntity, string>
 {
 }

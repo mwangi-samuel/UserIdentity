@@ -21,7 +21,6 @@ public class UserConfigurationTests
     Assert.True(entityType.ConfirmMaxColumnLength(nameof(UserEntity.EmailConfirmationToken), 600));
     Assert.True(entityType.ConfirmMaxColumnLength(nameof(UserEntity.FirstName), 20));
     Assert.True(entityType.ConfirmMaxColumnLength(nameof(UserEntity.LastName), 20));
-    Assert.True(entityType.ConfirmMaxColumnLength(nameof(UserEntity.ForgotPasswordToken), 600));
 
     Assert.True(entityType.ConfirmColumnHasKey(nameof(UserEntity.Id)));
   }
