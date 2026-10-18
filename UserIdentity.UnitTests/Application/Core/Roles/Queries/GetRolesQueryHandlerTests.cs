@@ -41,7 +41,7 @@ public class GetRolesQueryHandlerTests
     GetRolesQueryHandler handler = new(_roleManager);
 
     // Act
-    var vm = await handler.GetItemsAsync(new GetRolesQuery { });
+    var vm = await handler.GetItemsAsync(new GetRolesQuery { }, TestContext.Current.CancellationToken);
 
     // Assert
     Assert.IsType<RolesViewModel>(vm);
@@ -60,7 +60,7 @@ public class GetRolesQueryHandlerTests
     GetRolesQueryHandler handler = new(_roleManager);
 
     // Act
-    var vm = await handler.GetItemsAsync(new GetRolesQuery { });
+    var vm = await handler.GetItemsAsync(new GetRolesQuery { }, TestContext.Current.CancellationToken);
 
     // Assert
     Assert.IsType<RolesViewModel>(vm);

@@ -146,7 +146,7 @@ public class UserControllerTests(
     httpRequest.AddAuthHeader(userToken);
 
     // Act
-    var response = await _httpClient.SendAsync(httpRequest);
+    var response = await _httpClient.SendAsync(httpRequest, TestContext.Current.CancellationToken);
 
     // Assert
     var responseString = await response.ValidateRequestResponseAsync();
@@ -188,7 +188,7 @@ public class UserControllerTests(
     httpRequest.AddAuthHeader(userToken);
 
     // Act
-    var response = await _httpClient.SendAsync(httpRequest);
+    var response = await _httpClient.SendAsync(httpRequest, TestContext.Current.CancellationToken);
 
     // Assert
     var responseString = await response.ValidateRequestResponseAsync();
@@ -358,7 +358,7 @@ public class UserControllerTests(
     {
       kafkaMessage = await _kafkaConsumerHelper.WaitAndConsumeUserUpdatedMessageAsync<MessageEvent>();
       Assert.NotNull(kafkaMessage);
-    });
+    }, TestContext.Current.CancellationToken);
 
     Assert.Equal(userDetails?.Id, kafkaMessage!.CorrelationId);
     Assert.Equal(_registeredApp.AppName, kafkaMessage.RegisteredApp);
@@ -438,7 +438,7 @@ public class UserControllerTests(
     {
       kafkaMessage = await _kafkaConsumerHelper.WaitAndConsumeUserUpdatedMessageAsync<MessageEvent>();
       Assert.NotNull(kafkaMessage);
-    });
+    }, TestContext.Current.CancellationToken);
 
     Assert.Equal(userDetails?.Id, kafkaMessage!.CorrelationId);
     Assert.Equal(_registeredApp.AppName, kafkaMessage.RegisteredApp);
@@ -699,7 +699,7 @@ public class UserControllerTests(
     httpRequest.Content = SerDeHelper.ConvertToHttpContent(requestPayload);
 
     // Act
-    var response = await _httpClient.SendAsync(httpRequest);
+    var response = await _httpClient.SendAsync(httpRequest, TestContext.Current.CancellationToken);
 
     // Assert
     var responseString = await response.ValidateRequestResponseAsync();
@@ -743,7 +743,7 @@ public class UserControllerTests(
     httpRequest.Content = SerDeHelper.ConvertToHttpContent(requestPayload);
 
     // Act
-    var response = await _httpClient.SendAsync(httpRequest);
+    var response = await _httpClient.SendAsync(httpRequest, TestContext.Current.CancellationToken);
 
     // Assert
     var responseString = await response.ValidateRequestResponseAsync();
@@ -786,7 +786,7 @@ public class UserControllerTests(
     httpRequest.Content = SerDeHelper.ConvertToHttpContent(requestPayload);
 
     // Act
-    var response = await _httpClient.SendAsync(httpRequest);
+    var response = await _httpClient.SendAsync(httpRequest, TestContext.Current.CancellationToken);
 
     // Assert
     var responseString = await response.ValidateRequestResponseAsync();
@@ -827,7 +827,7 @@ public class UserControllerTests(
     httpRequest.Content = SerDeHelper.ConvertToHttpContent(requestPayload);
 
     // Act
-    var response = await _httpClient.SendAsync(httpRequest);
+    var response = await _httpClient.SendAsync(httpRequest, TestContext.Current.CancellationToken);
 
     // Assert
     var responseString = await response.ValidateRequestResponseAsync();

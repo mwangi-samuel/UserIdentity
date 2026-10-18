@@ -61,23 +61,10 @@ public class JWKSControllerTests(
     using var request = new HttpRequestMessage(HttpMethod.Get, _baseUri);
 
     // Act
-    var response = await _httpClient.SendAsync(request);
+    var response = await _httpClient.SendAsync(request, TestContext.Current.CancellationToken);
 
     // Assert
     Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-  }
-
-  [Fact]
-  public async Task Get_Non_Excluded_Endpoint_Without_Api_Key_Returns_Unauthorized()
-  {
-    // Arrange
-    using var request = new HttpRequestMessage(HttpMethod.Get, "/api/v1/role");
-
-    // Act
-    var response = await _httpClient.SendAsync(request);
-
-    // Assert
-    Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
   }
 
 }

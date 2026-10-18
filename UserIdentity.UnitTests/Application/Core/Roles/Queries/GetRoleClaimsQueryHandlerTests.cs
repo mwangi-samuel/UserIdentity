@@ -42,7 +42,7 @@ public class GetRoleClaimsQueryHandlerTests
 
 
     // Act & Assert
-    await Assert.ThrowsAsync<NoRecordException>(() => handler.GetItemsAsync(query));
+    await Assert.ThrowsAsync<NoRecordException>(() => handler.GetItemsAsync(query, TestContext.Current.CancellationToken));
   }
 
   [Fact]
@@ -79,7 +79,7 @@ public class GetRoleClaimsQueryHandlerTests
     GetRoleClaimsQueryHandler handler = new(_roleManager, _jwtTokenHandler);
 
     // Act
-    var vm = await handler.GetItemsAsync(query);
+    var vm = await handler.GetItemsAsync(query, TestContext.Current.CancellationToken);
 
     // Assert
     Assert.IsType<RoleClaimsViewModel>(vm);
@@ -119,7 +119,7 @@ public class GetRoleClaimsQueryHandlerTests
     GetRoleClaimsQueryHandler handler = new(_roleManager, _jwtTokenHandler);
 
     // Act
-    var result = await handler.GetItemsAsync(new GetRoleClaimsForRolesQuery { Roles = roles });
+    var result = await handler.GetItemsAsync(new GetRoleClaimsForRolesQuery { Roles = roles }, TestContext.Current.CancellationToken);
 
     // Assert
     Assert.IsType<RoleClaimsForRolesViewModels>(result);

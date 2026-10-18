@@ -1,4 +1,5 @@
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 
 using FakeItEasy;
@@ -48,12 +49,12 @@ public class CreateWaitListCommandHandlerTests
       AppName = "TestApp"
     };
 
-    A.CallTo(() => _waitListRepository.GetEntityDTOByIdAsync(A<long>._)).Returns(expectedDto);
+    A.CallTo(() => _waitListRepository.GetEntityDTOByIdAsync(A<long>._, A<CancellationToken>._)).Returns(expectedDto);
 
     var handler = new CreateWaitListCommandHandler(_unitOfWork, _waitListRepository, _machineDateTime);
 
     // Act
-    var result = await handler.CreateItemAsync(command, TestStringHelper.UserId);
+    var result = await handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken);
 
     // Assert
     Assert.NotNull(result);
@@ -63,8 +64,8 @@ public class CreateWaitListCommandHandlerTests
     Assert.Equal(expectedDto.AppName, result.WaitList.AppName);
 
     A.CallTo(() => _waitListRepository.CreateEntityItem(A<WaitListEntity>._)).MustHaveHappenedOnceExactly();
-    A.CallTo(() => _unitOfWork.SaveChangesAsync(default)).MustHaveHappenedOnceExactly();
-    A.CallTo(() => _waitListRepository.GetEntityDTOByIdAsync(A<long>._)).MustHaveHappenedOnceExactly();
+    A.CallTo(() => _unitOfWork.SaveChangesAsync(A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+    A.CallTo(() => _waitListRepository.GetEntityDTOByIdAsync(A<long>._, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
   }
 
   [Fact]
@@ -84,7 +85,7 @@ public class CreateWaitListCommandHandlerTests
     A.CallTo(() => _waitListRepository.CreateEntityItem(A<WaitListEntity>._))
         .Invokes((WaitListEntity e) => capturedEntity = e);
 
-    A.CallTo(() => _waitListRepository.GetEntityDTOByIdAsync(A<long>._)).Returns(new WaitListDTO
+    A.CallTo(() => _waitListRepository.GetEntityDTOByIdAsync(A<long>._, A<CancellationToken>._)).Returns(new WaitListDTO
     {
       Id = 1,
       UserEmail = command.UserEmail,
@@ -94,7 +95,7 @@ public class CreateWaitListCommandHandlerTests
     var handler = new CreateWaitListCommandHandler(_unitOfWork, _waitListRepository, _machineDateTime);
 
     // Act
-    await handler.CreateItemAsync(command, TestStringHelper.UserId);
+    await handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken);
 
     // Assert
     Assert.NotNull(capturedEntity);

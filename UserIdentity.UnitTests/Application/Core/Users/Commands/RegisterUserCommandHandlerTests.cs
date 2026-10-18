@@ -82,9 +82,9 @@ public class RegisterUserCommandHandlerTests
     _logHelper = A.Fake<ILogHelper<RegisterUserCommandHandler>>();
 
     A.CallTo(() => _googleRecaptchaSettingsOptions.Value).Returns(new GoogleRecaptchaSettings { Enabled = false });
-    A.CallTo(() => _unitOfWork.BeginTransactionAsync()).Returns(Task.CompletedTask);
-    A.CallTo(() => _unitOfWork.CommitTransactionAsync()).Returns(Task.CompletedTask);
-    A.CallTo(() => _unitOfWork.RollbackTransactionAsync()).Returns(Task.CompletedTask);
+    A.CallTo(() => _unitOfWork.BeginTransactionAsync(A<CancellationToken>._)).Returns(Task.CompletedTask);
+    A.CallTo(() => _unitOfWork.CommitTransactionAsync(A<CancellationToken>._)).Returns(Task.CompletedTask);
+    A.CallTo(() => _unitOfWork.RollbackTransactionAsync(A<CancellationToken>._)).Returns(Task.CompletedTask);
     A.CallTo(() => _unitOfWork.SaveChangesAsync(A<CancellationToken>._)).Returns(Task.CompletedTask);
   }
 
@@ -99,7 +99,7 @@ public class RegisterUserCommandHandlerTests
 
     var handler = GetRegisterUserCommandHandler();
 
-    await Assert.ThrowsAsync<RecordCreationException>(() => handler.CreateItemAsync(command, TestStringHelper.UserId));
+    await Assert.ThrowsAsync<RecordCreationException>(() => handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken));
     A.CallTo(() => _roleManager.FindByNameAsync(defaultRole)).MustHaveHappenedOnceExactly();
     A.CallTo(() => _roleManager.CreateAsync(A<IdentityRole>.That.Matches(r => r.Name == defaultRole))).MustHaveHappenedOnceExactly();
   }
@@ -115,7 +115,7 @@ public class RegisterUserCommandHandlerTests
 
     var handler = GetRegisterUserCommandHandler();
 
-    await Assert.ThrowsAsync<RecordExistsException>(() => handler.CreateItemAsync(command, TestStringHelper.UserId));
+    await Assert.ThrowsAsync<RecordExistsException>(() => handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken));
 
     A.CallTo(() => _roleManager.FindByNameAsync(defaultRole.Name!)).MustHaveHappenedOnceExactly();
     A.CallTo(() => _userManager.FindByNameAsync(command.UserName)).MustHaveHappenedOnceExactly();
@@ -133,7 +133,7 @@ public class RegisterUserCommandHandlerTests
 
     var handler = GetRegisterUserCommandHandler();
 
-    await Assert.ThrowsAsync<RecordExistsException>(() => handler.CreateItemAsync(command, TestStringHelper.UserId));
+    await Assert.ThrowsAsync<RecordExistsException>(() => handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken));
 
     A.CallTo(() => _roleManager.FindByNameAsync(defaultRole.Name!)).MustHaveHappenedOnceExactly();
     A.CallTo(() => _userManager.FindByNameAsync(command.UserName)).MustHaveHappenedOnceExactly();
@@ -153,7 +153,7 @@ public class RegisterUserCommandHandlerTests
 
     var handler = GetRegisterUserCommandHandler();
 
-    await Assert.ThrowsAsync<InvalidDataException>(() => handler.CreateItemAsync(command, TestStringHelper.UserId));
+    await Assert.ThrowsAsync<InvalidDataException>(() => handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken));
 
     A.CallTo(() => _roleManager.FindByNameAsync(defaultRole.Name!)).MustHaveHappenedOnceExactly();
     A.CallTo(() => _userManager.FindByNameAsync(command.UserName)).MustHaveHappenedOnceExactly();
@@ -176,7 +176,7 @@ public class RegisterUserCommandHandlerTests
 
     var handler = GetRegisterUserCommandHandler();
 
-    await Assert.ThrowsAsync<RecordCreationException>(() => handler.CreateItemAsync(command, TestStringHelper.UserId));
+    await Assert.ThrowsAsync<RecordCreationException>(() => handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken));
 
     A.CallTo(() => _roleManager.FindByNameAsync(defaultRole.Name!)).MustHaveHappenedOnceExactly();
     A.CallTo(() => _userManager.FindByNameAsync(command.UserName)).MustHaveHappenedOnceExactly();
@@ -211,16 +211,16 @@ public class RegisterUserCommandHandlerTests
     A.CallTo(() => _userManager.AddToRoleAsync(A<IdentityUser>._, defaultRole.Name!)).Returns(IdentityResult.Success);
     A.CallTo(() => _userManager.GenerateEmailConfirmationTokenAsync(A<IdentityUser>._)).Returns("token");
     A.CallTo(() => _userRepository.CreateEntityItem(A<UserEntity>.That.Matches(u => u.FirstName == command.FirstName))).DoesNothing();
-    A.CallTo(() => _getRoleClaimsQueryHandler.GetItemsAsync(A<GetRoleClaimsForRolesQuery>._)).Returns(new RoleClaimsForRolesViewModels { RoleClaims = roleClaims });
+    A.CallTo(() => _getRoleClaimsQueryHandler.GetItemsAsync(A<GetRoleClaimsForRolesQuery>._, A<CancellationToken>._)).Returns(new RoleClaimsForRolesViewModels { RoleClaims = roleClaims });
     A.CallTo(() => _jwtTokenHandler.CreateToken(A<string>._, A<string>._, A<string>._, A<HashSet<string>>._, A<HashSet<string>>._, A<HashSet<Claim>?>._)).Returns((accessToken, expiresIn));
     A.CallTo(() => _tokenFactory.GenerateToken(32)).Returns(refreshToken);
     A.CallTo(() => _refreshTokenRepository.CreateEntityItem(A<RefreshTokenEntity>._)).DoesNothing();
-    A.CallTo(() => _unitOfWork.CommitTransactionAsync()).DoesNothing();
-    A.CallTo(() => _userUpdateEventHandler.HandleEventAsync(A<UserUpdateEvent>.That.Matches(e => e.UserContent.FirstName == command.FirstName))).DoesNothing();
+    A.CallTo(() => _unitOfWork.CommitTransactionAsync(A<CancellationToken>._)).DoesNothing();
+    A.CallTo(() => _userUpdateEventHandler.HandleEventAsync(A<UserUpdateEvent>.That.Matches(e => e.UserContent.FirstName == command.FirstName), CancellationToken.None)).DoesNothing();
 
     var handler = GetRegisterUserCommandHandler();
 
-    var vm = await handler.CreateItemAsync(command, userId!);
+    var vm = await handler.CreateItemAsync(command, userId!, TestContext.Current.CancellationToken);
 
     Assert.NotNull(vm.User);
     Assert.Equal(userId, vm.User.Id);
@@ -241,13 +241,13 @@ public class RegisterUserCommandHandlerTests
     A.CallTo(() => _userManager.AddToRoleAsync(A<IdentityUser>._, defaultRole.Name!)).MustHaveHappenedOnceExactly();
     A.CallTo(() => _userManager.GenerateEmailConfirmationTokenAsync(A<IdentityUser>._)).MustHaveHappenedOnceExactly();
     A.CallTo(() => _userRepository.CreateEntityItem(A<UserEntity>.That.Matches(u => u.FirstName == command.FirstName))).MustHaveHappenedOnceExactly();
-    A.CallTo(() => _getRoleClaimsQueryHandler.GetItemsAsync(A<GetRoleClaimsForRolesQuery>._)).MustHaveHappenedOnceExactly();
+    A.CallTo(() => _getRoleClaimsQueryHandler.GetItemsAsync(A<GetRoleClaimsForRolesQuery>._, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
     A.CallTo(() => _jwtTokenHandler.CreateToken(A<string>._, A<string>._, A<string>._, A<HashSet<string>>._, A<HashSet<string>>._, A<HashSet<Claim>?>._)).MustHaveHappenedOnceExactly();
     A.CallTo(() => _tokenFactory.GenerateToken(32)).MustHaveHappenedOnceExactly();
     A.CallTo(() => _refreshTokenRepository.CreateEntityItem(A<RefreshTokenEntity>._)).MustHaveHappenedOnceExactly();
     A.CallTo(() => _refreshTokenRepository.CreateEntityItem(A<RefreshTokenEntity>.That.Matches(rt => rt.Token == refreshToken))).MustHaveHappenedOnceExactly();
-    A.CallTo(() => _unitOfWork.CommitTransactionAsync()).MustHaveHappenedOnceExactly();
-    A.CallTo(() => _userUpdateEventHandler.HandleEventAsync(A<UserUpdateEvent>.That.Matches(e => e.UserContent.FirstName == command.FirstName))).MustHaveHappenedOnceExactly();
+    A.CallTo(() => _unitOfWork.CommitTransactionAsync(A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+    A.CallTo(() => _userUpdateEventHandler.HandleEventAsync(A<UserUpdateEvent>.That.Matches(e => e.UserContent.FirstName == command.FirstName), CancellationToken.None)).MustHaveHappenedOnceExactly();
   }
 
   [Fact]
@@ -267,7 +267,7 @@ public class RegisterUserCommandHandlerTests
 
     var handler = GetRegisterUserCommandHandler();
 
-    var vm = await handler.CreateItemAsync(command, TestStringHelper.UserId);
+    var vm = await handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken);
 
     Assert.NotNull(vm.User);
     Assert.Equal(command.FirstName, vm.User.FirstName);

@@ -41,7 +41,7 @@ public class GetUserRolesQueryHandlerTests
     GetUserRolesQueryHandler handler = new(_roleManager, _userManager);
 
     // Act
-    var vm = await handler.GetItemsAsync(query);
+    var vm = await handler.GetItemsAsync(query, TestContext.Current.CancellationToken);
 
     // Assert
     Assert.IsType<UserRolesViewModel>(vm);
@@ -67,7 +67,7 @@ public class GetUserRolesQueryHandlerTests
     GetUserRolesQueryHandler handler = new(_roleManager, _userManager);
 
     // Act
-    var vm = await handler.GetItemsAsync(query);
+    var vm = await handler.GetItemsAsync(query, TestContext.Current.CancellationToken);
 
     // Assert
     Assert.IsType<UserRolesViewModel>(vm);
@@ -88,6 +88,6 @@ public class GetUserRolesQueryHandlerTests
     GetUserRolesQueryHandler handler = new(_roleManager, _userManager);
 
     // Act &  Assert
-    await Assert.ThrowsAsync<NoRecordException>(() => handler.GetItemsAsync(query));
+    await Assert.ThrowsAsync<NoRecordException>(() => handler.GetItemsAsync(query, TestContext.Current.CancellationToken));
   }
 }

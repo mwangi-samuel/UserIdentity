@@ -1,11 +1,9 @@
 ﻿using Microsoft.EntityFrameworkCore;
 
 using PolyzenKit.Application.Enums;
-using PolyzenKit.Common.Exceptions;
 using PolyzenKit.Common.Utilities;
 using PolyzenKit.Persistence.Repositories;
 
-using UserIdentity.Common;
 using UserIdentity.Domain.Users;
 
 
@@ -26,12 +24,7 @@ public class UserRepository(
     var existingEntity = await _appDbContext.AppUser
         .SingleOrDefaultAsync(e => e.Id == userId && e.ForgotPasswordToken == forgotPasswordToken, cancellationToken);
 
-    return queryCondition switch
-    {
-      QueryCondition.MUST_EXIST when existingEntity is null => throw new NoRecordException($"User Id: {userId} & Forgot Password Token: {forgotPasswordToken}", EntityTypes.USER.Description()),
-      QueryCondition.MUST_NOT_EXIST when existingEntity is not null => throw new RecordExistsException($"User Id: {userId} & Forgot Password Token: {forgotPasswordToken}", EntityTypes.USER.Description()),
-      _ => existingEntity
-    };
+    return queryCondition.Apply(existingEntity, userId);
   }
 
 }

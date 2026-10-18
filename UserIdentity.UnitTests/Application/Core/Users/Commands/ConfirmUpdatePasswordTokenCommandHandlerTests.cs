@@ -1,4 +1,5 @@
 ﻿using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 using FakeItEasy;
@@ -40,7 +41,7 @@ public class ConfirmUpdatePasswordTokenCommandHandlerTests
     ConfirmUpdatePasswordTokenCommandHandler handler = new(_userRepository);
 
     // Act
-    var vm = await handler.UpdateItemAsync(command, TestStringHelper.UserId);
+    var vm = await handler.UpdateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken);
 
     // Assert
     Assert.IsType<ConfirmUpdatePasswordTokenViewModel>(vm);
@@ -63,12 +64,12 @@ public class ConfirmUpdatePasswordTokenCommandHandlerTests
 
     A.CallTo(() => _userRepository.GetEntityByAlternateIdAsync(
         A<UserEntity>.That.Matches(e => e.Id == command.UserId && e.ForgotPasswordToken == rawToken),
-        QueryCondition.MAY_OR_MAY_NOT_EXIST)).Returns((UserEntity?)null);
+        QueryCondition.MAY_OR_MAY_NOT_EXIST, A<CancellationToken>._)).Returns((UserEntity?)null);
 
     ConfirmUpdatePasswordTokenCommandHandler handler = new(_userRepository);
 
     // Act
-    var vm = await handler.UpdateItemAsync(command, TestStringHelper.UserId);
+    var vm = await handler.UpdateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken);
 
     // Assert
     Assert.IsType<ConfirmUpdatePasswordTokenViewModel>(vm);
@@ -88,12 +89,12 @@ public class ConfirmUpdatePasswordTokenCommandHandlerTests
       UserId = "test"
     };
 
-    A.CallTo(() => _userRepository.GetEntityByAlternateIdAsync(A<UserEntity>._, QueryCondition.MAY_OR_MAY_NOT_EXIST)).Throws(new System.Exception());
+    A.CallTo(() => _userRepository.GetEntityByAlternateIdAsync(A<UserEntity>._, QueryCondition.MAY_OR_MAY_NOT_EXIST, A<CancellationToken>._)).Throws(new System.Exception());
 
     ConfirmUpdatePasswordTokenCommandHandler handler = new(_userRepository);
 
     // Act
-    var vm = await handler.UpdateItemAsync(command, TestStringHelper.UserId);
+    var vm = await handler.UpdateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken);
 
     // Assert
     Assert.IsType<ConfirmUpdatePasswordTokenViewModel>(vm);
@@ -115,12 +116,12 @@ public class ConfirmUpdatePasswordTokenCommandHandlerTests
 
     A.CallTo(() => _userRepository.GetEntityByAlternateIdAsync(
         A<UserEntity>.That.Matches(e => e.Id == command.UserId && e.ForgotPasswordToken == rawToken),
-        QueryCondition.MAY_OR_MAY_NOT_EXIST)).Returns(new UserEntity { Id = command.UserId, ForgotPasswordToken = rawToken });
+        QueryCondition.MAY_OR_MAY_NOT_EXIST, A<CancellationToken>._)).Returns(new UserEntity { Id = command.UserId, ForgotPasswordToken = rawToken });
 
     ConfirmUpdatePasswordTokenCommandHandler handler = new(_userRepository);
 
     // Act
-    var vm = await handler.UpdateItemAsync(command, TestStringHelper.UserId);
+    var vm = await handler.UpdateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken);
 
     // Assert
     Assert.IsType<ConfirmUpdatePasswordTokenViewModel>(vm);

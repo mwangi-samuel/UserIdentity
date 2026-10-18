@@ -35,7 +35,7 @@ public class CreateRoleCommandHandlerTests
     CreateRoleCommandHandler handler = new(_roleManager);
 
     // Act & Assert
-    await Assert.ThrowsAsync<RecordExistsException>(() => handler.CreateItemAsync(command, TestStringHelper.UserId));
+    await Assert.ThrowsAsync<RecordExistsException>(() => handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken));
   }
 
   [Fact]
@@ -51,7 +51,7 @@ public class CreateRoleCommandHandlerTests
     CreateRoleCommandHandler handler = new(_roleManager);
 
     // Act & Assert
-    await Assert.ThrowsAsync<RecordCreationException>(() => handler.CreateItemAsync(command, TestStringHelper.UserId));
+    await Assert.ThrowsAsync<RecordCreationException>(() => handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken));
   }
 
   [Fact]
@@ -66,7 +66,7 @@ public class CreateRoleCommandHandlerTests
     CreateRoleCommandHandler handler = new(_roleManager);
 
     // Act
-    var vm = await handler.CreateItemAsync(command, TestStringHelper.UserId);
+    var vm = await handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken);
 
     // Assert
     Assert.IsType<RoleViewModel>(vm);

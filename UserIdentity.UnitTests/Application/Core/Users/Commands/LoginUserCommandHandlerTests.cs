@@ -77,7 +77,7 @@ public class LoginUserCommandHandlerTests
     var handler = GetLoginUserCommandHandler();
 
     // Act & Assert
-    await Assert.ThrowsAsync<InvalidCredentialException>(() => handler.CreateItemAsync(command, TestStringHelper.UserId));
+    await Assert.ThrowsAsync<InvalidCredentialException>(() => handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken));
   }
 
 
@@ -101,7 +101,7 @@ public class LoginUserCommandHandlerTests
     var handler = GetLoginUserCommandHandler();
 
     // Act & Assert
-    await Assert.ThrowsAsync<InvalidCredentialException>(() => handler.CreateItemAsync(command, TestStringHelper.UserId));
+    await Assert.ThrowsAsync<InvalidCredentialException>(() => handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken));
   }
 
   [Fact]
@@ -121,13 +121,13 @@ public class LoginUserCommandHandlerTests
 
     A.CallTo(() => _userManager.CheckPasswordAsync(existingIdentityUser, command.Password)).Returns(true);
 
-    A.CallTo(() => _getUserQueryHandler.GetItemAsync(A<GetUserQuery>.That.Matches(q => q.UserId == existingIdentityUser.Id)))
+    A.CallTo(() => _getUserQueryHandler.GetItemAsync(A<GetUserQuery>.That.Matches(q => q.UserId == existingIdentityUser.Id), A<CancellationToken>._))
         .Throws(new NoRecordException(existingIdentityUser.Id, "User"));
 
     var handler = GetLoginUserCommandHandler();
 
     // Act & Assert
-    await Assert.ThrowsAsync<InvalidCredentialException>(() => handler.CreateItemAsync(command, TestStringHelper.UserId));
+    await Assert.ThrowsAsync<InvalidCredentialException>(() => handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken));
   }
 
   [Fact]
@@ -161,7 +161,7 @@ public class LoginUserCommandHandlerTests
     A.CallTo(() => _userManager.FindByEmailAsync(command.UserName)).Returns(existingIdentityUser);
 
     A.CallTo(() => _userManager.CheckPasswordAsync(existingIdentityUser, command.Password)).Returns(true);
-    A.CallTo(() => _getUserQueryHandler.GetItemAsync(A<GetUserQuery>.That.Matches(q => q.UserId == existingIdentityUser.Id)))
+    A.CallTo(() => _getUserQueryHandler.GetItemAsync(A<GetUserQuery>.That.Matches(q => q.UserId == existingIdentityUser.Id), A<CancellationToken>._))
         .Returns(new UserViewModel { User = userDto });
 
     A.CallTo(() => _tokenFactory.GenerateToken(32)).Returns(refreshToken);
@@ -171,7 +171,7 @@ public class LoginUserCommandHandlerTests
     var handler = GetLoginUserCommandHandler();
 
     // Act 
-    var vm = await handler.CreateItemAsync(command, TestStringHelper.UserId);
+    var vm = await handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken);
 
     // Assert
     Assert.IsType<AuthUserViewModel>(vm);

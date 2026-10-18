@@ -37,9 +37,8 @@ builder.Services.AddAppControllers(builder.Configuration);
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// Utilities - Time, String, Log
+// Utilities - Time, Log
 builder.Services.AddAppDateTimeHelpers();
-builder.Services.AddAppStringHelpers();
 builder.Services.AddAppLogHelpers();
 
 // Authentication Identity

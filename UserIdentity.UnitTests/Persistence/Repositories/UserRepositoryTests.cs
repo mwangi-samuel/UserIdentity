@@ -24,9 +24,9 @@ public class UserRepositoryTests
     var newUser = BuildUser();
 
     repository.CreateEntityItem(newUser);
-    await context.SaveChangesAsync();
+    await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
-    var saved = await context.AppUser.SingleOrDefaultAsync(x => x.Id == newUser.Id);
+    var saved = await context.AppUser.SingleOrDefaultAsync(x => x.Id == newUser.Id, cancellationToken: TestContext.Current.CancellationToken);
     Assert.NotNull(saved);
     Assert.Equal(newUser.FirstName, saved!.FirstName);
   }
@@ -39,9 +39,9 @@ public class UserRepositoryTests
     var newUser = BuildUser();
 
     context.AppUser.Add(newUser);
-    await context.SaveChangesAsync();
+    await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
-    var result = await repository.GetEntityItemAsync(newUser.Id);
+    var result = await repository.GetEntityItemAsync(newUser.Id, TestContext.Current.CancellationToken);
     Assert.NotNull(result);
     Assert.Equal(newUser.Id, result!.Id);
   }
@@ -55,13 +55,13 @@ public class UserRepositoryTests
     newUser.ForgotPasswordToken = StringUtil.GenerateRandomString(64);
 
     context.AppUser.Add(newUser);
-    await context.SaveChangesAsync();
+    await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
     var result = await repository.GetEntityByAlternateIdAsync(new UserEntity
     {
       Id = newUser.Id,
       ForgotPasswordToken = newUser.ForgotPasswordToken
-    }, QueryCondition.MUST_EXIST);
+    }, QueryCondition.MUST_EXIST, TestContext.Current.CancellationToken);
 
     Assert.NotNull(result);
     Assert.Equal(newUser.Id, result!.Id);
@@ -76,7 +76,7 @@ public class UserRepositoryTests
     {
       Id = Guid.NewGuid().ToString(),
       ForgotPasswordToken = StringUtil.GenerateRandomString(32)
-    }, QueryCondition.MUST_EXIST));
+    }, QueryCondition.MUST_EXIST, TestContext.Current.CancellationToken));
   }
 
   [Fact]
@@ -88,13 +88,13 @@ public class UserRepositoryTests
     newUser.ForgotPasswordToken = StringUtil.GenerateRandomString(64);
 
     context.AppUser.Add(newUser);
-    await context.SaveChangesAsync();
+    await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
     await Assert.ThrowsAsync<RecordExistsException>(() => repository.GetEntityByAlternateIdAsync(new UserEntity
     {
       Id = newUser.Id,
       ForgotPasswordToken = newUser.ForgotPasswordToken
-    }, QueryCondition.MUST_NOT_EXIST));
+    }, QueryCondition.MUST_NOT_EXIST, TestContext.Current.CancellationToken));
   }
 
   [Fact]
@@ -105,13 +105,13 @@ public class UserRepositoryTests
     var newUser = BuildUser();
 
     context.AppUser.Add(newUser);
-    await context.SaveChangesAsync();
+    await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
     newUser.FirstName = "Updated";
     repository.UpdateEntityItem(newUser);
-    await context.SaveChangesAsync();
+    await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
-    var saved = await context.AppUser.SingleAsync(x => x.Id == newUser.Id);
+    var saved = await context.AppUser.SingleAsync(x => x.Id == newUser.Id, cancellationToken: TestContext.Current.CancellationToken);
     Assert.Equal("Updated", saved.FirstName);
   }
 

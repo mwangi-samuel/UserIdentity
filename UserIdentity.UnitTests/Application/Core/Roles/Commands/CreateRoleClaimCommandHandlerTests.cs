@@ -46,7 +46,7 @@ public class CreateRoleClaimCommandHandlerTests
     CreateRoleClaimCommandHandler handler = new(_roleManager, _jwtTokenHandler);
 
     // Act & Assert
-    await Assert.ThrowsAsync<NoRecordException>(() => handler.CreateItemAsync(command, TestStringHelper.UserId));
+    await Assert.ThrowsAsync<NoRecordException>(() => handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken));
   }
 
   [Fact]
@@ -77,7 +77,7 @@ public class CreateRoleClaimCommandHandlerTests
     CreateRoleClaimCommandHandler handler = new(_roleManager, _jwtTokenHandler);
 
     // Act & Assert
-    await Assert.ThrowsAsync<RecordExistsException>(() => handler.CreateItemAsync(command, TestStringHelper.UserId));
+    await Assert.ThrowsAsync<RecordExistsException>(() => handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken));
   }
 
   [Fact]
@@ -109,7 +109,7 @@ public class CreateRoleClaimCommandHandlerTests
     CreateRoleClaimCommandHandler handler = new(_roleManager, _jwtTokenHandler);
 
     // Act & Assert
-    await Assert.ThrowsAsync<RecordCreationException>(() => handler.CreateItemAsync(command, TestStringHelper.UserId));
+    await Assert.ThrowsAsync<RecordCreationException>(() => handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken));
   }
 
   [Fact]
@@ -141,7 +141,7 @@ public class CreateRoleClaimCommandHandlerTests
     CreateRoleClaimCommandHandler handler = new(_roleManager, _jwtTokenHandler);
 
     // Act
-    var vm = await handler.CreateItemAsync(command, TestStringHelper.UserId);
+    var vm = await handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken);
 
     // Assert
     Assert.IsType<RoleClaimViewModel>(vm);
