@@ -39,7 +39,7 @@ public class UpdateRoleCommandHandlerTests
     UpdateRoleCommandHandler handler = new(_roleManager);
 
     // Act& Assert
-    await Assert.ThrowsAsync<NoRecordException>(() => handler.UpdateItemAsync(command, TestStringHelper.UserId));
+    await Assert.ThrowsAsync<NoRecordException>(() => handler.UpdateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken));
   }
 
   [Fact]
@@ -65,7 +65,7 @@ public class UpdateRoleCommandHandlerTests
     UpdateRoleCommandHandler handler = new(_roleManager);
 
     // Act& Assert
-    await Assert.ThrowsAsync<RecordUpdateException>(() => handler.UpdateItemAsync(command, TestStringHelper.UserId));
+    await Assert.ThrowsAsync<RecordUpdateException>(() => handler.UpdateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken));
   }
 
   [Fact]
@@ -91,7 +91,7 @@ public class UpdateRoleCommandHandlerTests
     UpdateRoleCommandHandler handler = new(_roleManager);
 
     // Act
-    var vm = await handler.UpdateItemAsync(command, TestStringHelper.UserId);
+    var vm = await handler.UpdateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken);
 
     // Assert
     Assert.IsType<RoleViewModel>(vm);

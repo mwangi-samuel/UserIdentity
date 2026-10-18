@@ -968,7 +968,7 @@ public class RoleControllerTests(
 
     // Act
     var response = await _httpClient.SendValidAuthRequestAsync(HttpMethod.Post, _baseUri + "/user", requestPayload);
-    await response.Content.ReadAsStringAsync();
+    await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
 
     // Assert
     var responseString = await response.ValidateRequestResponseAsync();
