@@ -15,6 +15,7 @@ using PolyzenKit.Application.Interfaces;
 using PolyzenKit.Common.Enums;
 using PolyzenKit.Common.Exceptions;
 using PolyzenKit.Common.Utilities;
+using PolyzenKit.Domain.DTO;
 using PolyzenKit.Domain.Entity;
 using PolyzenKit.Domain.RegisteredApps;
 using PolyzenKit.Infrastructure.Security.Jwt;
@@ -24,6 +25,7 @@ using PolyzenKit.Presentation.Settings;
 
 using UserIdentity.Application.Core.Roles.Queries;
 using UserIdentity.Application.Core.Roles.ViewModels;
+using UserIdentity.Application.Core.Tokens.Settings;
 using UserIdentity.Application.Core.Tokens.ViewModels;
 using UserIdentity.Application.Core.Users.Events;
 using UserIdentity.Application.Core.Users.Settings;
@@ -78,6 +80,7 @@ public record RegisterUserCommand : IBaseCommand
 public class RegisterUserCommandHandler(
     IOptions<RoleSettings> roleSettingsOptions,
     IOptions<IdentityOptions> identityOptions,
+    IOptions<RefreshTokenSettings> refreshTokenSettingsOptions,
     UserManager<IdentityUser> userManager,
     RoleManager<IdentityRole> roleManager,
     IUnitOfWork unitOfWork,
@@ -97,6 +100,7 @@ public class RegisterUserCommandHandler(
 {
   private readonly RoleSettings _roleSettings = roleSettingsOptions.Value;
   private readonly IdentityOptions _identityOptions = identityOptions.Value;
+  private readonly RefreshTokenSettings _refreshTokenSettings = refreshTokenSettingsOptions.Value;
   private readonly UserManager<IdentityUser> _userManager = userManager;
   private readonly RoleManager<IdentityRole> _roleManager = roleManager;
 
@@ -142,7 +146,7 @@ public class RegisterUserCommandHandler(
     // Check if invite code is required for current app
     var inviteCodeRequired = command.RegisteredApp?.RequireInviteCode ?? false;
 
-    InviteCodeEntity inviteCodeEntity;
+    InviteCodeEntity? inviteCodeEntity = null;
 
     if (inviteCodeRequired)
     {
@@ -156,10 +160,6 @@ public class RegisterUserCommandHandler(
 
       if (!string.Equals(command.InviteCode, inviteCodeEntity.InviteCode, StringComparison.OrdinalIgnoreCase) || inviteCodeEntity.Applied)
         throw new InvalidDataException("A valid invite code is required when signing up.");
-
-      inviteCodeEntity.Applied = true;
-
-      _inviteCodeRepository.UpdateEntityItem(inviteCodeEntity); // No worries - we are using a db transaction
     }
 
     //  Check if default role is created otherwise create 
@@ -218,6 +218,15 @@ public class RegisterUserCommandHandler(
 
       _userRepository.CreateEntityItem(userDetails);
 
+      // Mark the invite code as applied by the new user
+      if (inviteCodeEntity != null)
+      {
+        inviteCodeEntity.Applied = true;
+        inviteCodeEntity.UpdateEntityAuditFields(newUser.Id, _machineDateTime.Now);
+
+        _inviteCodeRepository.UpdateEntityItem(inviteCodeEntity); // No worries - we are using a db transaction
+      }
+
       // Create User Registered App Mapping
       var userRegisteredApp = new UserRegisteredAppEntity
       {
@@ -251,8 +260,8 @@ public class RegisterUserCommandHandler(
         var userRefreshToken = new RefreshTokenEntity
         {
           UserId = newUser.Id,
-          Expires = _machineDateTime.Now.AddSeconds(expiresIn),
-          Token = refreshToken
+          Expires = _machineDateTime.Now.AddSeconds(_refreshTokenSettings.ValidForSeconds),
+          Token = _tokenFactory.HashToken(refreshToken)
         };
 
         userRefreshToken.SetEntityAuditFields(newUser.Id, _machineDateTime.Now);
@@ -278,23 +287,23 @@ public class RegisterUserCommandHandler(
       _ = HandleEventAsync(userDetails, newUser, command.RegisteredApp, command.RequestSource);
 
       // Return registration results
+      var userDto = new UserDTO
+      {
+        Id = newUser.Id,
+        UserName = newUser.UserName,
+        FirstName = userDetails.FirstName,
+        LastName = userDetails.LastName,
+        Email = newUser.Email,
+        PhoneNumber = newUser.PhoneNumber,
+        Roles = [.. userRoles],
+        RoleClaims = roleClaimsVm.RoleClaims
+      };
+
+      userDto.SetDTOAuditFields(userDetails);
+
       return new AuthUserViewModel
       {
-        User = new UserDTO
-        {
-          Id = newUser.Id,
-          UserName = newUser.UserName,
-          FirstName = userDetails.FirstName,
-          LastName = userDetails.LastName,
-          Email = newUser.Email,
-          PhoneNumber = newUser.PhoneNumber,
-          Roles = [.. userRoles],
-          RoleClaims = roleClaimsVm.RoleClaims,
-          CreatedAt = userDetails.CreatedAt,
-          CreatedBy = userDetails.CreatedBy,
-          UpdatedAt = userDetails.UpdatedAt,
-          UpdatedBy = userDetails.UpdatedBy
-        },
+        User = userDto,
         IsConfirmed = isConfirmed,
         UserToken = userToken
       };

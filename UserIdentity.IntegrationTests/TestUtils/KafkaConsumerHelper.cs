@@ -5,6 +5,7 @@ using Confluent.Kafka;
 
 using Microsoft.Extensions.Configuration;
 
+using PolyzenKit.Application.Core.Messages.Events;
 using PolyzenKit.Infrastructure.Kafka;
 
 namespace UserIdentity.IntegrationTests.TestUtils;
@@ -32,5 +33,19 @@ public sealed class KafkaConsumerHelper
   public async Task<T?> WaitAndConsumeUserUpdatedMessageAsync<T>()
   {
     return await WaitAndConsumeMessageAsync<T>(_kafkaSettings.ProducerTopics!["UserUpdated"]);
+  }
+
+  // Skips messages produced by other tests
+  public async Task<MessageEvent?> WaitAndConsumeUserUpdatedMessageAsync(string correlationId, int maxMessages = 20)
+  {
+    for (var i = 0; i < maxMessages; i++)
+    {
+      var message = await WaitAndConsumeUserUpdatedMessageAsync<MessageEvent>();
+
+      if (message is null || message.CorrelationId == correlationId)
+        return message;
+    }
+
+    return null;
   }
 }

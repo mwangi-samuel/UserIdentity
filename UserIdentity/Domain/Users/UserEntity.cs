@@ -9,6 +9,4 @@ public class UserEntity : BaseAuditableEntity<string>
   public string? LastName { get; internal set; }
 
   public string? EmailConfirmationToken { get; internal set; }
-
-  public string? ForgotPasswordToken { get; internal set; }
 }

@@ -414,9 +414,12 @@
 									"    pm.expect(response.resetPasswordDetails).to.not.be.null;\r",
 									"    const resetPasswordDetails = response.resetPasswordDetails\r",
 									"    pm.expect(resetPasswordDetails.emailMessage).to.not.be.null;\r",
+									"    pm.expect(resetPasswordDetails.resetRequestId).to.not.be.null;\r",
 									"\r",
 									"    pm.expect(response.requestStatus).to.be.eql(\"Request Successful\");\r",
 									"    pm.expect(response.statusMessage).to.be.eql(\"Password reset request successful\");\r",
+									"\r",
+									"    pm.environment.set(\"password_reset_request_id\", resetPasswordDetails.resetRequestId);\r",
 									"});"
 								],
 								"type": "text/javascript",
@@ -426,10 +429,15 @@
 					],
 					"request": {
 						"method": "POST",
-						"header": [],
+						"header": [
+							{
+								"key": "X-App-Name",
+								"value": "{{app_name}}"
+							}
+						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\r\n    \"userEmail\": \"{{user_email}}\"\r\n}",
+							"raw": "{\r\n    \"userName\": \"{{user_email}}\"\r\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -446,6 +454,56 @@
 								"reset-password"
 							]
 						}
+					},
+					"response": []
+				},
+				{
+					"name": "Update Password",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Update Password - Status is 200\", ()=>{\r",
+									"    pm.response.to.have.status(200);\r",
+									"    const response = pm.response.json();\r",
+									"    pm.expect(response.updatePasswordResult.passWordUpdated).to.be.true;\r",
+									"\r",
+									"    pm.expect(response.requestStatus).to.be.eql(\"Request Successful\");\r",
+									"    pm.expect(response.statusMessage).to.be.eql(\"Password updated successfully\");\r",
+									"});"
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"resetRequestId\": \"{{password_reset_request_id}}\",\r\n    \"newPassword\": \"{{new_password}}\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{user_identity_base_url}}/user/update-password",
+							"host": [
+								"{{user_identity_base_url}}"
+							],
+							"path": [
+								"user",
+								"update-password"
+							]
+						},
+						"description": "Send after the user has confirmed the code they received with MessageManager's `/verify` (correlationId: the reset request id, relatedAction: PASSWORD_RESET). Returns 406 until UserIdentity has received that verification."
 					},
 					"response": []
 				}
@@ -508,6 +566,59 @@
 							"path": [
 								"user",
 								"refresh-token"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Logout",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Logout - Status is 200\", ()=>{\r",
+									"    pm.response.to.have.status(200);\r",
+									"    const response = pm.response.json();\r",
+									"\r",
+									"    pm.expect(response.requestStatus).to.be.eql(\"Request Successful\");\r",
+									"    pm.expect(response.statusMessage).to.be.eql(\"Logout successful\");\r",
+									"});"
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{user_access_token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"refreshToken\": \"{{user_refresh_token}}\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{user_identity_base_url}}/user/logout",
+							"host": [
+								"{{user_identity_base_url}}"
+							],
+							"path": [
+								"user",
+								"logout"
 							]
 						}
 					},

@@ -8,6 +8,7 @@ using PolyzenKit.Domain.AppEntities;
 using PolyzenKit.Domain.RegisteredApps;
 
 using UserIdentity.Domain.InviteCodes;
+using UserIdentity.Domain.PasswordResets;
 using UserIdentity.Domain.RefreshTokens;
 using UserIdentity.Domain.UserRegisteredApps;
 using UserIdentity.Domain.Users;
@@ -39,6 +40,7 @@ public class AppDbContextTests
     Assert.Equal(entityPrefix + "user_registered_apps", entityTypes.Where(e => e.DisplayName() == nameof(UserRegisteredAppEntity)).FirstOrDefault()?.GetTableName());
     Assert.Equal(entityPrefix + "wait_lists", entityTypes.Where(e => e.DisplayName() == nameof(WaitListEntity)).FirstOrDefault()?.GetTableName());
     Assert.Equal(entityPrefix + "invite_codes", entityTypes.Where(e => e.DisplayName() == nameof(InviteCodeEntity)).FirstOrDefault()?.GetTableName());
+    Assert.Equal(entityPrefix + "password_resets", entityTypes.Where(e => e.DisplayName() == nameof(PasswordResetEntity)).FirstOrDefault()?.GetTableName());
 
     Assert.Equal(entityPrefix + "users", entityTypes.Where(e => e.DisplayName() == nameof(IdentityUser)).FirstOrDefault()?.GetTableName());
     Assert.Equal(entityPrefix + "roles", entityTypes.Where(e => e.DisplayName() == nameof(IdentityRole)).FirstOrDefault()?.GetTableName());
