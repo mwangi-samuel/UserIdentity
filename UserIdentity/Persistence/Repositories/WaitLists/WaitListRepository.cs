@@ -25,13 +25,7 @@ public class WaitListRepository(
       .Include(e => e.App)
       .SingleOrDefaultAsync(e => e.UserEmail == userEmail, cancellationToken);
 
-    return queryCondition switch
-    {
-      QueryCondition.MUST_EXIST when existingEntity == null => throw new NoRecordException(userEmail, nameof(WaitListEntity)),
-      QueryCondition.MUST_NOT_EXIST when existingEntity != null => throw new RecordExistsException(userEmail, nameof(WaitListEntity)),
-      _ => existingEntity
-    };
-
+    return queryCondition.Apply(existingEntity, userEmail);
   }
 
   public async Task<WaitListDTO> GetEntityDTOByIdAsync(long id, CancellationToken cancellationToken = default)

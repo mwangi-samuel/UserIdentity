@@ -44,6 +44,6 @@ public class MessageManagerUserUpdatedKafkaMessageConsumerTests(
       var updatedUser = _testDbHelper.GetIdentityUserWithNoTracking(user.Id);
       Assert.NotNull(updatedUser);
       Assert.True(updatedUser.EmailConfirmed);
-    });
+    }, TestContext.Current.CancellationToken);
   }
 }

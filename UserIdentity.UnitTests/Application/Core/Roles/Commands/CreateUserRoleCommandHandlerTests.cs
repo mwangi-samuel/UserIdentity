@@ -1,4 +1,5 @@
-﻿using System.Threading.Tasks;
+﻿using System.Threading;
+using System.Threading.Tasks;
 
 using FakeItEasy;
 
@@ -40,7 +41,7 @@ public class CreateUserRoleCommandHandlerTests
     CreateUserRoleCommandHandler handler = new(_roleManager, _userManager, _getUserRolesQueryHandler);
 
     // Act & Assert
-    await Assert.ThrowsAsync<NoRecordException>(() => handler.CreateItemAsync(command, TestStringHelper.UserId));
+    await Assert.ThrowsAsync<NoRecordException>(() => handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken));
   }
 
   [Fact]
@@ -54,7 +55,7 @@ public class CreateUserRoleCommandHandlerTests
     CreateUserRoleCommandHandler handler = new(_roleManager, _userManager, _getUserRolesQueryHandler);
 
     // Act & Assert
-    await Assert.ThrowsAsync<NoRecordException>(() => handler.CreateItemAsync(command, TestStringHelper.UserId));
+    await Assert.ThrowsAsync<NoRecordException>(() => handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken));
   }
 
   [Fact]
@@ -71,7 +72,7 @@ public class CreateUserRoleCommandHandlerTests
     CreateUserRoleCommandHandler handler = new(_roleManager, _userManager, _getUserRolesQueryHandler);
 
     // Act & Assert
-    await Assert.ThrowsAsync<RecordExistsException>(() => handler.CreateItemAsync(command, TestStringHelper.UserId));
+    await Assert.ThrowsAsync<RecordExistsException>(() => handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken));
   }
 
   [Fact]
@@ -88,7 +89,7 @@ public class CreateUserRoleCommandHandlerTests
     CreateUserRoleCommandHandler handler = new(_roleManager, _userManager, _getUserRolesQueryHandler);
 
     // Act & Assert
-    await Assert.ThrowsAsync<RecordCreationException>(() => handler.CreateItemAsync(command, TestStringHelper.UserId));
+    await Assert.ThrowsAsync<RecordCreationException>(() => handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken));
   }
 
   [Fact]
@@ -102,12 +103,12 @@ public class CreateUserRoleCommandHandlerTests
     A.CallTo(() => _roleManager.FindByIdAsync(command.RoleId)).Returns(existingRole);
     A.CallTo(() => _userManager.IsInRoleAsync(A<IdentityUser>.That.Matches(u => u.Id == command.UserId), existingRole.Name)).Returns(Task.FromResult(false));
     A.CallTo(() => _userManager.AddToRoleAsync(A<IdentityUser>.That.Matches(u => u.Id == command.UserId), existingRole.Name)).Returns(Task.FromResult(IdentityResult.Success));
-    A.CallTo(() => _getUserRolesQueryHandler.GetItemsAsync(A<GetUserRolesQuery>.That.Matches(q => q.UserId == command.UserId))).Returns(new UserRolesViewModel { UserRoles = ["Admin"] });
+    A.CallTo(() => _getUserRolesQueryHandler.GetItemsAsync(A<GetUserRolesQuery>.That.Matches(q => q.UserId == command.UserId), A<CancellationToken>._)).Returns(new UserRolesViewModel { UserRoles = ["Admin"] });
 
     CreateUserRoleCommandHandler handler = new(_roleManager, _userManager, _getUserRolesQueryHandler);
 
     // Act
-    var result = await handler.CreateItemAsync(command, TestStringHelper.UserId);
+    var result = await handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken);
 
     // Assert
     Assert.NotNull(result);

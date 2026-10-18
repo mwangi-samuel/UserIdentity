@@ -1,4 +1,5 @@
 ﻿using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 
 using FakeItEasy;
@@ -49,7 +50,7 @@ public class GetUserQueryHandlerTests
     GetUserQueryHandler handler = new(_userManager, _userRepository, _getRoleClaimsQueryHandler);
 
     // Act & Assert
-    await Assert.ThrowsAsync<NoRecordException>(() => handler.GetItemAsync(query));
+    await Assert.ThrowsAsync<NoRecordException>(() => handler.GetItemAsync(query, TestContext.Current.CancellationToken));
   }
 
   [Fact]
@@ -70,12 +71,12 @@ public class GetUserQueryHandlerTests
     };
 
     A.CallTo(() => _userManager.FindByIdAsync(query.UserId)).Returns(existingIdentityUser);
-    A.CallTo(() => _userRepository.GetEntityItemAsync(query.UserId)).Throws(new NoRecordException(query.UserId, "User"));
+    A.CallTo(() => _userRepository.GetEntityItemAsync(query.UserId, A<CancellationToken>._)).Throws(new NoRecordException(query.UserId, "User"));
 
     GetUserQueryHandler handler = new(_userManager, _userRepository, _getRoleClaimsQueryHandler);
 
     // Act & Assert
-    await Assert.ThrowsAsync<NoRecordException>(() => handler.GetItemAsync(query));
+    await Assert.ThrowsAsync<NoRecordException>(() => handler.GetItemAsync(query, TestContext.Current.CancellationToken));
   }
 
   [Fact]
@@ -103,15 +104,15 @@ public class GetUserQueryHandlerTests
     };
 
     A.CallTo(() => _userManager.FindByIdAsync(query.UserId)).Returns(existingIdentityUser);
-    A.CallTo(() => _userRepository.GetEntityItemAsync(query.UserId)).Returns(existingUser);
+    A.CallTo(() => _userRepository.GetEntityItemAsync(query.UserId, A<CancellationToken>._)).Returns(existingUser);
     A.CallTo(() => _userManager.GetRolesAsync(existingIdentityUser)).Returns(["admin"]);
-    A.CallTo(() => _getRoleClaimsQueryHandler.GetItemsAsync(A<GetRoleClaimsForRolesQuery>.That.Matches(q => q.Roles.Contains("admin"))))
+    A.CallTo(() => _getRoleClaimsQueryHandler.GetItemsAsync(A<GetRoleClaimsForRolesQuery>.That.Matches(q => q.Roles.Contains("admin")), A<CancellationToken>._))
         .Returns(new RoleClaimsForRolesViewModels { RoleClaims = ["scope:user:read"] });
 
     GetUserQueryHandler handler = new(_userManager, _userRepository, _getRoleClaimsQueryHandler);
 
     // Act 
-    var vm = await handler.GetItemAsync(query);
+    var vm = await handler.GetItemAsync(query, TestContext.Current.CancellationToken);
 
     // Assert
     Assert.IsType<UserViewModel>(vm);

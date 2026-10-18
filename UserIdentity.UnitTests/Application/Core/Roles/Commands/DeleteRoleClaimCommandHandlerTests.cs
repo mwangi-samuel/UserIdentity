@@ -43,7 +43,7 @@ public class DeleteRoleClaimCommandHandlerTests
     DeleteRoleClaimCommandHandler handler = new(_roleManager, _jwtTokenHandler);
 
     // Act & Assert
-    await Assert.ThrowsAsync<NoRecordException>(() => handler.DeleteItemAsync(command, TestStringHelper.UserId));
+    await Assert.ThrowsAsync<NoRecordException>(() => handler.DeleteItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken));
   }
 
   [Fact]
@@ -79,7 +79,7 @@ public class DeleteRoleClaimCommandHandlerTests
     DeleteRoleClaimCommandHandler handler = new(_roleManager, _jwtTokenHandler);
 
     // Act & Assert
-    await Assert.ThrowsAsync<NoRecordException>(() => handler.DeleteItemAsync(command, TestStringHelper.UserId));
+    await Assert.ThrowsAsync<NoRecordException>(() => handler.DeleteItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken));
   }
 
   [Fact]
@@ -117,7 +117,7 @@ public class DeleteRoleClaimCommandHandlerTests
     DeleteRoleClaimCommandHandler handler = new(_roleManager, _jwtTokenHandler);
 
     // Act & Assert
-    await Assert.ThrowsAsync<RecordDeletionException>(() => handler.DeleteItemAsync(command, TestStringHelper.UserId));
+    await Assert.ThrowsAsync<RecordDeletionException>(() => handler.DeleteItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken));
   }
 
   [Fact]
@@ -155,7 +155,7 @@ public class DeleteRoleClaimCommandHandlerTests
     DeleteRoleClaimCommandHandler handler = new(_roleManager, _jwtTokenHandler);
 
     // Act 
-    var vm = await handler.DeleteItemAsync(command, TestStringHelper.UserId);
+    var vm = await handler.DeleteItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken);
 
     // Assert
     Assert.IsType<DeleteRecordViewModel>(vm);

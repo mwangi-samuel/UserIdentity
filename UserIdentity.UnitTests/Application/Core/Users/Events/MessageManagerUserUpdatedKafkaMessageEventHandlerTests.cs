@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 
 using FakeItEasy;
@@ -41,9 +42,9 @@ public class MessageManagerUserUpdatedKafkaMessageEventHandlerTests
 
     var handler = new MessageManagerUserUpdatedKafkaMessageEventHandler(_updateItemCommandHandler);
 
-    await handler.HandleEventAsync(eventItem);
+    await handler.HandleEventAsync(eventItem, TestContext.Current.CancellationToken);
 
-    A.CallTo(() => _updateItemCommandHandler.UpdateItemAsync(A<ConfirmUserCommand>.That.Matches(c => c.UserId == eventItem.MessageValue.CorrelationId), eventItem.MessageKey))
+    A.CallTo(() => _updateItemCommandHandler.UpdateItemAsync(A<ConfirmUserCommand>.That.Matches(c => c.UserId == eventItem.MessageValue.CorrelationId), eventItem.MessageKey, A<CancellationToken>._))
     .MustHaveHappenedOnceExactly();
   }
 
@@ -64,9 +65,9 @@ public class MessageManagerUserUpdatedKafkaMessageEventHandlerTests
 
     var handler = new MessageManagerUserUpdatedKafkaMessageEventHandler(_updateItemCommandHandler);
 
-    await handler.HandleEventAsync(eventItem);
+    await handler.HandleEventAsync(eventItem, TestContext.Current.CancellationToken);
 
-    A.CallTo(() => _updateItemCommandHandler.UpdateItemAsync(A<ConfirmUserCommand>._, A<string>._))
+    A.CallTo(() => _updateItemCommandHandler.UpdateItemAsync(A<ConfirmUserCommand>._, A<string>._, A<CancellationToken>._))
       .MustNotHaveHappened();
   }
 }

@@ -32,7 +32,7 @@ public class ConfirmUserCommandHandlerTests
 
     var handler = new ConfirmUserCommandHandler(_userManager);
 
-    await Assert.ThrowsAsync<NoRecordException>(() => handler.UpdateItemAsync(command, TestStringHelper.UserId));
+    await Assert.ThrowsAsync<NoRecordException>(() => handler.UpdateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken));
   }
 
   [Fact]
@@ -46,7 +46,7 @@ public class ConfirmUserCommandHandlerTests
 
     var handler = new ConfirmUserCommandHandler(_userManager);
 
-    await Assert.ThrowsAsync<RecordUpdateException>(() => handler.UpdateItemAsync(command, TestStringHelper.UserId));
+    await Assert.ThrowsAsync<RecordUpdateException>(() => handler.UpdateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken));
   }
 
   [Fact]
@@ -60,7 +60,7 @@ public class ConfirmUserCommandHandlerTests
 
     var handler = new ConfirmUserCommandHandler(_userManager);
 
-    var vm = await handler.UpdateItemAsync(command, TestStringHelper.UserId);
+    var vm = await handler.UpdateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken);
 
     Assert.IsType<ConfirmUserViewModel>(vm);
     Assert.True(vm.ConfirmUserResult.UserConfirmed);

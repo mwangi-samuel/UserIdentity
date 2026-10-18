@@ -79,7 +79,7 @@ public class ExchangeRefreshTokenCommandHandlerTests
     var hanndler = GetExchangeRefreshTokenCommandHandler();
 
     // Act & Assert
-    await Assert.ThrowsAsync<SecurityTokenException>(() => hanndler.UpdateItemAsync(command, TestStringHelper.UserId));
+    await Assert.ThrowsAsync<SecurityTokenException>(() => hanndler.UpdateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken));
   }
 
   [Fact]
@@ -105,12 +105,12 @@ public class ExchangeRefreshTokenCommandHandlerTests
 
     A.CallTo(() => _refreshTokenRepository.GetEntityByAlternateIdAsync(
         A<RefreshTokenEntity>.That.Matches(e => e.UserId == TestStringHelper.UserId && e.Token == command.RefreshToken),
-        QueryCondition.MAY_OR_MAY_NOT_EXIST)).Returns((RefreshTokenEntity?)null);
+        QueryCondition.MAY_OR_MAY_NOT_EXIST, A<CancellationToken>._)).Returns((RefreshTokenEntity?)null);
 
     var hanndler = GetExchangeRefreshTokenCommandHandler();
 
     // Act & Assert
-    await Assert.ThrowsAsync<SecurityTokenException>(() => hanndler.UpdateItemAsync(command, TestStringHelper.UserId));
+    await Assert.ThrowsAsync<SecurityTokenException>(() => hanndler.UpdateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken));
 
   }
 
@@ -155,11 +155,11 @@ public class ExchangeRefreshTokenCommandHandlerTests
 
     A.CallTo(() => _refreshTokenRepository.GetEntityByAlternateIdAsync(
         A<RefreshTokenEntity>.That.Matches(e => e.UserId == TestStringHelper.UserId && e.Token == refreshToken),
-        QueryCondition.MAY_OR_MAY_NOT_EXIST)).Returns(dbRefreshToken);
+        QueryCondition.MAY_OR_MAY_NOT_EXIST, A<CancellationToken>._)).Returns(dbRefreshToken);
 
     A.CallTo(() => _userManager.GetRolesAsync(A<IdentityUser>.That.Matches(x => x.Id == TestStringHelper.UserId))).Returns(userRoles.Roles);
 
-    A.CallTo(() => _getRoleClaimsQueryHandler.GetItemsAsync(userRoles)).Returns(userRoleClaims);
+    A.CallTo(() => _getRoleClaimsQueryHandler.GetItemsAsync(userRoles, A<CancellationToken>._)).Returns(userRoleClaims);
     A.CallTo(() => _tokenFactory.GenerateToken(32)).Returns(updatedRefreshToken);
 
 
@@ -168,7 +168,7 @@ public class ExchangeRefreshTokenCommandHandlerTests
     var hanndler = GetExchangeRefreshTokenCommandHandler();
 
     // Act
-    var vm = await hanndler.UpdateItemAsync(command, TestStringHelper.UserId);
+    var vm = await hanndler.UpdateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken);
 
     // Assert
     Assert.IsType<ExchangeRefreshTokenViewModel>(vm);

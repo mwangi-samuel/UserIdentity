@@ -42,7 +42,7 @@ public class GetRoleQueryHandlerTests
     GetRoleQueryHandler handler = new(_roleManager);
 
     // Act
-    var vm = await handler.GetItemAsync(query);
+    var vm = await handler.GetItemAsync(query, TestContext.Current.CancellationToken);
 
     // Assert
     Assert.IsType<RoleViewModel>(vm);
@@ -64,7 +64,7 @@ public class GetRoleQueryHandlerTests
     GetRoleQueryHandler handler = new(_roleManager);
 
     // Act & Assert
-    await Assert.ThrowsAsync<NoRecordException>(() => handler.GetItemAsync(query));
+    await Assert.ThrowsAsync<NoRecordException>(() => handler.GetItemAsync(query, TestContext.Current.CancellationToken));
 
   }
 

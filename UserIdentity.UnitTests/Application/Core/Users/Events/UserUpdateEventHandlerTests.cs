@@ -59,16 +59,16 @@ public class UserUpdateEventHandlerTests
 
     var handler = new UserUpdateEventHandler(_appCallbackService, _kafkaMessageProducer);
 
-    await handler.HandleEventAsync(eventItem);
+    await handler.HandleEventAsync(eventItem, TestContext.Current.CancellationToken);
 
-    A.CallTo(() => _appCallbackService.SendCallbackRequestAsync(eventItem))
+    A.CallTo(() => _appCallbackService.SendCallbackRequestAsync(eventItem, A<CancellationToken>._))
       .MustHaveHappenedOnceExactly();
 
     A.CallTo(() => _kafkaMessageProducer.ProduceAsync(
       userContent.UserIdentityId!,
       A<MessageEvent>.That.Matches(m => IsExpectedMessage(m, userContent, registeredApp)),
       "UserUpdated",
-      CancellationToken.None))
+      A<CancellationToken>._))
     .MustHaveHappenedOnceExactly();
   }
 
@@ -96,9 +96,9 @@ public class UserUpdateEventHandlerTests
 
     var handler = new UserUpdateEventHandler(_appCallbackService, _kafkaMessageProducer);
 
-    await handler.HandleEventAsync(eventItem);
+    await handler.HandleEventAsync(eventItem, TestContext.Current.CancellationToken);
 
-    A.CallTo(() => _appCallbackService.SendCallbackRequestAsync(eventItem))
+    A.CallTo(() => _appCallbackService.SendCallbackRequestAsync(eventItem, A<CancellationToken>._))
       .MustHaveHappenedOnceExactly();
 
     A.CallTo(() => _kafkaMessageProducer.ProduceAsync(A<string>._, A<MessageEvent>._, A<string>._, A<CancellationToken>._))

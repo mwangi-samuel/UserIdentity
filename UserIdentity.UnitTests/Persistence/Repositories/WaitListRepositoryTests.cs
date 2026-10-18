@@ -25,9 +25,9 @@ public class WaitListRepositoryTests
     var waitList = BuildWaitList();
 
     repository.CreateEntityItem(waitList);
-    await context.SaveChangesAsync();
+    await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
-    var saved = await context.WaitList.SingleOrDefaultAsync(x => x.Id == waitList.Id);
+    var saved = await context.WaitList.SingleOrDefaultAsync(x => x.Id == waitList.Id, cancellationToken: TestContext.Current.CancellationToken);
     Assert.NotNull(saved);
     Assert.Equal(waitList.UserEmail, saved!.UserEmail);
   }
@@ -41,12 +41,12 @@ public class WaitListRepositoryTests
     var waitList = BuildWaitList();
 
     context.WaitList.Add(waitList);
-    await context.SaveChangesAsync();
+    await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
     var result = await repository.GetEntityByAlternateIdAsync(new WaitListEntity
     {
       UserEmail = waitList.UserEmail
-    }, QueryCondition.MUST_EXIST);
+    }, QueryCondition.MUST_EXIST, TestContext.Current.CancellationToken);
 
     Assert.NotNull(result);
     Assert.Equal(waitList.Id, result!.Id);
@@ -62,7 +62,7 @@ public class WaitListRepositoryTests
     await Assert.ThrowsAsync<NoRecordException>(() => repository.GetEntityByAlternateIdAsync(new WaitListEntity
     {
       UserEmail = "notfound@example.com"
-    }, QueryCondition.MUST_EXIST));
+    }, QueryCondition.MUST_EXIST, TestContext.Current.CancellationToken));
   }
 
   [Fact]
@@ -74,12 +74,12 @@ public class WaitListRepositoryTests
     var waitList = BuildWaitList();
 
     context.WaitList.Add(waitList);
-    await context.SaveChangesAsync();
+    await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
     await Assert.ThrowsAsync<RecordExistsException>(() => repository.GetEntityByAlternateIdAsync(new WaitListEntity
     {
       UserEmail = waitList.UserEmail
-    }, QueryCondition.MUST_NOT_EXIST));
+    }, QueryCondition.MUST_NOT_EXIST, TestContext.Current.CancellationToken));
   }
 
   [Fact]
@@ -91,7 +91,7 @@ public class WaitListRepositoryTests
     var result = await repository.GetEntityByAlternateIdAsync(new WaitListEntity
     {
       UserEmail = "new@example.com"
-    }, QueryCondition.MUST_NOT_EXIST);
+    }, QueryCondition.MUST_NOT_EXIST, TestContext.Current.CancellationToken);
 
     Assert.Null(result);
   }
@@ -106,9 +106,9 @@ public class WaitListRepositoryTests
     waitList.AppId = app.Id;
 
     context.WaitList.Add(waitList);
-    await context.SaveChangesAsync();
+    await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
-    var result = await repository.GetEntityDTOByIdAsync(waitList.Id);
+    var result = await repository.GetEntityDTOByIdAsync(waitList.Id, TestContext.Current.CancellationToken);
 
     Assert.NotNull(result);
     Assert.Equal(waitList.Id, result.Id);
@@ -122,7 +122,7 @@ public class WaitListRepositoryTests
     var context = GetAppDbContext();
     var repository = new WaitListRepository(context);
 
-    await Assert.ThrowsAsync<NoRecordException>(() => repository.GetEntityDTOByIdAsync(999));
+    await Assert.ThrowsAsync<NoRecordException>(() => repository.GetEntityDTOByIdAsync(999, TestContext.Current.CancellationToken));
   }
 
   [Fact]
@@ -136,9 +136,9 @@ public class WaitListRepositoryTests
     waitList.IsDeleted = true;
 
     context.WaitList.Add(waitList);
-    await context.SaveChangesAsync();
+    await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
-    await Assert.ThrowsAsync<NoRecordException>(() => repository.GetEntityDTOByIdAsync(waitList.Id));
+    await Assert.ThrowsAsync<NoRecordException>(() => repository.GetEntityDTOByIdAsync(waitList.Id, TestContext.Current.CancellationToken));
   }
 
   private static AppDbContext GetAppDbContext()
