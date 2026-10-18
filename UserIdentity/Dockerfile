@@ -23,6 +23,10 @@ RUN dotnet publish "UserIdentity.csproj" \
     /p:InvariantGlobalization=true \
     /p:DebugType=none
 
+# librdkafka.redist ships glibc, CentOS 8 and Alpine builds 
+# Confluent.Kafka only loads alpine-librdkafka.so on Alpine
+RUN rm /app/publish/librdkafka.so /app/publish/centos8-librdkafka.so
+
 FROM base AS final
 WORKDIR /app
 COPY --from=build /app/publish .
