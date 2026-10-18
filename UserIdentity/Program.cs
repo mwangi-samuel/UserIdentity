@@ -67,6 +67,14 @@ builder.Services.AddAppExternalServices(builder.Configuration);
 builder.Services.AddScoped<IAppCallbackService, AppCallbackService>();
 builder.Services.AddGoogleRecaptcha(builder.Configuration);
 
+// Refresh Token & Password Reset Settings
+builder.Services.AddAppRefreshTokenSettings(builder.Configuration);
+builder.Services.AddAppPasswordResetSettings(builder.Configuration);
+
+// Forwarded Headers & Rate Limiting
+builder.Services.AddAppForwardedHeaders(builder.Configuration);
+builder.Services.AddAppRateLimiting(builder.Configuration);
+
 // Kafka
 builder.Services.AddAppKafka(builder.Configuration);
 
@@ -75,6 +83,9 @@ var corsPolicyName = builder.Services.AddAppCorsPolicy(builder.Configuration);
 
 // build the app
 var app = builder.Build();
+
+// Use Forwarded Headers
+app.UseForwardedHeaders();
 
 // Use Cors
 app.UseCors(corsPolicyName);
@@ -99,6 +110,9 @@ app.UseMiddleware<ExceptionMiddleware>();
 
 // Use HTTPS
 app.UseHttpsRedirection();
+
+// Use Rate Limiting
+app.UseRateLimiter();
 
 // Use AuthN
 app.UseAuthentication();

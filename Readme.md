@@ -53,7 +53,7 @@ dotnet test --project UserIdentity.IntegrationTests/UserIdentity.IntegrationTest
 Add `--coverlet` for a Cobertura coverage report.
 
 ## Adding Migrations
-`dotnet-ef` is pinned in the local tool manifest. MySQL must be running, since the server version is auto-detected.
+`dotnet-ef` is pinned in the local tool manifest. MySQL must be running, since the server version is auto-detected. The app's startup also loads the Ed25519 keys, so set the same environment variables as for running the app.
 
 ```
 dotnet tool restore
@@ -67,3 +67,21 @@ When a user registers through an app's UI and the app has a `CallbackUrl`, UserI
 - `X-Signature`: `sha256=` followed by the hex HMAC-SHA256 of `{timestamp}.{body}`.
 
 Apps should recompute the signature over the raw request body, compare it in constant time and reject stale timestamps. .NET apps can use `HmacSignatureUtil.IsValidSignature` from PolyzenKit.
+
+## Sessions
+- Login and registration return a short-lived access token and a refresh token. A session lasts `RefreshTokenSettings:ValidForSeconds` (default 30 days) and each refresh extends it. Only hashes of refresh tokens are stored.
+- Each refresh returns a new refresh token, and the one sent can't be used again. If a replaced refresh token is sent again, UserIdentity treats it as copied and ends that session. Clients must keep the newest refresh token, and must not send the same refresh token twice at once (for example, from two tabs).
+- `POST /api/v1/user/logout` with the access token and `{ "refreshToken": "..." }` ends that session. The access token keeps working until it expires.
+- Five wrong passwords in a row lock an account for five minutes. A locked account gets the same response as a wrong password.
+
+## Password Reset
+Users reset their password with a code that MessageManager sends them, the same way they confirm their account:
+
+1. `POST /api/v1/user/reset-password` with the `X-App-Name` header and `{ "userName": "<user name or email>" }`. The response is always 200 with a `resetRequestId`, whether or not the account exists. For an existing user, UserIdentity publishes a `PASSWORD_RESET` message whose correlation id is the reset request id, and MessageManager sends the code. Another request for the same user within `PasswordResetSettings:RequestCooldownSeconds` sends nothing; use MessageManager's `/retry` to resend a code.
+2. The client confirms the code with MessageManager's `/verify`: `{ "correlationId": "<resetRequestId>", "verificationContent": "<code>", "relatedAction": "PASSWORD_RESET" }`. MessageManager tells UserIdentity about it over Kafka.
+3. `POST /api/v1/user/update-password` with `{ "resetRequestId": "...", "newPassword": "..." }`. It returns 406 if the request is unknown, not verified yet, expired (`PasswordResetSettings:ValidForSeconds`, default 15 minutes) or already used, and 400 if the new password breaks the password rules. A successful reset ends all of the user's sessions and lifts any lockout.
+
+## Rate Limiting
+Register, login, reset-password, update-password and the waitlist sign-up allow `RateLimitSettings:PermitLimit` requests per `RateLimitSettings:WindowSeconds` (default 10 per minute) for each client IP and endpoint. Requests over the limit get a 429 with a `Retry-After` header.
+
+Behind a proxy, such as the k3s ingress, set `ForwardedHeadersSettings__KnownNetworks` to the proxy's network (comma separated CIDR ranges, e.g. `10.42.0.0/16`). Otherwise every request appears to come from the proxy, and all clients share one limit.

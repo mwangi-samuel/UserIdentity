@@ -472,6 +472,72 @@ namespace UserIdentity.Persistence.Migrations
                     b.ToTable("invite_codes", (string)null);
                 });
 
+            modelBuilder.Entity("UserIdentity.Domain.PasswordResets.PasswordResetEntity", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)")
+                        .HasColumnName("id");
+
+                    b.Property<bool>("Applied")
+                        .HasColumnType("tinyint(1)")
+                        .HasColumnName("applied");
+
+                    b.Property<DateTime?>("CreatedAt")
+                        .HasColumnType("datetime(6)")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTime>("Expires")
+                        .HasColumnType("datetime(6)")
+                        .HasColumnName("expires");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("tinyint(1)")
+                        .HasColumnName("is_deleted");
+
+                    b.Property<string>("RequestId")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)")
+                        .HasColumnName("request_id");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)")
+                        .HasColumnName("updated_by");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)")
+                        .HasColumnName("user_id");
+
+                    b.Property<bool>("Verified")
+                        .HasColumnType("tinyint(1)")
+                        .HasColumnName("verified");
+
+                    b.HasKey("Id")
+                        .HasName("pk_password_resets");
+
+                    b.HasIndex("RequestId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_password_resets_request_id");
+
+                    b.HasIndex("UserId")
+                        .HasDatabaseName("ix_password_resets_user_id");
+
+                    b.ToTable("password_resets", (string)null);
+                });
+
             modelBuilder.Entity("UserIdentity.Domain.RefreshTokens.RefreshTokenEntity", b =>
                 {
                     b.Property<Guid>("Id")
@@ -495,6 +561,11 @@ namespace UserIdentity.Persistence.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("tinyint(1)")
                         .HasColumnName("is_deleted");
+
+                    b.Property<string>("PreviousToken")
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)")
+                        .HasColumnName("previous_token");
 
                     b.Property<string>("RemoteIpAddress")
                         .HasMaxLength(20)
@@ -522,6 +593,9 @@ namespace UserIdentity.Persistence.Migrations
 
                     b.HasKey("Id")
                         .HasName("pk_refresh_tokens");
+
+                    b.HasIndex("PreviousToken")
+                        .HasDatabaseName("ix_refresh_tokens_previous_token");
 
                     b.HasIndex("Token")
                         .HasDatabaseName("ix_refresh_tokens_token");
@@ -605,11 +679,6 @@ namespace UserIdentity.Persistence.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("varchar(20)")
                         .HasColumnName("first_name");
-
-                    b.Property<string>("ForgotPasswordToken")
-                        .HasMaxLength(600)
-                        .HasColumnType("varchar(600)")
-                        .HasColumnName("forgot_password_token");
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("tinyint(1)")

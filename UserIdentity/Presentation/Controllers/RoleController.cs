@@ -9,7 +9,6 @@ using PolyzenKit.Application.Core.Interfaces;
 using PolyzenKit.Application.Enums;
 using PolyzenKit.Common.Utilities;
 using PolyzenKit.Presentation.Controllers;
-using PolyzenKit.Presentation.ValidationHelpers;
 
 using UserIdentity.Application.Core.Roles.Commands;
 using UserIdentity.Application.Core.Roles.Queries;
@@ -18,7 +17,6 @@ using UserIdentity.Application.Core.Roles.ViewModels;
 namespace UserIdentity.Presentation.Controllers;
 
 [Authorize]
-[ValidateModel]
 public class RoleController(
     ICreateItemCommandHandler<CreateRoleCommand, RoleViewModel> createRoleCommandHandler,
     ICreateItemCommandHandler<CreateUserRoleCommand, UserRolesViewModel> createUserRoleCommandHandler,

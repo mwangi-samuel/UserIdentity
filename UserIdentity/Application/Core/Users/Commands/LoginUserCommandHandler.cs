@@ -16,6 +16,7 @@ using PolyzenKit.Infrastructure.Security.Jwt;
 using PolyzenKit.Infrastructure.Security.Tokens;
 using PolyzenKit.Persistence.Repositories;
 
+using UserIdentity.Application.Core.Tokens.Settings;
 using UserIdentity.Application.Core.Tokens.ViewModels;
 using UserIdentity.Application.Core.Users.Queries;
 using UserIdentity.Application.Core.Users.ViewModels;
@@ -44,6 +45,7 @@ public record LoginUserCommand : IBaseCommand
 
 public class LoginUserCommandHandler(
     IOptions<IdentityOptions> identityOptions,
+    IOptions<RefreshTokenSettings> refreshTokenSettingsOptions,
     IJwtTokenHandler jwtTokenHandler,
     ITokenFactory tokenFactory,
     UserManager<IdentityUser> userManager,
@@ -55,6 +57,7 @@ public class LoginUserCommandHandler(
     ) : ICreateItemCommandHandler<LoginUserCommand, AuthUserViewModel>
 {
   private readonly IdentityOptions _identityOptions = identityOptions.Value;
+  private readonly RefreshTokenSettings _refreshTokenSettings = refreshTokenSettingsOptions.Value;
   private readonly IJwtTokenHandler _jwtTokenHandler = jwtTokenHandler;
   private readonly ITokenFactory _tokenFactory = tokenFactory;
   private readonly UserManager<IdentityUser> _userManager = userManager;
@@ -71,10 +74,18 @@ public class LoginUserCommandHandler(
             ?? await _userManager.FindByEmailAsync(command.UserName)
             ) ?? throw new InvalidCredentialException("No Identity User for User Name - " + command.UserName);
 
+    if (await _userManager.IsLockedOutAsync(user))
+      throw new InvalidCredentialException("Locked Out Identity User - " + command.UserName);
+
     var userExists = await _userManager.CheckPasswordAsync(user, command.Password);
 
     if (!userExists)
+    {
+      await _userManager.AccessFailedAsync(user);
       throw new InvalidCredentialException("Invalid Credentials Provided for - " + command.UserName);
+    }
+
+    await _userManager.ResetAccessFailedCountAsync(user);
 
     UserDTO userDto;
 
@@ -99,12 +110,14 @@ public class LoginUserCommandHandler(
 
       var newRefreshToken = new RefreshTokenEntity
       {
-        Expires = _machineDateTime.Now.AddSeconds(expiresIn),
+        Expires = _machineDateTime.Now.AddSeconds(_refreshTokenSettings.ValidForSeconds),
         UserId = user.Id,
-        Token = refreshToken,
+        Token = _tokenFactory.HashToken(refreshToken),
       };
 
       newRefreshToken.SetEntityAuditFields(user.Id, _machineDateTime.Now);
+
+      await _refreshTokenRepository.RemoveExpiredEntityItemsAsync(user.Id, _machineDateTime.Now, cancellationToken);
 
       _refreshTokenRepository.CreateEntityItem(newRefreshToken);
 

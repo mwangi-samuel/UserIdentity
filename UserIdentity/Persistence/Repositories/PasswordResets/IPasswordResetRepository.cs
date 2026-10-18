@@ -1,0 +1,14 @@
+﻿using PolyzenKit.Persistence.Repositories;
+
+using UserIdentity.Domain.PasswordResets;
+
+namespace UserIdentity.Persistence.Repositories.PasswordResets;
+
+public interface IPasswordResetRepository
+  : IEntityRepository<PasswordResetEntity, Guid>,
+  IItemEntityRepository<PasswordResetEntity, Guid>
+{
+  Task<PasswordResetEntity?> GetLatestEntityItemAsync(string userId, CancellationToken cancellationToken = default);
+
+  Task RemoveExpiredEntityItemsAsync(string userId, DateTime now, CancellationToken cancellationToken = default);
+}

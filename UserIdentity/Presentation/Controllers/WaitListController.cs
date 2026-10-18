@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 using PolyzenKit.Application.Core.Interfaces;
 using PolyzenKit.Application.Core.RegisteredApps.Resolvers;
@@ -9,6 +10,7 @@ using PolyzenKit.Presentation.Controllers;
 using UserIdentity.Application.Core.WaitLists.Commands;
 using UserIdentity.Application.Core.WaitLists.Queries;
 using UserIdentity.Application.Core.WaitLists.ViewModels;
+using UserIdentity.Presentation.Settings;
 
 namespace UserIdentity.Presentation.Controllers;
 
@@ -44,6 +46,7 @@ public class WaitListController(
   }
 
   [AllowAnonymous]
+  [EnableRateLimiting(RateLimitSettings.ClientIpPolicy)]
   [HttpPost]
   [Route("")]
   public async Task<ActionResult<WaitListViewModel>> CreateWaitList(CreateWaitListCommand command)

@@ -19,6 +19,7 @@ using PolyzenKit.Infrastructure.Security.Tokens;
 using PolyzenKit.Infrastructure.Utilities;
 using PolyzenKit.Persistence.Repositories;
 
+using UserIdentity.Application.Core.Tokens.Settings;
 using UserIdentity.Application.Core.Users.Commands;
 using UserIdentity.Application.Core.Users.Queries;
 using UserIdentity.Application.Core.Users.ViewModels;
@@ -35,6 +36,7 @@ namespace UserIdentity.UnitTests.Application.Core.Users.Commands;
 public class LoginUserCommandHandlerTests
 {
   private readonly IOptions<IdentityOptions> _identityOptions;
+  private readonly IOptions<RefreshTokenSettings> _refreshTokenSettings;
   private readonly IJwtTokenHandler _jwtTokenHandler;
   private readonly ITokenFactory _tokenFactory;
   private readonly UserManager<IdentityUser> _userManager;
@@ -49,6 +51,7 @@ public class LoginUserCommandHandlerTests
   public LoginUserCommandHandlerTests()
   {
     _identityOptions = A.Fake<IOptions<IdentityOptions>>();
+    _refreshTokenSettings = Options.Create(new RefreshTokenSettings { ValidForSeconds = 2592000 });
     _jwtTokenHandler = A.Fake<IJwtTokenHandler>();
     _tokenFactory = A.Fake<ITokenFactory>();
     _userManager = IdentityFakes.UserManager();
@@ -102,6 +105,34 @@ public class LoginUserCommandHandlerTests
 
     // Act & Assert
     await Assert.ThrowsAsync<InvalidCredentialException>(() => handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken));
+
+    A.CallTo(() => _userManager.AccessFailedAsync(existingIdentityUser)).MustHaveHappenedOnceExactly();
+    A.CallTo(() => _userManager.ResetAccessFailedCountAsync(A<IdentityUser>._)).MustNotHaveHappened();
+  }
+
+  [Fact]
+  public async Task Login_With_Locked_Out_User_Throws_InvalidCredentialException_Without_Checking_Password()
+  {
+    // Arrange
+    LoginUserCommand command = new()
+    {
+      UserName = "test",
+      Password = "test"
+    };
+
+    var existingIdentityUser = GetIdentityUser();
+
+    A.CallTo(() => _userManager.FindByNameAsync(command.UserName)).Returns(existingIdentityUser);
+    A.CallTo(() => _userManager.IsLockedOutAsync(existingIdentityUser)).Returns(true);
+
+    var handler = GetLoginUserCommandHandler();
+
+    // Act & Assert
+    await Assert.ThrowsAsync<InvalidCredentialException>(() => handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken));
+
+    A.CallTo(() => _userManager.CheckPasswordAsync(A<IdentityUser>._, A<string>._)).MustNotHaveHappened();
+    A.CallTo(() => _userManager.AccessFailedAsync(A<IdentityUser>._)).MustNotHaveHappened();
+    A.CallTo(() => _refreshTokenRepository.CreateEntityItem(A<RefreshTokenEntity>._)).MustNotHaveHappened();
   }
 
   [Fact]
@@ -144,6 +175,7 @@ public class LoginUserCommandHandlerTests
 
     var existingIdentityUser = GetIdentityUser();
     var refreshToken = "sampleRefreshToken";
+    var refreshTokenHash = "sampleRefreshTokenHash";
     var accessToken = "access-token";
     var expiresIn = 3600;
     var userDto = new UserDTO
@@ -165,12 +197,13 @@ public class LoginUserCommandHandlerTests
         .Returns(new UserViewModel { User = userDto });
 
     A.CallTo(() => _tokenFactory.GenerateToken(32)).Returns(refreshToken);
+    A.CallTo(() => _tokenFactory.HashToken(refreshToken)).Returns(refreshTokenHash);
     A.CallTo(() => _jwtTokenHandler.CreateToken(existingIdentityUser.Id, existingIdentityUser.UserName!, registeredApp.AppName, userDto.Roles, userDto.RoleClaims, A<HashSet<Claim>?>._))
         .Returns((accessToken, expiresIn));
 
     var handler = GetLoginUserCommandHandler();
 
-    // Act 
+    // Act
     var vm = await handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken);
 
     // Assert
@@ -180,7 +213,11 @@ public class LoginUserCommandHandlerTests
     Assert.NotNull(vm.UserToken?.AccessToken);
     Assert.NotNull(vm.UserToken?.RefreshToken);
     Assert.Equal(refreshToken, vm.UserToken?.RefreshToken);
-    A.CallTo(() => _refreshTokenRepository.CreateEntityItem(A<RefreshTokenEntity>.That.Matches(rt => rt.Token == refreshToken && rt.UserId == existingIdentityUser.Id))).MustHaveHappenedOnceExactly();
+
+    A.CallTo(() => _refreshTokenRepository.CreateEntityItem(A<RefreshTokenEntity>.That.Matches(rt =>
+        rt.Token == refreshTokenHash && rt.UserId == existingIdentityUser.Id && rt.Expires > DateTime.UtcNow.AddDays(29)))).MustHaveHappenedOnceExactly();
+    A.CallTo(() => _refreshTokenRepository.RemoveExpiredEntityItemsAsync(existingIdentityUser.Id, A<DateTime>._, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+    A.CallTo(() => _userManager.ResetAccessFailedCountAsync(existingIdentityUser)).MustHaveHappenedOnceExactly();
     A.CallTo(() => _unitOfWork.SaveChangesAsync(A<CancellationToken>._)).MustHaveHappenedOnceExactly();
   }
 
@@ -189,6 +226,7 @@ public class LoginUserCommandHandlerTests
   {
     return new LoginUserCommandHandler(
         _identityOptions,
+        _refreshTokenSettings,
         _jwtTokenHandler,
         _tokenFactory,
         _userManager,

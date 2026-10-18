@@ -7,6 +7,7 @@ using PolyzenKit.Domain.RegisteredApps;
 using PolyzenKit.Persistence.Configurations;
 
 using UserIdentity.Domain.InviteCodes;
+using UserIdentity.Domain.PasswordResets;
 using UserIdentity.Domain.RefreshTokens;
 using UserIdentity.Domain.UserRegisteredApps;
 using UserIdentity.Domain.Users;
@@ -35,6 +36,8 @@ public class AppDbContext(
 
   public DbSet<InviteCodeEntity> InviteCode { get; internal set; }
 
+  public DbSet<PasswordResetEntity> PasswordReset { get; internal set; }
+
   protected override void OnModelCreating(ModelBuilder modelBuilder)
   {
     base.OnModelCreating(modelBuilder);
@@ -46,6 +49,7 @@ public class AppDbContext(
     modelBuilder.ApplyConfiguration(new UserRegisteredAppConfiguration());
     modelBuilder.ApplyConfiguration(new WaitListConfiguration());
     modelBuilder.ApplyConfiguration(new InviteCodeConfiguration());
+    modelBuilder.ApplyConfiguration(new PasswordResetConfiguration());
 
     modelBuilder.Entity<UserEntity>().ToTable(_entityKeyPrefix + "user_details");
     modelBuilder.Entity<RefreshTokenEntity>().ToTable(_entityKeyPrefix + "refresh_tokens");
@@ -54,6 +58,7 @@ public class AppDbContext(
     modelBuilder.Entity<UserRegisteredAppEntity>().ToTable(_entityKeyPrefix + "user_registered_apps");
     modelBuilder.Entity<WaitListEntity>().ToTable(_entityKeyPrefix + "wait_lists");
     modelBuilder.Entity<InviteCodeEntity>().ToTable(_entityKeyPrefix + "invite_codes");
+    modelBuilder.Entity<PasswordResetEntity>().ToTable(_entityKeyPrefix + "password_resets");
 
     modelBuilder.Entity<IdentityUser>().ToTable(_entityKeyPrefix + "users");
     modelBuilder.Entity<IdentityRole>().ToTable(_entityKeyPrefix + "roles");

@@ -17,6 +17,9 @@ public class RefreshTokenConfiguration : IEntityTypeConfiguration<RefreshTokenEn
     builder.Property(e => e.Token).HasMaxLength(200);
     builder.HasIndex(e => e.Token);
 
+    builder.Property(e => e.PreviousToken).HasMaxLength(200);
+    builder.HasIndex(e => e.PreviousToken);
+
     builder.Property(e => e.UserId).HasMaxLength(50);
     builder.HasIndex(e => e.UserId);
 
