@@ -20,5 +20,8 @@ public enum EntityTypes
   INVITE_CODE,
 
   [Description("WaitList")]
-  WAIT_LIST
+  WAIT_LIST,
+
+  [Description("PasswordReset")]
+  PASSWORD_RESET
 }

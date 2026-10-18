@@ -24,11 +24,13 @@ using PolyzenKit.Presentation.Settings;
 
 using UserIdentity.Application.Core.Roles.Queries;
 using UserIdentity.Application.Core.Roles.ViewModels;
+using UserIdentity.Application.Core.Tokens.Settings;
 using UserIdentity.Application.Core.Users.Commands;
 using UserIdentity.Application.Core.Users.Events;
 using UserIdentity.Application.Core.Users.Settings;
 using UserIdentity.Application.Enums;
 using UserIdentity.Application.Interfaces;
+using UserIdentity.Domain.InviteCodes;
 using UserIdentity.Domain.RefreshTokens;
 using UserIdentity.Domain.Users;
 using UserIdentity.Persistence.Repositories.InviteCodes;
@@ -45,6 +47,7 @@ public class RegisterUserCommandHandlerTests
 {
   private readonly IOptions<RoleSettings> _roleSettings;
   private readonly IOptions<IdentityOptions> _identityOptions;
+  private readonly IOptions<RefreshTokenSettings> _refreshTokenSettings;
   private readonly UserManager<IdentityUser> _userManager;
   private readonly RoleManager<IdentityRole> _roleManager;
   private readonly IUnitOfWork _unitOfWork;
@@ -65,6 +68,7 @@ public class RegisterUserCommandHandlerTests
   {
     _roleSettings = A.Fake<IOptions<RoleSettings>>();
     _identityOptions = A.Fake<IOptions<IdentityOptions>>();
+    _refreshTokenSettings = Options.Create(new RefreshTokenSettings { ValidForSeconds = 2592000 });
     _userManager = IdentityFakes.UserManager();
     _roleManager = A.Fake<RoleManager<IdentityRole>>();
     _unitOfWork = A.Fake<IUnitOfWork>();
@@ -191,6 +195,7 @@ public class RegisterUserCommandHandlerTests
     var command = GetRegisterUserCommand();
     var defaultRole = new IdentityRole(GetDefaultRoleName());
     var refreshToken = "refresh-token";
+    var refreshTokenHash = "refresh-token-hash";
     var accessToken = "access-token";
     var expiresIn = 1200;
 
@@ -214,6 +219,7 @@ public class RegisterUserCommandHandlerTests
     A.CallTo(() => _getRoleClaimsQueryHandler.GetItemsAsync(A<GetRoleClaimsForRolesQuery>._, A<CancellationToken>._)).Returns(new RoleClaimsForRolesViewModels { RoleClaims = roleClaims });
     A.CallTo(() => _jwtTokenHandler.CreateToken(A<string>._, A<string>._, A<string>._, A<HashSet<string>>._, A<HashSet<string>>._, A<HashSet<Claim>?>._)).Returns((accessToken, expiresIn));
     A.CallTo(() => _tokenFactory.GenerateToken(32)).Returns(refreshToken);
+    A.CallTo(() => _tokenFactory.HashToken(refreshToken)).Returns(refreshTokenHash);
     A.CallTo(() => _refreshTokenRepository.CreateEntityItem(A<RefreshTokenEntity>._)).DoesNothing();
     A.CallTo(() => _unitOfWork.CommitTransactionAsync(A<CancellationToken>._)).DoesNothing();
     A.CallTo(() => _userUpdateEventHandler.HandleEventAsync(A<UserUpdateEvent>.That.Matches(e => e.UserContent.FirstName == command.FirstName), CancellationToken.None)).DoesNothing();
@@ -245,7 +251,8 @@ public class RegisterUserCommandHandlerTests
     A.CallTo(() => _jwtTokenHandler.CreateToken(A<string>._, A<string>._, A<string>._, A<HashSet<string>>._, A<HashSet<string>>._, A<HashSet<Claim>?>._)).MustHaveHappenedOnceExactly();
     A.CallTo(() => _tokenFactory.GenerateToken(32)).MustHaveHappenedOnceExactly();
     A.CallTo(() => _refreshTokenRepository.CreateEntityItem(A<RefreshTokenEntity>._)).MustHaveHappenedOnceExactly();
-    A.CallTo(() => _refreshTokenRepository.CreateEntityItem(A<RefreshTokenEntity>.That.Matches(rt => rt.Token == refreshToken))).MustHaveHappenedOnceExactly();
+    A.CallTo(() => _refreshTokenRepository.CreateEntityItem(A<RefreshTokenEntity>.That.Matches(rt =>
+        rt.Token == refreshTokenHash && rt.Expires > DateTime.UtcNow.AddDays(29)))).MustHaveHappenedOnceExactly();
     A.CallTo(() => _unitOfWork.CommitTransactionAsync(A<CancellationToken>._)).MustHaveHappenedOnceExactly();
     A.CallTo(() => _userUpdateEventHandler.HandleEventAsync(A<UserUpdateEvent>.That.Matches(e => e.UserContent.FirstName == command.FirstName), CancellationToken.None)).MustHaveHappenedOnceExactly();
   }
@@ -278,11 +285,70 @@ public class RegisterUserCommandHandlerTests
     A.CallTo(() => _logHelper.LogEvent(LogLevel.Error, A<InvalidOperationException>._, A<string>._, A<object?[]>._)).MustHaveHappenedOnceExactly();
   }
 
+  [Fact]
+  public async Task Create_User_With_Invite_Code_Marks_Invite_Code_Applied_By_New_User()
+  {
+    var command = GetRegisterUserCommand();
+    command.RegisteredApp!.RequireInviteCode = true;
+    const string inviteCode = "INVITE01";
+    command.InviteCode = inviteCode;
+
+    var defaultRole = new IdentityRole(GetDefaultRoleName());
+    var inviteCodeEntity = new InviteCodeEntity { Id = 7, InviteCode = inviteCode, UserEmail = command.UserEmail!, Applied = false };
+    string? userId = null;
+
+    A.CallTo(() => _inviteCodeRepository.GetEntityByAlternateIdAsync(
+        A<InviteCodeEntity>.That.Matches(e => e.UserEmail == command.UserEmail), QueryCondition.MUST_EXIST, A<CancellationToken>._))
+        .Returns(inviteCodeEntity);
+    A.CallTo(() => _roleManager.FindByNameAsync(defaultRole.Name!)).Returns(defaultRole);
+    A.CallTo(() => _userManager.FindByNameAsync(command.UserName)).Returns((IdentityUser?)null);
+    A.CallTo(() => _userManager.FindByEmailAsync(command.UserEmail!)).Returns((IdentityUser?)null);
+    A.CallTo(() => _userManager.CreateAsync(A<IdentityUser>._, command.UserPassword))
+        .Invokes((IdentityUser u, string _) => userId = u.Id)
+        .Returns(IdentityResult.Success);
+    A.CallTo(() => _userManager.AddToRoleAsync(A<IdentityUser>._, defaultRole.Name!)).Returns(IdentityResult.Success);
+    A.CallTo(() => _userManager.GenerateEmailConfirmationTokenAsync(A<IdentityUser>._)).Returns("token");
+
+    var handler = GetRegisterUserCommandHandler();
+
+    await handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken);
+
+    Assert.True(inviteCodeEntity.Applied);
+    Assert.NotNull(userId);
+    Assert.Equal(userId, inviteCodeEntity.UpdatedBy);
+    Assert.NotNull(inviteCodeEntity.UpdatedAt);
+
+    A.CallTo(() => _inviteCodeRepository.UpdateEntityItem(inviteCodeEntity)).MustHaveHappenedOnceExactly();
+    A.CallTo(() => _unitOfWork.CommitTransactionAsync(A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+  }
+
+  [Fact]
+  public async Task Create_User_With_Applied_Invite_Code_Throws_InvalidDataException()
+  {
+    var command = GetRegisterUserCommand();
+    command.RegisteredApp!.RequireInviteCode = true;
+    const string inviteCode = "INVITE01";
+    command.InviteCode = inviteCode;
+
+    var inviteCodeEntity = new InviteCodeEntity { Id = 7, InviteCode = inviteCode, UserEmail = command.UserEmail!, Applied = true };
+
+    A.CallTo(() => _inviteCodeRepository.GetEntityByAlternateIdAsync(A<InviteCodeEntity>._, QueryCondition.MUST_EXIST, A<CancellationToken>._))
+        .Returns(inviteCodeEntity);
+
+    var handler = GetRegisterUserCommandHandler();
+
+    await Assert.ThrowsAsync<InvalidDataException>(() => handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken));
+
+    A.CallTo(() => _inviteCodeRepository.UpdateEntityItem(A<InviteCodeEntity>._)).MustNotHaveHappened();
+    A.CallTo(() => _userManager.CreateAsync(A<IdentityUser>._, A<string>._)).MustNotHaveHappened();
+  }
+
   private RegisterUserCommandHandler GetRegisterUserCommandHandler()
   {
     return new RegisterUserCommandHandler(
         _roleSettings,
         _identityOptions,
+        _refreshTokenSettings,
         _userManager,
         _roleManager,
         _unitOfWork,

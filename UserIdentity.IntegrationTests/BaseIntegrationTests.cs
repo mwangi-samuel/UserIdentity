@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -111,7 +112,8 @@ public class BaseIntegrationTests : IAsyncLifetime
         TablesToIgnore = [
            _appDbContext.GetTableName<AppEntity>()!,
            _appDbContext.GetTableName<RegisteredAppEntity>()!,
-           _appDbContext.GetTableName<IdentityRole>()!
+           _appDbContext.GetTableName<IdentityRole>()!,
+           HistoryRepository.DefaultTableName
         ]
       });
 

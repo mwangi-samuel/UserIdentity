@@ -2,19 +2,19 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Security.Claims;
-using System.Text;
 
 using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 
 using PolyzenKit.Common.Utilities;
 using PolyzenKit.Domain.RegisteredApps;
 using PolyzenKit.Infrastructure.Security.Jwt;
+using PolyzenKit.Infrastructure.Security.Tokens;
 using PolyzenKit.Presentation.Settings;
 
 using UserIdentity.Domain.InviteCodes;
+using UserIdentity.Domain.PasswordResets;
 using UserIdentity.Domain.RefreshTokens;
 using UserIdentity.Domain.Users;
 using UserIdentity.Domain.WaitLists;
@@ -35,6 +35,7 @@ public sealed class TestDbHelper(
   private readonly AppDbContext _appDbContext = appDbContext;
   private readonly UserManager<IdentityUser> _userManager = userManager;
   private readonly RoleManager<IdentityRole> _roleManager = roleManager;
+  private readonly TokenFactory _tokenFactory = new();
 
   public string DefaultRole => $"{_currentAppNameNormalized}{ZenConstants.SERVICE_ROLE_SEPARATOR}{_roleSettings.DefaultRole}";
   public HashSet<string> AdminRoles => [.. _roleSettings.AdminRoles.Split(',').Select(r => $"{_currentAppNameNormalized}{ZenConstants.SERVICE_ROLE_SEPARATOR}{r.Trim()}")];
@@ -250,6 +251,19 @@ public sealed class TestDbHelper(
     return _appDbContext.RefreshToken.FirstOrDefault(r => r.UserId == userId);
   }
 
+  public List<RefreshTokenEntity> GetRefreshTokenEntitiesWithNoTracking(string userId)
+  {
+    return [.. _appDbContext.RefreshToken.AsNoTracking().Where(r => r.UserId == userId)];
+  }
+
+  public void ExpireRefreshTokenEntities(string userId)
+  {
+    foreach (var refreshToken in _appDbContext.RefreshToken.Where(r => r.UserId == userId))
+      refreshToken.Expires = DateTime.UtcNow.AddMinutes(-1);
+
+    _appDbContext.SaveChanges();
+  }
+
   public void DeleteRefreshTokenEntity(string userId)
   {
     var refreshToken = GetRefreshTokenEntity(userId);
@@ -259,6 +273,39 @@ public sealed class TestDbHelper(
       _appDbContext.RefreshToken.Remove(refreshToken);
       _appDbContext.SaveChanges();
     }
+  }
+
+  #endregion
+
+  #region PasswordResetEntity Related
+  public PasswordResetEntity CreatePasswordResetEntity(string resetRequestId, bool verified = true, bool applied = false, DateTime? expires = null)
+  {
+    var entity = new PasswordResetEntity
+    {
+      Id = Guid.CreateVersion7(),
+      RequestId = _tokenFactory.HashToken(resetRequestId),
+      UserId = UserSettingHelper.UserId,
+      Expires = expires ?? DateTime.UtcNow.AddMinutes(15),
+      Verified = verified,
+      Applied = applied,
+      CreatedBy = UserSettingHelper.UserId,
+      CreatedAt = DateTime.UtcNow,
+      UpdatedBy = UserSettingHelper.UserId,
+      UpdatedAt = DateTime.UtcNow
+    };
+
+    _appDbContext.PasswordReset.Add(entity);
+    _appDbContext.SaveChanges();
+
+    return entity;
+  }
+
+  public PasswordResetEntity? GetPasswordResetEntityWithNoTracking(string userId)
+  {
+    return _appDbContext.PasswordReset.AsNoTracking()
+      .Where(x => x.UserId == userId)
+      .OrderByDescending(x => x.CreatedAt)
+      .FirstOrDefault();
   }
 
   #endregion
@@ -395,32 +442,6 @@ public sealed class TestDbHelper(
   #endregion
 
   #region  Helper Methods 
-  public string? UpdateResetPasswordToken(string userId)
-  {
-    var user = GetIdentityUser(userId);
-
-    if (user == null)
-      return null as string;
-
-
-    var resetPasswordToken = _userManager.GeneratePasswordResetTokenAsync(user).Result;
-
-    if (resetPasswordToken == null)
-      return null as string;
-
-    var appuser = GetUserEntity(userId);
-
-    if (appuser == null)
-      return null as string;
-
-    appuser.ForgotPasswordToken = resetPasswordToken;
-
-    _appDbContext.Update(appuser);
-    _appDbContext.SaveChanges();
-
-    return WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(resetPasswordToken));
-  }
-
   public bool? UpdateRoleClaim(string roleName, string scopeClaim)
   {
     var role = GetIdentityRole(roleName) ?? throw new ArgumentNullException(nameof(roleName));

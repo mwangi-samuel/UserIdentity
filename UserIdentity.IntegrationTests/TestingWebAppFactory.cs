@@ -17,6 +17,7 @@ using Testcontainers.Redpanda;
 
 using UserIdentity.Application.Core.Users.Settings;
 using UserIdentity.IntegrationTests.TestUtils;
+using UserIdentity.Presentation.Settings;
 
 using WireMock.Server;
 
@@ -34,6 +35,9 @@ public class TestingWebAppFactory : WebApplicationFactory<Program>, IAsyncLifeti
   private static readonly string _dbUserName = "test-user";
   private static readonly string _dbUserPassword = "test-user-db@user@Pass";
   private static readonly string _dbName = "useridentity-test-db";
+
+  // Shared by hosts made with WithWebHostBuilder, which use the same database
+  private readonly string _appSecretKey = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
 
   public TestingWebAppFactory()
   {
@@ -86,11 +90,14 @@ public class TestingWebAppFactory : WebApplicationFactory<Program>, IAsyncLifeti
     builder.UseSetting($"{nameof(KeySetOptions)}:{nameof(KeySetOptions.PrivateKeyPassPhrase)}", privateKeyPassPhrase);
 
     // Override app secret encryption key - "key1" is the CurrentKeyId in appsettings.json
-    builder.UseSetting($"{nameof(AppSecretOptions)}:{nameof(AppSecretOptions.Keys)}:key1", Convert.ToBase64String(RandomNumberGenerator.GetBytes(32)));
+    builder.UseSetting($"{nameof(AppSecretOptions)}:{nameof(AppSecretOptions.Keys)}:key1", _appSecretKey);
 
     // Override Google Recaptcha Settings
     builder.UseSetting($"{nameof(GoogleRecaptchaSettings)}:{nameof(GoogleRecaptchaSettings.Enabled)}", "true");
     builder.UseSetting($"{nameof(ExternalServicesSettings)}:{nameof(ExternalServicesSettings.ExternalServices)}:GoogleRecaptcha:BaseUrl", WireMockServer.Urls[0]);
+
+    // Override Rate Limit Settings
+    builder.UseSetting($"{nameof(RateLimitSettings)}:{nameof(RateLimitSettings.Enabled)}", "false");
 
   }
 

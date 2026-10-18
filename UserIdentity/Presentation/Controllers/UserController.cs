@@ -2,7 +2,9 @@
 
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
+using PolyzenKit.Application.Core;
 using PolyzenKit.Application.Core.Extensions;
 using PolyzenKit.Application.Core.Interfaces;
 using PolyzenKit.Application.Core.RegisteredApps.Resolvers;
@@ -10,7 +12,6 @@ using PolyzenKit.Application.Enums;
 using PolyzenKit.Common.Utilities;
 using PolyzenKit.Domain.DTO;
 using PolyzenKit.Presentation.Controllers;
-using PolyzenKit.Presentation.ValidationHelpers;
 
 using UserIdentity.Application.Core.Tokens.Commands;
 using UserIdentity.Application.Core.Tokens.ViewModels;
@@ -18,18 +19,18 @@ using UserIdentity.Application.Core.Users.Commands;
 using UserIdentity.Application.Core.Users.Queries;
 using UserIdentity.Application.Core.Users.ViewModels;
 using UserIdentity.Application.Enums;
+using UserIdentity.Presentation.Settings;
 
 namespace UserIdentity.Presentation.Controllers;
 
 [Authorize]
-[ValidateModel]
 public class UserController(
     IGetItemQueryHandler<GetUserQuery, UserViewModel> getUserQueryHandler,
     ICreateItemCommandHandler<RegisterUserCommand, AuthUserViewModel> registerUserComandHandler,
     ICreateItemCommandHandler<LoginUserCommand, AuthUserViewModel> loginUserCommandHandler,
     IUpdateItemCommandHandler<ExchangeRefreshTokenCommand, ExchangeRefreshTokenViewModel> exchangeRefreshTokenCommandHandler,
+    IDeleteItemCommandHandler<LogoutUserCommand, DeleteRecordViewModel> logoutUserCommandHandler,
     ICreateItemCommandHandler<ResetPasswordCommand, ResetPasswordViewModel> resetPasswordCommandHandler,
-    IUpdateItemCommandHandler<ConfirmUpdatePasswordTokenCommand, ConfirmUpdatePasswordTokenViewModel> confirmUpdatePasswordTokenCommandHandler,
     IUpdateItemCommandHandler<UpdatePasswordCommand, UpdatePasswordViewModel> updatePasswordCommandHandler,
 
     IRegisteredAppResolver registeredAppResolver
@@ -39,8 +40,8 @@ public class UserController(
   private readonly ICreateItemCommandHandler<RegisterUserCommand, AuthUserViewModel> _registerUserCommandHandler = registerUserComandHandler;
   private readonly ICreateItemCommandHandler<LoginUserCommand, AuthUserViewModel> _loginUserCommandHandler = loginUserCommandHandler;
   private readonly IUpdateItemCommandHandler<ExchangeRefreshTokenCommand, ExchangeRefreshTokenViewModel> _exchangeRefreshTokenCommandHandler = exchangeRefreshTokenCommandHandler;
+  private readonly IDeleteItemCommandHandler<LogoutUserCommand, DeleteRecordViewModel> _logoutUserCommandHandler = logoutUserCommandHandler;
   private readonly ICreateItemCommandHandler<ResetPasswordCommand, ResetPasswordViewModel> _resetPasswordCommandHandler = resetPasswordCommandHandler;
-  private readonly IUpdateItemCommandHandler<ConfirmUpdatePasswordTokenCommand, ConfirmUpdatePasswordTokenViewModel> _confirmUpdatePasswordTokenCommandHandler = confirmUpdatePasswordTokenCommandHandler;
   private readonly IUpdateItemCommandHandler<UpdatePasswordCommand, UpdatePasswordViewModel> _updatePasswordCommandHandler = updatePasswordCommandHandler;
 
   private readonly IRegisteredAppResolver _registeredAppResolver = registeredAppResolver;
@@ -56,6 +57,7 @@ public class UserController(
   }
 
   [AllowAnonymous]
+  [EnableRateLimiting(RateLimitSettings.ClientIpPolicy)]
   [HttpPost]
   [Route("register")]
   public async Task<ActionResult<AuthUserViewModel>> CreateUser(RegisterUserCommand command)
@@ -79,6 +81,7 @@ public class UserController(
   }
 
   [AllowAnonymous]
+  [EnableRateLimiting(RateLimitSettings.ClientIpPolicy)]
   [HttpPost]
   [Route("login")]
   public async Task<ActionResult<AuthUserViewModel>> LoginUser(LoginUserCommand command)
@@ -96,7 +99,7 @@ public class UserController(
   [AllowAnonymous]
   [HttpPost]
   [Route("refresh-token")]
-  public async Task<ActionResult<AccessTokenViewModel>> RefreshToken(ExchangeRefreshTokenCommand command)
+  public async Task<ActionResult<ExchangeRefreshTokenViewModel>> RefreshToken(ExchangeRefreshTokenCommand command)
   {
     var vm = await _exchangeRefreshTokenCommandHandler.UpdateItemAsync(command, LoggedInUserId, RequestAborted);
 
@@ -105,41 +108,34 @@ public class UserController(
     return StatusCode((int)HttpStatusCode.OK, vm);
   }
 
+  [HttpPost]
+  [Route("logout")]
+  public async Task<ActionResult<DeleteRecordViewModel>> LogoutUser(LogoutUserCommand command)
+  {
+    var vm = await _logoutUserCommandHandler.DeleteItemAsync(command, LoggedInUserId, RequestAborted);
+
+    vm.ResolveRequestStatus(RequestStatus.SUCCESSFUL, ItemStatusMessage.DELETE_ITEM_SUCCESSFUL, "Logout successful");
+    return StatusCode((int)HttpStatusCode.OK, vm);
+  }
+
   [AllowAnonymous]
+  [EnableRateLimiting(RateLimitSettings.ClientIpPolicy)]
   [HttpPost]
   [Route("reset-password")]
-  public async Task<ActionResult<AccessTokenViewModel>> ResetPassword(ResetPasswordCommand command)
+  public async Task<ActionResult<ResetPasswordViewModel>> ResetPassword(ResetPasswordCommand command)
   {
+    command.RegisteredApp = await GetRegisteredAppAsync(_registeredAppResolver);
+
     var vm = await _resetPasswordCommandHandler.CreateItemAsync(command, LoggedInUserId, RequestAborted);
     vm.ResolveRequestStatus(RequestStatus.SUCCESSFUL, ItemStatusMessage.FETCH_ITEM_SUCCESSFUL, "Password reset request successful");
     return StatusCode((int)HttpStatusCode.OK, vm);
   }
 
   [AllowAnonymous]
-  [HttpPost]
-  [Route("confirm-update-password-token")]
-  public async Task<ActionResult<AccessTokenViewModel>> ConfirmPasswordToken(ConfirmUpdatePasswordTokenCommand command)
-  {
-    var vm = await _confirmUpdatePasswordTokenCommandHandler.UpdateItemAsync(command, LoggedInUserId, RequestAborted);
-
-    var httpStatusCode = HttpStatusCode.OK;
-    if (vm.TokenPasswordResult.UpdatePasswordTokenConfirmed)
-    {
-      vm.ResolveRequestStatus(RequestStatus.SUCCESSFUL, ItemStatusMessage.UPDATE_ITEM_SUCCESSFUL, "Token confirmation successful");
-    }
-    else
-    {
-      vm.ResolveRequestStatus(RequestStatus.FAILED, ItemStatusMessage.FETCH_ITEM_FAILED, "Token confirmation failed");
-      httpStatusCode = HttpStatusCode.NotAcceptable;
-    }
-
-    return StatusCode((int)httpStatusCode, vm);
-  }
-
-  [AllowAnonymous]
+  [EnableRateLimiting(RateLimitSettings.ClientIpPolicy)]
   [HttpPost]
   [Route("update-password")]
-  public async Task<ActionResult<AccessTokenViewModel>> UpdatePassword(UpdatePasswordCommand command)
+  public async Task<ActionResult<UpdatePasswordViewModel>> UpdatePassword(UpdatePasswordCommand command)
   {
     var vm = await _updatePasswordCommandHandler.UpdateItemAsync(command, LoggedInUserId, RequestAborted);
 

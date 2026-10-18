@@ -20,10 +20,12 @@ public class RefreshTokenConfigurationTests
 
     // Assert
     Assert.True(entityType.ConfirmMaxColumnLength(nameof(RefreshTokenEntity.Token), 200));
+    Assert.True(entityType.ConfirmMaxColumnLength(nameof(RefreshTokenEntity.PreviousToken), 200));
     Assert.True(entityType.ConfirmMaxColumnLength(nameof(RefreshTokenEntity.UserId), 50));
     Assert.True(entityType.ConfirmMaxColumnLength(nameof(RefreshTokenEntity.RemoteIpAddress), 20));
 
     Assert.True(entityType.ConfirmColumnHasIndex(nameof(RefreshTokenEntity.Token)));
+    Assert.True(entityType.ConfirmColumnHasIndex(nameof(RefreshTokenEntity.PreviousToken)));
     Assert.True(entityType.ConfirmColumnHasIndex(nameof(RefreshTokenEntity.UserId)));
   }
 }

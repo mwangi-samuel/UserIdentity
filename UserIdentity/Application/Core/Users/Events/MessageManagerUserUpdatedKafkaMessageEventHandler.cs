@@ -16,21 +16,34 @@ public record MessageManagerUserUpdatedKafkaMessageEvent : IBaseEvent
 }
 
 public class MessageManagerUserUpdatedKafkaMessageEventHandler(
-  IUpdateItemCommandHandler<ConfirmUserCommand, ConfirmUserViewModel> updateItemCommandHandler
+  IUpdateItemCommandHandler<ConfirmUserCommand, ConfirmUserViewModel> confirmUserCommandHandler,
+  IUpdateItemCommandHandler<VerifyPasswordResetCommand, VerifyPasswordResetViewModel> verifyPasswordResetCommandHandler
   ) : IEventHandler<MessageManagerUserUpdatedKafkaMessageEvent>
 {
-  private readonly IUpdateItemCommandHandler<ConfirmUserCommand, ConfirmUserViewModel> _updateItemCommandHandler = updateItemCommandHandler;
+  private readonly IUpdateItemCommandHandler<ConfirmUserCommand, ConfirmUserViewModel> _confirmUserCommandHandler = confirmUserCommandHandler;
+  private readonly IUpdateItemCommandHandler<VerifyPasswordResetCommand, VerifyPasswordResetViewModel> _verifyPasswordResetCommandHandler = verifyPasswordResetCommandHandler;
 
   public async Task HandleEventAsync(MessageManagerUserUpdatedKafkaMessageEvent eventItem, CancellationToken cancellationToken = default)
   {
-    if (eventItem.MessageValue.Action == MessageAction.WELCOME_USER)
+    switch (eventItem.MessageValue.Action)
     {
-      var command = new ConfirmUserCommand
-      {
-        UserId = eventItem.MessageValue.CorrelationId
-      };
+      case MessageAction.WELCOME_USER:
+        var confirmUserCommand = new ConfirmUserCommand
+        {
+          UserId = eventItem.MessageValue.CorrelationId
+        };
 
-      await _updateItemCommandHandler.UpdateItemAsync(command, eventItem.MessageKey, cancellationToken);
+        await _confirmUserCommandHandler.UpdateItemAsync(confirmUserCommand, eventItem.MessageKey, cancellationToken);
+        break;
+
+      case MessageAction.PASSWORD_RESET:
+        var verifyPasswordResetCommand = new VerifyPasswordResetCommand
+        {
+          ResetRequestId = eventItem.MessageValue.CorrelationId
+        };
+
+        await _verifyPasswordResetCommandHandler.UpdateItemAsync(verifyPasswordResetCommand, eventItem.MessageKey, cancellationToken);
+        break;
     }
   }
 }
