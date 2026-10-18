@@ -26,6 +26,8 @@ services:
       - redpanda
       - start
       - --mode=dev-container
+      # One shard: each shard reserves Linux AIO slots, and one per core exhausts fs.aio-max-nr so MySQL cannot start
+      - --smp=1
       - --kafka-addr=internal://0.0.0.0:19092,external://0.0.0.0:9092
       - --advertise-kafka-addr=internal://redpanda:19092,external://localhost:9092
       - --schema-registry-addr=internal://0.0.0.0:8081
@@ -61,10 +63,12 @@ services:
       KafkaSettings__BootstrapServers: redpanda:19092
       KafkaSettings__SchemaRegistryUrl: redpanda:8081
       JwtIssuerOptions__ValidForSeconds: 600
-      KeySetOptions__PrivateKeyPassPhrase: S3T@G00dPa22Phr@S3
-      KeySetOptions__PrivateKeyPath: EDDSA_PRIVATE_KEY # Ensure you have this in your environment
-      KeySetOptions__PublicKeyPath: EDDSA_PUBLIC_KEY # Ensure you have this in your environment
-      AppSecretOptions__Keys__key1: 8b8+SqUqHQIaDnTHPsD301/TGpz0PD+lvBInpKEvTv0= # Dev only - use a secret store elsewhere
+      KeySetOptions__PrivateKeyPassPhrase: ${EDDSA_PRIVATE_KEY_PASSPHRASE:-S3T@G00dPa22Phr@S3} 
+      EDDSA_PRIVATE_KEY: # Ensure to set this environment variable with your actual EDDSA private key
+      EDDSA_PUBLIC_KEY: # Ensure to set this environment variable with your actual EDDSA public key
+      AppSecretOptions__CurrentKeyId: key1
+      AppSecretOptions__Keys__key1: 92rZ4zje0cty5rhoYf+CjjLoqYy575oHjy76A4RUEPo=
+      ApiKeySettings__ApiKey: yM1nXap7fnwRv8QFbvsMovCDjb33Y862
       Serilog__MinimumLevel: Warning
     depends_on:
       - db
