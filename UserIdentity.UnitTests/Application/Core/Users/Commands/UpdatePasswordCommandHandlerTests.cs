@@ -40,7 +40,7 @@ public class UpdatePasswordCommandHandlerTests
     UpdatePasswordCommandHandler handler = new(_userManager);
 
     // Act 
-    var vm = await handler.UpdateItemAsync(command, TestStringHelper.UserId);
+    var vm = await handler.UpdateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken);
 
     // Assert
     Assert.IsType<UpdatePasswordViewModel>(vm);
@@ -71,7 +71,7 @@ public class UpdatePasswordCommandHandlerTests
     UpdatePasswordCommandHandler handler = new(_userManager);
 
     // Act 
-    var vm = await handler.UpdateItemAsync(command, TestStringHelper.UserId);
+    var vm = await handler.UpdateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken);
 
     // Assert
     Assert.IsType<UpdatePasswordViewModel>(vm);
@@ -104,7 +104,7 @@ public class UpdatePasswordCommandHandlerTests
     UpdatePasswordCommandHandler handler = new(_userManager);
 
     // Act 
-    var vm = await handler.UpdateItemAsync(command, TestStringHelper.UserId);
+    var vm = await handler.UpdateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken);
 
     // Assert
     Assert.IsType<UpdatePasswordViewModel>(vm);

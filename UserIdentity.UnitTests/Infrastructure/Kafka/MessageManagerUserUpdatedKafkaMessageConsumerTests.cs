@@ -56,7 +56,7 @@ public class MessageManagerUserUpdatedKafkaMessageConsumerTests
 
     var consumer = new MessageManagerUserUpdatedKafkaMessageConsumer(_eventHandler);
 
-    var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => consumer.ConsumeAsync("key", _messageEvent));
+    var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => consumer.ConsumeAsync("key", _messageEvent, TestContext.Current.CancellationToken));
 
     Assert.Equal("boom", exception.Message);
   }

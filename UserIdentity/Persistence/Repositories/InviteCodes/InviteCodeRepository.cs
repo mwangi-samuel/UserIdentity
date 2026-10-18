@@ -23,12 +23,7 @@ public class InviteCodeRepository(
       .Include(e => e.App)
       .SingleOrDefaultAsync(e => e.UserEmail == userEmail, cancellationToken);
 
-    return queryCondition switch
-    {
-      QueryCondition.MUST_EXIST when existingEntity == null => throw new NoRecordException(userEmail, nameof(InviteCodeEntity)),
-      QueryCondition.MUST_NOT_EXIST when existingEntity != null => throw new RecordExistsException(userEmail, nameof(InviteCodeEntity)),
-      _ => existingEntity
-    };
+    return queryCondition.Apply(existingEntity, userEmail);
   }
 
   public async Task<InviteCodeDTO> GetEntityDTOByIdAsync(long id, CancellationToken cancellationToken = default)

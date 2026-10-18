@@ -55,12 +55,12 @@ public class ResetPasswordCommandHandlerTests : IClassFixture<TestSettingsFixtur
     var handler = new ResetPasswordCommandHandler(_userManager, _machineDateTime, _unitOfWork, _userRepository, _configuration);
 
     // Act 
-    var vm = await handler.CreateItemAsync(command, TestStringHelper.UserId);
+    var vm = await handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken);
 
     // Assert
     Assert.IsType<ResetPasswordViewModel>(vm);
     Assert.NotNull(vm.ResetPasswordDetails);
-    A.CallTo(() => _userRepository.GetEntityItemAsync(A<string>._)).MustNotHaveHappened();
+    A.CallTo(() => _userRepository.GetEntityItemAsync(A<string>._, A<CancellationToken>._)).MustNotHaveHappened();
     A.CallTo(() => _unitOfWork.SaveChangesAsync(A<CancellationToken>._)).MustNotHaveHappened();
   }
 
@@ -88,12 +88,12 @@ public class ResetPasswordCommandHandlerTests : IClassFixture<TestSettingsFixtur
 
     A.CallTo(() => _userManager.FindByEmailAsync(command.UserEmail)).Returns(existingIdentityUser);
     A.CallTo(() => _userManager.GeneratePasswordResetTokenAsync(existingIdentityUser)).Returns(resetPassWordToken);
-    A.CallTo(() => _userRepository.GetEntityItemAsync(existingIdentityUser.Id)).Returns(existingEntity);
+    A.CallTo(() => _userRepository.GetEntityItemAsync(existingIdentityUser.Id, A<CancellationToken>._)).Returns(existingEntity);
 
     var handler = new ResetPasswordCommandHandler(_userManager, _machineDateTime, _unitOfWork, _userRepository, _configuration);
 
     // Act 
-    var vm = await handler.CreateItemAsync(command, TestStringHelper.UserId);
+    var vm = await handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken);
 
     // Assert
     Assert.IsType<ResetPasswordViewModel>(vm);

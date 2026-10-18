@@ -1,3 +1,4 @@
+using System.Threading;
 using System.Threading.Tasks;
 
 using FakeItEasy;
@@ -36,13 +37,13 @@ public class GetInviteCodeQueryHandlerTests
       AppName = "TestApp"
     };
 
-    A.CallTo(() => _inviteCodeRepository.GetEntityDTOByIdAsync(inviteCodeId)).Returns(expectedDto);
+    A.CallTo(() => _inviteCodeRepository.GetEntityDTOByIdAsync(inviteCodeId, A<CancellationToken>._)).Returns(expectedDto);
 
     var query = new GetInviteCodeQuery { InviteCodeId = inviteCodeId };
     var handler = new GetInviteCodeQueryHandler(_inviteCodeRepository);
 
     // Act
-    var result = await handler.GetItemAsync(query);
+    var result = await handler.GetItemAsync(query, TestContext.Current.CancellationToken);
 
     // Assert
     Assert.NotNull(result);
@@ -52,8 +53,8 @@ public class GetInviteCodeQueryHandlerTests
     Assert.Equal(expectedDto.UserEmail, result.InviteCode.UserEmail);
     Assert.Equal(expectedDto.AppName, result.InviteCode.AppName);
 
-    A.CallTo(() => _inviteCodeRepository.GetEntityDTOByIdAsync(inviteCodeId)).MustHaveHappenedOnceExactly();
-    A.CallTo(() => _inviteCodeRepository.GetEntityByAlternateIdAsync(A<InviteCodeEntity>._, A<QueryCondition>._)).MustNotHaveHappened();
+    A.CallTo(() => _inviteCodeRepository.GetEntityDTOByIdAsync(inviteCodeId, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+    A.CallTo(() => _inviteCodeRepository.GetEntityByAlternateIdAsync(A<InviteCodeEntity>._, A<QueryCondition>._, A<CancellationToken>._)).MustNotHaveHappened();
   }
 
   [Fact]
@@ -72,13 +73,13 @@ public class GetInviteCodeQueryHandlerTests
 
     A.CallTo(() => _inviteCodeRepository.GetEntityByAlternateIdAsync(
         A<InviteCodeEntity>.That.Matches(e => e.UserEmail == userEmail),
-        QueryCondition.MUST_EXIST)).Returns(entity);
+        QueryCondition.MUST_EXIST, A<CancellationToken>._)).Returns(entity);
 
     var query = new GetInviteCodeQuery { UserEmail = userEmail };
     var handler = new GetInviteCodeQueryHandler(_inviteCodeRepository);
 
     // Act
-    var result = await handler.GetItemAsync(query);
+    var result = await handler.GetItemAsync(query, TestContext.Current.CancellationToken);
 
     // Assert
     Assert.NotNull(result);
@@ -89,8 +90,8 @@ public class GetInviteCodeQueryHandlerTests
 
     A.CallTo(() => _inviteCodeRepository.GetEntityByAlternateIdAsync(
         A<InviteCodeEntity>.That.Matches(e => e.UserEmail == userEmail),
-        QueryCondition.MUST_EXIST)).MustHaveHappenedOnceExactly();
-    A.CallTo(() => _inviteCodeRepository.GetEntityDTOByIdAsync(A<long>._)).MustNotHaveHappened();
+        QueryCondition.MUST_EXIST, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+    A.CallTo(() => _inviteCodeRepository.GetEntityDTOByIdAsync(A<long>._, A<CancellationToken>._)).MustNotHaveHappened();
   }
 
   [Fact]
@@ -99,14 +100,14 @@ public class GetInviteCodeQueryHandlerTests
     // Arrange
     var inviteCodeId = 999L;
 
-    A.CallTo(() => _inviteCodeRepository.GetEntityDTOByIdAsync(inviteCodeId))
+    A.CallTo(() => _inviteCodeRepository.GetEntityDTOByIdAsync(inviteCodeId, A<CancellationToken>._))
         .ThrowsAsync(new NoRecordException($"{inviteCodeId}", "InviteCode"));
 
     var query = new GetInviteCodeQuery { InviteCodeId = inviteCodeId };
     var handler = new GetInviteCodeQueryHandler(_inviteCodeRepository);
 
     // Act & Assert
-    await Assert.ThrowsAsync<NoRecordException>(() => handler.GetItemAsync(query));
+    await Assert.ThrowsAsync<NoRecordException>(() => handler.GetItemAsync(query, TestContext.Current.CancellationToken));
   }
 
   [Fact]
@@ -117,13 +118,13 @@ public class GetInviteCodeQueryHandlerTests
 
     A.CallTo(() => _inviteCodeRepository.GetEntityByAlternateIdAsync(
         A<InviteCodeEntity>.That.Matches(e => e.UserEmail == userEmail),
-        QueryCondition.MUST_EXIST))
+        QueryCondition.MUST_EXIST, A<CancellationToken>._))
         .ThrowsAsync(new NoRecordException(userEmail, nameof(InviteCodeEntity)));
 
     var query = new GetInviteCodeQuery { UserEmail = userEmail };
     var handler = new GetInviteCodeQueryHandler(_inviteCodeRepository);
 
     // Act & Assert
-    await Assert.ThrowsAsync<NoRecordException>(() => handler.GetItemAsync(query));
+    await Assert.ThrowsAsync<NoRecordException>(() => handler.GetItemAsync(query, TestContext.Current.CancellationToken));
   }
 }

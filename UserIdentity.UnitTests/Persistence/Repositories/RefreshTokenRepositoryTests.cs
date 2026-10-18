@@ -23,9 +23,9 @@ public class RefreshTokenRepositoryTests
     var refreshToken = BuildRefreshToken();
 
     repository.CreateEntityItem(refreshToken);
-    await context.SaveChangesAsync();
+    await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
-    var saved = await context.RefreshToken.SingleOrDefaultAsync(x => x.Id == refreshToken.Id);
+    var saved = await context.RefreshToken.SingleOrDefaultAsync(x => x.Id == refreshToken.Id, cancellationToken: TestContext.Current.CancellationToken);
     Assert.NotNull(saved);
     Assert.Equal(refreshToken.Token, saved!.Token);
   }
@@ -38,13 +38,13 @@ public class RefreshTokenRepositoryTests
     var refreshToken = BuildRefreshToken();
 
     context.RefreshToken.Add(refreshToken);
-    await context.SaveChangesAsync();
+    await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
     var result = await repository.GetEntityByAlternateIdAsync(new RefreshTokenEntity
     {
       UserId = refreshToken.UserId,
       Token = refreshToken.Token
-    }, QueryCondition.MUST_EXIST);
+    }, QueryCondition.MUST_EXIST, TestContext.Current.CancellationToken);
 
     Assert.NotNull(result);
     Assert.Equal(refreshToken.Id, result!.Id);
@@ -59,7 +59,7 @@ public class RefreshTokenRepositoryTests
     {
       UserId = Guid.NewGuid().ToString(),
       Token = Guid.NewGuid().ToString()
-    }, QueryCondition.MUST_EXIST));
+    }, QueryCondition.MUST_EXIST, TestContext.Current.CancellationToken));
   }
 
   [Fact]
@@ -70,13 +70,13 @@ public class RefreshTokenRepositoryTests
     var refreshToken = BuildRefreshToken();
 
     context.RefreshToken.Add(refreshToken);
-    await context.SaveChangesAsync();
+    await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
     await Assert.ThrowsAsync<RecordExistsException>(() => repository.GetEntityByAlternateIdAsync(new RefreshTokenEntity
     {
       UserId = refreshToken.UserId,
       Token = refreshToken.Token
-    }, QueryCondition.MUST_NOT_EXIST));
+    }, QueryCondition.MUST_NOT_EXIST, TestContext.Current.CancellationToken));
   }
 
   [Fact]
@@ -87,13 +87,13 @@ public class RefreshTokenRepositoryTests
     var refreshToken = BuildRefreshToken();
 
     context.RefreshToken.Add(refreshToken);
-    await context.SaveChangesAsync();
+    await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
     refreshToken.Expires = DateTime.UtcNow.AddMinutes(-10);
     repository.UpdateEntityItem(refreshToken);
-    await context.SaveChangesAsync();
+    await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
-    var saved = await context.RefreshToken.SingleAsync(x => x.Id == refreshToken.Id);
+    var saved = await context.RefreshToken.SingleAsync(x => x.Id == refreshToken.Id, cancellationToken: TestContext.Current.CancellationToken);
     Assert.Equal(refreshToken.Expires, saved.Expires);
   }
 

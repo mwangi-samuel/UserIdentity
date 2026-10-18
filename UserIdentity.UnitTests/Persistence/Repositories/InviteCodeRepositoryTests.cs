@@ -25,9 +25,9 @@ public class InviteCodeRepositoryTests
     var inviteCode = BuildInviteCode();
 
     repository.CreateEntityItem(inviteCode);
-    await context.SaveChangesAsync();
+    await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
-    var saved = await context.InviteCode.SingleOrDefaultAsync(x => x.Id == inviteCode.Id);
+    var saved = await context.InviteCode.SingleOrDefaultAsync(x => x.Id == inviteCode.Id, cancellationToken: TestContext.Current.CancellationToken);
     Assert.NotNull(saved);
     Assert.Equal(inviteCode.InviteCode, saved!.InviteCode);
     Assert.Equal(inviteCode.UserEmail, saved.UserEmail);
@@ -42,12 +42,12 @@ public class InviteCodeRepositoryTests
     var inviteCode = BuildInviteCode();
 
     context.InviteCode.Add(inviteCode);
-    await context.SaveChangesAsync();
+    await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
     var result = await repository.GetEntityByAlternateIdAsync(new InviteCodeEntity
     {
       UserEmail = inviteCode.UserEmail
-    }, QueryCondition.MUST_EXIST);
+    }, QueryCondition.MUST_EXIST, TestContext.Current.CancellationToken);
 
     Assert.NotNull(result);
     Assert.Equal(inviteCode.Id, result!.Id);
@@ -63,7 +63,7 @@ public class InviteCodeRepositoryTests
     await Assert.ThrowsAsync<NoRecordException>(() => repository.GetEntityByAlternateIdAsync(new InviteCodeEntity
     {
       UserEmail = "notfound@example.com"
-    }, QueryCondition.MUST_EXIST));
+    }, QueryCondition.MUST_EXIST, TestContext.Current.CancellationToken));
   }
 
   [Fact]
@@ -75,12 +75,12 @@ public class InviteCodeRepositoryTests
     var inviteCode = BuildInviteCode();
 
     context.InviteCode.Add(inviteCode);
-    await context.SaveChangesAsync();
+    await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
     await Assert.ThrowsAsync<RecordExistsException>(() => repository.GetEntityByAlternateIdAsync(new InviteCodeEntity
     {
       UserEmail = inviteCode.UserEmail
-    }, QueryCondition.MUST_NOT_EXIST));
+    }, QueryCondition.MUST_NOT_EXIST, TestContext.Current.CancellationToken));
   }
 
   [Fact]
@@ -92,7 +92,7 @@ public class InviteCodeRepositoryTests
     var result = await repository.GetEntityByAlternateIdAsync(new InviteCodeEntity
     {
       UserEmail = "new@example.com"
-    }, QueryCondition.MUST_NOT_EXIST);
+    }, QueryCondition.MUST_NOT_EXIST, TestContext.Current.CancellationToken);
 
     Assert.Null(result);
   }
@@ -107,9 +107,9 @@ public class InviteCodeRepositoryTests
     inviteCode.AppId = app.Id;
 
     context.InviteCode.Add(inviteCode);
-    await context.SaveChangesAsync();
+    await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
-    var result = await repository.GetEntityDTOByIdAsync(inviteCode.Id);
+    var result = await repository.GetEntityDTOByIdAsync(inviteCode.Id, TestContext.Current.CancellationToken);
 
     Assert.NotNull(result);
     Assert.Equal(inviteCode.Id, result.Id);
@@ -124,7 +124,7 @@ public class InviteCodeRepositoryTests
     var context = GetAppDbContext();
     var repository = new InviteCodeRepository(context);
 
-    await Assert.ThrowsAsync<NoRecordException>(() => repository.GetEntityDTOByIdAsync(999));
+    await Assert.ThrowsAsync<NoRecordException>(() => repository.GetEntityDTOByIdAsync(999, TestContext.Current.CancellationToken));
   }
 
   [Fact]
@@ -138,9 +138,9 @@ public class InviteCodeRepositoryTests
     inviteCode.IsDeleted = true;
 
     context.InviteCode.Add(inviteCode);
-    await context.SaveChangesAsync();
+    await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
-    await Assert.ThrowsAsync<NoRecordException>(() => repository.GetEntityDTOByIdAsync(inviteCode.Id));
+    await Assert.ThrowsAsync<NoRecordException>(() => repository.GetEntityDTOByIdAsync(inviteCode.Id, TestContext.Current.CancellationToken));
   }
 
   private static AppDbContext GetAppDbContext()
