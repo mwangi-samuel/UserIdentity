@@ -53,10 +53,9 @@ dotnet test --project UserIdentity.IntegrationTests/UserIdentity.IntegrationTest
 Add `--coverlet` for a Cobertura coverage report.
 
 ## Adding Migrations
-`dotnet-ef` is pinned in the local tool manifest. MySQL must be running, since the server version is auto-detected. The app's startup also loads the Ed25519 keys, so set the same environment variables as for running the app.
+Migrations need the global `dotnet-ef` tool, version 10 (`dotnet tool install --global dotnet-ef`, or `update` if an older one is installed). MySQL must be running, since the server version is auto-detected. The app's startup also loads the Ed25519 keys, so set the same environment variables as for running the app.
 
 ```
-dotnet tool restore
 dotnet ef migrations add <MigrationName> --project UserIdentity
 ```
 
