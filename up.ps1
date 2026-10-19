@@ -1,17 +1,23 @@
-if ($args -contains "-useLocal") {
+param(
+  [switch]$UseLocal,
+  [switch]$Build
+)
 
-    docker compose -f docker-compose.yml up -d --scale useridentity=0
-  
-    # wait for the database to be ready
-    Start-Sleep -s 20    
+if ($UseLocal) {
 
-    dotnet run --urls=http://localhost:5050 --project .\UserIdentity\UserIdentity.csproj
+  # --wait returns once the db and redpanda health checks pass
+  docker compose -f docker-compose.yml up -d --wait --scale useridentity=0
+  if ($LASTEXITCODE -ne 0) {
+    exit $LASTEXITCODE
+  }
+
+  dotnet run --project .\UserIdentity\UserIdentity.csproj --launch-profile UserIdentity
 }
-elseif ($args -contains "-build") {
+elseif ($Build) {
 
-    docker compose -f docker-compose.yml up --build -d 
+  docker compose -f docker-compose.yml up --build -d
 }
 else {
-    
-    docker compose -f docker-compose.yml up -d 
+
+  docker compose -f docker-compose.yml up -d
 }

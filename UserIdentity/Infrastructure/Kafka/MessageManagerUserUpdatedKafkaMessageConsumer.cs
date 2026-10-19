@@ -13,8 +13,6 @@ public class MessageManagerUserUpdatedKafkaMessageConsumer(
 
   private readonly IEventHandler<MessageManagerUserUpdatedKafkaMessageEvent> _eventHandler = eventHandler;
 
-  // Exceptions are deliberately not caught: the PolyzenKit consumer host logs each failed attempt,
-  // retries it and only commits the offset once handling succeeds (or the retries run out)
   public async Task ConsumeAsync(string key, MessageEvent message, CancellationToken cancellationToken = default)
   {
     var consumedEvent = new MessageManagerUserUpdatedKafkaMessageEvent
