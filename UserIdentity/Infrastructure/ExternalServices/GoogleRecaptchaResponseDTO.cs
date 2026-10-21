@@ -1,4 +1,4 @@
-﻿namespace UserIdentity.Domain.Users;
+﻿namespace UserIdentity.Infrastructure.ExternalServices;
 
 public record GoogleRecaptchaResponseDTO
 {

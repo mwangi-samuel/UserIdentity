@@ -18,5 +18,6 @@ public class PasswordResetConfiguration : IEntityTypeConfiguration<PasswordReset
 
     builder.Property(e => e.UserId).HasMaxLength(50);
     builder.HasIndex(e => e.UserId);
+    builder.HasIndex(e => e.Expires);
   }
 }

@@ -163,6 +163,31 @@ public class RefreshTokenRepositoryTests
     Assert.Contains(otherUserToken.Id, remainingIds);
   }
 
+  [Fact]
+  public async Task GetEntityItemsExpiredBeforeAsync_ReturnsTheOldestExpiredTokens()
+  {
+    // Arrange
+    var now = DateTime.UtcNow;
+    var context = AppDbContextTestFactory.GetAppDbContext();
+    var first = BuildRefreshToken();
+    var second = BuildRefreshToken();
+    var fresh = BuildRefreshToken();
+    first.Expires = now.AddMinutes(-20);
+    second.Expires = now.AddMinutes(-10);
+    context.RefreshToken.AddRange(second, fresh, first);
+    await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+
+    var repository = new RefreshTokenRepository(context);
+
+    // Act
+    var all = await repository.GetEntityItemsExpiredBeforeAsync(now, 10, TestContext.Current.CancellationToken);
+    var limited = await repository.GetEntityItemsExpiredBeforeAsync(now, 1, TestContext.Current.CancellationToken);
+
+    // Assert
+    Assert.Equal([first.Id, second.Id], all.Select(e => e.Id));
+    Assert.Equal([first.Id], limited.Select(e => e.Id));
+  }
+
   private static RefreshTokenEntity BuildRefreshToken()
   {
     return new RefreshTokenEntity

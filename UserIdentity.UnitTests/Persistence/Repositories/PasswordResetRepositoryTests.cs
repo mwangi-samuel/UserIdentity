@@ -140,6 +140,52 @@ public class PasswordResetRepositoryTests
     return new AppDbContext(options);
   }
 
+  [Fact]
+  public async Task GetEntityItemsExpiredBeforeAsync_ReturnsTheOldestExpiredResets()
+  {
+    // Arrange
+    var now = DateTime.UtcNow;
+    var context = AppDbContextTestFactory.GetAppDbContext();
+    var first = BuildPasswordReset();
+    var second = BuildPasswordReset();
+    var fresh = BuildPasswordReset();
+    first.Expires = now.AddMinutes(-20);
+    second.Expires = now.AddMinutes(-10);
+    context.PasswordReset.AddRange(second, fresh, first);
+    await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+
+    var repository = new PasswordResetRepository(context);
+
+    // Act
+    var result = await repository.GetEntityItemsExpiredBeforeAsync(now, 10, TestContext.Current.CancellationToken);
+
+    // Assert
+    Assert.Equal([first.Id, second.Id], result.Select(e => e.Id));
+  }
+
+  [Fact]
+  public async Task RemoveEntityItemsAsync_RemovesOnlyTheUsersResets()
+  {
+    // Arrange
+    var context = AppDbContextTestFactory.GetAppDbContext();
+    var own = BuildPasswordReset();
+    var other = BuildPasswordReset();
+    context.PasswordReset.AddRange(own, other);
+    await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+
+    var repository = new PasswordResetRepository(context);
+
+    // Act
+    await repository.RemoveEntityItemsAsync(own.UserId, TestContext.Current.CancellationToken);
+    await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+
+    // Assert
+    var remaining = await context.PasswordReset.Select(e => e.Id).ToListAsync(TestContext.Current.CancellationToken);
+
+    Assert.DoesNotContain(own.Id, remaining);
+    Assert.Contains(other.Id, remaining);
+  }
+
   private static PasswordResetEntity BuildPasswordReset()
   {
     return new PasswordResetEntity

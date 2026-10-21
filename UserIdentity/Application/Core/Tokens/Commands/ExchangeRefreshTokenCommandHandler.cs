@@ -19,7 +19,6 @@ using UserIdentity.Application.Core.Roles.ViewModels;
 using UserIdentity.Application.Core.Tokens.Settings;
 using UserIdentity.Application.Core.Tokens.ViewModels;
 using UserIdentity.Domain.RefreshTokens;
-using UserIdentity.Domain.Users;
 using UserIdentity.Persistence.Repositories.RefreshTokens;
 
 namespace UserIdentity.Application.Core.Tokens.Commands;

@@ -20,6 +20,7 @@ using PolyzenKit.Presentation.ValidationHelpers;
 
 using UserIdentity.Application.Core.Tokens.ViewModels;
 using UserIdentity.Application.Core.Users.Settings;
+using UserIdentity.Application.Core.Users.ViewModels;
 using UserIdentity.Domain.Users;
 using UserIdentity.IntegrationTests.TestUtils;
 using UserIdentity.Presentation.Settings;
@@ -31,7 +32,6 @@ using WireMock.Server;
 using Xunit;
 
 namespace UserIdentity.IntegrationTests.Presentation.Controllers;
-
 
 public class UserControllerTests(
     TestingWebAppFactory testingWebAppFactory,
@@ -51,7 +51,6 @@ public class UserControllerTests(
     // Arrange
     _testDbHelper.SeedDatabase();
 
-
     // Act
     var response = await _httpClient.SendValidAuthRequestAsync(HttpMethod.Get, _baseUri + "/" + UserSettingHelper.UserId);
 
@@ -63,7 +62,6 @@ public class UserControllerTests(
     var jsonObject = SerDeHelper.Deserialize<JObject>(responseString);
 
     Assert.NotNull(jsonObject);
-
 
     Assert.Equal("Request Successful", $"{jsonObject["requestStatus"]}");
     Assert.Equal("Item fetched successfully", $"{jsonObject["statusMessage"]}");
@@ -120,7 +118,6 @@ public class UserControllerTests(
 
     Assert.NotNull(jsonObject);
 
-
     Assert.Equal("Request Failed", $"{jsonObject["requestStatus"]}");
     Assert.Equal("404 - NOT FOUND", $"{jsonObject["statusMessage"]}");
 
@@ -133,7 +130,6 @@ public class UserControllerTests(
     Assert.Equal(DateTime.UtcNow.Month, dateTime.Value.Month);
     Assert.Equal(DateTime.UtcNow.Day, dateTime.Value.Day);
   }
-
 
   [Fact]
   public async Task Get_Deleted_AppUser_Does_Not_Get_User_Details_For_UnAuthorized_User()
@@ -273,7 +269,6 @@ public class UserControllerTests(
     // Act
     var response = await _httpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/register", requestPayload);
 
-
     // Assert
     var responseString = await response.ValidateRequestResponseAsync();
 
@@ -334,7 +329,6 @@ public class UserControllerTests(
 
     Assert.NotNull(jsonObject);
 
-
     Assert.Equal("Request Successful", $"{jsonObject["requestStatus"]}");
     Assert.Equal("Item created successfully", $"{jsonObject["statusMessage"]}");
 
@@ -378,7 +372,6 @@ public class UserControllerTests(
     Assert.Equal(userDetails?.Id, messageAttributes.GetAttributeValue(MessageAttribute.USER_ID));
   }
 
-
   [Theory]
   [InlineData("random@test.com", null)]
   [InlineData("random@test.com", "")]
@@ -399,7 +392,6 @@ public class UserControllerTests(
       googleRecaptchaToken
     };
 
-
     SetUpGoogleRecaptchaEndpoint(googleRecaptchaToken);
 
     // Act
@@ -413,7 +405,6 @@ public class UserControllerTests(
     var jsonObject = SerDeHelper.Deserialize<JObject>(responseString);
 
     Assert.NotNull(jsonObject);
-
 
     Assert.Equal("Request Successful", $"{jsonObject["requestStatus"]}");
     Assert.Equal("Item created successfully", $"{jsonObject["statusMessage"]}");
@@ -463,7 +454,6 @@ public class UserControllerTests(
   {
     // Arrange
     _testDbHelper.SeedDatabase();
-
 
     var requestPayload = new
     {
@@ -715,7 +705,6 @@ public class UserControllerTests(
 
     Assert.Equal("Request Successful", $"{jsonObject["requestStatus"]}");
     Assert.Equal("Refresh token generated successfully", $"{jsonObject["statusMessage"]}");
-
 
     var userTokenVM = jsonObject["userToken"]?.ToObject<AccessTokenViewModel>();
 
@@ -1421,7 +1410,6 @@ public class UserControllerTests(
       success = true,
       score = 0.9f
     };
-
 
     _wireMock.Reset();
     _wireMock.Given(

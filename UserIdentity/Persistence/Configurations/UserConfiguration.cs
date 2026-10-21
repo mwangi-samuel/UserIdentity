@@ -10,6 +10,7 @@ public class UserConfiguration : IEntityTypeConfiguration<UserEntity>
   public void Configure(EntityTypeBuilder<UserEntity> builder)
   {
     builder.HasKey(e => e.Id);
+    builder.HasIndex(e => e.CreatedAt);
 
     builder.Property(e => e.EmailConfirmationToken).HasMaxLength(600);
 

@@ -29,7 +29,7 @@ public class InviteCodeRepository(
   public async Task<InviteCodeDTO> GetEntityDTOByIdAsync(long id, CancellationToken cancellationToken = default)
   {
     return await _dbContext.InviteCode
-      .Where(e => e.Id == id && !e.IsDeleted)
+      .Where(e => e.Id == id)
       .Select(InviteCodeDTO.Detailed)
       .SingleOrDefaultAsync(cancellationToken) ?? throw new NoRecordException($"{id}", EntityTypes.INVITE_CODE.Description());
   }

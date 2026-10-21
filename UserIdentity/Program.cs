@@ -71,6 +71,9 @@ builder.Services.AddGoogleRecaptcha(builder.Configuration);
 builder.Services.AddAppRefreshTokenSettings(builder.Configuration);
 builder.Services.AddAppPasswordResetSettings(builder.Configuration);
 
+// Cleanups of expired tokens, password resets and unconfirmed users
+builder.Services.AddAppCleanups(builder.Configuration);
+
 // Forwarded Headers & Rate Limiting
 builder.Services.AddAppForwardedHeaders(builder.Configuration);
 builder.Services.AddAppRateLimiting(builder.Configuration);

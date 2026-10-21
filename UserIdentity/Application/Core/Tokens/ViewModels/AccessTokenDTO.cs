@@ -1,4 +1,4 @@
-﻿namespace UserIdentity.Domain.Users;
+﻿namespace UserIdentity.Application.Core.Tokens.ViewModels;
 
 public record AccessTokenDTO
 {

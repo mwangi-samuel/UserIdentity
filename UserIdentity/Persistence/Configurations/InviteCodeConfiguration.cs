@@ -12,5 +12,8 @@ public class InviteCodeConfiguration : IEntityTypeConfiguration<InviteCodeEntity
   public void Configure(EntityTypeBuilder<InviteCodeEntity> builder)
   {
     builder.ConfigureLongPrimaryKey();
+
+    builder.Property(e => e.UserEmail).HasMaxLength(255);
+    builder.HasIndex(e => e.UserEmail);
   }
 }

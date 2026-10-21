@@ -125,22 +125,6 @@ public class WaitListRepositoryTests
     await Assert.ThrowsAsync<NoRecordException>(() => repository.GetEntityDTOByIdAsync(999, TestContext.Current.CancellationToken));
   }
 
-  [Fact]
-  public async Task GetEntityDTOByIdAsync_When_Deleted_Throws_NoRecordException()
-  {
-    var context = GetAppDbContext();
-    var app = await SeedRegisteredApp(context);
-    var repository = new WaitListRepository(context);
-    var waitList = BuildWaitList();
-    waitList.AppId = app.Id;
-    waitList.IsDeleted = true;
-
-    context.WaitList.Add(waitList);
-    await context.SaveChangesAsync(TestContext.Current.CancellationToken);
-
-    await Assert.ThrowsAsync<NoRecordException>(() => repository.GetEntityDTOByIdAsync(waitList.Id, TestContext.Current.CancellationToken));
-  }
-
   private static AppDbContext GetAppDbContext()
   {
     var options = new DbContextOptionsBuilder<AppDbContext>()

@@ -25,7 +25,6 @@ using UserIdentity.Application.Core.Tokens.Commands;
 using UserIdentity.Application.Core.Tokens.Settings;
 using UserIdentity.Application.Core.Tokens.ViewModels;
 using UserIdentity.Domain.RefreshTokens;
-using UserIdentity.Domain.Users;
 using UserIdentity.Persistence.Repositories.RefreshTokens;
 using UserIdentity.UnitTests.TestUtils;
 
@@ -48,7 +47,6 @@ public class ExchangeRefreshTokenCommandHandlerTests
   private readonly IMachineDateTime _machineDateTime;
 
   private readonly IGetItemsQueryHandler<GetRoleClaimsForRolesQuery, RoleClaimsForRolesViewModels> _getRoleClaimsQueryHandler;
-
 
   public ExchangeRefreshTokenCommandHandlerTests()
   {
@@ -214,7 +212,6 @@ public class ExchangeRefreshTokenCommandHandlerTests
     A.CallTo(() => _tokenFactory.GenerateToken(32)).Returns(updatedRefreshToken);
     A.CallTo(() => _tokenFactory.HashToken(updatedRefreshToken)).Returns(updatedRefreshTokenHash);
 
-
     A.CallTo(() => _jwtTokenHandler.CreateToken(TestStringHelper.UserId, TestStringHelper.UserName, "TestApp", userRoles.Roles.ToHashSet(), userRoleClaims.RoleClaims, A<HashSet<Claim>?>._)).Returns((newAccesToken, newAccesstokenExpiresIn));
 
     var hanndler = GetExchangeRefreshTokenCommandHandler();
@@ -237,7 +234,6 @@ public class ExchangeRefreshTokenCommandHandlerTests
         .MustHaveHappenedOnceExactly();
     A.CallTo(() => _unitOfWork.SaveChangesAsync(A<CancellationToken>._)).MustHaveHappenedOnceExactly();
   }
-
 
   private static ExchangeRefreshTokenCommand GetExchangeRefreshTokenCommand()
   {

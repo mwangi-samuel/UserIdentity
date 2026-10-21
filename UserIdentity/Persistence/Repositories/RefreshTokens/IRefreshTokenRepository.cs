@@ -13,4 +13,6 @@ public interface IRefreshTokenRepository
   Task RemoveExpiredEntityItemsAsync(string userId, DateTime now, CancellationToken cancellationToken = default);
 
   Task RemoveEntityItemsAsync(string userId, CancellationToken cancellationToken = default);
+
+  Task<List<RefreshTokenEntity>> GetEntityItemsExpiredBeforeAsync(DateTime now, int count, CancellationToken cancellationToken = default);
 }

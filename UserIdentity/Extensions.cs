@@ -17,7 +17,9 @@ using PolyzenKit.Common.Utilities;
 using PolyzenKit.Persistence.Repositories.AppEntities;
 using PolyzenKit.Persistence.Settings;
 
+using UserIdentity.Application.Core.Tokens.Commands;
 using UserIdentity.Application.Core.Tokens.Settings;
+using UserIdentity.Application.Core.Users.Commands;
 using UserIdentity.Application.Core.Users.Settings;
 using UserIdentity.Application.Interfaces;
 using UserIdentity.Infrastructure.ExternalServices;
@@ -109,6 +111,30 @@ public static class Extensions
       options.ValidForSeconds = passwordResetSettings.ValidForSeconds;
       options.RequestCooldownSeconds = passwordResetSettings.RequestCooldownSeconds;
     });
+  }
+
+  // Add Cleanup Settings and the periodic cleanups
+  public static void AddAppCleanups(this IServiceCollection services, IConfiguration configuration)
+  {
+    var cleanupSettings = configuration.GetSection(nameof(CleanupSettings)).Get<CleanupSettings>() ?? throw new MissingConfigurationException(nameof(CleanupSettings));
+
+    if (cleanupSettings.IntervalInMinutes <= 0)
+      throw new MissingConfigurationException(nameof(CleanupSettings.IntervalInMinutes));
+
+    if (cleanupSettings.UnconfirmedUserLifetimeInDays <= 0)
+      throw new MissingConfigurationException(nameof(CleanupSettings.UnconfirmedUserLifetimeInDays));
+
+    services.Configure<CleanupSettings>(options =>
+    {
+      options.IntervalInMinutes = cleanupSettings.IntervalInMinutes;
+      options.UnconfirmedUserLifetimeInDays = cleanupSettings.UnconfirmedUserLifetimeInDays;
+    });
+
+    var interval = TimeSpan.FromMinutes(cleanupSettings.IntervalInMinutes);
+
+    services.AddAppPeriodicDeleteCommand<DeleteExpiredRefreshTokensCommand>(interval);
+    services.AddAppPeriodicDeleteCommand<DeleteExpiredPasswordResetsCommand>(interval);
+    services.AddAppPeriodicDeleteCommand<DeleteUnconfirmedUsersCommand>(interval);
   }
 
   // Add Forwarded Headers

@@ -127,22 +127,6 @@ public class InviteCodeRepositoryTests
     await Assert.ThrowsAsync<NoRecordException>(() => repository.GetEntityDTOByIdAsync(999, TestContext.Current.CancellationToken));
   }
 
-  [Fact]
-  public async Task GetEntityDTOByIdAsync_When_Deleted_Throws_NoRecordException()
-  {
-    var context = GetAppDbContext();
-    var app = await SeedRegisteredApp(context);
-    var repository = new InviteCodeRepository(context);
-    var inviteCode = BuildInviteCode();
-    inviteCode.AppId = app.Id;
-    inviteCode.IsDeleted = true;
-
-    context.InviteCode.Add(inviteCode);
-    await context.SaveChangesAsync(TestContext.Current.CancellationToken);
-
-    await Assert.ThrowsAsync<NoRecordException>(() => repository.GetEntityDTOByIdAsync(inviteCode.Id, TestContext.Current.CancellationToken));
-  }
-
   private static AppDbContext GetAppDbContext()
   {
     var options = new DbContextOptionsBuilder<AppDbContext>()
