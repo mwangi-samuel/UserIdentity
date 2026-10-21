@@ -20,8 +20,14 @@ public class GoogleRecaptchaService(
   private readonly GoogleRecaptchaSettings _googleRecaptchaSettings = googleRecaptchaSettingsOptions.Value;
 
   private const string targetServiceName = "GoogleRecaptcha";
-  public async Task<bool> VerifyTokenAsync(string token, CancellationToken cancellationToken = default)
+  public async Task<bool> VerifyTokenAsync(string? token, CancellationToken cancellationToken = default)
   {
+    if (!_googleRecaptchaSettings.Enabled)
+      return true;
+
+    if (string.IsNullOrEmpty(token))
+      return false;
+
     var requestParams = new Dictionary<string, string>
         {
             { "secret", _googleRecaptchaSettings.SiteKey!},

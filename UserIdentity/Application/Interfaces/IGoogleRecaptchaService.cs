@@ -2,5 +2,5 @@
 
 public interface IGoogleRecaptchaService
 {
-  Task<bool> VerifyTokenAsync(string token, CancellationToken cancellationToken = default);
+  Task<bool> VerifyTokenAsync(string? token, CancellationToken cancellationToken = default);
 }
