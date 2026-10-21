@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -59,7 +58,7 @@ public class DeleteUnconfirmedUsersCommandHandlerTests
     var inviteCode = new InviteCodeEntity { UserEmail = identityUser.Email, InviteCode = "code", Applied = true };
 
     A.CallTo(() => _userRepository.GetUnconfirmedEntityItemsCreatedBeforeAsync(_fixedNow.AddDays(-30), DeleteUnconfirmedUsersCommandHandler.BatchSize, A<CancellationToken>._))
-      .Returns(new List<UserEntity> { userEntity });
+      .Returns([userEntity]);
     A.CallTo(() => _userManager.FindByIdAsync(userEntity.Id)).Returns(identityUser);
     A.CallTo(() => _userManager.DeleteAsync(identityUser)).Returns(IdentityResult.Success);
     A.CallTo(() => _inviteCodeRepository.GetEntityByAlternateIdAsync(A<InviteCodeEntity>.That.Matches(e => e.UserEmail == identityUser.Email), QueryCondition.MAY_OR_MAY_NOT_EXIST, A<CancellationToken>._))
@@ -97,7 +96,7 @@ public class DeleteUnconfirmedUsersCommandHandlerTests
     var identityUser = new IdentityUser { Id = userEntity.Id };
 
     A.CallTo(() => _userRepository.GetUnconfirmedEntityItemsCreatedBeforeAsync(A<DateTime>._, A<int>._, A<CancellationToken>._))
-      .Returns(new List<UserEntity> { userEntity });
+      .Returns([userEntity]);
     A.CallTo(() => _userManager.FindByIdAsync(userEntity.Id)).Returns(identityUser);
     A.CallTo(() => _userManager.DeleteAsync(identityUser)).Returns(IdentityResult.Failed(new IdentityError { Description = "nope" }));
 
