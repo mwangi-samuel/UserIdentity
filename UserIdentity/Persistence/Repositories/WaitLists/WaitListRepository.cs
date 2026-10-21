@@ -31,7 +31,7 @@ public class WaitListRepository(
   public async Task<WaitListDTO> GetEntityDTOByIdAsync(long id, CancellationToken cancellationToken = default)
   {
     return await _dbContext.WaitList
-      .Where(e => e.Id == id && !e.IsDeleted)
+      .Where(e => e.Id == id)
       .Select(WaitListDTO.Detailed)
       .SingleOrDefaultAsync(cancellationToken) ?? throw new NoRecordException($"{id}", EntityTypes.WAIT_LIST.Description());
   }

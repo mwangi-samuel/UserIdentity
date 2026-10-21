@@ -209,6 +209,12 @@ public sealed class TestDbHelper(
     return _appDbContext.AppUser.FirstOrDefault(x => x.Id == userId);
   }
 
+  public void UpdateUserEntity(UserEntity user)
+  {
+    _appDbContext.AppUser.Update(user);
+    _appDbContext.SaveChanges();
+  }
+
   public void DeleteUserEntity(string userId)
   {
     var user = GetUserEntity(userId);

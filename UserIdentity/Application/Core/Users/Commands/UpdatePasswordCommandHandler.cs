@@ -10,7 +10,6 @@ using PolyzenKit.Persistence.Repositories;
 
 using UserIdentity.Application.Core.Users.ViewModels;
 using UserIdentity.Domain.PasswordResets;
-using UserIdentity.Domain.Users;
 using UserIdentity.Persistence.Repositories.PasswordResets;
 using UserIdentity.Persistence.Repositories.RefreshTokens;
 

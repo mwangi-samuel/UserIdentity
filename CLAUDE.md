@@ -1,6 +1,6 @@
 # UserIdentity
 
-.NET 10 auth service on PolyzenKit 2.1.1. Uses EF Core 10 with the Microting MySQL provider (snake_case names) and Kafka (Redpanda locally).
+.NET 10 auth service on PolyzenKit 2.5.0. Uses EF Core 10 with the Microting MySQL provider (snake_case names) and Kafka (Redpanda locally).
 
 ## Layout
 - `UserIdentity/Application/Core/<Feature>/{Commands,Queries,Events,ViewModels,Settings}`. Each file holds one command or query record plus its handler, which implements a PolyzenKit interface such as `ICreateItemCommandHandler<,>`, `IUpdateItemCommandHandler<,>` or `IEventHandler<>`. Handlers and repositories are registered by name scan.
@@ -9,6 +9,9 @@
 - `Presentation/Controllers` derive from PolyzenKit's `BaseController`.
 - `Infrastructure/` holds `Kafka` and `ExternalServices`. The Kafka consumer lets exceptions through so PolyzenKit retries the message.
 - Settings are bound in `Extensions.cs` (`AddApp...Settings`) and wired up in `Program.cs`.
+- Response-only DTOs live in the feature's `ViewModels`; `Domain` keeps entities and their projections. External API shapes (`GoogleRecaptchaResponseDTO`) live in `Infrastructure`.
+- `AddAppCleanups` registers PolyzenKit periodic delete commands for expired refresh tokens, expired password resets and unconfirmed users (`CleanupSettings`). The unconfirmed-user cleanup does nothing unless `RequireConfirmedAccount` is on.
+- Nothing is soft-deleted, so queries don't filter on `IsDeleted`.
 
 ## Commands
 - Build: `dotnet build -clp:ErrorsOnly`

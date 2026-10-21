@@ -39,6 +39,15 @@ public class RefreshTokenRepository(
     _appDbContext.RefreshToken.RemoveRange(expiredEntities);
   }
 
+  public async Task<List<RefreshTokenEntity>> GetEntityItemsExpiredBeforeAsync(DateTime now, int count, CancellationToken cancellationToken = default)
+  {
+    return await _appDbContext.RefreshToken
+        .Where(e => e.Expires <= now)
+        .OrderBy(e => e.Expires)
+        .Take(count)
+        .ToListAsync(cancellationToken);
+  }
+
   public async Task RemoveEntityItemsAsync(string userId, CancellationToken cancellationToken = default)
   {
     var existingEntities = await _appDbContext.RefreshToken

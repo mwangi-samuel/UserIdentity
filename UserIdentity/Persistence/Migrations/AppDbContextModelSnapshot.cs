@@ -460,7 +460,8 @@ namespace UserIdentity.Persistence.Migrations
 
                     b.Property<string>("UserEmail")
                         .IsRequired()
-                        .HasColumnType("longtext")
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)")
                         .HasColumnName("user_email");
 
                     b.HasKey("Id")
@@ -468,6 +469,9 @@ namespace UserIdentity.Persistence.Migrations
 
                     b.HasIndex("AppId")
                         .HasDatabaseName("ix_invite_codes_app_id");
+
+                    b.HasIndex("UserEmail")
+                        .HasDatabaseName("ix_invite_codes_user_email");
 
                     b.ToTable("invite_codes", (string)null);
                 });
@@ -527,6 +531,9 @@ namespace UserIdentity.Persistence.Migrations
 
                     b.HasKey("Id")
                         .HasName("pk_password_resets");
+
+                    b.HasIndex("Expires")
+                        .HasDatabaseName("ix_password_resets_expires");
 
                     b.HasIndex("RequestId")
                         .IsUnique()
@@ -593,6 +600,9 @@ namespace UserIdentity.Persistence.Migrations
 
                     b.HasKey("Id")
                         .HasName("pk_refresh_tokens");
+
+                    b.HasIndex("Expires")
+                        .HasDatabaseName("ix_refresh_tokens_expires");
 
                     b.HasIndex("PreviousToken")
                         .HasDatabaseName("ix_refresh_tokens_previous_token");
@@ -700,6 +710,9 @@ namespace UserIdentity.Persistence.Migrations
 
                     b.HasKey("Id")
                         .HasName("pk_user_details");
+
+                    b.HasIndex("CreatedAt")
+                        .HasDatabaseName("ix_user_details_created_at");
 
                     b.ToTable("user_details", (string)null);
                 });

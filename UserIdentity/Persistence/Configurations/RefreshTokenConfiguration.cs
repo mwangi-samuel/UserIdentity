@@ -22,6 +22,7 @@ public class RefreshTokenConfiguration : IEntityTypeConfiguration<RefreshTokenEn
 
     builder.Property(e => e.UserId).HasMaxLength(50);
     builder.HasIndex(e => e.UserId);
+    builder.HasIndex(e => e.Expires);
 
     builder.Property(e => e.RemoteIpAddress).HasMaxLength(20);
   }

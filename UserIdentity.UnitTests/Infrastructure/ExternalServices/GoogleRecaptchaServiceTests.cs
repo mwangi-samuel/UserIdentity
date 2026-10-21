@@ -10,7 +10,6 @@ using Microsoft.Extensions.Options;
 using PolyzenKit.Infrastructure.ExternalServices;
 
 using UserIdentity.Application.Core.Users.Settings;
-using UserIdentity.Domain.Users;
 using UserIdentity.Infrastructure.ExternalServices;
 
 using Xunit;

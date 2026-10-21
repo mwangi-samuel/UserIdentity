@@ -6,7 +6,6 @@ using PolyzenKit.Infrastructure.ExternalServices;
 
 using UserIdentity.Application.Core.Users.Settings;
 using UserIdentity.Application.Interfaces;
-using UserIdentity.Domain.Users;
 
 namespace UserIdentity.Infrastructure.ExternalServices;
 
