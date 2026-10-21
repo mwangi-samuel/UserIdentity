@@ -28,7 +28,6 @@ using UserIdentity.Application.Core.Roles.ViewModels;
 using UserIdentity.Application.Core.Tokens.Settings;
 using UserIdentity.Application.Core.Tokens.ViewModels;
 using UserIdentity.Application.Core.Users.Events;
-using UserIdentity.Application.Core.Users.Settings;
 using UserIdentity.Application.Core.Users.ViewModels;
 using UserIdentity.Application.Enums;
 using UserIdentity.Application.Interfaces;
@@ -92,7 +91,6 @@ public class RegisterUserCommandHandler(
     ITokenFactory tokenFactory,
     IMachineDateTime machineDateTime,
     IEventHandler<UserUpdateEvent> userUpdateEventHandler,
-    IOptions<GoogleRecaptchaSettings> googleRecaptchaSettingsOptions,
     IGoogleRecaptchaService googleRecaptchaService,
     IGetItemsQueryHandler<GetRoleClaimsForRolesQuery, RoleClaimsForRolesViewModels> getRoleClaimsQueryHandler,
     ILogHelper<RegisterUserCommandHandler> logHelper
@@ -117,7 +115,6 @@ public class RegisterUserCommandHandler(
 
   private readonly IEventHandler<UserUpdateEvent> _userUpdateEventHandler = userUpdateEventHandler;
 
-  private readonly GoogleRecaptchaSettings _googleRecaptchaSettings = googleRecaptchaSettingsOptions.Value;
   private readonly IGoogleRecaptchaService _googleRecaptchaService = googleRecaptchaService;
 
   private readonly IGetItemsQueryHandler<GetRoleClaimsForRolesQuery, RoleClaimsForRolesViewModels> _getRoleClaimsQueryHandler = getRoleClaimsQueryHandler;
@@ -128,13 +125,8 @@ public class RegisterUserCommandHandler(
   {
 
     // Confirm Google Recaptcha Token is valid before processing
-    if (_googleRecaptchaSettings.Enabled && command.RequestSource == RequestSource.UI)
-    {
-      var googleRecaptchaToken = ObjectUtil.RequireNonNullValue(command.GoogleRecaptchaToken, nameof(command.GoogleRecaptchaToken), $"{nameof(command.GoogleRecaptchaToken)} is required");
-
-      if (!await _googleRecaptchaService.VerifyTokenAsync(googleRecaptchaToken, cancellationToken))
-        throw new InvalidDataException($"Invalid {nameof(command.GoogleRecaptchaToken)} provided");
-    }
+    if (command.RequestSource == RequestSource.UI && !await _googleRecaptchaService.VerifyTokenAsync(command.GoogleRecaptchaToken, cancellationToken))
+      throw new InvalidDataException($"Invalid {nameof(command.GoogleRecaptchaToken)} provided");
 
     var registeredAppName = command.RegisteredApp!.AppName;
 

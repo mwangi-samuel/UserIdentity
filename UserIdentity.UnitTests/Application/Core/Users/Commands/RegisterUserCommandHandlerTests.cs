@@ -27,7 +27,6 @@ using UserIdentity.Application.Core.Roles.ViewModels;
 using UserIdentity.Application.Core.Tokens.Settings;
 using UserIdentity.Application.Core.Users.Commands;
 using UserIdentity.Application.Core.Users.Events;
-using UserIdentity.Application.Core.Users.Settings;
 using UserIdentity.Application.Enums;
 using UserIdentity.Application.Interfaces;
 using UserIdentity.Domain.InviteCodes;
@@ -59,7 +58,6 @@ public class RegisterUserCommandHandlerTests
   private readonly ITokenFactory _tokenFactory;
   private readonly IMachineDateTime _machineDateTime;
   private readonly IEventHandler<UserUpdateEvent> _userUpdateEventHandler;
-  private readonly IOptions<GoogleRecaptchaSettings> _googleRecaptchaSettingsOptions;
   private readonly IGoogleRecaptchaService _googleRecaptchaService;
   private readonly IGetItemsQueryHandler<GetRoleClaimsForRolesQuery, RoleClaimsForRolesViewModels> _getRoleClaimsQueryHandler;
   private readonly ILogHelper<RegisterUserCommandHandler> _logHelper;
@@ -80,12 +78,10 @@ public class RegisterUserCommandHandlerTests
     _tokenFactory = A.Fake<ITokenFactory>();
     _machineDateTime = new MachineDateTime();
     _userUpdateEventHandler = A.Fake<IEventHandler<UserUpdateEvent>>();
-    _googleRecaptchaSettingsOptions = A.Fake<IOptions<GoogleRecaptchaSettings>>();
     _googleRecaptchaService = A.Fake<IGoogleRecaptchaService>();
     _getRoleClaimsQueryHandler = A.Fake<IGetItemsQueryHandler<GetRoleClaimsForRolesQuery, RoleClaimsForRolesViewModels>>();
     _logHelper = A.Fake<ILogHelper<RegisterUserCommandHandler>>();
 
-    A.CallTo(() => _googleRecaptchaSettingsOptions.Value).Returns(new GoogleRecaptchaSettings { Enabled = false });
     A.CallTo(() => _unitOfWork.BeginTransactionAsync(A<CancellationToken>._)).Returns(Task.CompletedTask);
     A.CallTo(() => _unitOfWork.CommitTransactionAsync(A<CancellationToken>._)).Returns(Task.CompletedTask);
     A.CallTo(() => _unitOfWork.RollbackTransactionAsync(A<CancellationToken>._)).Returns(Task.CompletedTask);
@@ -343,6 +339,40 @@ public class RegisterUserCommandHandlerTests
     A.CallTo(() => _userManager.CreateAsync(A<IdentityUser>._, A<string>._)).MustNotHaveHappened();
   }
 
+  [Fact]
+  public async Task Create_User_From_UI_When_Recaptcha_Fails_Throws_InvalidDataException()
+  {
+    // Arrange
+    var command = GetRegisterUserCommand();
+    command.RequestSource = RequestSource.UI;
+    command.GoogleRecaptchaToken = "recaptcha-token";
+
+    A.CallTo(() => _googleRecaptchaService.VerifyTokenAsync("recaptcha-token", A<CancellationToken>._)).Returns(false);
+
+    var handler = GetRegisterUserCommandHandler();
+
+    // Act & Assert
+    await Assert.ThrowsAsync<InvalidDataException>(() => handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken));
+    A.CallTo(() => _unitOfWork.BeginTransactionAsync(A<CancellationToken>._)).MustNotHaveHappened();
+  }
+
+  [Fact]
+  public async Task Create_User_From_API_Does_Not_Verify_Recaptcha()
+  {
+    // Arrange
+    var command = GetRegisterUserCommand();
+    var defaultRole = new IdentityRole(GetDefaultRoleName());
+
+    A.CallTo(() => _roleManager.FindByNameAsync(defaultRole.Name!)).Returns(defaultRole);
+    A.CallTo(() => _userManager.FindByNameAsync(command.UserName)).Returns(new IdentityUser());
+
+    var handler = GetRegisterUserCommandHandler();
+
+    // Act & Assert
+    await Assert.ThrowsAsync<RecordExistsException>(() => handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken));
+    A.CallTo(() => _googleRecaptchaService.VerifyTokenAsync(A<string?>._, A<CancellationToken>._)).MustNotHaveHappened();
+  }
+
   private RegisterUserCommandHandler GetRegisterUserCommandHandler()
   {
     return new RegisterUserCommandHandler(
@@ -360,7 +390,6 @@ public class RegisterUserCommandHandlerTests
         _tokenFactory,
         _machineDateTime,
         _userUpdateEventHandler,
-        _googleRecaptchaSettingsOptions,
         _googleRecaptchaService,
         _getRoleClaimsQueryHandler,
         _logHelper

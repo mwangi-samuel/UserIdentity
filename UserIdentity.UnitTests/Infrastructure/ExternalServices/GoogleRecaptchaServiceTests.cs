@@ -27,8 +27,39 @@ public class GoogleRecaptchaServiceTests
     _httpClientHelper = A.Fake<IHttpClientHelper>();
     _settingsOptions = Options.Create(new GoogleRecaptchaSettings
     {
+      Enabled = true,
       SiteKey = "site-key"
     });
+  }
+
+  [Fact]
+  public async Task VerifyTokenAsync_WhenDisabled_ReturnsTrue()
+  {
+    // Arrange
+    var service = new GoogleRecaptchaService(_httpClientHelper, Options.Create(new GoogleRecaptchaSettings { Enabled = false }));
+
+    // Act
+    var result = await service.VerifyTokenAsync(null, TestContext.Current.CancellationToken);
+
+    // Assert
+    Assert.True(result);
+    A.CallTo(_httpClientHelper).MustNotHaveHappened();
+  }
+
+  [Theory]
+  [InlineData(null)]
+  [InlineData("")]
+  public async Task VerifyTokenAsync_WhenTokenMissing_ReturnsFalse(string? token)
+  {
+    // Arrange
+    var service = new GoogleRecaptchaService(_httpClientHelper, _settingsOptions);
+
+    // Act
+    var result = await service.VerifyTokenAsync(token, TestContext.Current.CancellationToken);
+
+    // Assert
+    Assert.False(result);
+    A.CallTo(_httpClientHelper).MustNotHaveHappened();
   }
 
   [Fact]
