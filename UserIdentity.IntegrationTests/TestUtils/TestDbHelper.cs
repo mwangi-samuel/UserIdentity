@@ -16,6 +16,7 @@ using PolyzenKit.Presentation.Settings;
 using UserIdentity.Domain.InviteCodes;
 using UserIdentity.Domain.PasswordResets;
 using UserIdentity.Domain.RefreshTokens;
+using UserIdentity.Domain.UserRegisteredApps;
 using UserIdentity.Domain.Users;
 using UserIdentity.Domain.WaitLists;
 using UserIdentity.Persistence;
@@ -159,6 +160,12 @@ public sealed class TestDbHelper(
     return CreateIdentityUserRole(AdminRoles.First(), UserSettingHelper.UserId);
   }
 
+  public IdentityUserRole<string> ConfigureIdentityUserAsGlobalAdmin()
+  {
+    CreateIdentityRole(_roleSettings.GlobalAdminRole);
+    return CreateIdentityUserRole(_roleSettings.GlobalAdminRole, UserSettingHelper.UserId);
+  }
+
   public IdentityUserRole<string>? GetIdentityUserRole(string roleName, string userId)
   {
     var role = GetIdentityRole(roleName);
@@ -201,6 +208,8 @@ public sealed class TestDbHelper(
     _appDbContext.AppUser.Add(user);
     _appDbContext.SaveChanges();
 
+    CreateUserRegisteredApp(user.Id);
+
     return user;
   }
 
@@ -229,7 +238,31 @@ public sealed class TestDbHelper(
 
   #endregion
 
-  #region RefreshTokenEntity Related 
+  #region UserRegisteredAppEntity Related
+  public UserRegisteredAppEntity CreateUserRegisteredApp(string userId, string? appName = null)
+  {
+    var app = _appDbContext.RegisteredApp.Single(a => a.AppName == (appName ?? _currentAppNameNormalized));
+
+    var entity = new UserRegisteredAppEntity
+    {
+      Id = $"{userId}-{app.Id}",
+      UserId = userId,
+      AppId = app.Id,
+      CreatedBy = userId,
+      CreatedAt = DateTime.UtcNow,
+      UpdatedBy = userId,
+      UpdatedAt = DateTime.UtcNow
+    };
+
+    _appDbContext.UserRegisteredApp.Add(entity);
+    _appDbContext.SaveChanges();
+
+    return entity;
+  }
+
+  #endregion
+
+  #region RefreshTokenEntity Related
   public RefreshTokenEntity CreateRefreshTokenEntity()
   {
     DeleteRefreshTokenEntity(UserSettingHelper.UserId);

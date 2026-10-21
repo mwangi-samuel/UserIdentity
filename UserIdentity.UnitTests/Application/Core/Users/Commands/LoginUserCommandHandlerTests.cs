@@ -142,7 +142,8 @@ public class LoginUserCommandHandlerTests
     LoginUserCommand command = new()
     {
       UserName = "test",
-      Password = "test"
+      Password = "test",
+      RegisteredApp = new RegisteredAppEntity { AppName = "TestApp" }
     };
 
     var existingIdentityUser = GetIdentityUser();
@@ -152,7 +153,8 @@ public class LoginUserCommandHandlerTests
 
     A.CallTo(() => _userManager.CheckPasswordAsync(existingIdentityUser, command.Password)).Returns(true);
 
-    A.CallTo(() => _getUserQueryHandler.GetItemAsync(A<GetUserQuery>.That.Matches(q => q.UserId == existingIdentityUser.Id), A<CancellationToken>._))
+    // Also what a user of another app gets, since the query is scoped to the login's app
+    A.CallTo(() => _getUserQueryHandler.GetItemAsync(A<GetUserQuery>.That.Matches(q => q.UserId == existingIdentityUser.Id && q.AppName == "TestApp"), A<CancellationToken>._))
         .Throws(new NoRecordException(existingIdentityUser.Id, "User"));
 
     var handler = GetLoginUserCommandHandler();

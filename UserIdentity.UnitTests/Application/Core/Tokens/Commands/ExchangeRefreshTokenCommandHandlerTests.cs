@@ -18,6 +18,7 @@ using PolyzenKit.Infrastructure.Security.Jwt;
 using PolyzenKit.Infrastructure.Security.Tokens;
 using PolyzenKit.Infrastructure.Utilities;
 using PolyzenKit.Persistence.Repositories;
+using PolyzenKit.Presentation.Settings;
 
 using UserIdentity.Application.Core.Roles.Queries;
 using UserIdentity.Application.Core.Roles.ViewModels;
@@ -26,6 +27,7 @@ using UserIdentity.Application.Core.Tokens.Settings;
 using UserIdentity.Application.Core.Tokens.ViewModels;
 using UserIdentity.Domain.RefreshTokens;
 using UserIdentity.Persistence.Repositories.RefreshTokens;
+using UserIdentity.Persistence.Repositories.UserRegisteredApps;
 using UserIdentity.UnitTests.TestUtils;
 
 using Xunit;
@@ -47,9 +49,12 @@ public class ExchangeRefreshTokenCommandHandlerTests
   private readonly IMachineDateTime _machineDateTime;
 
   private readonly IGetItemsQueryHandler<GetRoleClaimsForRolesQuery, RoleClaimsForRolesViewModels> _getRoleClaimsQueryHandler;
+  private readonly IUserRegisteredAppRepository _userRegisteredAppRepository = A.Fake<IUserRegisteredAppRepository>();
 
   public ExchangeRefreshTokenCommandHandlerTests()
   {
+    A.CallTo(() => _userRegisteredAppRepository.IsUserRegisteredForAppAsync(A<string>._, A<string>._, A<CancellationToken>._)).Returns(true);
+
     _refreshTokenSettings = Options.Create(new RefreshTokenSettings { ValidForSeconds = 2592000 });
     _jwtTokenHandler = A.Fake<IJwtTokenHandler>();
     _tokenFactory = A.Fake<ITokenFactory>();
@@ -192,7 +197,7 @@ public class ExchangeRefreshTokenCommandHandlerTests
       Expires = _machineDateTime.Now.AddMinutes(5),
     };
 
-    var userRoles = new GetRoleClaimsForRolesQuery { Roles = ["Admin"] };
+    List<string> userRoles = ["testapp:admin", "otherapp:admin"];
     var userRoleClaims = new RoleClaimsForRolesViewModels { RoleClaims = ["Admin"] };
     var updatedRefreshToken = RefreshToken + "updated";
     var updatedRefreshTokenHash = RefreshTokenHash + "updated";
@@ -206,13 +211,14 @@ public class ExchangeRefreshTokenCommandHandlerTests
         A<RefreshTokenEntity>.That.Matches(e => e.UserId == TestStringHelper.UserId && e.Token == RefreshTokenHash),
         QueryCondition.MAY_OR_MAY_NOT_EXIST, A<CancellationToken>._)).Returns(dbRefreshToken);
 
-    A.CallTo(() => _userManager.GetRolesAsync(A<IdentityUser>.That.Matches(x => x.Id == TestStringHelper.UserId))).Returns(userRoles.Roles);
+    A.CallTo(() => _userManager.GetRolesAsync(A<IdentityUser>.That.Matches(x => x.Id == TestStringHelper.UserId))).Returns(userRoles);
 
-    A.CallTo(() => _getRoleClaimsQueryHandler.GetItemsAsync(userRoles, A<CancellationToken>._)).Returns(userRoleClaims);
+    // Only the token's app's roles go into the new token
+    A.CallTo(() => _getRoleClaimsQueryHandler.GetItemsAsync(A<GetRoleClaimsForRolesQuery>.That.Matches(q => q.Roles.SequenceEqual(new[] { "testapp:admin" })), A<CancellationToken>._)).Returns(userRoleClaims);
     A.CallTo(() => _tokenFactory.GenerateToken(32)).Returns(updatedRefreshToken);
     A.CallTo(() => _tokenFactory.HashToken(updatedRefreshToken)).Returns(updatedRefreshTokenHash);
 
-    A.CallTo(() => _jwtTokenHandler.CreateToken(TestStringHelper.UserId, TestStringHelper.UserName, "TestApp", userRoles.Roles.ToHashSet(), userRoleClaims.RoleClaims, A<HashSet<Claim>?>._)).Returns((newAccesToken, newAccesstokenExpiresIn));
+    A.CallTo(() => _jwtTokenHandler.CreateToken(TestStringHelper.UserId, TestStringHelper.UserName, "TestApp", A<HashSet<string>>.That.Matches(r => r.SetEquals(new[] { "testapp:admin" })), userRoleClaims.RoleClaims, A<HashSet<Claim>?>._)).Returns((newAccesToken, newAccesstokenExpiresIn));
 
     var hanndler = GetExchangeRefreshTokenCommandHandler();
 
@@ -233,6 +239,37 @@ public class ExchangeRefreshTokenCommandHandlerTests
         e.UserId == TestStringHelper.UserId && e.UpdatedBy == TestStringHelper.UserId && e.UpdatedAt != null)))
         .MustHaveHappenedOnceExactly();
     A.CallTo(() => _unitOfWork.SaveChangesAsync(A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+  }
+
+  [Fact]
+  public async Task ExchangeRefreshToken_For_An_App_The_User_Isnt_Registered_For_Removes_The_Session_And_Throws_SecurityTokenException()
+  {
+    // Arrange
+    var command = GetExchangeRefreshTokenCommand();
+
+    var dbRefreshToken = new RefreshTokenEntity
+    {
+      Id = Guid.NewGuid(),
+      UserId = TestStringHelper.UserId,
+      Token = RefreshTokenHash,
+      Expires = _machineDateTime.Now.AddMinutes(5),
+    };
+
+    SetUpValidAccessToken(command);
+
+    A.CallTo(() => _refreshTokenRepository.GetEntityByAlternateIdAsync(
+        A<RefreshTokenEntity>.That.Matches(e => e.UserId == TestStringHelper.UserId && e.Token == RefreshTokenHash),
+        QueryCondition.MAY_OR_MAY_NOT_EXIST, A<CancellationToken>._)).Returns(dbRefreshToken);
+
+    A.CallTo(() => _userRegisteredAppRepository.IsUserRegisteredForAppAsync(TestStringHelper.UserId, "TestApp", A<CancellationToken>._)).Returns(false);
+
+    var hanndler = GetExchangeRefreshTokenCommandHandler();
+
+    // Act & Assert
+    await Assert.ThrowsAsync<SecurityTokenException>(() => hanndler.UpdateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken));
+
+    A.CallTo(() => _refreshTokenRepository.RemoveEntityItem(dbRefreshToken)).MustHaveHappenedOnceExactly();
+    A.CallTo(() => _tokenFactory.GenerateToken(A<short>._)).MustNotHaveHappened();
   }
 
   private static ExchangeRefreshTokenCommand GetExchangeRefreshTokenCommand()
@@ -266,7 +303,9 @@ public class ExchangeRefreshTokenCommandHandlerTests
         _unitOfWork,
         _refreshTokenRepository,
         _machineDateTime,
-        _getRoleClaimsQueryHandler
+        _getRoleClaimsQueryHandler,
+        _userRegisteredAppRepository,
+        Options.Create(new RoleSettings { ServiceName = "UserIdentity", AdminRoles = "admin", DefaultRole = "user" })
     );
   }
 

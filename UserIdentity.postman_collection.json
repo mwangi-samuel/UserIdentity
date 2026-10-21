@@ -832,7 +832,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\r\n    \"roleId\":\"{{user_role_id}}\",\r\n    \"roleName\": \"Administrator\"\r\n}",
+							"raw": "{\r\n    \"roleId\":\"{{user_role_id}}\",\r\n    \"roleName\": \"{{app_name}}:administrator\"\r\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -930,7 +930,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\r\n    \"roleName\": \"test\"\r\n}",
+							"raw": "{\r\n    \"roleName\": \"{{app_name}}:test\"\r\n}",
 							"options": {
 								"raw": {
 									"language": "json"

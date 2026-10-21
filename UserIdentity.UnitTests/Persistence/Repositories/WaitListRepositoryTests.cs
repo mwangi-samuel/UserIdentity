@@ -45,6 +45,7 @@ public class WaitListRepositoryTests
 
     var result = await repository.GetEntityByAlternateIdAsync(new WaitListEntity
     {
+      AppId = waitList.AppId,
       UserEmail = waitList.UserEmail
     }, QueryCondition.MUST_EXIST, TestContext.Current.CancellationToken);
 
@@ -78,6 +79,7 @@ public class WaitListRepositoryTests
 
     await Assert.ThrowsAsync<RecordExistsException>(() => repository.GetEntityByAlternateIdAsync(new WaitListEntity
     {
+      AppId = waitList.AppId,
       UserEmail = waitList.UserEmail
     }, QueryCondition.MUST_NOT_EXIST, TestContext.Current.CancellationToken));
   }

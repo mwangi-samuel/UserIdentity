@@ -12,6 +12,10 @@
 - Response-only DTOs live in the feature's `ViewModels`; `Domain` keeps entities and their projections. External API shapes (`GoogleRecaptchaResponseDTO`) live in `Infrastructure`.
 - `AddAppCleanups` registers PolyzenKit periodic delete commands for expired refresh tokens, expired password resets and unconfirmed users (`CleanupSettings`). The unconfirmed-user cleanup does nothing unless `RequireConfirmedAccount` is on.
 - Nothing is soft-deleted, so queries don't filter on `IsDeleted`.
+- Roles are shared by all apps and named `<app>:<role>`, so admin endpoints are scoped in the handlers. Controllers pass `AppName` (`IsGlobalAdmin ? null : AuthorizedParty`), and handlers use `AppRolesHelper` for role names and `IUserRegisteredAppRepository.IsUserRegisteredForAppAsync` for users, returning 404 for another app's records. Null means a global admin (`RoleSettings:GlobalAdminRole`), who isn't limited. Role claims and registered apps are global admin only, since scopes aren't tied to an app.
+- Accounts belong to the apps in `user_registered_apps`. `GetUserQuery` with an `AppName` fails for other apps' users, which is what makes login fail. Login, register and refresh put only `AppRolesHelper.ForApp` roles in tokens.
+- Invite codes and wait list entries are keyed by `(AppId, UserEmail)`. Invite and wait list controllers resolve the admin's app with `GetAdminAppAsync`.
+- `PasswordResetSettings:MaxRequestsPerDay` counts the last `PasswordResetSettings.RequestCountWindow` of requests, so expired requests are only deleted that long after they expire.
 
 ## Commands
 - Build: `dotnet build -clp:ErrorsOnly`
@@ -23,7 +27,7 @@
 
 ## Tests
 - xUnit v3 on Microsoft Testing Platform, with FakeItEasy.
-- `TestingWebAppFactory` starts MySQL and Redpanda Testcontainers, fakes Google Recaptcha with WireMock and turns rate limiting off.
+- `TestingWebAppFactory` starts MySQL and Redpanda Testcontainers, fakes Google Recaptcha with WireMock and turns rate limiting off. It seeds a second app, `OtherApp`, for cross-app checks (`AppScopingTests`). `TestDbHelper.CreateUserEntity` also links the user to `TestApp`.
 - Respawn resets the database before each test. It must ignore `__EFMigrationsHistory`, otherwise a second host re-runs every migration.
 - Kafka messages from other tests also land on the topic, so filter by correlation id with `KafkaConsumerHelper.WaitAndConsumeUserUpdatedMessageAsync(correlationId)`.
 

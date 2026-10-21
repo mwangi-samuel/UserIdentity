@@ -34,7 +34,7 @@ public class RoleControllerTests(
     _testDbHelper.CreateIdentityRole(_testDbHelper.AdminRoles.First());
     _testDbHelper.ConfigureIdentityUserAsAdmin();
 
-    var additionalRolename = "additionalRole";
+    var additionalRolename = "testapp:additionalrole";
     var role = _testDbHelper.CreateIdentityRole(additionalRolename);
     var additionalRoleId = role.Id;
 
@@ -70,7 +70,7 @@ public class RoleControllerTests(
     // Arrange
     _testDbHelper.SeedDatabase();
 
-    var additionalRolename = "additionalRole";
+    var additionalRolename = "testapp:additionalrole";
     var role = _testDbHelper.CreateIdentityRole(additionalRolename);
 
     // Act
@@ -88,7 +88,7 @@ public class RoleControllerTests(
     // Arrange
     _testDbHelper.SeedDatabase();
 
-    var additionalRolename = "additionalRole";
+    var additionalRolename = "testapp:additionalrole";
     var role = _testDbHelper.CreateIdentityRole(additionalRolename);
 
     // Act
@@ -105,7 +105,7 @@ public class RoleControllerTests(
   {
     // Arrange
     var user = _testDbHelper.CreateIdentityUser();
-    var roleName = "additionalRole";
+    var roleName = "testapp:additionalrole";
     _testDbHelper.CreateIdentityRole(roleName);
     _testDbHelper.CreateIdentityUserRole(roleName, user.Id);
     _testDbHelper.CreateUserEntity();
@@ -128,7 +128,7 @@ public class RoleControllerTests(
     _testDbHelper.CreateIdentityRole(_testDbHelper.AdminRoles.First());
     _testDbHelper.ConfigureIdentityUserAsAdmin();
 
-    var additionalRolename = "additionalRole";
+    var additionalRolename = "testapp:additionalrole";
     var role = _testDbHelper.CreateIdentityRole(additionalRolename);
     var additionalRoleId = role.Id;
 
@@ -160,7 +160,7 @@ public class RoleControllerTests(
     // Arrange
     _testDbHelper.SeedDatabase();
 
-    var additionalRolename = "additionalRole";
+    var additionalRolename = "testapp:additionalrole";
     var role = _testDbHelper.CreateIdentityRole(additionalRolename);
 
     // Act
@@ -178,7 +178,7 @@ public class RoleControllerTests(
     // Arrange
     _testDbHelper.SeedDatabase();
 
-    var additionalRolename = "additionalRole";
+    var additionalRolename = "testapp:additionalrole";
     var role = _testDbHelper.CreateIdentityRole(additionalRolename);
 
     // Act
@@ -195,7 +195,7 @@ public class RoleControllerTests(
   {
     // Arrange
     var user = _testDbHelper.CreateIdentityUser();
-    var roleName = "additionalRole";
+    var roleName = "testapp:additionalrole";
     var role = _testDbHelper.CreateIdentityRole(roleName);
     _testDbHelper.CreateIdentityUserRole(roleName, user.Id);
     _testDbHelper.CreateUserEntity();
@@ -218,7 +218,7 @@ public class RoleControllerTests(
     _testDbHelper.CreateIdentityRole(_testDbHelper.AdminRoles.First());
     _testDbHelper.ConfigureIdentityUserAsAdmin();
 
-    var additionalRolename = "additionalRole";
+    var additionalRolename = "testapp:additionalrole";
     _testDbHelper.CreateIdentityRole(additionalRolename);
 
     (_, _) = await _httpClient.LoginUserAsync(UserSettingHelper.UserName, UserSettingHelper.UserPassword);
@@ -226,7 +226,7 @@ public class RoleControllerTests(
 
     var requestPayload = new
     {
-      RoleName = "newRole",
+      RoleName = "testapp:newrole",
     };
 
     // Act
@@ -259,7 +259,7 @@ public class RoleControllerTests(
     _testDbHelper.CreateIdentityRole(_testDbHelper.AdminRoles.First());
     _testDbHelper.ConfigureIdentityUserAsAdmin();
 
-    var additionalRolename = "additionalRole";
+    var additionalRolename = "testapp:additionalrole";
     _testDbHelper.CreateIdentityRole(additionalRolename);
 
     var requestPayload = new
@@ -300,7 +300,7 @@ public class RoleControllerTests(
     _testDbHelper.CreateIdentityRole(_testDbHelper.AdminRoles.First());
     _testDbHelper.ConfigureIdentityUserAsAdmin();
 
-    var additionalRolename = "additionalRole";
+    var additionalRolename = "testapp:additionalrole";
 
     _testDbHelper.CreateIdentityRole(additionalRolename);
 
@@ -344,13 +344,13 @@ public class RoleControllerTests(
     // Arrange
     _testDbHelper.SeedDatabase();
 
-    var additionalRolename = "additionalRole";
+    var additionalRolename = "testapp:additionalrole";
 
     _testDbHelper.CreateIdentityRole(additionalRolename);
 
     var requestPayload = new
     {
-      RoleName = "newRole",
+      RoleName = "testapp:newrole",
     };
 
     // Act
@@ -368,12 +368,12 @@ public class RoleControllerTests(
     // Arrange
     _testDbHelper.SeedDatabase();
 
-    var additionalRolename = "additionalRole";
+    var additionalRolename = "testapp:additionalrole";
     _testDbHelper.CreateIdentityRole(additionalRolename);
 
     var requestPayload = new
     {
-      RoleName = "newRole",
+      RoleName = "testapp:newrole",
     };
 
     // Act
@@ -390,7 +390,7 @@ public class RoleControllerTests(
   {
     // Arrange
     var user = _testDbHelper.CreateIdentityUser();
-    var roleName = "additionalRole";
+    var roleName = "testapp:additionalrole";
     _testDbHelper.CreateIdentityRole(roleName);
     _testDbHelper.CreateIdentityUserRole(roleName, user.Id);
     _testDbHelper.CreateUserEntity();
@@ -398,7 +398,7 @@ public class RoleControllerTests(
 
     var requestPayload = new
     {
-      RoleName = "newRole",
+      RoleName = "testapp:newrole",
     };
 
     // Act
@@ -418,13 +418,13 @@ public class RoleControllerTests(
     _testDbHelper.CreateIdentityRole(_testDbHelper.AdminRoles.First());
     _testDbHelper.ConfigureIdentityUserAsAdmin();
 
-    var additionalRolename = "additionalRole";
+    var additionalRolename = "testapp:additionalrole";
     var newRole = _testDbHelper.CreateIdentityRole(additionalRolename);
 
     var requestPayload = new
     {
       RoleId = newRole.Id,
-      RoleName = "UpdatednewRole",
+      RoleName = "testapp:updatednewrole",
     };
 
     // Act
@@ -457,7 +457,7 @@ public class RoleControllerTests(
     _testDbHelper.CreateIdentityRole(_testDbHelper.AdminRoles.First());
     _testDbHelper.ConfigureIdentityUserAsAdmin();
 
-    var additionalRolename = "additionalRole";
+    var additionalRolename = "testapp:additionalrole";
     _testDbHelper.CreateIdentityRole(additionalRolename);
 
     var requestPayload = new
@@ -499,7 +499,7 @@ public class RoleControllerTests(
     _testDbHelper.CreateIdentityRole(_testDbHelper.AdminRoles.First());
     _testDbHelper.ConfigureIdentityUserAsAdmin();
 
-    var additionalRolename = "additionalRole";
+    var additionalRolename = "testapp:additionalrole";
     var role = _testDbHelper.CreateIdentityRole(additionalRolename);
 
     var requestPayload = new
@@ -541,12 +541,12 @@ public class RoleControllerTests(
     // Arrange
     _testDbHelper.SeedDatabase();
 
-    var additionalRolename = "additionalRole";
+    var additionalRolename = "testapp:additionalrole";
     var role = _testDbHelper.CreateIdentityRole(additionalRolename);
 
     var requestPayload = new
     {
-      RoleName = "UpdatednewRole",
+      RoleName = "testapp:updatednewrole",
     };
 
     // Act
@@ -564,12 +564,12 @@ public class RoleControllerTests(
     // Arrange
     _testDbHelper.SeedDatabase();
 
-    var additionalRolename = "additionalRole";
+    var additionalRolename = "testapp:additionalrole";
     var role = _testDbHelper.CreateIdentityRole(additionalRolename);
 
     var requestPayload = new
     {
-      RoleName = "UpdatedRole",
+      RoleName = "testapp:updatedrole",
     };
 
     // Act
@@ -587,7 +587,7 @@ public class RoleControllerTests(
     // Arrange
     // Arrange
     var user = _testDbHelper.CreateIdentityUser();
-    var roleName = "additionalRole";
+    var roleName = "testapp:additionalrole";
     var role = _testDbHelper.CreateIdentityRole(roleName);
     _testDbHelper.CreateIdentityUserRole(roleName, user.Id);
     _testDbHelper.CreateUserEntity();
@@ -595,7 +595,7 @@ public class RoleControllerTests(
 
     var requestPayload = new
     {
-      RoleName = "UpdatedRole",
+      RoleName = "testapp:updatedrole",
     };
 
     // Act
@@ -615,7 +615,7 @@ public class RoleControllerTests(
     _testDbHelper.CreateIdentityRole(_testDbHelper.AdminRoles.First());
     _testDbHelper.ConfigureIdentityUserAsAdmin();
 
-    var additionalRolename = "additionalRole";
+    var additionalRolename = "testapp:additionalrole";
     var role = _testDbHelper.CreateIdentityRole(additionalRolename);
 
 
@@ -677,7 +677,7 @@ public class RoleControllerTests(
     // Arrange
     _testDbHelper.SeedDatabase();
 
-    var additionalRolename = "additionalRole";
+    var additionalRolename = "testapp:additionalrole";
     var role = _testDbHelper.CreateIdentityRole(additionalRolename);
 
     // Act
@@ -695,7 +695,7 @@ public class RoleControllerTests(
     // Arrange
     _testDbHelper.SeedDatabase();
 
-    var additionalRolename = "additionalRole";
+    var additionalRolename = "testapp:additionalrole";
     var role = _testDbHelper.CreateIdentityRole(additionalRolename);
 
     // Act
@@ -713,7 +713,7 @@ public class RoleControllerTests(
     // Arrange
     // Arrange
     var user = _testDbHelper.CreateIdentityUser();
-    var roleName = "additionalRole";
+    var roleName = "testapp:additionalrole";
     var role = _testDbHelper.CreateIdentityRole(roleName);
     _testDbHelper.CreateIdentityUserRole(roleName, user.Id);
     _testDbHelper.CreateUserEntity();
@@ -798,7 +798,7 @@ public class RoleControllerTests(
     // Arrange
     _testDbHelper.SeedDatabase();
 
-    var additionalRolename = "additionalRole";
+    var additionalRolename = "testapp:additionalrole";
 
     _testDbHelper.CreateIdentityRole(additionalRolename);
 
@@ -817,7 +817,7 @@ public class RoleControllerTests(
     // Arrange
     _testDbHelper.SeedDatabase();
 
-    var additionalRolename = "additionalRole";
+    var additionalRolename = "testapp:additionalrole";
     _testDbHelper.CreateIdentityRole(additionalRolename);
 
     // Act
@@ -835,7 +835,7 @@ public class RoleControllerTests(
     // Arrange
     // Arrange
     var user = _testDbHelper.CreateIdentityUser();
-    var roleName = "additionalRole";
+    var roleName = "testapp:additionalrole";
     _testDbHelper.CreateIdentityRole(roleName);
     _testDbHelper.CreateIdentityUserRole(roleName, user.Id);
     _testDbHelper.CreateUserEntity();
@@ -872,7 +872,7 @@ public class RoleControllerTests(
     _testDbHelper.CreateIdentityRole(_testDbHelper.AdminRoles.First());
     _testDbHelper.ConfigureIdentityUserAsAdmin();
 
-    var additionalRolename = "additionalRole";
+    var additionalRolename = "testapp:additionalrole";
 
     var role = _testDbHelper.CreateIdentityRole(additionalRolename);
 
@@ -915,7 +915,7 @@ public class RoleControllerTests(
     _testDbHelper.CreateIdentityRole(_testDbHelper.AdminRoles.First());
     _testDbHelper.ConfigureIdentityUserAsAdmin();
 
-    var additionalRolename = "additionalRole";
+    var additionalRolename = "testapp:additionalrole";
     var role = _testDbHelper.CreateIdentityRole(additionalRolename);
     _testDbHelper.CreateIdentityUserRole(additionalRolename, UserSettingHelper.UserId);
 
@@ -958,7 +958,7 @@ public class RoleControllerTests(
     _testDbHelper.CreateIdentityRole(_testDbHelper.AdminRoles.First());
     _testDbHelper.ConfigureIdentityUserAsAdmin();
 
-    var additionalRolename = "additionalRole";
+    var additionalRolename = "testapp:additionalrole";
 
     _testDbHelper.CreateIdentityRole(additionalRolename);
 
@@ -1004,7 +1004,7 @@ public class RoleControllerTests(
     // Arrange
     _testDbHelper.SeedDatabase();
 
-    var additionalRolename = "additionalRole";
+    var additionalRolename = "testapp:additionalrole";
 
     var role = _testDbHelper.CreateIdentityRole(additionalRolename);
 
@@ -1030,7 +1030,7 @@ public class RoleControllerTests(
     _testDbHelper.SeedDatabase();
 
 
-    var additionalRolename = "additionalRole";
+    var additionalRolename = "testapp:additionalrole";
 
     var role = _testDbHelper.CreateIdentityRole(additionalRolename);
 
@@ -1055,7 +1055,7 @@ public class RoleControllerTests(
     // Arrange
     // Arrange
     var user = _testDbHelper.CreateIdentityUser();
-    var roleName = "additionalRole";
+    var roleName = "testapp:additionalrole";
     var role = _testDbHelper.CreateIdentityRole(roleName);
     _testDbHelper.CreateIdentityUserRole(roleName, user.Id);
     _testDbHelper.CreateUserEntity();
@@ -1082,9 +1082,9 @@ public class RoleControllerTests(
     // Arrange
     _testDbHelper.SeedDatabase();
     _testDbHelper.CreateIdentityRole(_testDbHelper.AdminRoles.First());
-    _testDbHelper.ConfigureIdentityUserAsAdmin();
+    _testDbHelper.ConfigureIdentityUserAsGlobalAdmin();
 
-    var additionalRolename = "additionalRole";
+    var additionalRolename = "testapp:additionalrole";
     var role = _testDbHelper.CreateIdentityRole(additionalRolename);
 
     var requestPayload = new
@@ -1123,9 +1123,9 @@ public class RoleControllerTests(
     // Arrange
     _testDbHelper.SeedDatabase();
     _testDbHelper.CreateIdentityRole(_testDbHelper.AdminRoles.First());
-    _testDbHelper.ConfigureIdentityUserAsAdmin();
+    _testDbHelper.ConfigureIdentityUserAsGlobalAdmin();
 
-    var additionalRolename = "additionalRole";
+    var additionalRolename = "testapp:additionalrole";
     var role = _testDbHelper.CreateIdentityRole(additionalRolename);
 
     var createRoleClaimResult = _testDbHelper.UpdateRoleClaim(additionalRolename, $"user{ZenConstants.SCOPE_CLAIM_SEPARATOR}edit");
@@ -1170,10 +1170,10 @@ public class RoleControllerTests(
     // Arrange
     _testDbHelper.SeedDatabase();
     _testDbHelper.CreateIdentityRole(_testDbHelper.AdminRoles.First());
-    _testDbHelper.ConfigureIdentityUserAsAdmin();
+    _testDbHelper.ConfigureIdentityUserAsGlobalAdmin();
 
     var additionalRoleId = Guid.NewGuid().ToString();
-    var additionalRolename = "additionalRole";
+    var additionalRolename = "testapp:additionalrole";
 
     var role = _testDbHelper.CreateIdentityRole(additionalRolename);
 
@@ -1220,7 +1220,7 @@ public class RoleControllerTests(
     // Arrange
     _testDbHelper.SeedDatabase();
 
-    var additionalRolename = "additionalRole";
+    var additionalRolename = "testapp:additionalrole";
     var role = _testDbHelper.CreateIdentityRole(additionalRolename);
 
     var requestPayload = new
@@ -1245,7 +1245,7 @@ public class RoleControllerTests(
     // Arrange
     _testDbHelper.SeedDatabase();
 
-    var additionalRolename = "additionalRole";
+    var additionalRolename = "testapp:additionalrole";
 
     var role = _testDbHelper.CreateIdentityRole(additionalRolename);
 
@@ -1272,7 +1272,7 @@ public class RoleControllerTests(
     // Arrange
     // Arrange
     var user = _testDbHelper.CreateIdentityUser();
-    var roleName = "additionalRole";
+    var roleName = "testapp:additionalrole";
     var role = _testDbHelper.CreateIdentityRole(roleName);
     _testDbHelper.CreateIdentityUserRole(roleName, user.Id);
     _testDbHelper.CreateUserEntity();
@@ -1301,9 +1301,9 @@ public class RoleControllerTests(
     // Arrange
     _testDbHelper.SeedDatabase();
     _testDbHelper.CreateIdentityRole(_testDbHelper.AdminRoles.First());
-    _testDbHelper.ConfigureIdentityUserAsAdmin();
+    _testDbHelper.ConfigureIdentityUserAsGlobalAdmin();
 
-    var additionalRolename = "additionalRole";
+    var additionalRolename = "testapp:additionalrole";
 
     var role = _testDbHelper.CreateIdentityRole(additionalRolename);
     var createRoleClaimResult = _testDbHelper.UpdateRoleClaim(additionalRolename, $"user{ZenConstants.SCOPE_CLAIM_SEPARATOR}edit");
@@ -1340,7 +1340,7 @@ public class RoleControllerTests(
     // Arrange
     _testDbHelper.SeedDatabase();
     _testDbHelper.CreateIdentityRole(_testDbHelper.AdminRoles.First());
-    _testDbHelper.ConfigureIdentityUserAsAdmin();
+    _testDbHelper.ConfigureIdentityUserAsGlobalAdmin();
 
     var nonExistentRoleId = Guid.NewGuid().ToString();
 
@@ -1375,7 +1375,7 @@ public class RoleControllerTests(
     // Arrange
     _testDbHelper.SeedDatabase();
 
-    var additionalRolename = "additionalRole";
+    var additionalRolename = "testapp:additionalrole";
 
     var role = _testDbHelper.CreateIdentityRole(additionalRolename);
 
@@ -1394,7 +1394,7 @@ public class RoleControllerTests(
     // Arrange
     _testDbHelper.SeedDatabase();
 
-    var additionalRolename = "additionalRole";
+    var additionalRolename = "testapp:additionalrole";
     var role = _testDbHelper.CreateIdentityRole(additionalRolename);
 
     // Act
@@ -1412,7 +1412,7 @@ public class RoleControllerTests(
     // Arrange
     // Arrange
     var user = _testDbHelper.CreateIdentityUser();
-    var roleName = "additionalRole";
+    var roleName = "testapp:additionalrole";
     var role = _testDbHelper.CreateIdentityRole(roleName);
     _testDbHelper.CreateIdentityUserRole(roleName, user.Id);
     _testDbHelper.CreateUserEntity();
@@ -1433,9 +1433,9 @@ public class RoleControllerTests(
     // Arrange
     _testDbHelper.SeedDatabase();
     _testDbHelper.CreateIdentityRole(_testDbHelper.AdminRoles.First());
-    _testDbHelper.ConfigureIdentityUserAsAdmin();
+    _testDbHelper.ConfigureIdentityUserAsGlobalAdmin();
 
-    var additionalRolename = "additionalRole";
+    var additionalRolename = "testapp:additionalrole";
 
     var role = _testDbHelper.CreateIdentityRole(additionalRolename);
 
@@ -1472,9 +1472,9 @@ public class RoleControllerTests(
     // Arrange
     _testDbHelper.SeedDatabase();
     _testDbHelper.CreateIdentityRole(_testDbHelper.AdminRoles.First());
-    _testDbHelper.ConfigureIdentityUserAsAdmin();
+    _testDbHelper.ConfigureIdentityUserAsGlobalAdmin();
 
-    var additionalRolename = "additionalRole";
+    var additionalRolename = "testapp:additionalrole";
 
     var role = _testDbHelper.CreateIdentityRole(additionalRolename);
 
@@ -1517,9 +1517,9 @@ public class RoleControllerTests(
     // Arrange
     _testDbHelper.SeedDatabase();
     _testDbHelper.CreateIdentityRole(_testDbHelper.AdminRoles.First());
-    _testDbHelper.ConfigureIdentityUserAsAdmin();
+    _testDbHelper.ConfigureIdentityUserAsGlobalAdmin();
 
-    var additionalRolename = "additionalRole";
+    var additionalRolename = "testapp:additionalrole";
     var role = _testDbHelper.CreateIdentityRole(additionalRolename);
 
     var requestPayload = new
@@ -1564,7 +1564,7 @@ public class RoleControllerTests(
     // Arrange
     _testDbHelper.SeedDatabase();
 
-    var additionalRolename = "additionalRole";
+    var additionalRolename = "testapp:additionalrole";
     var role = _testDbHelper.CreateIdentityRole(additionalRolename);
 
     var requestPayload = new
@@ -1589,7 +1589,7 @@ public class RoleControllerTests(
     // Arrange
     _testDbHelper.SeedDatabase();
 
-    var additionalRolename = "additionalRole";
+    var additionalRolename = "testapp:additionalrole";
     var role = _testDbHelper.CreateIdentityRole(additionalRolename);
 
     var requestPayload = new
@@ -1614,7 +1614,7 @@ public class RoleControllerTests(
     // Arrange
     // Arrange
     var user = _testDbHelper.CreateIdentityUser();
-    var roleName = "additionalRole";
+    var roleName = "testapp:additionalrole";
     var role = _testDbHelper.CreateIdentityRole(roleName);
     _testDbHelper.CreateIdentityUserRole(roleName, user.Id);
     _testDbHelper.CreateUserEntity();

@@ -12,6 +12,7 @@ using PolyzenKit.Application.Enums;
 using PolyzenKit.Common.Utilities;
 using PolyzenKit.Domain.DTO;
 using PolyzenKit.Presentation.Controllers;
+using PolyzenKit.Presentation.Settings;
 
 using UserIdentity.Application.Core.Tokens.Commands;
 using UserIdentity.Application.Core.Tokens.ViewModels;
@@ -19,7 +20,6 @@ using UserIdentity.Application.Core.Users.Commands;
 using UserIdentity.Application.Core.Users.Queries;
 using UserIdentity.Application.Core.Users.ViewModels;
 using UserIdentity.Application.Enums;
-using UserIdentity.Presentation.Settings;
 
 namespace UserIdentity.Presentation.Controllers;
 
@@ -47,12 +47,12 @@ public class UserController(
   private readonly IRegisteredAppResolver _registeredAppResolver = registeredAppResolver;
 
 
-  [Authorize(Policy = ZenConstants.ADMIN_OR_SAME_USER_POLICY)]
+  [Authorize(Policy = ZenConstants.ADMIN_GLOBAL_ADMIN_OR_SAME_USER_POLICY)]
   [HttpGet]
   [Route("{userId}")]
   public async Task<ActionResult<UserViewModel>> GetUser(string userId)
   {
-    var vm = await _getUserQueryHandler.GetItemAsync(new GetUserQuery { UserId = userId }, RequestAborted);
+    var vm = await _getUserQueryHandler.GetItemAsync(new GetUserQuery { UserId = userId, AppName = IsGlobalAdmin ? null : AuthorizedParty }, RequestAborted);
     return ResolveGetItemActionResult(vm, vm.User.OwnedByLoggedInUser(LoggedInUserId));
   }
 

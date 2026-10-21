@@ -39,7 +39,7 @@ public class GetInviteCodeQueryHandlerTests
 
     A.CallTo(() => _inviteCodeRepository.GetEntityDTOByIdAsync(inviteCodeId, A<CancellationToken>._)).Returns(expectedDto);
 
-    var query = new GetInviteCodeQuery { InviteCodeId = inviteCodeId };
+    var query = new GetInviteCodeQuery { InviteCodeId = inviteCodeId, AppId = 1 };
     var handler = new GetInviteCodeQueryHandler(_inviteCodeRepository);
 
     // Act
@@ -72,10 +72,10 @@ public class GetInviteCodeQueryHandlerTests
     };
 
     A.CallTo(() => _inviteCodeRepository.GetEntityByAlternateIdAsync(
-        A<InviteCodeEntity>.That.Matches(e => e.UserEmail == userEmail),
+        A<InviteCodeEntity>.That.Matches(e => e.UserEmail == userEmail && e.AppId == 2),
         QueryCondition.MUST_EXIST, A<CancellationToken>._)).Returns(entity);
 
-    var query = new GetInviteCodeQuery { UserEmail = userEmail };
+    var query = new GetInviteCodeQuery { UserEmail = userEmail, AppId = 2 };
     var handler = new GetInviteCodeQueryHandler(_inviteCodeRepository);
 
     // Act
@@ -89,9 +89,25 @@ public class GetInviteCodeQueryHandlerTests
     Assert.Equal(entity.UserEmail, result.InviteCode.UserEmail);
 
     A.CallTo(() => _inviteCodeRepository.GetEntityByAlternateIdAsync(
-        A<InviteCodeEntity>.That.Matches(e => e.UserEmail == userEmail),
+        A<InviteCodeEntity>.That.Matches(e => e.UserEmail == userEmail && e.AppId == 2),
         QueryCondition.MUST_EXIST, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
     A.CallTo(() => _inviteCodeRepository.GetEntityDTOByIdAsync(A<long>._, A<CancellationToken>._)).MustNotHaveHappened();
+  }
+
+  [Fact]
+  public async Task GetItemAsync_With_InviteCodeId_Of_Another_App_Throws_NoRecordException()
+  {
+    // Arrange
+    var inviteCodeId = 1L;
+
+    A.CallTo(() => _inviteCodeRepository.GetEntityDTOByIdAsync(inviteCodeId, A<CancellationToken>._))
+        .Returns(new InviteCodeDTO { Id = inviteCodeId, InviteCode = "INVITE123", UserEmail = "test@example.com", AppId = 5 });
+
+    var query = new GetInviteCodeQuery { InviteCodeId = inviteCodeId, AppId = 1 };
+    var handler = new GetInviteCodeQueryHandler(_inviteCodeRepository);
+
+    // Act & Assert
+    await Assert.ThrowsAsync<NoRecordException>(() => handler.GetItemAsync(query, TestContext.Current.CancellationToken));
   }
 
   [Fact]
@@ -103,7 +119,7 @@ public class GetInviteCodeQueryHandlerTests
     A.CallTo(() => _inviteCodeRepository.GetEntityDTOByIdAsync(inviteCodeId, A<CancellationToken>._))
         .ThrowsAsync(new NoRecordException($"{inviteCodeId}", "InviteCode"));
 
-    var query = new GetInviteCodeQuery { InviteCodeId = inviteCodeId };
+    var query = new GetInviteCodeQuery { InviteCodeId = inviteCodeId, AppId = 1 };
     var handler = new GetInviteCodeQueryHandler(_inviteCodeRepository);
 
     // Act & Assert
@@ -117,11 +133,11 @@ public class GetInviteCodeQueryHandlerTests
     var userEmail = "notfound@example.com";
 
     A.CallTo(() => _inviteCodeRepository.GetEntityByAlternateIdAsync(
-        A<InviteCodeEntity>.That.Matches(e => e.UserEmail == userEmail),
+        A<InviteCodeEntity>.That.Matches(e => e.UserEmail == userEmail && e.AppId == 2),
         QueryCondition.MUST_EXIST, A<CancellationToken>._))
         .ThrowsAsync(new NoRecordException(userEmail, nameof(InviteCodeEntity)));
 
-    var query = new GetInviteCodeQuery { UserEmail = userEmail };
+    var query = new GetInviteCodeQuery { UserEmail = userEmail, AppId = 2 };
     var handler = new GetInviteCodeQueryHandler(_inviteCodeRepository);
 
     // Act & Assert
