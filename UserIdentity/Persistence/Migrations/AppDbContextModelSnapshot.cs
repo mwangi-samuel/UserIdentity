@@ -467,11 +467,9 @@ namespace UserIdentity.Persistence.Migrations
                     b.HasKey("Id")
                         .HasName("pk_invite_codes");
 
-                    b.HasIndex("AppId")
-                        .HasDatabaseName("ix_invite_codes_app_id");
-
-                    b.HasIndex("UserEmail")
-                        .HasDatabaseName("ix_invite_codes_user_email");
+                    b.HasIndex("AppId", "UserEmail")
+                        .IsUnique()
+                        .HasDatabaseName("ix_invite_codes_app_id_user_email");
 
                     b.ToTable("invite_codes", (string)null);
                 });
@@ -760,11 +758,9 @@ namespace UserIdentity.Persistence.Migrations
                     b.HasKey("Id")
                         .HasName("pk_wait_lists");
 
-                    b.HasIndex("AppId")
-                        .HasDatabaseName("ix_wait_lists_app_id");
-
-                    b.HasIndex("UserEmail")
-                        .HasDatabaseName("ix_wait_lists_user_email");
+                    b.HasIndex("AppId", "UserEmail")
+                        .IsUnique()
+                        .HasDatabaseName("ix_wait_lists_app_id_user_email");
 
                     b.ToTable("wait_lists", (string)null);
                 });

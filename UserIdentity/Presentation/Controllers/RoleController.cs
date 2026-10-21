@@ -41,70 +41,77 @@ public class RoleController(
   private readonly IGetItemsQueryHandler<GetRoleClaimsQuery, RoleClaimsViewModel> _getRoleClaimsQueryHandler = getRoleClaimsQueryHandler;
   private readonly IDeleteItemCommandHandler<DeleteRoleClaimCommand, DeleteRecordViewModel> _deleteRoleClaimCommandHandler = deleteRoleClaimCommandHandler;
 
-  [Authorize(Policy = ZenConstants.ADMIN_USER_POLICY)]
+  private string? AdminAppName => IsGlobalAdmin ? null : AuthorizedParty;
+
+  [Authorize(Policy = ZenConstants.ADMIN_OR_GLOBAL_ADMIN_POLICY)]
   [HttpGet]
   public async Task<ActionResult<RolesViewModel>> GetRolesAsync()
   {
-    var vm = await _getRolesQueryHandler.GetItemsAsync(new GetRolesQuery { }, RequestAborted);
+    var vm = await _getRolesQueryHandler.GetItemsAsync(new GetRolesQuery { AppName = AdminAppName }, RequestAborted);
     return ResolveGetItemsActionResult(vm);
   }
 
-  [Authorize(Policy = ZenConstants.ADMIN_USER_POLICY)]
+  [Authorize(Policy = ZenConstants.ADMIN_OR_GLOBAL_ADMIN_POLICY)]
   [HttpGet]
   [Route("{roleId}")]
   public async Task<ActionResult<RoleViewModel>> GetRoleAsync(string roleId)
   {
-    var vm = await _getRoleQueryHandler.GetItemAsync(new GetRoleQuery { RoleId = roleId }, RequestAborted);
+    var vm = await _getRoleQueryHandler.GetItemAsync(new GetRoleQuery { RoleId = roleId, AppName = AdminAppName }, RequestAborted);
     return ResolveGetItemActionResult(vm);
   }
 
-  [Authorize(Policy = ZenConstants.ADMIN_USER_POLICY)]
+  [Authorize(Policy = ZenConstants.ADMIN_OR_GLOBAL_ADMIN_POLICY)]
   [HttpPost]
   public async Task<ActionResult<RoleViewModel>> CreateRoleAsync(CreateRoleCommand command)
   {
+    command.AppName = AdminAppName;
+
     var vm = await _createRoleCommandHandler.CreateItemAsync(command, LoggedInUserId, RequestAborted);
     return ResolveCreateItemActionResult(vm);
   }
 
-  [Authorize(Policy = ZenConstants.ADMIN_USER_POLICY)]
+  [Authorize(Policy = ZenConstants.ADMIN_OR_GLOBAL_ADMIN_POLICY)]
   [HttpPut]
   [Route("{roleId}")]
   public async Task<ActionResult<RoleViewModel>> UpdateRoleAsync(string roleId, [FromBody] UpdateRoleCommand command)
   {
     command.RoleId = roleId;
+    command.AppName = AdminAppName;
 
     var vm = await _updateRoleCommandHandler.UpdateItemAsync(command, LoggedInUserId, RequestAborted);
     return ResolveUpdateItemActionResult(vm);
   }
 
 
-  [Authorize(Policy = ZenConstants.ADMIN_USER_POLICY)]
+  [Authorize(Policy = ZenConstants.ADMIN_OR_GLOBAL_ADMIN_POLICY)]
   [HttpDelete]
   [Route("{roleId}")]
   public async Task<ActionResult<DeleteRecordViewModel>> DeleteRoleAsync(string roleId)
   {
-    var vm = await _deleteRoleCommandHandler.DeleteItemAsync(new DeleteRoleCommand { RoleId = roleId }, LoggedInUserId, RequestAborted);
+    var vm = await _deleteRoleCommandHandler.DeleteItemAsync(new DeleteRoleCommand { RoleId = roleId, AppName = AdminAppName }, LoggedInUserId, RequestAborted);
     return ResolveDeleteItemActionResult(vm);
   }
 
-  [Authorize(Policy = ZenConstants.ADMIN_OR_SAME_USER_POLICY)]
+  [Authorize(Policy = ZenConstants.ADMIN_GLOBAL_ADMIN_OR_SAME_USER_POLICY)]
   [HttpGet]
   [Route("user/{userId}")]
   public async Task<ActionResult<UserRolesViewModel>> GetUserRolesAsync(string userId)
   {
-    var vm = await _getUserRolesQueryHandler.GetItemsAsync(new GetUserRolesQuery { UserId = userId }, RequestAborted);
+    var vm = await _getUserRolesQueryHandler.GetItemsAsync(new GetUserRolesQuery { UserId = userId, AppName = AdminAppName }, RequestAborted);
     return ResolveGetItemsActionResult(vm);
   }
 
 
-  [Authorize(Policy = ZenConstants.ADMIN_USER_POLICY)]
+  [Authorize(Policy = ZenConstants.ADMIN_OR_GLOBAL_ADMIN_POLICY)]
   [HttpPost]
   [Route("user")]
   public async Task<ActionResult<UserRolesViewModel>> CreateUserRoleAsync(CreateUserRoleCommand command)
   {
+    command.AppName = AdminAppName;
+
     var vm = await _createUserRoleCommandHandler.CreateItemAsync(command, LoggedInUserId, RequestAborted);
 
-    vm.ResolveCreateDownloadRights(UserScopeClaims, ScopeResource, IsAdmin);
+    vm.ResolveCreateDownloadRights(UserScopeClaims, ScopeResource, IsAdmin || IsGlobalAdmin);
     vm.ResolveRequestStatus(RequestStatus.SUCCESSFUL, ItemStatusMessage.CREATE_ITEM_SUCCESSFUL);
 
     return StatusCode((int)HttpStatusCode.Created, vm);
@@ -117,7 +124,8 @@ public class RoleController(
   /// <param name="command"></param>
   /// <returns></returns>
 
-  [Authorize(Policy = ZenConstants.ADMIN_USER_POLICY)]
+  // Scopes aren't tied to an app, so only global admins manage them
+  [Authorize(Policy = ZenConstants.GLOBAL_ADMIN_POLICY)]
   [HttpPost]
   [Route("claim")]
   public async Task<ActionResult<RoleClaimViewModel>> CreateRoleClaimAsync(CreateRoleClaimCommand command)
@@ -126,7 +134,7 @@ public class RoleController(
     return ResolveCreateItemActionResult(vm);
   }
 
-  [Authorize(Policy = ZenConstants.ADMIN_USER_POLICY)]
+  [Authorize(Policy = ZenConstants.GLOBAL_ADMIN_POLICY)]
   [HttpGet]
   [Route("claim/{roleId}")]
   public async Task<ActionResult<RoleClaimsViewModel>> GetRoleClaimsAsync(string roleId)
@@ -135,7 +143,7 @@ public class RoleController(
     return ResolveGetItemsActionResult(vm);
   }
 
-  [Authorize(Policy = ZenConstants.ADMIN_USER_POLICY)]
+  [Authorize(Policy = ZenConstants.GLOBAL_ADMIN_POLICY)]
   [HttpDelete]
   [Route("claim")]
   public async Task<ActionResult<DeleteRecordViewModel>> DeleteRoleClaimAsync(DeleteRoleClaimCommand command)

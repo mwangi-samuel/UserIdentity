@@ -148,7 +148,7 @@ public class RegisterUserCommandHandler(
       if (command.InviteCode == null)
         throw new InvalidDataException("A valid invite code is required when signing up.");
 
-      inviteCodeEntity = (await _inviteCodeRepository.GetEntityByAlternateIdAsync(new() { UserEmail = command.UserEmail! }, QueryCondition.MUST_EXIST, cancellationToken))!;
+      inviteCodeEntity = (await _inviteCodeRepository.GetEntityByAlternateIdAsync(new() { AppId = command.RegisteredApp!.Id, UserEmail = command.UserEmail! }, QueryCondition.MUST_EXIST, cancellationToken))!;
 
       if (!string.Equals(command.InviteCode, inviteCodeEntity.InviteCode, StringComparison.OrdinalIgnoreCase) || inviteCodeEntity.Applied)
         throw new InvalidDataException("A valid invite code is required when signing up.");

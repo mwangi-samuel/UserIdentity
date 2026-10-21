@@ -16,6 +16,7 @@ using PolyzenKit.Common.Extensions;
 using PolyzenKit.Common.Utilities;
 using PolyzenKit.Infrastructure.Kafka;
 using PolyzenKit.Infrastructure.Security.Tokens;
+using PolyzenKit.Presentation.Settings;
 using PolyzenKit.Presentation.ValidationHelpers;
 
 using UserIdentity.Application.Core.Tokens.ViewModels;
@@ -23,7 +24,6 @@ using UserIdentity.Application.Core.Users.Settings;
 using UserIdentity.Application.Core.Users.ViewModels;
 using UserIdentity.Domain.Users;
 using UserIdentity.IntegrationTests.TestUtils;
-using UserIdentity.Presentation.Settings;
 
 using WireMock.RequestBuilders;
 using WireMock.ResponseBuilders;

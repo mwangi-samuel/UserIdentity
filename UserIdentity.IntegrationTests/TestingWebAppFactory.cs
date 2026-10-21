@@ -11,13 +11,13 @@ using PolyzenKit.Infrastructure.Kafka;
 using PolyzenKit.Infrastructure.Security.AppSecrets;
 using PolyzenKit.Infrastructure.Security.KeySets;
 using PolyzenKit.Persistence.Settings;
+using PolyzenKit.Presentation.Settings;
 
 using Testcontainers.MySql;
 using Testcontainers.Redpanda;
 
 using UserIdentity.Application.Core.Users.Settings;
 using UserIdentity.IntegrationTests.TestUtils;
-using UserIdentity.Presentation.Settings;
 
 using WireMock.Server;
 
@@ -27,6 +27,8 @@ namespace UserIdentity.IntegrationTests;
 
 public class TestingWebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
 {
+  public const string OtherAppName = "OtherApp";
+
   public WireMockServer WireMockServer { get; private set; }
 
   private readonly MySqlContainer _mysqlContainer;
@@ -98,6 +100,11 @@ public class TestingWebAppFactory : WebApplicationFactory<Program>, IAsyncLifeti
 
     // Override Rate Limit Settings
     builder.UseSetting($"{nameof(RateLimitSettings)}:{nameof(RateLimitSettings.Enabled)}", "false");
+
+    // A second app, for cross-app checks
+    builder.UseSetting("RegisteredAppsSettings:RegisteredApps:1:AppName", OtherAppName);
+    builder.UseSetting("RegisteredAppsSettings:RegisteredApps:1:BaseUrl", "http://localhost:3001");
+    builder.UseSetting("RegisteredAppsSettings:RegisteredApps:1:AppSecretKey", "0therApp5ecretKey");
 
   }
 

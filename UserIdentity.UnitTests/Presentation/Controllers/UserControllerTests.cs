@@ -60,7 +60,7 @@ public class UserControllerTests
     var userLName = "User";
     var userName = "test.user";
     var userEmail = userName + "@test.com";
-    GetUserQuery getUserQuery = new() { UserId = userId };
+    GetUserQuery getUserQuery = new() { UserId = userId, AppName = "testapp" };
     UserViewModel userVM = new() { User = new UserDTO { Id = userId, FirstName = userFName, LastName = userLName, UserName = userName, Email = userEmail } };
 
     // Act

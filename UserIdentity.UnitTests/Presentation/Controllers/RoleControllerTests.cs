@@ -57,7 +57,7 @@ public class RoleControllerTests
   public async Task Get_Roles_Returns_Roles()
   {
     // Arrange
-    var query = new GetRolesQuery();
+    var query = new GetRolesQuery { AppName = "testapp" };
 
     var rolesVM = new RolesViewModel
     {
@@ -114,7 +114,7 @@ public class RoleControllerTests
   {
     // Arrange
     var roleId = Guid.NewGuid().ToString();
-    var query = new GetRoleQuery { RoleId = roleId };
+    var query = new GetRoleQuery { RoleId = roleId, AppName = "testapp" };
 
     var roleVM = new RoleViewModel
     {
@@ -272,7 +272,7 @@ public class RoleControllerTests
   {
     // Arrange
     var userId = Guid.NewGuid().ToString();
-    var query = new GetUserRolesQuery { UserId = userId };
+    var query = new GetUserRolesQuery { UserId = userId, AppName = "testapp" };
 
     var userRolesVM = new UserRolesViewModel
     {

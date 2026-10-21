@@ -91,7 +91,7 @@ public class LoginUserCommandHandler(
 
     try
     {
-      userDto = (await _getUserQueryHandler.GetItemAsync(new GetUserQuery { UserId = user.Id }, cancellationToken)).User;
+      userDto = (await _getUserQueryHandler.GetItemAsync(new GetUserQuery { UserId = user.Id, AppName = command.RegisteredApp!.AppName }, cancellationToken)).User;
     }
     catch (NoRecordException ex)
     {

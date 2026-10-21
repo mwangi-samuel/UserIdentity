@@ -59,6 +59,23 @@ Migrations need the global `dotnet-ef` tool, version 10 (`dotnet tool install --
 dotnet ef migrations add <MigrationName> --project UserIdentity
 ```
 
+## Apps, Accounts and Admins
+Each account belongs to the app it registered with. Logging in, refreshing a token or resetting a password through any other app fails as if the account didn't exist. A token carries only its app's roles (`<app>:*`, where `<app>` is the app's name in lower case), plus the global admin role.
+
+There are two kinds of admin:
+
+- **App admins** have the `<app>:admin` role. They manage their app's roles (names must start with `<app>:`), give those roles to their app's users, read their app's users, and manage their app's invite codes and wait list. Anything belonging to another app returns 404, or 400 for a role name outside the prefix.
+- **Global admins** have `RoleSettings:GlobalAdminRole` (default `global:admin`), whatever app they log in through. They manage registered apps and role scopes, and every app's roles and users. For invite codes and wait list entries they name the app in the `X-App-Name` header. The app names `global` and `service` are reserved.
+
+No user starts as an admin, so the first admins are created with `.sql/add_admin_user_role.sql`. It takes the user name or email and the app name, creates the role if it's missing, and is safe to run again. Add `@role_name='global:admin'` for a global admin:
+
+```
+Get-Content .sql\add_admin_user_role.sql | docker exec -i db mysql -uroot -proot --init-command="SET @username='<user name or email>', @app_name='testapp'"
+Get-Content .sql\add_admin_user_role.sql | docker exec -i db mysql -uroot -proot --init-command="SET @username='<user name or email>', @role_name='global:admin'"
+```
+
+Roles are read into the token at login, so the user has to log in again to get an admin token.
+
 ## App Callbacks
 When a user registers through an app's UI and the app has a `CallbackUrl`, UserIdentity POSTs the user details to it. Each callback is signed with the app's `AppSecretKey`:
 
@@ -76,7 +93,7 @@ Apps should recompute the signature over the raw request body, compare it in con
 ## Password Reset
 Users reset their password with a code, the same way they confirm their account:
 
-1. `POST /api/v1/user/reset-password` with the `X-App-Name` header and `{ "userName": "<user name or email>" }`. The response is always 200 with a `resetRequestId`, whether or not the account exists. For an existing user, a `PASSWORD_RESET` message is produced to Kafka with the reset request id as its correlation id. Another request for the same user within `PasswordResetSettings:RequestCooldownSeconds` produces nothing.
+1. `POST /api/v1/user/reset-password` with the `X-App-Name` header and `{ "userName": "<user name or email>" }`. The response is always 200 with a `resetRequestId`, whether or not the account exists. For an existing user, a `PASSWORD_RESET` message is produced to Kafka with the reset request id as its correlation id. Another request for the same user within `PasswordResetSettings:RequestCooldownSeconds`, or after `PasswordResetSettings:MaxRequestsPerDay` requests (default 5) in the last 24 hours, produces nothing. Each request gets its own code and attempts, so the daily cap limits how many codes can be guessed.
 2. Once a message saying the code for that correlation id was verified is consumed from Kafka, the reset request is marked verified.
 3. `POST /api/v1/user/update-password` with `{ "resetRequestId": "...", "newPassword": "..." }`. It returns 406 if the request is unknown, not verified yet, expired (`PasswordResetSettings:ValidForSeconds`, default 15 minutes) or already used, and 400 if the new password breaks the password rules. A successful reset ends all of the user's sessions and lifts any lockout.
 
@@ -86,4 +103,4 @@ Register, login, reset-password, update-password and the waitlist sign-up allow 
 Behind a reverse proxy, set `ForwardedHeadersSettings__KnownNetworks` to the proxy's network (comma-separated CIDR ranges). Otherwise every request appears to come from the proxy, and all clients share one limit.
 
 ## Cleanup
-Every `CleanupSettings:IntervalInMinutes` (default 60), expired refresh tokens and password reset requests are deleted. When confirmed accounts are required, accounts still unconfirmed after `CleanupSettings:UnconfirmedUserLifetimeInDays` (default 30) are deleted too, along with their sessions, app links and roles, and their invite code can be used again.
+Every `CleanupSettings:IntervalInMinutes` (default 60), expired refresh tokens are deleted, and so are password reset requests a day after they expire (kept that long for the daily cap). When confirmed accounts are required, accounts still unconfirmed after `CleanupSettings:UnconfirmedUserLifetimeInDays` (default 30) are deleted too, along with their sessions, app links and roles, and their invite code can be used again.

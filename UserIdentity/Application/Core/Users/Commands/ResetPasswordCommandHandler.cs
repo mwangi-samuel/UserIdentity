@@ -20,6 +20,7 @@ using UserIdentity.Application.Core.Users.ViewModels;
 using UserIdentity.Domain.PasswordResets;
 using UserIdentity.Domain.Users;
 using UserIdentity.Persistence.Repositories.PasswordResets;
+using UserIdentity.Persistence.Repositories.UserRegisteredApps;
 using UserIdentity.Persistence.Repositories.Users;
 
 namespace UserIdentity.Application.Core.Users.Commands;
@@ -44,7 +45,8 @@ public class ResetPasswordCommandHandler(
     IPasswordResetRepository passwordResetRepository,
     IEventHandler<PasswordResetEvent> passwordResetEventHandler,
     IConfiguration configuration,
-    ILogHelper<ResetPasswordCommandHandler> logHelper
+    ILogHelper<ResetPasswordCommandHandler> logHelper,
+    IUserRegisteredAppRepository userRegisteredAppRepository
     ) : BaseAuditableItemCommandHandler<Guid, PasswordResetEntity, IPasswordResetRepository>(unitOfWork, passwordResetRepository, machineDateTime),
       ICreateItemCommandHandler<ResetPasswordCommand, ResetPasswordViewModel>
 {
@@ -52,6 +54,7 @@ public class ResetPasswordCommandHandler(
   private readonly UserManager<IdentityUser> _userManager = userManager;
   private readonly ITokenFactory _tokenFactory = tokenFactory;
   private readonly IUserRepository _userRepository = userRepository;
+  private readonly IUserRegisteredAppRepository _userRegisteredAppRepository = userRegisteredAppRepository;
   private readonly IEventHandler<PasswordResetEvent> _passwordResetEventHandler = passwordResetEventHandler;
   private readonly IConfiguration _configuration = configuration;
   private readonly ILogHelper<ResetPasswordCommandHandler> _logHelper = logHelper;
@@ -74,12 +77,18 @@ public class ResetPasswordCommandHandler(
 
     var existingUser = await _userManager.FindByNameAsync(command.UserName) ?? await _userManager.FindByEmailAsync(command.UserName);
 
-    if (existingUser is null)
+    if (existingUser is null || !await _userRegisteredAppRepository.IsUserRegisteredForAppAsync(existingUser.Id, command.RegisteredApp!.AppName, cancellationToken))
       return vm;
 
     var latestEntity = await _repository.GetLatestEntityItemAsync(existingUser.Id, cancellationToken);
 
     if (latestEntity?.CreatedAt > _machineDateTime.Now.AddSeconds(-_passwordResetSettings.RequestCooldownSeconds))
+      return vm;
+
+    // Each request gets its own code and attempts, so the requests per day cap the guesses per day
+    var requestsInWindow = await _repository.CountEntityItemsCreatedAfterAsync(existingUser.Id, _machineDateTime.Now - PasswordResetSettings.RequestCountWindow, cancellationToken);
+
+    if (requestsInWindow >= _passwordResetSettings.MaxRequestsPerDay)
       return vm;
 
     UserEntity userEntity;
@@ -100,7 +109,7 @@ public class ResetPasswordCommandHandler(
       Expires = _machineDateTime.Now.AddSeconds(_passwordResetSettings.ValidForSeconds)
     };
 
-    await _repository.RemoveExpiredEntityItemsAsync(existingUser.Id, _machineDateTime.Now, cancellationToken);
+    await _repository.RemoveExpiredEntityItemsAsync(existingUser.Id, _machineDateTime.Now - PasswordResetSettings.RequestCountWindow, cancellationToken);
 
     await CreateEntityItemAsync(passwordResetEntity, existingUser.Id, cancellationToken);
 

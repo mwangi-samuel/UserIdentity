@@ -5,6 +5,7 @@ using PolyzenKit.Application.Core.Interfaces;
 using PolyzenKit.Common.Exceptions;
 
 using UserIdentity.Application.Core.Roles.ViewModels;
+using UserIdentity.Application.Helpers;
 using UserIdentity.Domain.Roles;
 
 namespace UserIdentity.Application.Core.Roles.Queries;
@@ -12,6 +13,8 @@ namespace UserIdentity.Application.Core.Roles.Queries;
 public record GetRoleQuery : IBaseQuery
 {
   public required string RoleId { get; init; }
+
+  public string? AppName { get; init; }
 }
 
 public class GetRoleQueryHandler(
@@ -24,6 +27,9 @@ public class GetRoleQueryHandler(
   {
 
     var role = await _roleManager.FindByIdAsync(query.RoleId) ?? throw new NoRecordException(query.RoleId, "Role");
+
+    if (query.AppName is not null && !AppRolesHelper.IsAppRole(role.Name, query.AppName))
+      throw new NoRecordException(query.RoleId, "Role");
 
     return new RoleViewModel
     {

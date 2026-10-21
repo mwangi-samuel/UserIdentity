@@ -3,6 +3,7 @@ using PolyzenKit.Application.Core.Interfaces;
 using PolyzenKit.Application.Interfaces;
 using PolyzenKit.Persistence.Repositories;
 
+using UserIdentity.Application.Core.Users.Settings;
 using UserIdentity.Domain.PasswordResets;
 using UserIdentity.Persistence.Repositories.PasswordResets;
 
@@ -24,7 +25,7 @@ public class DeleteExpiredPasswordResetsCommandHandler(
 
   public async Task<DeleteRecordViewModel> DeleteItemAsync(DeleteExpiredPasswordResetsCommand command, string userId, CancellationToken cancellationToken = default)
   {
-    var now = _machineDateTime.Now;
+    var now = _machineDateTime.Now - PasswordResetSettings.RequestCountWindow;
     List<PasswordResetEntity> entities;
 
     do

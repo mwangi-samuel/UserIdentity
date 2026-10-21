@@ -10,6 +10,8 @@ public interface IPasswordResetRepository
 {
   Task<PasswordResetEntity?> GetLatestEntityItemAsync(string userId, CancellationToken cancellationToken = default);
 
+  Task<int> CountEntityItemsCreatedAfterAsync(string userId, DateTime createdAfter, CancellationToken cancellationToken = default);
+
   Task RemoveExpiredEntityItemsAsync(string userId, DateTime now, CancellationToken cancellationToken = default);
 
   Task RemoveEntityItemsAsync(string userId, CancellationToken cancellationToken = default);

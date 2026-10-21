@@ -40,6 +40,22 @@ public class DeleteRoleCommandHandlerTests
   }
 
   [Fact]
+  public async Task DeleteRole_For_An_App_Admin_With_Another_Apps_Role_Throws_NoRecordException()
+  {
+    // Arrange
+    DeleteRoleCommand command = new() { RoleId = "Role123", AppName = "TestApp" };
+
+    A.CallTo(() => _roleManager.FindByIdAsync(command.RoleId)).Returns(new IdentityRole { Id = command.RoleId, Name = "otherapp:admin" });
+
+    DeleteRoleCommandHandler handler = new(_roleManager);
+
+    // Act & Assert
+    await Assert.ThrowsAsync<NoRecordException>(() => handler.DeleteItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken));
+
+    A.CallTo(() => _roleManager.DeleteAsync(A<IdentityRole>._)).MustNotHaveHappened();
+  }
+
+  [Fact]
   public async Task DeleteRole_Failure_When_Deleting_Role_Throws_RecordDeletionException()
   {
     // Arrange

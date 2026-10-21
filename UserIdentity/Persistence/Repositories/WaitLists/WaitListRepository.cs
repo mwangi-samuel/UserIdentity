@@ -23,7 +23,7 @@ public class WaitListRepository(
 
     var existingEntity = await _dbContext.WaitList
       .Include(e => e.App)
-      .SingleOrDefaultAsync(e => e.UserEmail == userEmail, cancellationToken);
+      .SingleOrDefaultAsync(e => e.AppId == entity.AppId && e.UserEmail == userEmail, cancellationToken);
 
     return queryCondition.Apply(existingEntity, userEmail);
   }

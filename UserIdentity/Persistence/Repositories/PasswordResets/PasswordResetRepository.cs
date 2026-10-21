@@ -31,6 +31,12 @@ public class PasswordResetRepository(
       .FirstOrDefaultAsync(cancellationToken);
   }
 
+  public async Task<int> CountEntityItemsCreatedAfterAsync(string userId, DateTime createdAfter, CancellationToken cancellationToken = default)
+  {
+    return await _dbContext.PasswordReset
+      .CountAsync(e => e.UserId == userId && e.CreatedAt > createdAfter, cancellationToken);
+  }
+
   public async Task RemoveEntityItemsAsync(string userId, CancellationToken cancellationToken = default)
   {
     var existingEntities = await _dbContext.PasswordReset

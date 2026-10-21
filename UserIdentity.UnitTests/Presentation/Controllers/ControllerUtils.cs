@@ -22,7 +22,8 @@ internal static class ControllerUtils
       string? userRoles = null,
       bool addUserScopes = false,
       string? userScopes = null,
-      string? appName = null
+      string? appName = null,
+      string? authorizedParty = "testapp"
    )
   {
     RouteData routedData = new();
@@ -36,6 +37,9 @@ internal static class ControllerUtils
 
     if (addUserId)
       claims.Add(new Claim(JwtRegisteredClaimNames.Sub, userId!));
+
+    if (authorizedParty is not null)
+      claims.Add(new Claim(JwtRegisteredClaimNames.Azp, authorizedParty));
 
     if (addUserRoles)
       foreach (var role in userRoles!.Split(","))

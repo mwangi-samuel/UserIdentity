@@ -13,13 +13,16 @@ using PolyzenKit.Domain.Entity;
 using PolyzenKit.Infrastructure.Security.Jwt;
 using PolyzenKit.Infrastructure.Security.Tokens;
 using PolyzenKit.Persistence.Repositories;
+using PolyzenKit.Presentation.Settings;
 
 using UserIdentity.Application.Core.Roles.Queries;
 using UserIdentity.Application.Core.Roles.ViewModels;
 using UserIdentity.Application.Core.Tokens.Settings;
 using UserIdentity.Application.Core.Tokens.ViewModels;
+using UserIdentity.Application.Helpers;
 using UserIdentity.Domain.RefreshTokens;
 using UserIdentity.Persistence.Repositories.RefreshTokens;
+using UserIdentity.Persistence.Repositories.UserRegisteredApps;
 
 namespace UserIdentity.Application.Core.Tokens.Commands;
 
@@ -40,7 +43,9 @@ public class ExchangeRefreshTokenCommandHandler(
     IUnitOfWork unitOfWork,
     IRefreshTokenRepository refreshTokenRepository,
     IMachineDateTime machineDateTime,
-    IGetItemsQueryHandler<GetRoleClaimsForRolesQuery, RoleClaimsForRolesViewModels> getRoleClaimsQueryHandler
+    IGetItemsQueryHandler<GetRoleClaimsForRolesQuery, RoleClaimsForRolesViewModels> getRoleClaimsQueryHandler,
+    IUserRegisteredAppRepository userRegisteredAppRepository,
+    IOptions<RoleSettings> roleSettingsOptions
     ) : IUpdateItemCommandHandler<ExchangeRefreshTokenCommand, ExchangeRefreshTokenViewModel>
 {
   private readonly RefreshTokenSettings _refreshTokenSettings = refreshTokenSettingsOptions.Value;
@@ -53,6 +58,8 @@ public class ExchangeRefreshTokenCommandHandler(
   private readonly IMachineDateTime _machineDateTime = machineDateTime;
 
   private readonly IGetItemsQueryHandler<GetRoleClaimsForRolesQuery, RoleClaimsForRolesViewModels> _getRoleClaimsQueryHandler = getRoleClaimsQueryHandler;
+  private readonly IUserRegisteredAppRepository _userRegisteredAppRepository = userRegisteredAppRepository;
+  private readonly RoleSettings _roleSettings = roleSettingsOptions.Value;
 
   public async Task<ExchangeRefreshTokenViewModel> UpdateItemAsync(ExchangeRefreshTokenCommand command, string userId, CancellationToken cancellationToken = default)
   {
@@ -97,7 +104,15 @@ public class ExchangeRefreshTokenCommandHandler(
       throw new SecurityTokenException("Expired refresh token provided");
     }
 
-    var userRoles = await _userManager.GetRolesAsync(new IdentityUser { Id = tokenUserId });
+    // Ends sessions from logins to apps the user isn't registered for
+    if (!await _userRegisteredAppRepository.IsUserRegisteredForAppAsync(tokenUserId, azp, cancellationToken))
+    {
+      await RemoveRefreshTokenAsync(existingEntity, cancellationToken);
+
+      throw new SecurityTokenException("Invalid refresh token provided");
+    }
+
+    var userRoles = AppRolesHelper.ForApp(await _userManager.GetRolesAsync(new IdentityUser { Id = tokenUserId }), azp, _roleSettings.GlobalAdminRole);
 
     var userRoleClaims = await _getRoleClaimsQueryHandler.GetItemsAsync(new GetRoleClaimsForRolesQuery { Roles = userRoles }, cancellationToken);
 

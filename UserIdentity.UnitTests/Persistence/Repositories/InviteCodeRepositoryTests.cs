@@ -46,6 +46,7 @@ public class InviteCodeRepositoryTests
 
     var result = await repository.GetEntityByAlternateIdAsync(new InviteCodeEntity
     {
+      AppId = inviteCode.AppId,
       UserEmail = inviteCode.UserEmail
     }, QueryCondition.MUST_EXIST, TestContext.Current.CancellationToken);
 
@@ -79,6 +80,7 @@ public class InviteCodeRepositoryTests
 
     await Assert.ThrowsAsync<RecordExistsException>(() => repository.GetEntityByAlternateIdAsync(new InviteCodeEntity
     {
+      AppId = inviteCode.AppId,
       UserEmail = inviteCode.UserEmail
     }, QueryCondition.MUST_NOT_EXIST, TestContext.Current.CancellationToken));
   }
@@ -93,6 +95,26 @@ public class InviteCodeRepositoryTests
     {
       UserEmail = "new@example.com"
     }, QueryCondition.MUST_NOT_EXIST, TestContext.Current.CancellationToken);
+
+    Assert.Null(result);
+  }
+
+  [Fact]
+  public async Task GetEntityByAlternateIdAsync_For_Another_App_Returns_Null()
+  {
+    var context = GetAppDbContext();
+    await SeedRegisteredApp(context);
+    var repository = new InviteCodeRepository(context);
+    var inviteCode = BuildInviteCode();
+
+    context.InviteCode.Add(inviteCode);
+    await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+
+    var result = await repository.GetEntityByAlternateIdAsync(new InviteCodeEntity
+    {
+      AppId = inviteCode.AppId + 1,
+      UserEmail = inviteCode.UserEmail
+    }, QueryCondition.MAY_OR_MAY_NOT_EXIST, TestContext.Current.CancellationToken);
 
     Assert.Null(result);
   }
