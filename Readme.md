@@ -1,63 +1,33 @@
-# Summary 
-Useridentity is an easy-to-use RESTful API that simplifies user management by providing a set of endpoints for managing user identities, creating user accounts, and handling role management. 
+# Summary
+UserIdentity is an easy-to-use RESTful API that simplifies user management by providing a set of endpoints for managing user identities, creating user accounts, and handling role management.
 
 ## Running the App
 ### Prerequisites
-- MYSQL Database 
 - Dotnet 10.0 SDK (pinned in `global.json`)
-- Docker 
-- Visual Studio (optional)
-- An Ed25519 key pair for JWT signing and verification. You can generate a key pair using the following commands (replace the passphrase with a strong one of your choice):
-```
-    openssl genpkey -algorithm ED25519 -out ed25519-private.pem -pass pass:S3T@G00dPa22Phr@S3
-    openssl pkey -pubout -in ed25519-private.pem -out ed25519-public.pem -passin pass:S3T@G00dPa22Phr@S3
- 
-```
-
-Ensure to (at least) set two environment variables using the keys  `EDDSA_PRIVATE_KEY` and `EDDSA_PUBLIC_KEY` for the generated ed25519-private.pem and pued25519-public.pem keys' content.
-
-- A 256-bit key for encrypting registered apps' secrets at rest, set as `AppSecretOptions__Keys__key1` (`key1` is the `AppSecretOptions:CurrentKeyId` in appsettings.json). Generate one with `openssl rand -base64 32` and keep it in a secret store - secrets encrypted with a lost key cannot be recovered. `launchSettings.json` and `docker-compose.yml` carry a dev-only key.
-
- - Postman (optional)
+- Docker
+- An Ed25519 key pair for signing and checking tokens. Generate one outside the repo (replace the passphrase with your own):
+  ```
+  openssl genpkey -algorithm ED25519 -aes-256-cbc -out ed25519-private.pem -pass pass:S3T@G00dPa22Phr@S3
+  openssl pkey -pubout -in ed25519-private.pem -out ed25519-public.pem -passin pass:S3T@G00dPa22Phr@S3
+  ```
+  Then set the PEM contents, and the passphrase if you changed it, in the shell that runs `up.ps1`:
+  ```
+  $env:EDDSA_PRIVATE_KEY = Get-Content -Raw .\ed25519-private.pem
+  $env:EDDSA_PUBLIC_KEY = Get-Content -Raw .\ed25519-public.pem
+  $env:EDDSA_PRIVATE_KEY_PASSPHRASE = '<your passphrase>'
+  ```
 
 ### Instructions
+`docker-compose.yml` starts MySQL, Redpanda (Kafka), Redpanda Console and UserIdentity.
 
-#### Running the App Locally
-1. Clone the repository
-2. Set the required environment variables. This can be done in project properties (on Visual Studio) or launchSettings.json
-   
-``` 
-    KeySetOptions__PrivateKeyPath=EDDSA_PRIVATE_KEY
-    KeySetOptions__PublicKeyPath=EDDSA_PUBLIC_KEY
-    KeySetOptions__PrivateKeyPassPhrase=<Your Good Passphrase>
-    AppSecretOptions__Keys__key1=<base64 32-byte key>
-```
-3. Run the docker-compose file using `docker compose -f docker-compose.yml up -d --scale useridentity=0` to start the database and redpanda dependencies.
-4. Run the application using Visual Studio or the command line with `dotnet run` from the project directory.
-5. Use the included Postman collection and environment to test the endpoints.
+- `.\up.ps1 -UseLocal` starts MySQL and Redpanda, waits for them to be healthy, then runs UserIdentity from source on http://localhost:5050 with the `UserIdentity` launch profile. The OpenAPI document is at http://localhost:5050/openapi/v1.json.
+- `.\up.ps1 -Build` builds the image and runs everything in Docker. UserIdentity is on http://localhost:5050.
+- `.\up.ps1` runs everything in Docker without rebuilding.
+- `.\down.ps1` stops the stack and removes its volumes, so the next run starts with an empty database.
 
-#### Running the App Using Docker Compose
-1. Clone the repository
-2. `cd` into the cloned folder
-3. Run the docker-compose file using `docker compose -f docker-compose.yml up --build -d`
-4. Use the included Postman collection and environment to test the endpoints
+Kafka topics can be inspected in Redpanda Console at http://localhost:8090.
 
-## Running the Tests
-The tests use xUnit v3 on Microsoft Testing Platform (selected in `global.json`). The integration tests start MySQL and Redpanda with Testcontainers, so Docker must be running.
-
-```
-dotnet test --project UserIdentity.UnitTests/UserIdentity.UnitTests.csproj
-dotnet test --project UserIdentity.IntegrationTests/UserIdentity.IntegrationTests.csproj
-```
-
-Add `--coverlet` for a Cobertura coverage report.
-
-## Adding Migrations
-Migrations need the global `dotnet-ef` tool, version 10 (`dotnet tool install --global dotnet-ef`, or `update` if an older one is installed). MySQL must be running, since the server version is auto-detected. The app's startup also loads the Ed25519 keys, so set the same environment variables as for running the app.
-
-```
-dotnet ef migrations add <MigrationName> --project UserIdentity
-```
+The app applies database migrations on startup.
 
 ## Apps, Accounts and Admins
 Each account belongs to the app it registered with. Logging in, refreshing a token or resetting a password through any other app fails as if the account didn't exist. A token carries only its app's roles (`<app>:*`, where `<app>` is the app's name in lower case), plus the global admin role.
@@ -70,8 +40,8 @@ There are two kinds of admin:
 No user starts as an admin, so the first admins are created with `.sql/add_admin_user_role.sql`. It takes the user name or email and the app name, creates the role if it's missing, and is safe to run again. Add `@role_name='global:admin'` for a global admin:
 
 ```
-Get-Content .sql\add_admin_user_role.sql | docker exec -i db mysql -uroot -proot --init-command="SET @username='<user name or email>', @app_name='testapp'"
-Get-Content .sql\add_admin_user_role.sql | docker exec -i db mysql -uroot -proot --init-command="SET @username='<user name or email>', @role_name='global:admin'"
+Get-Content .sql\add_admin_user_role.sql | docker compose exec -T db mysql -uroot -proot --init-command="SET @username='<user name or email>', @app_name='testapp'"
+Get-Content .sql\add_admin_user_role.sql | docker compose exec -T db mysql -uroot -proot --init-command="SET @username='<user name or email>', @role_name='global:admin'"
 ```
 
 Roles are read into the token at login, so the user has to log in again to get an admin token.
@@ -113,3 +83,36 @@ Behind a reverse proxy, set `ForwardedHeadersSettings__KnownNetworks` to the pro
 
 ## Cleanup
 Every `CleanupSettings:IntervalInMinutes` (default 60), expired refresh tokens are deleted, and so are password reset requests a day after they expire (kept that long for the daily cap). When confirmed accounts are required, accounts still unconfirmed after `CleanupSettings:UnconfirmedUserLifetimeInDays` (default 30) are deleted too, along with their sessions, app links and roles, and their invite code can be used again.
+
+## Settings
+Every setting has a default in `appsettings.json` that works locally. In production, set at least these:
+
+| Setting | Meaning |
+|---|---|
+| `EDDSA_PRIVATE_KEY`, `EDDSA_PUBLIC_KEY`, `KeySetOptions__PrivateKeyPassPhrase` | The Ed25519 key pair (PEM content) and the private key's passphrase |
+| `AppSecretOptions__Keys__<id>`, `AppSecretOptions__CurrentKeyId` | Base64 256-bit keys that encrypt registered apps' secrets at rest. Generate one with `openssl rand -base64 32` and keep it in a secret store: secrets encrypted with a lost key can't be recovered |
+| `ApiKeySettings__ApiKey` | The key clients send in `X-Api-Key` |
+| `MysqlSettings__*` | Database connection |
+| `KafkaSettings__BootstrapServers`, `KafkaSettings__SchemaRegistryUrl` | Kafka connection |
+| `CorsSettings__AllowedOrigins` | Comma-separated origins allowed to call the API |
+| `ForwardedHeadersSettings__KnownNetworks` | The reverse proxy's networks (see [Rate Limiting](#rate-limiting)) |
+
+## API Collections
+Import `postman/UserIdentity.postman_collection.json` and `postman/UserIdentity.postman_environment.json` into Postman.
+
+## Running the Tests
+The tests use xUnit v3 on Microsoft Testing Platform (selected in `global.json`). The integration tests start MySQL and Redpanda with Testcontainers, so Docker must be running.
+
+```
+dotnet test --project UserIdentity.UnitTests/UserIdentity.UnitTests.csproj
+dotnet test --project UserIdentity.IntegrationTests/UserIdentity.IntegrationTests.csproj
+```
+
+Add `--coverlet` for a Cobertura coverage report.
+
+## Adding Migrations
+Migrations need the global `dotnet-ef` tool, version 10 (`dotnet tool install --global dotnet-ef`, or `update` if an older one is installed). MySQL must be running, since the server version is auto-detected. The app's startup also loads the Ed25519 keys, so set `EDDSA_PRIVATE_KEY` and `EDDSA_PUBLIC_KEY` as for running the app.
+
+```
+dotnet ef migrations add <MigrationName> --project UserIdentity
+```

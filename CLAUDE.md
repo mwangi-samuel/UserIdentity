@@ -23,8 +23,8 @@
 - Unit tests: `dotnet test --project UserIdentity.UnitTests/UserIdentity.UnitTests.csproj`
 - Integration tests (need Docker): `dotnet test --project UserIdentity.IntegrationTests/UserIdentity.IntegrationTests.csproj`
 - Add a migration: run `dotnet ef migrations add <Name> --project UserIdentity/UserIdentity.csproj --output-dir Persistence/Migrations` with the global `dotnet-ef` tool, version 10.
-  - At design time the tool runs `Program.cs` up to `Build()`, so it needs a reachable MySQL (`ServerVersion.AutoDetect`), the env vars from launchSettings, and PEM content in `EDDSA_PUBLIC_KEY` and `EDDSA_PRIVATE_KEY`.
-  - The `certs/` private key doesn't decrypt with the launchSettings passphrase. Generate a throwaway key pair: `openssl genpkey -algorithm ed25519 -aes-256-cbc -pass pass:X`, then `openssl pkey -pubout`.
+  - At design time the tool runs `Program.cs` up to `Build()`, so it needs a reachable MySQL (`ServerVersion.AutoDetect`) and PEM content in `EDDSA_PUBLIC_KEY` and `EDDSA_PRIVATE_KEY`. Everything else has a default in `appsettings.json`.
+  - The `certs/` private key doesn't decrypt with the default passphrase. Generate a throwaway key pair: `openssl genpkey -algorithm ed25519 -aes-256-cbc -pass pass:X`, then `openssl pkey -pubout`, and set `KeySetOptions__PrivateKeyPassPhrase=X`.
 
 ## Tests
 - xUnit v3 on Microsoft Testing Platform, with FakeItEasy.
@@ -33,4 +33,4 @@
 - Kafka messages from other tests also land on the topic, so filter by correlation id with `KafkaConsumerHelper.WaitAndConsumeUserUpdatedMessageAsync(correlationId)`.
 
 ## When adding or changing endpoints
-- Update `UserIdentity.postman_collection.json` and `Readme.md`.
+- Update `postman/UserIdentity.postman_collection.json` and `Readme.md`.

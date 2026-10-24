@@ -33,9 +33,8 @@ builder.Services.AddAppEventHandlers();
 // Controllers
 builder.Services.AddAppControllers(builder.Configuration);
 
-// Swagger
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+// OpenAPI
+builder.Services.AddAppOpenApi();
 
 // Utilities - Time, Log
 builder.Services.AddAppDateTimeHelpers();
@@ -96,8 +95,7 @@ app.UseCors(corsPolicyName);
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
-  app.UseSwagger();
-  app.UseSwaggerUI();
+  app.MapOpenApi();
   IdentityModelEventSource.ShowPII = true;
   IdentityModelEventSource.LogCompleteSecurityArtifact = true;
 }

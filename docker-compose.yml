@@ -1,33 +1,22 @@
 services:
   db:
     image: mysql:8.4.0
-    container_name: db
     ports:
       - 3306:3306
     environment:
       MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: useridentity
-      MYSQL_USER: test_user
-      MYSQL_PASSWORD: tesT*_p@ss12
     healthcheck:
       # TCP, not the socket, so the temporary server during first-run init doesn't count as ready
       test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-proot"]
       interval: 5s
       timeout: 5s
       retries: 30
-    networks:
-      - services_network
 
   redpanda:
     image: redpandadata/redpanda:v25.3.3
-    container_name: redpanda
     ports:
-      - "9092:9092"
-      - "8081:8081"
-    volumes:
-      - ./mounts/redpanda-0:/var/lib/redpanda/data
-    networks:
-      - services_network
+      - 9092:9092
+      - 8081:8081
     command:
       - redpanda
       - start
@@ -45,52 +34,32 @@ services:
 
   redpanda-console:
     image: redpandadata/console:v3.3.2
-    container_name: redpanda-console
     ports:
-      - "8090:8080"
-    networks:
-      - services_network
+      - 8090:8080
     environment:
       KAFKA_BROKERS: redpanda:19092
       KAFKA_SCHEMAREGISTRY_ENABLED: "true"
       KAFKA_SCHEMAREGISTRY_URLS: http://redpanda:8081
     depends_on:
-      - redpanda
+      redpanda:
+        condition: service_healthy
 
   useridentity:
-    image: useridentity
     build:
       context: .
       dockerfile: UserIdentity/Dockerfile
-    container_name: useridentity
     ports:
       - 5050:8080
     environment:
       MysqlSettings__Host: db
-      MysqlSettings__Port: 3306
-      MysqlSettings__Database: useridentity
-      MysqlSettings__UserName: test_user
-      MysqlSettings__Password: tesT*_p@ss12
       KafkaSettings__BootstrapServers: redpanda:19092
       KafkaSettings__SchemaRegistryUrl: redpanda:8081
-      JwtIssuerOptions__ValidForSeconds: 600
-      KeySetOptions__PrivateKeyPassPhrase: ${EDDSA_PRIVATE_KEY_PASSPHRASE:-S3T@G00dPa22Phr@S3} 
-      EDDSA_PRIVATE_KEY: # Ensure to set this environment variable with your actual EDDSA private key
-      EDDSA_PUBLIC_KEY: # Ensure to set this environment variable with your actual EDDSA public key
-      AppSecretOptions__CurrentKeyId: key1
-      AppSecretOptions__Keys__key1: 92rZ4zje0cty5rhoYf+CjjLoqYy575oHjy76A4RUEPo=
-      ApiKeySettings__ApiKey: yM1nXap7fnwRv8QFbvsMovCDjb33Y862
-      Serilog__MinimumLevel: Warning
+      KeySetOptions__PrivateKeyPassPhrase: ${EDDSA_PRIVATE_KEY_PASSPHRASE:-S3T@G00dPa22Phr@S3}
+      EDDSA_PRIVATE_KEY:
+      EDDSA_PUBLIC_KEY:
     depends_on:
       db:
         condition: service_healthy
       redpanda:
         condition: service_healthy
     restart: on-failure:5
-    networks:
-      - services_network
-
-networks:
-  services_network:
-    name: app_services_network
-    driver: bridge
