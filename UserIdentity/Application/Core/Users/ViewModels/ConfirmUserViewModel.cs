@@ -4,5 +4,5 @@ namespace UserIdentity.Application.Core.Users.ViewModels;
 
 public record ConfirmUserViewModel : ItemDetailBaseViewModel
 {
-  public required ConfirmUserDTO ConfirmUserResult { get; init; }
+  public required ConfirmUserDto ConfirmUserResult { get; init; }
 }

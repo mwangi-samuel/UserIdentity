@@ -24,7 +24,7 @@ public class GetRolesQueryHandler(
   {
     var roles = _roleManager
     .Roles
-    .Select(r => new RoleDTO { Id = r.Id, Name = r.Name! })
+    .Select(r => new RoleDto { Id = r.Id, Name = r.Name! })
     .AsEnumerable()
     .Where(r => query.AppName is null || AppRolesHelper.IsAppRole(r.Name, query.AppName))
     .ToList();

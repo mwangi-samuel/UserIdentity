@@ -7,6 +7,6 @@ namespace UserIdentity.Persistence.Repositories.InviteCodes;
 public interface IInviteCodeRepository
   : IEntityRepository<InviteCodeEntity, long>,
   IItemEntityRepository<InviteCodeEntity, long>,
-  IItemEntityDTORepository<InviteCodeDTO, long>
+  IItemEntityDtoRepository<InviteCodeDto, long>
 {
 }

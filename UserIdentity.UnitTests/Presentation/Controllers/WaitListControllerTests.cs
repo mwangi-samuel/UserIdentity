@@ -44,7 +44,7 @@ public class WaitListControllerTests
     var waitListId = 1L;
     var waitListVM = new WaitListViewModel
     {
-      WaitList = new WaitListDTO
+      WaitList = new WaitListDto
       {
         Id = waitListId,
         UserEmail = "test@example.com",
@@ -81,7 +81,7 @@ public class WaitListControllerTests
     var userEmail = "test@example.com";
     var waitListVM = new WaitListViewModel
     {
-      WaitList = new WaitListDTO
+      WaitList = new WaitListDto
       {
         Id = 1,
         UserEmail = userEmail,
@@ -130,7 +130,7 @@ public class WaitListControllerTests
 
     var waitListVM = new WaitListViewModel
     {
-      WaitList = new WaitListDTO
+      WaitList = new WaitListDto
       {
         Id = 1,
         UserEmail = command.UserEmail,
@@ -185,7 +185,7 @@ public class WaitListControllerTests
 
     var waitListVM = new WaitListViewModel
     {
-      WaitList = new WaitListDTO
+      WaitList = new WaitListDto
       {
         Id = 1,
         UserEmail = command.UserEmail,

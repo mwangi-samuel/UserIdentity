@@ -92,7 +92,7 @@ public class UpdatePasswordCommandHandler(
   {
     return new UpdatePasswordViewModel
     {
-      UpdatePasswordResult = new UpdatePasswordDTO
+      UpdatePasswordResult = new UpdatePasswordDto
       {
         PassWordUpdated = passwordUpdated
       }

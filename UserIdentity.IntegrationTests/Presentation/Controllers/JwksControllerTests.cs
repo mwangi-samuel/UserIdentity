@@ -12,7 +12,7 @@ using Xunit;
 namespace UserIdentity.IntegrationTests.Presentation.Controllers;
 
 
-public class JWKSControllerTests(
+public class JwksControllerTests(
     TestingWebAppFactory testingWebAppFactory,
     ITestOutputHelper outputHelper
     ) : BaseIntegrationTests(testingWebAppFactory, outputHelper)

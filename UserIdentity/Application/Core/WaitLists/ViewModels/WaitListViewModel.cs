@@ -6,5 +6,5 @@ namespace UserIdentity.Application.Core.WaitLists.ViewModels;
 
 public record WaitListViewModel : ItemDetailBaseViewModel
 {
-  public required WaitListDTO WaitList { get; init; }
+  public required WaitListDto WaitList { get; init; }
 }

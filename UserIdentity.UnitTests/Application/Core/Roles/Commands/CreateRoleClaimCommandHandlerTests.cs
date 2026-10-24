@@ -111,7 +111,7 @@ public class CreateRoleClaimCommandHandlerTests
 
     Claim scopeClaim = new("scope", "filemanager-file:create");
     A.CallTo(() => _jwtTokenHandler.GenerateScopeClaim("filemanager-file", "create")).Returns(scopeClaim);
-    A.CallTo(() => _roleManager.GetClaimsAsync(role)).Returns(new List<Claim>());
+    A.CallTo(() => _roleManager.GetClaimsAsync(role)).Returns([]);
     A.CallTo(() => _roleManager.AddClaimAsync(role, scopeClaim)).Returns(Task.FromResult(IdentityResult.Success));
 
     CreateRoleClaimCommandHandler handler = new(_roleManager, _jwtTokenHandler, _roleSettings);

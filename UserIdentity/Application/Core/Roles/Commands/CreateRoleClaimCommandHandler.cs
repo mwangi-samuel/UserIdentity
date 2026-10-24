@@ -77,7 +77,7 @@ public class CreateRoleClaimCommandHandler(
 
     return new RoleClaimViewModel
     {
-      RoleClaim = new RoleClaimDTO
+      RoleClaim = new RoleClaimDto
       {
         Resource = resource,
         Action = action,

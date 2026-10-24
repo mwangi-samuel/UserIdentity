@@ -128,7 +128,7 @@ public class UpdateRoleCommandHandlerTests
 
     // Assert
     Assert.IsType<RoleViewModel>(vm);
-    Assert.IsType<RoleDTO>(vm.Role);
+    Assert.IsType<RoleDto>(vm.Role);
     Assert.Equal(command.RoleName, vm.Role.Name);
   }
 }

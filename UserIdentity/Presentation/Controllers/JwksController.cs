@@ -9,7 +9,7 @@ using PolyzenKit.Presentation.Controllers;
 
 namespace UserIdentity.Presentation.Controllers;
 
-public class JWKSController(
+public class JwksController(
     IGetItemsQueryHandler<GetKeySetsQuery, KeySetsViewModel> getKeySetsQueryHandler
     ) : BaseController
 {

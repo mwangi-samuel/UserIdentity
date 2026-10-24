@@ -7,6 +7,6 @@ namespace UserIdentity.Persistence.Repositories.WaitLists;
 public interface IWaitListRepository
   : IEntityRepository<WaitListEntity, long>,
   IItemEntityRepository<WaitListEntity, long>,
-  IItemEntityDTORepository<WaitListDTO, long>
+  IItemEntityDtoRepository<WaitListDto, long>
 {
 }

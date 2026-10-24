@@ -54,7 +54,7 @@ public class RoleControllerTests(
     Assert.Equal("Request Successful", $"{jsonObject["requestStatus"]}");
     Assert.Equal("Items fetched successfully", $"{jsonObject["statusMessage"]}");
 
-    var roles = jsonObject["roles"]?.ToObject<List<RoleDTO>>();
+    var roles = jsonObject["roles"]?.ToObject<List<RoleDto>>();
 
     Assert.NotNull(roles);
     Assert.True(roles.Count >= 3);
@@ -147,7 +147,7 @@ public class RoleControllerTests(
     Assert.Equal("Request Successful", $"{jsonObject["requestStatus"]}");
     Assert.Equal("Item fetched successfully", $"{jsonObject["statusMessage"]}");
 
-    var responseRole = jsonObject["role"]?.ToObject<RoleDTO>();
+    var responseRole = jsonObject["role"]?.ToObject<RoleDto>();
 
     Assert.NotNull(responseRole);
     Assert.Equal(additionalRoleId, responseRole.Id);
@@ -244,7 +244,7 @@ public class RoleControllerTests(
     Assert.Equal("Request Successful", $"{jsonObject["requestStatus"]}");
     Assert.Equal("Item created successfully", $"{jsonObject["statusMessage"]}");
 
-    var role = jsonObject["role"]?.ToObject<RoleDTO>();
+    var role = jsonObject["role"]?.ToObject<RoleDto>();
 
     Assert.NotNull(role);
     Assert.NotNull(role.Id);
@@ -442,7 +442,7 @@ public class RoleControllerTests(
     Assert.Equal("Request Successful", $"{jsonObject["requestStatus"]}");
     Assert.Equal("Item updated successfully", $"{jsonObject["statusMessage"]}");
 
-    var role = jsonObject["role"]?.ToObject<RoleDTO>();
+    var role = jsonObject["role"]?.ToObject<RoleDto>();
 
     Assert.NotNull(role);
     Assert.Equal(requestPayload.RoleId, role.Id);
@@ -1109,7 +1109,7 @@ public class RoleControllerTests(
     Assert.Equal("Request Successful", $"{jsonObject["requestStatus"]}");
     Assert.Equal("Item created successfully", $"{jsonObject["statusMessage"]}");
 
-    var roleClaim = jsonObject["roleClaim"]?.ToObject<RoleClaimDTO>();
+    var roleClaim = jsonObject["roleClaim"]?.ToObject<RoleClaimDto>();
 
     Assert.NotNull(roleClaim);
     Assert.Equal(requestPayload.Resource, roleClaim.Resource);
@@ -1356,7 +1356,7 @@ public class RoleControllerTests(
     Assert.Equal("Request Successful", $"{jsonObject["requestStatus"]}");
     Assert.Equal("Items fetched successfully", $"{jsonObject["statusMessage"]}");
 
-    var roleClaims = jsonObject["roleClaims"]?.ToObject<List<RoleClaimDTO>>();
+    var roleClaims = jsonObject["roleClaims"]?.ToObject<List<RoleClaimDto>>();
 
     Assert.NotNull(roleClaims);
     Assert.Equal(1, roleClaims?.Count);

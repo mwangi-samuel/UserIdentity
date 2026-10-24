@@ -66,7 +66,7 @@ public class UserControllerTests(
     Assert.Equal("Request Successful", $"{jsonObject["requestStatus"]}");
     Assert.Equal("Item fetched successfully", $"{jsonObject["statusMessage"]}");
 
-    var userDetails = jsonObject["user"]?.ToObject<UserDTO>();
+    var userDetails = jsonObject["user"]?.ToObject<UserDto>();
 
     Assert.Equal(UserSettingHelper.FirstName, userDetails?.FirstName);
     Assert.Equal(UserSettingHelper.UserName, userDetails?.UserName);
@@ -332,7 +332,7 @@ public class UserControllerTests(
     Assert.Equal("Request Successful", $"{jsonObject["requestStatus"]}");
     Assert.Equal("Item created successfully", $"{jsonObject["statusMessage"]}");
 
-    var userDetails = jsonObject["user"]?.ToObject<UserDTO>();
+    var userDetails = jsonObject["user"]?.ToObject<UserDto>();
 
     Assert.Equal(requestPayload.FirstName, userDetails?.FirstName);
     Assert.Equal(requestPayload.UserName, userDetails?.UserName);
@@ -409,7 +409,7 @@ public class UserControllerTests(
     Assert.Equal("Request Successful", $"{jsonObject["requestStatus"]}");
     Assert.Equal("Item created successfully", $"{jsonObject["statusMessage"]}");
 
-    var userDetails = jsonObject["user"]?.ToObject<UserDTO>();
+    var userDetails = jsonObject["user"]?.ToObject<UserDto>();
 
     Assert.Equal(requestPayload.FirstName, userDetails?.FirstName);
     Assert.Equal(requestPayload.UserName, userDetails?.UserName);
@@ -516,7 +516,7 @@ public class UserControllerTests(
     Assert.Equal("Request Successful", $"{jsonObject["requestStatus"]}");
     Assert.Equal("Login successful", $"{jsonObject["statusMessage"]}");
 
-    var userDetails = jsonObject["user"]?.ToObject<UserDTO>();
+    var userDetails = jsonObject["user"]?.ToObject<UserDto>();
 
     Assert.Equal(UserSettingHelper.FirstName, userDetails?.FirstName);
     Assert.Equal(requestPayload.UserName, userDetails?.UserName);
@@ -527,7 +527,7 @@ public class UserControllerTests(
     var userToken = jsonObject["userToken"]?.ToObject<AccessTokenViewModel>();
 
     Assert.NotNull(userToken);
-    Assert.IsType<AccessTokenDTO>(userToken.AccessToken);
+    Assert.IsType<AccessTokenDto>(userToken.AccessToken);
   }
 
   [Fact]
@@ -709,7 +709,7 @@ public class UserControllerTests(
     var userTokenVM = jsonObject["userToken"]?.ToObject<AccessTokenViewModel>();
 
     Assert.NotNull(userTokenVM);
-    Assert.IsType<AccessTokenDTO>(userTokenVM.AccessToken);
+    Assert.IsType<AccessTokenDto>(userTokenVM.AccessToken);
 
     Assert.NotEqual(userToken, userTokenVM.AccessToken.Token);
     Assert.NotEqual(refreshToken, userTokenVM.RefreshToken);
@@ -1134,14 +1134,14 @@ public class UserControllerTests(
     Assert.Equal("Request Successful", $"{jsonObject["requestStatus"]}");
     Assert.Equal("Password reset request successful", $"{jsonObject["statusMessage"]}");
 
-    var resetPasswordDTO = jsonObject["resetPasswordDetails"]?.ToObject<ResetPasswordDTO>();
+    var resetPasswordDto = jsonObject["resetPasswordDetails"]?.ToObject<ResetPasswordDto>();
 
-    Assert.NotNull(resetPasswordDTO?.ResetRequestId);
+    Assert.NotNull(resetPasswordDto?.ResetRequestId);
 
     var passwordResetEntity = _testDbHelper.GetPasswordResetEntityWithNoTracking(UserSettingHelper.UserId);
 
     Assert.NotNull(passwordResetEntity);
-    Assert.Equal(new TokenFactory().HashToken(resetPasswordDTO.ResetRequestId), passwordResetEntity.RequestId);
+    Assert.Equal(new TokenFactory().HashToken(resetPasswordDto.ResetRequestId), passwordResetEntity.RequestId);
     Assert.False(passwordResetEntity.Verified);
     Assert.False(passwordResetEntity.Applied);
   }
@@ -1171,9 +1171,9 @@ public class UserControllerTests(
     Assert.Equal("Request Successful", $"{jsonObject["requestStatus"]}");
     Assert.Equal("Password reset request successful", $"{jsonObject["statusMessage"]}");
 
-    var resetPasswordDTO = jsonObject["resetPasswordDetails"]?.ToObject<ResetPasswordDTO>();
+    var resetPasswordDto = jsonObject["resetPasswordDetails"]?.ToObject<ResetPasswordDto>();
 
-    Assert.NotNull(resetPasswordDTO?.ResetRequestId);
+    Assert.NotNull(resetPasswordDto?.ResetRequestId);
     Assert.Null(_testDbHelper.GetPasswordResetEntityWithNoTracking(UserSettingHelper.UserId));
   }
 
@@ -1242,7 +1242,7 @@ public class UserControllerTests(
 
     Assert.Equal("Request Successful", $"{jsonObject["requestStatus"]}");
     Assert.Equal("Password updated successfully", $"{jsonObject["statusMessage"]}");
-    Assert.True(jsonObject["updatePasswordResult"]?.ToObject<UpdatePasswordDTO>()?.PassWordUpdated);
+    Assert.True(jsonObject["updatePasswordResult"]?.ToObject<UpdatePasswordDto>()?.PassWordUpdated);
 
     Assert.True(_testDbHelper.GetPasswordResetEntityWithNoTracking(UserSettingHelper.UserId)?.Applied);
 
@@ -1326,10 +1326,10 @@ public class UserControllerTests(
     Assert.Equal("Request Failed", $"{jsonObject["requestStatus"]}");
     Assert.Equal("Password update failed", $"{jsonObject["statusMessage"]}");
 
-    var updatePasswordDTO = jsonObject["updatePasswordResult"]?.ToObject<UpdatePasswordDTO>();
+    var updatePasswordDto = jsonObject["updatePasswordResult"]?.ToObject<UpdatePasswordDto>();
 
-    Assert.NotNull(updatePasswordDTO);
-    Assert.False(updatePasswordDTO?.PassWordUpdated);
+    Assert.NotNull(updatePasswordDto);
+    Assert.False(updatePasswordDto?.PassWordUpdated);
   }
 
   [Theory]
@@ -1362,7 +1362,7 @@ public class UserControllerTests(
     Assert.NotNull(jsonObject);
 
     Assert.Equal("Password update failed", $"{jsonObject["statusMessage"]}");
-    Assert.False(jsonObject["updatePasswordResult"]?.ToObject<UpdatePasswordDTO>()?.PassWordUpdated);
+    Assert.False(jsonObject["updatePasswordResult"]?.ToObject<UpdatePasswordDto>()?.PassWordUpdated);
 
     await _httpClient.LoginUserAsync(UserSettingHelper.UserName, UserSettingHelper.UserPassword);
   }

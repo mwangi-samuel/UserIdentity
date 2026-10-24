@@ -6,5 +6,5 @@ namespace UserIdentity.Application.Core.InviteCodes.ViewModels;
 
 public record InviteCodeViewModel : ItemDetailBaseViewModel
 {
-  public required InviteCodeDTO InviteCode { get; init; }
+  public required InviteCodeDto InviteCode { get; init; }
 }

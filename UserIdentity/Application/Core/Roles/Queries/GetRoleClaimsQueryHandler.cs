@@ -40,20 +40,20 @@ public class GetRoleClaimsQueryHandler(
 
     var roleClaims = await _roleManager.GetClaimsAsync(role);
 
-    var rolesCollection = new List<RoleClaimDTO>();
+    var rolesCollection = new List<RoleClaimDto>();
 
     foreach (var roleClaim in roleClaims)
     {
       (var resource, var action) = _jwtTokenHandler.DecodeScopeClaim(roleClaim);
 
-      RoleClaimDTO claimDTO = new()
+      RoleClaimDto claimDto = new()
       {
         Resource = resource,
         Action = action,
         Scope = roleClaim.Value
       };
 
-      rolesCollection.Add(claimDTO);
+      rolesCollection.Add(claimDto);
     }
 
     return new RoleClaimsViewModel

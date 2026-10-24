@@ -6,5 +6,5 @@ namespace UserIdentity.Application.Core.Users.ViewModels;
 
 public record UserViewModel : ItemDetailBaseViewModel
 {
-  public required UserDTO User { get; init; }
+  public required UserDto User { get; init; }
 }

@@ -37,7 +37,7 @@ public class ConfirmUserCommandHandler(
 
     return new ConfirmUserViewModel
     {
-      ConfirmUserResult = new ConfirmUserDTO
+      ConfirmUserResult = new ConfirmUserDto
       {
         UserConfirmed = confirmResult.Succeeded
       }

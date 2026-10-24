@@ -1,15 +1,15 @@
 # UserIdentity
 
-.NET 10 auth service on PolyzenKit 2.6.0. Uses EF Core 10 with the Microting MySQL provider (snake_case names) and Kafka (Redpanda locally).
+.NET 10 auth service on PolyzenKit 3.0.0. Uses EF Core 10 with the Microting MySQL provider (snake_case names) and Kafka (Redpanda locally).
 
 ## Layout
 - `UserIdentity/Application/Core/<Feature>/{Commands,Queries,Events,ViewModels,Settings}`. Each file holds one command or query record plus its handler, which implements a PolyzenKit interface such as `ICreateItemCommandHandler<,>`, `IUpdateItemCommandHandler<,>` or `IEventHandler<>`. Handlers and repositories are registered by name scan.
-- `Domain/<Feature>` holds entities and DTOs (set audit fields with `SetDTOAuditFields`).
+- `Domain/<Feature>` holds entities and DTOs (set audit fields with `SetDtoAuditFields`).
 - `Persistence/` holds `Configurations`, `Repositories` and `Migrations`.
 - `Presentation/Controllers` derive from PolyzenKit's `BaseController`.
 - `Infrastructure/` holds `Kafka` and `ExternalServices`. The Kafka consumer lets exceptions through so PolyzenKit retries the message.
 - Settings are bound in `Extensions.cs` (`AddApp...Settings`) and wired up in `Program.cs`.
-- Response-only DTOs live in the feature's `ViewModels`; `Domain` keeps entities and their projections. External API shapes (`GoogleRecaptchaResponseDTO`) live in `Infrastructure`.
+- Response-only DTOs live in the feature's `ViewModels`; `Domain` keeps entities and their projections. External API shapes (`GoogleRecaptchaResponseDto`) live in `Infrastructure`.
 - `AddAppCleanups` registers PolyzenKit periodic delete commands for expired refresh tokens, expired password resets and unconfirmed users (`CleanupSettings`). The unconfirmed-user cleanup does nothing unless `RequireConfirmedAccount` is on.
 - Nothing is soft-deleted, so queries don't filter on `IsDeleted`.
 - Roles are shared by all apps and named `<app>:<role>`, so admin endpoints are scoped in the handlers. Controllers pass `AppName` (`IsGlobalAdmin ? null : AuthorizedParty`), and handlers use `AppRolesHelper` for role names and `IUserRegisteredAppRepository.IsUserRegisteredForAppAsync` for users, returning 404 for another app's records. Null means a global admin (`RoleSettings:GlobalAdminRole`), who isn't limited. Registered apps are global admin only.

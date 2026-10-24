@@ -36,7 +36,7 @@ public class GoogleRecaptchaService(
     var requestMessage = _httpClientHelper.CreateHttpRequestMessage(HttpMethod.Post, "siteverify")
         .WithRequestParams(requestParams);
 
-    var response = await _httpClientHelper.SendRequestAsync<GoogleRecaptchaResponseDTO>(targetServiceName, requestMessage, HttpStatusCode.OK, cancellationToken);
+    var response = await _httpClientHelper.SendRequestAsync<GoogleRecaptchaResponseDto>(targetServiceName, requestMessage, HttpStatusCode.OK, cancellationToken);
 
     return response != null && response.Success && response.Score >= 0.5;
   }

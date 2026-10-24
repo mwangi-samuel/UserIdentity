@@ -44,7 +44,7 @@ builder.Services.AddAppLogHelpers();
 // Authentication Identity
 builder.Services.AddAppAuthentication(
     builder.Configuration,
-    (options, keyProvider) => new EdDSAKeySetFactory(options, keyProvider)
+    (options, keyProvider) => new EdDsaKeySetFactory(options, keyProvider)
 );
 
 // Authorization

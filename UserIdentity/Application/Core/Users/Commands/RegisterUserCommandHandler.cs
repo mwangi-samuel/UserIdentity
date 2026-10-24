@@ -15,7 +15,7 @@ using PolyzenKit.Application.Interfaces;
 using PolyzenKit.Common.Enums;
 using PolyzenKit.Common.Exceptions;
 using PolyzenKit.Common.Utilities;
-using PolyzenKit.Domain.DTO;
+using PolyzenKit.Domain.Dto;
 using PolyzenKit.Domain.Entity;
 using PolyzenKit.Domain.RegisteredApps;
 using PolyzenKit.Infrastructure.Security.Jwt;
@@ -262,7 +262,7 @@ public class RegisterUserCommandHandler(
 
         userToken = new AccessTokenViewModel
         {
-          AccessToken = new AccessTokenDTO
+          AccessToken = new AccessTokenDto
           {
             Token = token,
             ExpiresIn = expiresIn
@@ -279,7 +279,7 @@ public class RegisterUserCommandHandler(
       _ = HandleEventAsync(userDetails, newUser, command.RegisteredApp, command.RequestSource);
 
       // Return registration results
-      var userDto = new UserDTO
+      var userDto = new UserDto
       {
         Id = newUser.Id,
         UserName = newUser.UserName,
@@ -291,7 +291,7 @@ public class RegisterUserCommandHandler(
         RoleClaims = roleClaimsVm.RoleClaims
       };
 
-      userDto.SetDTOAuditFields(userDetails);
+      userDto.SetDtoAuditFields(userDetails);
 
       return new AuthUserViewModel
       {

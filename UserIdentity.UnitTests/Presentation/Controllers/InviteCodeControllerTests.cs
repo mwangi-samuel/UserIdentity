@@ -44,7 +44,7 @@ public class InviteCodeControllerTests
     var inviteCodeId = 1L;
     var inviteCodeVM = new InviteCodeViewModel
     {
-      InviteCode = new InviteCodeDTO
+      InviteCode = new InviteCodeDto
       {
         Id = inviteCodeId,
         InviteCode = "INVITE123",
@@ -83,7 +83,7 @@ public class InviteCodeControllerTests
     var userEmail = "test@example.com";
     var inviteCodeVM = new InviteCodeViewModel
     {
-      InviteCode = new InviteCodeDTO
+      InviteCode = new InviteCodeDto
       {
         Id = 1,
         InviteCode = "INVITE456",
@@ -135,7 +135,7 @@ public class InviteCodeControllerTests
 
     var inviteCodeVM = new InviteCodeViewModel
     {
-      InviteCode = new InviteCodeDTO
+      InviteCode = new InviteCodeDto
       {
         Id = 1,
         InviteCode = command.InviteCode,

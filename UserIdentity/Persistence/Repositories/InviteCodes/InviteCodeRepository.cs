@@ -26,11 +26,11 @@ public class InviteCodeRepository(
     return queryCondition.Apply(existingEntity, userEmail);
   }
 
-  public async Task<InviteCodeDTO> GetEntityDTOByIdAsync(long id, CancellationToken cancellationToken = default)
+  public async Task<InviteCodeDto> GetEntityDtoByIdAsync(long id, CancellationToken cancellationToken = default)
   {
     return await _dbContext.InviteCode
       .Where(e => e.Id == id)
-      .Select(InviteCodeDTO.Detailed)
+      .Select(InviteCodeDto.Detailed)
       .SingleOrDefaultAsync(cancellationToken) ?? throw new NoRecordException($"{id}", EntityTypes.INVITE_CODE.Description());
   }
 }

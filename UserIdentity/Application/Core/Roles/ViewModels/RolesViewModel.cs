@@ -6,7 +6,7 @@ namespace UserIdentity.Application.Core.Roles.ViewModels;
 
 public record RolesViewModel : ItemsBaseViewModel
 {
-  public ICollection<RoleDTO> Roles { get; init; } = null!;
+  public ICollection<RoleDto> Roles { get; init; } = null!;
 }
 
 public record UserRolesViewModel : ItemsBaseViewModel

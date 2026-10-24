@@ -1,6 +1,6 @@
 ﻿namespace UserIdentity.Domain.RoleClaims;
 
-public record RoleClaimDTO
+public record RoleClaimDto
 {
   public string Resource { get; init; } = null!;
 

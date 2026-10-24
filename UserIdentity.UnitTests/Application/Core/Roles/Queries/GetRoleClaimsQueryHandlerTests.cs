@@ -101,7 +101,7 @@ public class GetRoleClaimsQueryHandlerTests
 
     // Assert
     Assert.IsType<RoleClaimsViewModel>(vm);
-    Assert.IsType<ICollection<RoleClaimDTO>>(vm.RoleClaims, exactMatch: false);
+    Assert.IsType<ICollection<RoleClaimDto>>(vm.RoleClaims, exactMatch: false);
     Assert.Equal(roleClaims.Count, vm.RoleClaims.Count);
   }
 

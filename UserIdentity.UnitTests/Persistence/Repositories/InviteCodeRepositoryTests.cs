@@ -120,7 +120,7 @@ public class InviteCodeRepositoryTests
   }
 
   [Fact]
-  public async Task GetEntityDTOByIdAsync_Returns_DTO()
+  public async Task GetEntityDtoByIdAsync_Returns_Dto()
   {
     var context = GetAppDbContext();
     var app = await SeedRegisteredApp(context);
@@ -131,7 +131,7 @@ public class InviteCodeRepositoryTests
     context.InviteCode.Add(inviteCode);
     await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
-    var result = await repository.GetEntityDTOByIdAsync(inviteCode.Id, TestContext.Current.CancellationToken);
+    var result = await repository.GetEntityDtoByIdAsync(inviteCode.Id, TestContext.Current.CancellationToken);
 
     Assert.NotNull(result);
     Assert.Equal(inviteCode.Id, result.Id);
@@ -141,12 +141,12 @@ public class InviteCodeRepositoryTests
   }
 
   [Fact]
-  public async Task GetEntityDTOByIdAsync_When_Not_Found_Throws_NoRecordException()
+  public async Task GetEntityDtoByIdAsync_When_Not_Found_Throws_NoRecordException()
   {
     var context = GetAppDbContext();
     var repository = new InviteCodeRepository(context);
 
-    await Assert.ThrowsAsync<NoRecordException>(() => repository.GetEntityDTOByIdAsync(999, TestContext.Current.CancellationToken));
+    await Assert.ThrowsAsync<NoRecordException>(() => repository.GetEntityDtoByIdAsync(999, TestContext.Current.CancellationToken));
   }
 
   private static AppDbContext GetAppDbContext()

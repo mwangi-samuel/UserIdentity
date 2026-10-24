@@ -1,6 +1,6 @@
 ﻿namespace UserIdentity.Infrastructure.ExternalServices;
 
-public record GoogleRecaptchaResponseDTO
+public record GoogleRecaptchaResponseDto
 {
   public bool Success { get; set; }
   public float Score { get; set; }

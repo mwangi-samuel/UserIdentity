@@ -4,5 +4,5 @@ namespace UserIdentity.Application.Core.Users.ViewModels;
 
 public record VerifyPasswordResetViewModel : ItemDetailBaseViewModel
 {
-  public required VerifyPasswordResetDTO VerifyPasswordResetResult { get; init; }
+  public required VerifyPasswordResetDto VerifyPasswordResetResult { get; init; }
 }

@@ -357,7 +357,7 @@ public class RegisterUserCommandHandlerTests
   }
 
   [Fact]
-  public async Task Create_User_From_API_Does_Not_Verify_Recaptcha()
+  public async Task Create_User_From_Api_Does_Not_Verify_Recaptcha()
   {
     // Arrange
     var command = GetRegisterUserCommand();

@@ -68,7 +68,7 @@ public class ResetPasswordCommandHandler(
 
     var vm = new ResetPasswordViewModel
     {
-      ResetPasswordDetails = new ResetPasswordDTO
+      ResetPasswordDetails = new ResetPasswordDto
       {
         EmailMessage = resetPasswordMessage,
         ResetRequestId = resetRequestId

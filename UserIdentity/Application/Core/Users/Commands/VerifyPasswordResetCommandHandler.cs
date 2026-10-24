@@ -43,7 +43,7 @@ public class VerifyPasswordResetCommandHandler(
 
     return new VerifyPasswordResetViewModel
     {
-      VerifyPasswordResetResult = new VerifyPasswordResetDTO
+      VerifyPasswordResetResult = new VerifyPasswordResetDto
       {
         PasswordResetVerified = existingEntity.Verified
       }
