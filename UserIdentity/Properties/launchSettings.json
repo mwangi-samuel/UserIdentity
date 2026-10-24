@@ -1,47 +1,14 @@
 {
-	"profiles": {
-		"UserIdentity": {
-			"commandName": "Project",
-			"launchUrl": "swagger",
-			"environmentVariables": {
-				"ASPNETCORE_ENVIRONMENT": "Development",
-				"MysqlSettings__Host": "localhost",
-				"MysqlSettings__Port": "3306",
-				"MysqlSettings__Database": "useridentity",
-				"MysqlSettings__UserName": "test_user",
-				"MysqlSettings__Password": "tesT*_p@ss12",
-				"KafkaSettings__BootstrapServers": "localhost:9092",
-				"KafkaSettings__SchemaRegistryUrl": "localhost:8081",
-				"KeySetOptions__PrivateKeyPassPhrase": "S3T@G00dPa22Phr@S3",
-				"KeySetOptions__PrivateKeyPath": "EDDSA_PRIVATE_KEY",
-				"KeySetOptions__PublicKeyPath": "EDDSA_PUBLIC_KEY",
-				"AppSecretOptions__Keys__key1": "8b8+SqUqHQIaDnTHPsD301/TGpz0PD+lvBInpKEvTv0=",
-				"Serilog__MinimumLevel": "Warning"
-			},
-			"dotnetRunMessages": true,
-			"applicationUrl": "http://localhost:5050"
-		},
-		"IIS Express": {
-			"commandName": "IISExpress",
-			"launchBrowser": true,
-			"launchUrl": "swagger",
-			"environmentVariables": {
-				"ASPNETCORE_ENVIRONMENT": "Development"
-			}
-		},
-		"Docker": {
-			"commandName": "Docker",
-			"launchBrowser": true,
-			"launchUrl": "{Scheme}://{ServiceHost}:{ServicePort}/swagger"
-		}
-	},
-	"$schema": "https://json.schemastore.org/launchsettings.json",
-	"iisSettings": {
-		"windowsAuthentication": false,
-		"anonymousAuthentication": true,
-		"iisExpress": {
-			"applicationUrl": "http://localhost:53161",
-			"sslPort": 44380
-		}
-	}
+  "$schema": "https://json.schemastore.org/launchsettings.json",
+  "profiles": {
+    "UserIdentity": {
+      "commandName": "Project",
+      "launchUrl": "openapi/v1.json",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "dotnetRunMessages": true,
+      "applicationUrl": "http://localhost:5050"
+    }
+  }
 }

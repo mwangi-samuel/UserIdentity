@@ -1,9 +1,11 @@
 ﻿using System.Reflection;
+using System.Text.Json.Serialization.Metadata;
 
 using Microsoft.EntityFrameworkCore;
 
 using PolyzenKit;
 using PolyzenKit.Application.Core.Errors.Queries.GerError;
+using PolyzenKit.Application.Core.RegisteredApps.Commands;
 using PolyzenKit.Common.Exceptions;
 using PolyzenKit.Persistence.Repositories.AppEntities;
 using PolyzenKit.Persistence.Settings;
@@ -19,6 +21,30 @@ namespace UserIdentity;
 
 public static class Extensions
 {
+  // Add OpenAPI
+  public static void AddAppOpenApi(this IServiceCollection services)
+  {
+    services.AddOpenApi();
+    services.ConfigureHttpJsonOptions(options =>
+    {
+      options.SerializerOptions.TypeInfoResolver =
+        (options.SerializerOptions.TypeInfoResolver ?? new DefaultJsonTypeInfoResolver())
+        .WithAddedModifier(typeInfo =>
+        {
+          if (typeInfo.Type != typeof(UpdateRegisteredAppCommand))
+            return;
+
+          // The controller supplies this ID from the route, not the JSON body.
+          // Its required, internal setter is incompatible with schema generation.
+          var idProperty = typeInfo.Properties.FirstOrDefault(property =>
+            property.AttributeProvider is PropertyInfo { Name: nameof(UpdateRegisteredAppCommand.Id) });
+
+          if (idProperty is not null)
+            typeInfo.Properties.Remove(idProperty);
+        });
+    });
+  }
+
   // Add Mysql
   public static void AddAppMysql<TContext>(this IServiceCollection services, IConfiguration configuration) where TContext : DbContext
   {

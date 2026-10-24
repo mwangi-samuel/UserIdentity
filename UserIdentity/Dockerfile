@@ -4,30 +4,50 @@ EXPOSE 8080
 ENV ASPNETCORE_HTTP_PORTS=8080
 
 FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0-alpine AS build
+ARG TARGETARCH
 WORKDIR /src
 
 COPY ["UserIdentity/UserIdentity.csproj", "UserIdentity/"]
-RUN dotnet restore "UserIdentity/UserIdentity.csproj" -r linux-musl-x64
+RUN dotnet restore "UserIdentity/UserIdentity.csproj" \
+    -a $TARGETARCH \
+    /p:Configuration=Release \
+    /p:SelfContained=true \
+    /p:PublishSingleFile=true \
+    /p:ExcludeEfDesign=true
 
-COPY . .
+COPY ["UserIdentity/", "UserIdentity/"]
 WORKDIR "/src/UserIdentity"
 
 RUN dotnet publish "UserIdentity.csproj" \
-    -c Release \
-    -r linux-musl-x64 \
+    -a $TARGETARCH \
+    --no-restore \
     -o /app/publish \
+    /p:ExcludeEfDesign=true \
     /p:SelfContained=true \
-    /p:PublishTrimmed=false \
     /p:PublishSingleFile=true \
     /p:EnableCompressionInSingleFile=true \
-    /p:InvariantGlobalization=true \
-    /p:DebugType=none
+    /p:DebugType=none \
+    /p:SatelliteResourceLanguages=en \
+    /p:PublishDocumentationFiles=false \
+    /p:PublishReferencesSymbols=false
 
-# librdkafka.redist ships glibc, CentOS 8 and Alpine builds 
-# Confluent.Kafka only loads alpine-librdkafka.so on Alpine
-RUN rm /app/publish/librdkafka.so /app/publish/centos8-librdkafka.so
+RUN rm -f \
+    /app/publish/librdkafka.so \
+    /app/publish/centos8-librdkafka.so
+
+FROM base AS stripped
+COPY --from=build /app/publish /app/publish
+RUN apk add --no-cache binutils \
+    && strip --strip-unneeded /app/publish/alpine-librdkafka.so
 
 FROM base AS final
+ARG TARGETARCH
+RUN apk upgrade --no-cache
+RUN if [ "$TARGETARCH" = "arm64" ]; then \
+        apk add --no-cache libsasl; \
+    fi
+
 WORKDIR /app
-COPY --from=build /app/publish .
+COPY --from=stripped /app/publish .
+USER $APP_UID
 ENTRYPOINT ["./UserIdentity"]
