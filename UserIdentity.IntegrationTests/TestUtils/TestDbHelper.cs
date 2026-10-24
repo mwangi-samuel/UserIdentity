@@ -492,6 +492,13 @@ public sealed class TestDbHelper(
     return result.Result.Succeeded;
   }
 
+  public List<string> GetRoleClaims(string roleName)
+  {
+    var role = GetIdentityRole(roleName) ?? throw new ArgumentNullException(nameof(roleName));
+
+    return [.. _roleManager.GetClaimsAsync(role).Result.Select(c => c.Value)];
+  }
+
   public void SeedDatabase()
   {
     var identityUser = CreateIdentityUser();

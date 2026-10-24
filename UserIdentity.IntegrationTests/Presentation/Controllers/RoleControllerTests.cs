@@ -1215,6 +1215,37 @@ public class RoleControllerTests(
   }
 
   [Fact]
+  public async Task Create_Role_Claim_With_Unknown_Action_Returns_Validation_Result()
+  {
+    // Arrange
+    _testDbHelper.SeedDatabase();
+    _testDbHelper.ConfigureIdentityUserAsGlobalAdmin();
+
+    var additionalRolename = "testapp:additionalrole";
+    var role = _testDbHelper.CreateIdentityRole(additionalRolename);
+
+    var requestPayload = new
+    {
+      RoleId = role.Id,
+      Resource = "user",
+      Action = "write"
+    };
+
+    // Act
+    var response = await _httpClient.SendValidAuthRequestAsync(HttpMethod.Post, _baseUri + "/claim", requestPayload);
+
+    // Assert
+    var responseString = await response.ValidateRequestResponseAsync();
+
+    Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+
+    var errorList = SerDeHelper.Deserialize<JObject>(responseString)?["error"]?["errorList"]?.ToObject<List<ValidationError>>();
+
+    Assert.True(errorList?.Any(x => x.Field == "Action") ?? false);
+    Assert.Empty(_testDbHelper.GetRoleClaims(additionalRolename));
+  }
+
+  [Fact]
   public async Task Create_Role_Claim_With_No_Auth_Returns_Auth_Error()
   {
     // Arrange

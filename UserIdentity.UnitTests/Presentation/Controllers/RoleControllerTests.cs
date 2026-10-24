@@ -424,7 +424,7 @@ public class RoleControllerTests
   {
     // Arrange
     var roleId = Guid.NewGuid().ToString();
-    var query = new GetRoleClaimsQuery { RoleId = roleId };
+    var query = new GetRoleClaimsQuery { RoleId = roleId, AppName = "testapp" };
 
     var roleClaimsVM = new RoleClaimsViewModel
     {
