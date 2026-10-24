@@ -43,7 +43,7 @@ public class CreateInviteCodeCommandHandlerTests
       Applied = false
     };
 
-    var expectedDto = new InviteCodeDTO
+    var expectedDto = new InviteCodeDto
     {
       Id = 1,
       InviteCode = command.InviteCode,
@@ -53,7 +53,7 @@ public class CreateInviteCodeCommandHandlerTests
       AppName = "TestApp"
     };
 
-    A.CallTo(() => _inviteCodeRepository.GetEntityDTOByIdAsync(A<long>._, A<CancellationToken>._)).Returns(expectedDto);
+    A.CallTo(() => _inviteCodeRepository.GetEntityDtoByIdAsync(A<long>._, A<CancellationToken>._)).Returns(expectedDto);
 
     var handler = new CreateInviteCodeCommandHandler(_unitOfWork, _inviteCodeRepository, _machineDateTime);
 
@@ -69,7 +69,7 @@ public class CreateInviteCodeCommandHandlerTests
 
     A.CallTo(() => _inviteCodeRepository.CreateEntityItem(A<InviteCodeEntity>._)).MustHaveHappenedOnceExactly();
     A.CallTo(() => _unitOfWork.SaveChangesAsync(A<CancellationToken>._)).MustHaveHappenedOnceExactly();
-    A.CallTo(() => _inviteCodeRepository.GetEntityDTOByIdAsync(A<long>._, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+    A.CallTo(() => _inviteCodeRepository.GetEntityDtoByIdAsync(A<long>._, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
   }
 
   [Fact]
@@ -90,7 +90,7 @@ public class CreateInviteCodeCommandHandlerTests
     A.CallTo(() => _inviteCodeRepository.CreateEntityItem(A<InviteCodeEntity>._))
         .Invokes((InviteCodeEntity e) => capturedEntity = e);
 
-    A.CallTo(() => _inviteCodeRepository.GetEntityDTOByIdAsync(A<long>._, A<CancellationToken>._)).Returns(new InviteCodeDTO
+    A.CallTo(() => _inviteCodeRepository.GetEntityDtoByIdAsync(A<long>._, A<CancellationToken>._)).Returns(new InviteCodeDto
     {
       Id = 1,
       InviteCode = command.InviteCode,

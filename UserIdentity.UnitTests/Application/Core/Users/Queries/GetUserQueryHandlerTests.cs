@@ -122,7 +122,7 @@ public class GetUserQueryHandlerTests
 
     // Assert
     Assert.IsType<UserViewModel>(vm);
-    Assert.IsType<UserDTO>(vm.User);
+    Assert.IsType<UserDto>(vm.User);
     Assert.Equal(existingUser.Id, vm.User?.Id);
     Assert.Equal("admin", vm.User?.Roles.First());
     Assert.Contains("scope:user:read", vm.User?.RoleClaims ?? []);

@@ -45,7 +45,7 @@ public class WaitListControllerTests(
     Assert.Equal("Request Successful", $"{jsonObject["requestStatus"]}");
     Assert.Equal("Item fetched successfully", $"{jsonObject["statusMessage"]}");
 
-    var waitListDetails = jsonObject["waitList"]?.ToObject<WaitListDTO>();
+    var waitListDetails = jsonObject["waitList"]?.ToObject<WaitListDto>();
 
     Assert.NotNull(waitListDetails);
     Assert.Equal(waitList.Id, waitListDetails.Id);
@@ -77,7 +77,7 @@ public class WaitListControllerTests(
     Assert.Equal("Request Successful", $"{jsonObject["requestStatus"]}");
     Assert.Equal("Item fetched successfully", $"{jsonObject["statusMessage"]}");
 
-    var waitListDetails = jsonObject["waitList"]?.ToObject<WaitListDTO>();
+    var waitListDetails = jsonObject["waitList"]?.ToObject<WaitListDto>();
 
     Assert.NotNull(waitListDetails);
     Assert.Equal(waitList.Id, waitListDetails.Id);
@@ -179,7 +179,7 @@ public class WaitListControllerTests(
     Assert.Equal("Request Successful", $"{jsonObject["requestStatus"]}");
     Assert.Equal("Item created successfully", $"{jsonObject["statusMessage"]}");
 
-    var waitListDetails = jsonObject["waitList"]?.ToObject<WaitListDTO>();
+    var waitListDetails = jsonObject["waitList"]?.ToObject<WaitListDto>();
 
     Assert.NotNull(waitListDetails);
     Assert.Equal(newEmail, waitListDetails.UserEmail);
@@ -221,7 +221,7 @@ public class WaitListControllerTests(
     Assert.Equal("Request Successful", $"{jsonObject["requestStatus"]}");
     Assert.Equal("Item created successfully", $"{jsonObject["statusMessage"]}");
 
-    var waitListDetails = jsonObject["waitList"]?.ToObject<WaitListDTO>();
+    var waitListDetails = jsonObject["waitList"]?.ToObject<WaitListDto>();
 
     Assert.NotNull(waitListDetails);
     Assert.Equal(newEmail, waitListDetails.UserEmail);

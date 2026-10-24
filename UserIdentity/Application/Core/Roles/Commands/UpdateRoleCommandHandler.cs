@@ -53,7 +53,7 @@ public class UpdateRoleCommandHandler(
 
     return new RoleViewModel
     {
-      Role = new RoleDTO
+      Role = new RoleDto
       {
         Id = role.Id,
         Name = role.Name

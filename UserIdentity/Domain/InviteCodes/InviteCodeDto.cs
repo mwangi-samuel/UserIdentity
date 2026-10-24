@@ -1,15 +1,15 @@
 ﻿using System.Linq.Expressions;
 
-using PolyzenKit.Domain.DTO;
+using PolyzenKit.Domain.Dto;
 
 namespace UserIdentity.Domain.InviteCodes;
 
-public class InviteCodeDTO : InviteCodeEntity, IBaseAuditableEntityDTO<long>
+public class InviteCodeDto : InviteCodeEntity, IBaseAuditableEntityDto<long>
 {
   public string? AppName { get; set; }
 
-  public static Expression<Func<InviteCodeEntity, InviteCodeDTO>> Basic
-    => entity => new InviteCodeDTO
+  public static Expression<Func<InviteCodeEntity, InviteCodeDto>> Basic
+    => entity => new InviteCodeDto
     {
       Id = entity.Id,
       InviteCode = entity.InviteCode,
@@ -17,14 +17,14 @@ public class InviteCodeDTO : InviteCodeEntity, IBaseAuditableEntityDTO<long>
       AppId = entity.AppId
     };
 
-  private static readonly Func<InviteCodeEntity, InviteCodeDTO> _compiledBasic
+  private static readonly Func<InviteCodeEntity, InviteCodeDto> _compiledBasic
        = Basic.Compile();
 
-  public static InviteCodeDTO FromEntityBasic(InviteCodeEntity entity)
+  public static InviteCodeDto FromEntityBasic(InviteCodeEntity entity)
         => _compiledBasic(entity);
 
-  public static Expression<Func<InviteCodeEntity, InviteCodeDTO>> Detailed
-    => entity => new InviteCodeDTO
+  public static Expression<Func<InviteCodeEntity, InviteCodeDto>> Detailed
+    => entity => new InviteCodeDto
     {
       Id = entity.Id,
       InviteCode = entity.InviteCode,
@@ -37,9 +37,9 @@ public class InviteCodeDTO : InviteCodeEntity, IBaseAuditableEntityDTO<long>
       UpdatedAt = entity.UpdatedAt
     };
 
-  private static readonly Func<InviteCodeEntity, InviteCodeDTO> _compiledDetailed
+  private static readonly Func<InviteCodeEntity, InviteCodeDto> _compiledDetailed
         = Detailed.Compile();
 
-  public static InviteCodeDTO FromEntityDetailed(InviteCodeEntity entity)
+  public static InviteCodeDto FromEntityDetailed(InviteCodeEntity entity)
         => _compiledDetailed(entity);
 }

@@ -28,11 +28,11 @@ public class WaitListRepository(
     return queryCondition.Apply(existingEntity, userEmail);
   }
 
-  public async Task<WaitListDTO> GetEntityDTOByIdAsync(long id, CancellationToken cancellationToken = default)
+  public async Task<WaitListDto> GetEntityDtoByIdAsync(long id, CancellationToken cancellationToken = default)
   {
     return await _dbContext.WaitList
       .Where(e => e.Id == id)
-      .Select(WaitListDTO.Detailed)
+      .Select(WaitListDto.Detailed)
       .SingleOrDefaultAsync(cancellationToken) ?? throw new NoRecordException($"{id}", EntityTypes.WAIT_LIST.Description());
   }
 }

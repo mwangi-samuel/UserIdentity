@@ -180,7 +180,7 @@ public class LoginUserCommandHandlerTests
     var refreshTokenHash = "sampleRefreshTokenHash";
     var accessToken = "access-token";
     var expiresIn = 3600;
-    var userDto = new UserDTO
+    var userDto = new UserDto
     {
       Id = existingIdentityUser.Id,
       FirstName = "Test",

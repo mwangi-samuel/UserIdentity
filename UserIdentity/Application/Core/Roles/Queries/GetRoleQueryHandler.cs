@@ -34,7 +34,7 @@ public class GetRoleQueryHandler(
     return new RoleViewModel
     {
 
-      Role = new RoleDTO
+      Role = new RoleDto
       {
         Id = query.RoleId,
         Name = role.Name!

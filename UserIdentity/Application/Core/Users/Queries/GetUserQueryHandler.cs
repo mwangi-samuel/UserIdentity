@@ -5,7 +5,7 @@ using PolyzenKit.Application.Core;
 using PolyzenKit.Application.Core.Interfaces;
 using PolyzenKit.Application.Enums;
 using PolyzenKit.Common.Exceptions;
-using PolyzenKit.Domain.DTO;
+using PolyzenKit.Domain.Dto;
 using PolyzenKit.Presentation.Settings;
 
 using UserIdentity.Application.Core.Roles.Queries;
@@ -57,7 +57,7 @@ public class GetUserQueryHandler(
 
     var userRoleClaims = await _getRoleClaimsQueryHandler.GetItemsAsync(new GetRoleClaimsForRolesQuery { Roles = userRoles }, cancellationToken);
 
-    var userDTO = new UserDTO
+    var userDto = new UserDto
     {
       Id = user.Id,
       UserName = user.UserName,
@@ -69,11 +69,11 @@ public class GetUserQueryHandler(
       RoleClaims = userRoleClaims.RoleClaims
     };
 
-    userDTO.SetDTOAuditFields(userDetails);
+    userDto.SetDtoAuditFields(userDetails);
 
     return new UserViewModel
     {
-      User = userDTO
+      User = userDto
     };
   }
 }

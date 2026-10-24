@@ -61,7 +61,7 @@ public class UserControllerTests
     var userName = "test.user";
     var userEmail = userName + "@test.com";
     GetUserQuery getUserQuery = new() { UserId = userId, AppName = "testapp" };
-    UserViewModel userVM = new() { User = new UserDTO { Id = userId, FirstName = userFName, LastName = userLName, UserName = userName, Email = userEmail } };
+    UserViewModel userVM = new() { User = new UserDto { Id = userId, FirstName = userFName, LastName = userLName, UserName = userName, Email = userEmail } };
 
     // Act
     A.CallTo(() => _getUserQueryHandler.GetItemAsync(getUserQuery)).Returns(userVM);
@@ -104,7 +104,7 @@ public class UserControllerTests
 
     RegisterUserCommand command = new() { FirstName = userFName, LastName = userLName, UserName = userName, UserEmail = userEmail, UserPassword = userPassword };
 
-    AuthUserViewModel authVM = new() { User = new UserDTO { Id = userId, FirstName = userFName, LastName = userLName, UserName = userName, Email = userEmail }, UserToken = new AccessTokenViewModel { RefreshToken = refreshToken } };
+    AuthUserViewModel authVM = new() { User = new UserDto { Id = userId, FirstName = userFName, LastName = userLName, UserName = userName, Email = userEmail }, UserToken = new AccessTokenViewModel { RefreshToken = refreshToken } };
 
     // Act
     A.CallTo(() => _registerUserCommandHandler.CreateItemAsync(command, TestStringHelper.UserId)).Returns(authVM);
@@ -151,7 +151,7 @@ public class UserControllerTests
     var loginMessage = "Login successful";
 
     LoginUserCommand command = new() { UserName = userName, Password = userPassword };
-    AuthUserViewModel authVM = new() { User = new UserDTO { Id = userId, FirstName = userFName, LastName = userLName, UserName = userName, Email = userEmail }, UserToken = new AccessTokenViewModel { RefreshToken = refreshToken } };
+    AuthUserViewModel authVM = new() { User = new UserDto { Id = userId, FirstName = userFName, LastName = userLName, UserName = userName, Email = userEmail }, UserToken = new AccessTokenViewModel { RefreshToken = refreshToken } };
 
     // Act
     A.CallTo(() => _loginUserCommandHandler.CreateItemAsync(command, TestStringHelper.UserId)).Returns(authVM);
@@ -192,7 +192,7 @@ public class UserControllerTests
 
     var sucessStatusMessage = "Refresh token generated successfully";
 
-    ExchangeRefreshTokenViewModel exchangeRefreshTokenVM = new() { UserToken = new AccessTokenViewModel { AccessToken = new AccessTokenDTO { Token = newAccesstoken }, RefreshToken = newRefreshToken } };
+    ExchangeRefreshTokenViewModel exchangeRefreshTokenVM = new() { UserToken = new AccessTokenViewModel { AccessToken = new AccessTokenDto { Token = newAccesstoken }, RefreshToken = newRefreshToken } };
 
     ExchangeRefreshTokenCommand command = new() { AccessToken = accessToken, RefreshToken = refreshToken };
 
@@ -254,7 +254,7 @@ public class UserControllerTests
     var resetMessage = "Password reset request successful";
 
     ResetPasswordCommand command = new() { UserName = userName };
-    ResetPasswordViewModel resetPasswordVM = new() { ResetPasswordDetails = new ResetPasswordDTO { EmailMessage = emailMessage, ResetRequestId = resetRequestId } };
+    ResetPasswordViewModel resetPasswordVM = new() { ResetPasswordDetails = new ResetPasswordDto { EmailMessage = emailMessage, ResetRequestId = resetRequestId } };
 
     // Act
     A.CallTo(() => _resetPasswordCommandHandler.CreateItemAsync(command, TestStringHelper.UserId)).Returns(resetPasswordVM);
@@ -286,7 +286,7 @@ public class UserControllerTests
     var resetRequestId = "ResetRequestId123";
 
     UpdatePasswordCommand command = new() { ResetRequestId = resetRequestId, NewPassword = newPassword };
-    UpdatePasswordViewModel updatePasswordViewModel = new() { UpdatePasswordResult = new UpdatePasswordDTO { PassWordUpdated = true } };
+    UpdatePasswordViewModel updatePasswordViewModel = new() { UpdatePasswordResult = new UpdatePasswordDto { PassWordUpdated = true } };
 
     // Act
     A.CallTo(() => _updatePasswordCommandHandler.UpdateItemAsync(command, TestStringHelper.UserId)).Returns(updatePasswordViewModel);

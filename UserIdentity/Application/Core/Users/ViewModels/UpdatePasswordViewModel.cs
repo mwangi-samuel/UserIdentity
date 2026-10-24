@@ -4,6 +4,6 @@ namespace UserIdentity.Application.Core.Users.ViewModels;
 
 public record UpdatePasswordViewModel : BaseViewModel
 {
-  public UpdatePasswordDTO UpdatePasswordResult { get; init; } = null!;
+  public UpdatePasswordDto UpdatePasswordResult { get; init; } = null!;
 }
 

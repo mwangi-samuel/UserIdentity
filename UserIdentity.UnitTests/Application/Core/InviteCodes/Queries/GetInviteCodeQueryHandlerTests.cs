@@ -28,7 +28,7 @@ public class GetInviteCodeQueryHandlerTests
   {
     // Arrange
     var inviteCodeId = 1L;
-    var expectedDto = new InviteCodeDTO
+    var expectedDto = new InviteCodeDto
     {
       Id = inviteCodeId,
       InviteCode = "INVITE123",
@@ -37,7 +37,7 @@ public class GetInviteCodeQueryHandlerTests
       AppName = "TestApp"
     };
 
-    A.CallTo(() => _inviteCodeRepository.GetEntityDTOByIdAsync(inviteCodeId, A<CancellationToken>._)).Returns(expectedDto);
+    A.CallTo(() => _inviteCodeRepository.GetEntityDtoByIdAsync(inviteCodeId, A<CancellationToken>._)).Returns(expectedDto);
 
     var query = new GetInviteCodeQuery { InviteCodeId = inviteCodeId, AppId = 1 };
     var handler = new GetInviteCodeQueryHandler(_inviteCodeRepository);
@@ -53,7 +53,7 @@ public class GetInviteCodeQueryHandlerTests
     Assert.Equal(expectedDto.UserEmail, result.InviteCode.UserEmail);
     Assert.Equal(expectedDto.AppName, result.InviteCode.AppName);
 
-    A.CallTo(() => _inviteCodeRepository.GetEntityDTOByIdAsync(inviteCodeId, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+    A.CallTo(() => _inviteCodeRepository.GetEntityDtoByIdAsync(inviteCodeId, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
     A.CallTo(() => _inviteCodeRepository.GetEntityByAlternateIdAsync(A<InviteCodeEntity>._, A<QueryCondition>._, A<CancellationToken>._)).MustNotHaveHappened();
   }
 
@@ -91,7 +91,7 @@ public class GetInviteCodeQueryHandlerTests
     A.CallTo(() => _inviteCodeRepository.GetEntityByAlternateIdAsync(
         A<InviteCodeEntity>.That.Matches(e => e.UserEmail == userEmail && e.AppId == 2),
         QueryCondition.MUST_EXIST, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
-    A.CallTo(() => _inviteCodeRepository.GetEntityDTOByIdAsync(A<long>._, A<CancellationToken>._)).MustNotHaveHappened();
+    A.CallTo(() => _inviteCodeRepository.GetEntityDtoByIdAsync(A<long>._, A<CancellationToken>._)).MustNotHaveHappened();
   }
 
   [Fact]
@@ -100,8 +100,8 @@ public class GetInviteCodeQueryHandlerTests
     // Arrange
     var inviteCodeId = 1L;
 
-    A.CallTo(() => _inviteCodeRepository.GetEntityDTOByIdAsync(inviteCodeId, A<CancellationToken>._))
-        .Returns(new InviteCodeDTO { Id = inviteCodeId, InviteCode = "INVITE123", UserEmail = "test@example.com", AppId = 5 });
+    A.CallTo(() => _inviteCodeRepository.GetEntityDtoByIdAsync(inviteCodeId, A<CancellationToken>._))
+        .Returns(new InviteCodeDto { Id = inviteCodeId, InviteCode = "INVITE123", UserEmail = "test@example.com", AppId = 5 });
 
     var query = new GetInviteCodeQuery { InviteCodeId = inviteCodeId, AppId = 1 };
     var handler = new GetInviteCodeQueryHandler(_inviteCodeRepository);
@@ -116,7 +116,7 @@ public class GetInviteCodeQueryHandlerTests
     // Arrange
     var inviteCodeId = 999L;
 
-    A.CallTo(() => _inviteCodeRepository.GetEntityDTOByIdAsync(inviteCodeId, A<CancellationToken>._))
+    A.CallTo(() => _inviteCodeRepository.GetEntityDtoByIdAsync(inviteCodeId, A<CancellationToken>._))
         .ThrowsAsync(new NoRecordException($"{inviteCodeId}", "InviteCode"));
 
     var query = new GetInviteCodeQuery { InviteCodeId = inviteCodeId, AppId = 1 };

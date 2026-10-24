@@ -33,8 +33,8 @@ public class GetWaitListQueryHandler(
   {
 
     var dto = query.WaitListId.HasValue
-      ? await _waitListRepository.GetEntityDTOByIdAsync(query.WaitListId!.Value, cancellationToken)
-      : WaitListDTO.FromEntityDetailed((await _waitListRepository.GetEntityByAlternateIdAsync(new() { AppId = query.AppId, UserEmail = query.UserEmail! }, QueryCondition.MUST_EXIST, cancellationToken))!);
+      ? await _waitListRepository.GetEntityDtoByIdAsync(query.WaitListId!.Value, cancellationToken)
+      : WaitListDto.FromEntityDetailed((await _waitListRepository.GetEntityByAlternateIdAsync(new() { AppId = query.AppId, UserEmail = query.UserEmail! }, QueryCondition.MUST_EXIST, cancellationToken))!);
 
     if (dto.AppId != query.AppId)
       throw new NoRecordException($"{query.WaitListId}", EntityTypes.WAIT_LIST.Description());

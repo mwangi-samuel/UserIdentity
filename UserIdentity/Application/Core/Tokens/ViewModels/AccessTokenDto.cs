@@ -1,6 +1,6 @@
 ﻿namespace UserIdentity.Application.Core.Tokens.ViewModels;
 
-public record AccessTokenDTO
+public record AccessTokenDto
 {
   public string? Token { get; init; }
 

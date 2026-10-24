@@ -1,6 +1,6 @@
 ﻿namespace UserIdentity.Application.Core.Users.ViewModels;
 
-public record ResetPasswordDTO
+public record ResetPasswordDto
 {
   public string EmailMessage { get; init; } = null!;
 

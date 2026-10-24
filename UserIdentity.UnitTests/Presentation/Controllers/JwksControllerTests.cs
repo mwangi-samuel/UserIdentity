@@ -15,10 +15,10 @@ using Xunit;
 
 namespace UserIdentity.UnitTests.Presentation.Controllers;
 
-public class JWKSControllerTests
+public class JwksControllerTests
 {
   private readonly IGetItemsQueryHandler<GetKeySetsQuery, KeySetsViewModel> _getKeySetsQueryHandler;
-  public JWKSControllerTests()
+  public JwksControllerTests()
   {
     _getKeySetsQueryHandler = A.Fake<IGetItemsQueryHandler<GetKeySetsQuery, KeySetsViewModel>>();
   }
@@ -42,7 +42,7 @@ public class JWKSControllerTests
       }
     };
 
-    var jwksController = new JWKSController(_getKeySetsQueryHandler);
+    var jwksController = new JwksController(_getKeySetsQueryHandler);
 
     A.CallTo(() => _getKeySetsQueryHandler.GetItemsAsync(new GetKeySetsQuery { })).Returns(Task.FromResult(keySetsViewModel));
 

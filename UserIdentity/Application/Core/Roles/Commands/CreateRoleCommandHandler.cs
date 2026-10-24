@@ -50,7 +50,7 @@ public class CreateRoleCommandHandler(
 
     return new RoleViewModel
     {
-      Role = new RoleDTO
+      Role = new RoleDto
       {
         Id = newRole.Id,
         Name = newRole.Name

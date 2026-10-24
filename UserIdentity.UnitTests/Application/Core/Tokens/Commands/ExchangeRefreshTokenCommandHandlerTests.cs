@@ -228,7 +228,7 @@ public class ExchangeRefreshTokenCommandHandlerTests
     // Assert
     Assert.IsType<ExchangeRefreshTokenViewModel>(vm);
     Assert.IsType<AccessTokenViewModel>(vm.UserToken);
-    Assert.IsType<AccessTokenDTO>(vm.UserToken.AccessToken);
+    Assert.IsType<AccessTokenDto>(vm.UserToken.AccessToken);
 
     Assert.Equal(newAccesToken, vm.UserToken.AccessToken?.Token);
     Assert.Equal(newAccesstokenExpiresIn, vm.UserToken.AccessToken?.ExpiresIn);

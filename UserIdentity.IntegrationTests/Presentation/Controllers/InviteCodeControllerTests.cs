@@ -45,7 +45,7 @@ public class InviteCodeControllerTests(
     Assert.Equal("Request Successful", $"{jsonObject["requestStatus"]}");
     Assert.Equal("Item fetched successfully", $"{jsonObject["statusMessage"]}");
 
-    var inviteCodeDetails = jsonObject["inviteCode"]?.ToObject<InviteCodeDTO>();
+    var inviteCodeDetails = jsonObject["inviteCode"]?.ToObject<InviteCodeDto>();
 
     Assert.NotNull(inviteCodeDetails);
     Assert.Equal(inviteCode.Id, inviteCodeDetails.Id);
@@ -78,7 +78,7 @@ public class InviteCodeControllerTests(
     Assert.Equal("Request Successful", $"{jsonObject["requestStatus"]}");
     Assert.Equal("Item fetched successfully", $"{jsonObject["statusMessage"]}");
 
-    var inviteCodeDetails = jsonObject["inviteCode"]?.ToObject<InviteCodeDTO>();
+    var inviteCodeDetails = jsonObject["inviteCode"]?.ToObject<InviteCodeDto>();
 
     Assert.NotNull(inviteCodeDetails);
     Assert.Equal(inviteCode.Id, inviteCodeDetails.Id);
@@ -186,7 +186,7 @@ public class InviteCodeControllerTests(
     Assert.Equal("Request Successful", $"{jsonObject["requestStatus"]}");
     Assert.Equal("Item created successfully", $"{jsonObject["statusMessage"]}");
 
-    var inviteCodeDetails = jsonObject["inviteCode"]?.ToObject<InviteCodeDTO>();
+    var inviteCodeDetails = jsonObject["inviteCode"]?.ToObject<InviteCodeDto>();
 
     Assert.NotNull(inviteCodeDetails);
     Assert.Equal(userEmail, inviteCodeDetails.UserEmail);

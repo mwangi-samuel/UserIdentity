@@ -87,7 +87,7 @@ public class LoginUserCommandHandler(
 
     await _userManager.ResetAccessFailedCountAsync(user);
 
-    UserDTO userDto;
+    UserDto userDto;
 
     try
     {
@@ -125,7 +125,7 @@ public class LoginUserCommandHandler(
 
       userToken = new AccessTokenViewModel
       {
-        AccessToken = new AccessTokenDTO { Token = token, ExpiresIn = expiresIn },
+        AccessToken = new AccessTokenDto { Token = token, ExpiresIn = expiresIn },
         RefreshToken = refreshToken,
       };
     }

@@ -10,7 +10,7 @@ using PolyzenKit.Application.Core.Interfaces;
 using PolyzenKit.Application.Core.RegisteredApps.Resolvers;
 using PolyzenKit.Application.Enums;
 using PolyzenKit.Common.Utilities;
-using PolyzenKit.Domain.DTO;
+using PolyzenKit.Domain.Dto;
 using PolyzenKit.Presentation.Controllers;
 using PolyzenKit.Presentation.Settings;
 

@@ -33,7 +33,7 @@ public class UpdateInviteCodeCommandHandler(
 
     return new InviteCodeViewModel
     {
-      InviteCode = await _repository.GetEntityDTOByIdAsync(command.InviteCodeId, cancellationToken)
+      InviteCode = await _repository.GetEntityDtoByIdAsync(command.InviteCodeId, cancellationToken)
     };
   }
 }

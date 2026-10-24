@@ -71,11 +71,11 @@ public class GoogleRecaptchaServiceTests
       .WithReturnType<HttpRequestMessage>()
       .Returns(requestMessage);
 
-    var response = new GoogleRecaptchaResponseDTO { Success = true, Score = 0.9f };
+    var response = new GoogleRecaptchaResponseDto { Success = true, Score = 0.9f };
     A.CallTo(_httpClientHelper)
       .Where(call => call.Method.Name == nameof(IHttpClientHelper.SendRequestAsync))
-      .WithReturnType<Task<GoogleRecaptchaResponseDTO?>>()
-      .Returns(Task.FromResult<GoogleRecaptchaResponseDTO?>(response));
+      .WithReturnType<Task<GoogleRecaptchaResponseDto?>>()
+      .Returns(Task.FromResult<GoogleRecaptchaResponseDto?>(response));
 
     var service = new GoogleRecaptchaService(_httpClientHelper, _settingsOptions);
 
@@ -83,7 +83,7 @@ public class GoogleRecaptchaServiceTests
 
     Assert.True(result);
     A.CallTo(() => _httpClientHelper.CreateHttpRequestMessage(HttpMethod.Post, "siteverify")).MustHaveHappenedOnceExactly();
-    A.CallTo(() => _httpClientHelper.SendRequestAsync<GoogleRecaptchaResponseDTO>("GoogleRecaptcha", requestMessage, HttpStatusCode.OK, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+    A.CallTo(() => _httpClientHelper.SendRequestAsync<GoogleRecaptchaResponseDto>("GoogleRecaptcha", requestMessage, HttpStatusCode.OK, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
   }
 
   [Fact]
@@ -98,19 +98,19 @@ public class GoogleRecaptchaServiceTests
 
     A.CallTo(_httpClientHelper)
       .Where(call => call.Method.Name == nameof(IHttpClientHelper.SendRequestAsync))
-      .WithReturnType<Task<GoogleRecaptchaResponseDTO?>>()
-      .Returns(Task.FromResult<GoogleRecaptchaResponseDTO?>(null));
+      .WithReturnType<Task<GoogleRecaptchaResponseDto?>>()
+      .Returns(Task.FromResult<GoogleRecaptchaResponseDto?>(null));
 
     var service = new GoogleRecaptchaService(_httpClientHelper, _settingsOptions);
 
     var resultNull = await service.VerifyTokenAsync(token, TestContext.Current.CancellationToken);
     Assert.False(resultNull);
 
-    var lowScoreResponse = new GoogleRecaptchaResponseDTO { Success = true, Score = 0.3f };
+    var lowScoreResponse = new GoogleRecaptchaResponseDto { Success = true, Score = 0.3f };
     A.CallTo(_httpClientHelper)
       .Where(call => call.Method.Name == nameof(IHttpClientHelper.SendRequestAsync))
-      .WithReturnType<Task<GoogleRecaptchaResponseDTO?>>()
-      .Returns(Task.FromResult<GoogleRecaptchaResponseDTO?>(lowScoreResponse));
+      .WithReturnType<Task<GoogleRecaptchaResponseDto?>>()
+      .Returns(Task.FromResult<GoogleRecaptchaResponseDto?>(lowScoreResponse));
 
     var resultLowScore = await service.VerifyTokenAsync(token, TestContext.Current.CancellationToken);
     Assert.False(resultLowScore);

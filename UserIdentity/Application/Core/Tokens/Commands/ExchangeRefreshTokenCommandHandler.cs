@@ -133,7 +133,7 @@ public class ExchangeRefreshTokenCommandHandler(
     {
       UserToken = new AccessTokenViewModel
       {
-        AccessToken = new AccessTokenDTO { Token = token, ExpiresIn = expiresIn },
+        AccessToken = new AccessTokenDto { Token = token, ExpiresIn = expiresIn },
         RefreshToken = updateRefreshToken,
       },
       EditEnabled = false,

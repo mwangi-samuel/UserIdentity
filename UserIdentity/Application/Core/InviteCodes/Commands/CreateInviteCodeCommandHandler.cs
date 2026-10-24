@@ -29,7 +29,7 @@ public class CreateInviteCodeCommandHandler(
 
     return new InviteCodeViewModel
     {
-      InviteCode = await _repository.GetEntityDTOByIdAsync(entity.Id, cancellationToken)
+      InviteCode = await _repository.GetEntityDtoByIdAsync(entity.Id, cancellationToken)
     };
   }
 }

@@ -1,11 +1,11 @@
 ﻿using System.Text.Json.Serialization;
 
-using PolyzenKit.Domain.DTO;
+using PolyzenKit.Domain.Dto;
 using PolyzenKit.Domain.Entity;
 
 namespace UserIdentity.Domain.Users;
 
-public class UserDTO : BaseAuditableEntity<string>, IBaseAuditableEntityDTO<string>
+public class UserDto : BaseAuditableEntity<string>, IBaseAuditableEntityDto<string>
 {
   public string? FirstName { get; init; }
 

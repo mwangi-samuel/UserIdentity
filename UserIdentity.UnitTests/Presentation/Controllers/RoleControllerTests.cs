@@ -63,12 +63,12 @@ public class RoleControllerTests
     {
       Roles =
                         [
-                                new RoleDTO
+                                new RoleDto
                                     {
                                             Id = Guid.NewGuid().ToString(),
                                             Name = "Admin"
                                     },
-                                    new RoleDTO
+                                    new RoleDto
                                     {
                                             Id = Guid.NewGuid().ToString(),
                                             Name = "User"
@@ -118,7 +118,7 @@ public class RoleControllerTests
 
     var roleVM = new RoleViewModel
     {
-      Role = new RoleDTO
+      Role = new RoleDto
       {
         Id = roleId,
         Name = "Admin"
@@ -161,7 +161,7 @@ public class RoleControllerTests
 
     var roleVM = new RoleViewModel
     {
-      Role = new RoleDTO
+      Role = new RoleDto
       {
         Id = Guid.NewGuid().ToString(),
         Name = "Admin"
@@ -207,7 +207,7 @@ public class RoleControllerTests
 
     var roleVM = new RoleViewModel
     {
-      Role = new RoleDTO
+      Role = new RoleDto
       {
         Id = roleId,
         Name = "Admin"
@@ -390,7 +390,7 @@ public class RoleControllerTests
 
     var roleClaimVM = new RoleClaimViewModel
     {
-      RoleClaim = new RoleClaimDTO
+      RoleClaim = new RoleClaimDto
       {
         Resource = resource,
         Action = action,
@@ -430,7 +430,7 @@ public class RoleControllerTests
     {
       RoleClaims =
         [
-            new RoleClaimDTO
+            new RoleClaimDto
                 {
                     Resource = "Resource",
                     Action = "Action",

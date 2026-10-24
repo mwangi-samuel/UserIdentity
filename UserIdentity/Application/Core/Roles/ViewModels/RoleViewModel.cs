@@ -6,5 +6,5 @@ namespace UserIdentity.Application.Core.Roles.ViewModels;
 
 public record RoleViewModel : ItemDetailBaseViewModel
 {
-  public RoleDTO Role { get; init; } = null!;
+  public RoleDto Role { get; init; } = null!;
 }

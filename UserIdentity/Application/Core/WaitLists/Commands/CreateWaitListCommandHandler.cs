@@ -29,7 +29,7 @@ public class CreateWaitListCommandHandler(
 
     return new WaitListViewModel
     {
-      WaitList = await _repository.GetEntityDTOByIdAsync(entity.Id, cancellationToken)
+      WaitList = await _repository.GetEntityDtoByIdAsync(entity.Id, cancellationToken)
     };
   }
 }
