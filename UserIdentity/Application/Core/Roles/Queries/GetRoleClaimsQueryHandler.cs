@@ -6,6 +6,7 @@ using PolyzenKit.Common.Exceptions;
 using PolyzenKit.Infrastructure.Security.Jwt;
 
 using UserIdentity.Application.Core.Roles.ViewModels;
+using UserIdentity.Application.Helpers;
 using UserIdentity.Domain.RoleClaims;
 
 namespace UserIdentity.Application.Core.Roles.Queries;
@@ -13,6 +14,8 @@ namespace UserIdentity.Application.Core.Roles.Queries;
 public record GetRoleClaimsQuery : IBaseQuery
 {
   public required string RoleId { get; init; }
+
+  public string? AppName { get; init; }
 }
 
 public record GetRoleClaimsForRolesQuery : IBaseQuery
@@ -31,6 +34,9 @@ public class GetRoleClaimsQueryHandler(
   public async Task<RoleClaimsViewModel> GetItemsAsync(GetRoleClaimsQuery query, CancellationToken cancellationToken = default)
   {
     var role = await _roleManager.FindByIdAsync(query.RoleId) ?? throw new NoRecordException(query.RoleId, "Role");
+
+    if (query.AppName is not null && !AppRolesHelper.IsAppRole(role.Name, query.AppName))
+      throw new NoRecordException(query.RoleId, "Role");
 
     var roleClaims = await _roleManager.GetClaimsAsync(role);
 

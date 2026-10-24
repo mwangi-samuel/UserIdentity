@@ -124,30 +124,33 @@ public class RoleController(
   /// <param name="command"></param>
   /// <returns></returns>
 
-  // Scopes aren't tied to an app, so only global admins manage them
-  [Authorize(Policy = ZenConstants.GLOBAL_ADMIN_POLICY)]
+  [Authorize(Policy = ZenConstants.ADMIN_OR_GLOBAL_ADMIN_POLICY)]
   [HttpPost]
   [Route("claim")]
   public async Task<ActionResult<RoleClaimViewModel>> CreateRoleClaimAsync(CreateRoleClaimCommand command)
   {
+    command.AppName = AdminAppName;
+
     var vm = await _createRoleClaimCommandHandler.CreateItemAsync(command, LoggedInUserId, RequestAborted);
     return ResolveCreateItemActionResult(vm);
   }
 
-  [Authorize(Policy = ZenConstants.GLOBAL_ADMIN_POLICY)]
+  [Authorize(Policy = ZenConstants.ADMIN_OR_GLOBAL_ADMIN_POLICY)]
   [HttpGet]
   [Route("claim/{roleId}")]
   public async Task<ActionResult<RoleClaimsViewModel>> GetRoleClaimsAsync(string roleId)
   {
-    var vm = await _getRoleClaimsQueryHandler.GetItemsAsync(new GetRoleClaimsQuery { RoleId = roleId }, RequestAborted);
+    var vm = await _getRoleClaimsQueryHandler.GetItemsAsync(new GetRoleClaimsQuery { RoleId = roleId, AppName = AdminAppName }, RequestAborted);
     return ResolveGetItemsActionResult(vm);
   }
 
-  [Authorize(Policy = ZenConstants.GLOBAL_ADMIN_POLICY)]
+  [Authorize(Policy = ZenConstants.ADMIN_OR_GLOBAL_ADMIN_POLICY)]
   [HttpDelete]
   [Route("claim")]
   public async Task<ActionResult<DeleteRecordViewModel>> DeleteRoleClaimAsync(DeleteRoleClaimCommand command)
   {
+    command.AppName = AdminAppName;
+
     var vm = await _deleteRoleClaimCommandHandler.DeleteItemAsync(command, LoggedInUserId, RequestAborted);
     return ResolveDeleteItemActionResult(vm);
   }

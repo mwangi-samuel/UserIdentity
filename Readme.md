@@ -64,8 +64,8 @@ Each account belongs to the app it registered with. Logging in, refreshing a tok
 
 There are two kinds of admin:
 
-- **App admins** have the `<app>:admin` role. They manage their app's roles (names must start with `<app>:`), give those roles to their app's users, read their app's users, and manage their app's invite codes and wait list. Anything belonging to another app returns 404, or 400 for a role name outside the prefix.
-- **Global admins** have `RoleSettings:GlobalAdminRole` (default `global:admin`), whatever app they log in through. They manage registered apps and role scopes, and every app's roles and users. For invite codes and wait list entries they name the app in the `X-App-Name` header. The app names `global` and `service` are reserved.
+- **App admins** have the `<app>:admin` role. They manage their app's roles (names must start with `<app>:`) and those roles' scopes, give those roles to their app's users, read their app's users, and manage their app's invite codes and wait list. Anything belonging to another app returns 404, or 400 for a role name outside the prefix.
+- **Global admins** have `RoleSettings:GlobalAdminRole` (default `global:admin`), whatever app they log in through. They manage registered apps, and every app's roles, role scopes and users. For invite codes and wait list entries they name the app in the `X-App-Name` header. The app names `global` and `service` are reserved.
 
 No user starts as an admin, so the first admins are created with `.sql/add_admin_user_role.sql`. It takes the user name or email and the app name, creates the role if it's missing, and is safe to run again. Add `@role_name='global:admin'` for a global admin:
 
@@ -75,6 +75,15 @@ Get-Content .sql\add_admin_user_role.sql | docker exec -i db mysql -uroot -proot
 ```
 
 Roles are read into the token at login, so the user has to log in again to get an admin token.
+
+### Role Scopes
+A role can carry scopes, which give its users access to specific actions in other services without making them admins. A scope is `<resource>:<action>`, where a service's resources are `<service>-<controller>`, such as `catalog-product:create` for a `catalog` service. The actions are `create`, `read`, `edit`, `delete`, `download` and `all`.
+
+- `POST /api/v1/role/claim` with `{ "roleId": "...", "resource": "catalog-product", "action": "create" }` adds a scope. Resources and actions are stored in lower case.
+- `GET /api/v1/role/claim/{roleId}` lists a role's scopes.
+- `DELETE /api/v1/role/claim` with the same body as adding removes one.
+
+App admins manage the scopes of their app's roles, and get 404 for any other role. Global admins manage any role's scopes, except the global admin role's: that role is in every app's tokens, so adding a scope to it returns 400. Tokens carry the scopes of the app's roles from the next login or refresh.
 
 ## App Callbacks
 When a user registers through an app's UI and the app has a `CallbackUrl`, UserIdentity POSTs the user details to it. Each callback is signed with the app's `AppSecretKey`:

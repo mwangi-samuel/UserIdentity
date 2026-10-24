@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 
 using Microsoft.AspNetCore.Identity;
 
@@ -6,6 +7,8 @@ using PolyzenKit.Application.Core;
 using PolyzenKit.Application.Core.Interfaces;
 using PolyzenKit.Common.Exceptions;
 using PolyzenKit.Infrastructure.Security.Jwt;
+
+using UserIdentity.Application.Helpers;
 
 namespace UserIdentity.Application.Core.Roles.Commands;
 
@@ -19,6 +22,9 @@ public record DeleteRoleClaimCommand : IBaseCommand
 
   [Required]
   public string Action { get; init; } = null!;
+
+  [JsonIgnore]
+  public string? AppName { get; internal set; }
 }
 public class DeleteRoleClaimCommandHandler(
     RoleManager<IdentityRole> roleManager,
@@ -33,7 +39,10 @@ public class DeleteRoleClaimCommandHandler(
     // Confirm role exists
     var role = await _roleManager.FindByIdAsync(command.RoleId) ?? throw new NoRecordException(command.RoleId, "Role");
 
-    // Confirm claim does not exist 
+    if (command.AppName is not null && !AppRolesHelper.IsAppRole(role.Name, command.AppName))
+      throw new NoRecordException(command.RoleId, "Role");
+
+    // Confirm claim does not exist
     var scopeClaim = _jwtTokenHandler.GenerateScopeClaim(command.Resource, command.Action);
     var roleClaims = await _roleManager.GetClaimsAsync(role);
 

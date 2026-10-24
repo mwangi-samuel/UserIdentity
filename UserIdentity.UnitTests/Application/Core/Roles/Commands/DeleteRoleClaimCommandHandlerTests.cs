@@ -47,6 +47,27 @@ public class DeleteRoleClaimCommandHandlerTests
   }
 
   [Fact]
+  public async Task DeleteRoleClaim_For_Another_Apps_Role_Throws_NoRecordException()
+  {
+    // Arrange
+    DeleteRoleClaimCommand command = new()
+    {
+      RoleId = "SampleValidId",
+      Resource = "resource",
+      Action = "create",
+      AppName = "testapp"
+    };
+
+    A.CallTo(() => _roleManager.FindByIdAsync(command.RoleId)).Returns(new IdentityRole { Id = command.RoleId, Name = "otherapp:owner" });
+
+    DeleteRoleClaimCommandHandler handler = new(_roleManager, _jwtTokenHandler);
+
+    // Act & Assert
+    await Assert.ThrowsAsync<NoRecordException>(() => handler.DeleteItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken));
+    A.CallTo(() => _roleManager.RemoveClaimAsync(A<IdentityRole>._, A<Claim>._)).MustNotHaveHappened();
+  }
+
+  [Fact]
   public async Task DeleteRoleClaim_When_Non_Existent_RoleClaim_Throws_NoRecordException()
   {
     // Arrange

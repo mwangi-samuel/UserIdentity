@@ -46,6 +46,24 @@ public class GetRoleClaimsQueryHandlerTests
   }
 
   [Fact]
+  public async Task Get_RoleClaims_For_Another_Apps_Role_Throws_NoRecordException()
+  {
+    // Arrange
+    GetRoleClaimsQuery query = new()
+    {
+      RoleId = "1",
+      AppName = "testapp"
+    };
+
+    A.CallTo(() => _roleManager.FindByIdAsync(query.RoleId)).Returns(new IdentityRole { Id = query.RoleId, Name = "otherapp:owner" });
+
+    GetRoleClaimsQueryHandler handler = new(_roleManager, _jwtTokenHandler);
+
+    // Act & Assert
+    await Assert.ThrowsAsync<NoRecordException>(() => handler.GetItemsAsync(query, TestContext.Current.CancellationToken));
+  }
+
+  [Fact]
   public async Task Get_RoleClaims_Returns_RoleClaims()
   {
     // Arrange
