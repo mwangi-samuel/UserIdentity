@@ -1,0 +1,35 @@
+﻿using PolyzenKit.Application.Core;
+using PolyzenKit.Application.Core.Interfaces;
+using PolyzenKit.Common.Paging;
+
+using UserIdentity.Application.Core.InviteCodes.ViewModels;
+using UserIdentity.Persistence.Repositories.InviteCodes;
+
+namespace UserIdentity.Application.Core.InviteCodes.Queries;
+
+public record GetInviteCodesQuery : IBaseQuery
+{
+  public required int AppId { get; init; }
+
+  public int Page { get; init; } = 1;
+
+  public int PageSize { get; init; } = Paging.DefaultPageSize;
+}
+
+public class GetInviteCodesQueryHandler(
+  IInviteCodeRepository inviteCodeRepository
+  ) : IGetItemsQueryHandler<GetInviteCodesQuery, InviteCodesViewModel>
+{
+  private readonly IInviteCodeRepository _inviteCodeRepository = inviteCodeRepository;
+
+  public async Task<InviteCodesViewModel> GetItemsAsync(GetInviteCodesQuery query, CancellationToken cancellationToken = default)
+  {
+    var page = await _inviteCodeRepository.GetEntityDtosByAppIdAsync(query.AppId, query.Page, query.PageSize, cancellationToken);
+
+    return new InviteCodesViewModel
+    {
+      InviteCodes = page.Items,
+      TotalCount = page.TotalCount
+    };
+  }
+}

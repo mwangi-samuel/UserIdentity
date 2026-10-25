@@ -263,6 +263,61 @@
 						}
 					},
 					"response": []
+				},
+				{
+					"name": "Registration With Invite Code",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"pm.environment.set(\"first_name\",pm.variables.replaceIn(\"{{$randomFirstName}}\"));\r",
+									"pm.environment.set(\"user_password\",\"P@ssW1rd\")"
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Registered with invite code - Status is 201\", () => {\r",
+									"    pm.response.to.have.status(201);\r",
+									"});"
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n  \"firstName\": \"{{first_name}}\",\r\n  \"userName\": \"{{invite_email}}\",\r\n  \"userEmail\": \"{{invite_email}}\",\r\n  \"userPassword\": \"{{user_password}}\",\r\n  \"inviteCode\": \"{{invite_code}}\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{user_identity_base_url}}/user/register",
+							"host": [
+								"{{user_identity_base_url}}"
+							],
+							"path": [
+								"user",
+								"register"
+							]
+						}
+					},
+					"response": []
 				}
 			]
 		},
@@ -1066,6 +1121,202 @@
 								"role",
 								"claim",
 								"{{user_role_id}}"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Invite Codes",
+			"description": "Needs an app admin token in user_access_token. \"Create Invite Code\" gives the role {{app_name}}:owner, which must exist (see Roles > Add Role).",
+			"item": [
+				{
+					"name": "Create Invite Code",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"pm.environment.set(\"invite_email\", pm.variables.replaceIn(\"{{$randomExampleEmail}}\"));\r",
+									"pm.environment.set(\"invite_code\", Math.random().toString(36).slice(2, 12).toUpperCase());"
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Invite code created - Status is 201\", () => {\r",
+									"    pm.response.to.have.status(201);\r",
+									"    const inviteCode = pm.response.json().inviteCode;\r",
+									"    pm.expect(inviteCode.role).to.be.eql(`${pm.environment.get(\"app_name\")}:owner`.toLowerCase());\r",
+									"    pm.environment.set(\"invite_code_id\", inviteCode.id);\r",
+									"});"
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{user_access_token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n  \"inviteCode\": \"{{invite_code}}\",\r\n  \"userEmail\": \"{{invite_email}}\",\r\n  \"role\": \"{{app_name}}:owner\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{user_identity_base_url}}/invitecode",
+							"host": [
+								"{{user_identity_base_url}}"
+							],
+							"path": [
+								"invitecode"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Invite Codes",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Invite codes listed - Status is 200\", () => {\r",
+									"    pm.response.to.have.status(200);\r",
+									"    pm.expect(pm.response.json().totalCount).to.be.a(\"number\");\r",
+									"});"
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{user_access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{user_identity_base_url}}/invitecode?page=1&pageSize=50",
+							"host": [
+								"{{user_identity_base_url}}"
+							],
+							"path": [
+								"invitecode"
+							],
+							"query": [
+								{
+									"key": "page",
+									"value": "1"
+								},
+								{
+									"key": "pageSize",
+									"value": "50"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Invite Code",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{user_access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{user_identity_base_url}}/invitecode/{{invite_code_id}}",
+							"host": [
+								"{{user_identity_base_url}}"
+							],
+							"path": [
+								"invitecode",
+								"{{invite_code_id}}"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Invite Code By Email",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{user_access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{user_identity_base_url}}/invitecode/email/{{invite_email}}",
+							"host": [
+								"{{user_identity_base_url}}"
+							],
+							"path": [
+								"invitecode",
+								"email",
+								"{{invite_email}}"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Revoke Invite Code",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Invite code revoked - Status is 200\", () => {\r",
+									"    pm.response.to.have.status(200);\r",
+									"});"
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{user_access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{user_identity_base_url}}/invitecode/{{invite_code_id}}",
+							"host": [
+								"{{user_identity_base_url}}"
+							],
+							"path": [
+								"invitecode",
+								"{{invite_code_id}}"
 							]
 						}
 					},

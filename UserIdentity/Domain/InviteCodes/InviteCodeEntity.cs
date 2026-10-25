@@ -19,6 +19,9 @@ public class InviteCodeEntity : BaseAuditableEntity<long>
 
   public bool Applied { get; set; }
 
+  [MaxLength(256)]
+  public string? Role { get; set; }
+
   public int AppId { get; set; }
 
   [JsonIgnore]

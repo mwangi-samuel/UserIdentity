@@ -1,4 +1,5 @@
-﻿using PolyzenKit.Persistence.Repositories;
+﻿using PolyzenKit.Common.Paging;
+using PolyzenKit.Persistence.Repositories;
 
 using UserIdentity.Domain.InviteCodes;
 
@@ -9,4 +10,5 @@ public interface IInviteCodeRepository
   IItemEntityRepository<InviteCodeEntity, long>,
   IItemEntityDtoRepository<InviteCodeDto, long>
 {
+  Task<PagedList<InviteCodeDto>> GetEntityDtosByAppIdAsync(int appId, int page, int pageSize, CancellationToken cancellationToken = default);
 }

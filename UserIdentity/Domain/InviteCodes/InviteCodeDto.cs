@@ -14,6 +14,8 @@ public class InviteCodeDto : InviteCodeEntity, IBaseAuditableEntityDto<long>
       Id = entity.Id,
       InviteCode = entity.InviteCode,
       UserEmail = entity.UserEmail,
+      Applied = entity.Applied,
+      Role = entity.Role,
       AppId = entity.AppId
     };
 
@@ -29,6 +31,8 @@ public class InviteCodeDto : InviteCodeEntity, IBaseAuditableEntityDto<long>
       Id = entity.Id,
       InviteCode = entity.InviteCode,
       UserEmail = entity.UserEmail,
+      Applied = entity.Applied,
+      Role = entity.Role,
       AppId = entity.AppId,
       AppName = entity.App.AppName,
       CreatedBy = entity.CreatedBy,

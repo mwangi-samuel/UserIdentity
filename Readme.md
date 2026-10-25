@@ -55,6 +55,16 @@ A role can carry scopes, which give its users access to specific actions in othe
 
 App admins manage the scopes of their app's roles, and get 404 for any other role. Global admins manage any role's scopes, except the global admin role's: that role is in every app's tokens, so adding a scope to it returns 400. Tokens carry the scopes of the app's roles from the next login or refresh.
 
+## Invite Codes
+An invite code lets one email address sign up to an app, and can give the new account a role. App admins manage their app's invite codes, and global admins name the app in the `X-App-Name` header.
+
+- `POST /api/v1/invitecode` with `{ "inviteCode": "...", "userEmail": "...", "role": "<app>:owner" }` creates one. `role` is optional. When set, it must be an existing role of the app that isn't an admin role (`<app>:admin` or any of `RoleSettings:AdminRoles`), or the request returns 400. There's one invite code per app and email.
+- `GET /api/v1/invitecode?page=1&pageSize=50` lists the app's invite codes, newest first, with `totalCount`.
+- `GET /api/v1/invitecode/{id}` and `GET /api/v1/invitecode/email/{email}` read one.
+- `DELETE /api/v1/invitecode/{id}` revokes an unused invite code. A used one returns 400, and another app's returns 404.
+
+Signing up with `inviteCode` checks it whether or not the app has `RequireInviteCode` on: the email is required, an invite code must exist for the app and email, the code must match (ignoring case), and it must be unused. Otherwise the request returns 400. A valid code is marked used, and its role is given to the new account with the default role, so it's in the account's tokens with its scopes. If that role no longer exists, sign-up returns 400 and nothing is saved. Without `inviteCode`, sign-up only needs one when the app requires it.
+
 ## App Callbacks
 When a user registers through an app's UI and the app has a `CallbackUrl`, UserIdentity POSTs the user details to it. Each callback is signed with the app's `AppSecretKey`:
 
