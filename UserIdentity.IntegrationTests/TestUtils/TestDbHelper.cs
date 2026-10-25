@@ -363,7 +363,7 @@ public sealed class TestDbHelper(
 
 
   #region InviteCodeEntity Related
-  public InviteCodeEntity CreateInviteCodeEntity(string userEmail, string appName, string? inviteCode = null, bool applied = false)
+  public InviteCodeEntity CreateInviteCodeEntity(string userEmail, string appName, string? inviteCode = null, bool applied = false, string? role = null, DateTime? createdAt = null)
   {
     DeleteInviteCodeEntityByEmail(userEmail);
 
@@ -375,8 +375,9 @@ public sealed class TestDbHelper(
       UserEmail = userEmail,
       AppId = registeredApp.Id,
       Applied = applied,
+      Role = role,
       CreatedBy = UserSettingHelper.UserId,
-      CreatedAt = DateTime.UtcNow,
+      CreatedAt = createdAt ?? DateTime.UtcNow,
       UpdatedBy = UserSettingHelper.UserId,
       UpdatedAt = DateTime.UtcNow,
       IsDeleted = false
@@ -391,6 +392,11 @@ public sealed class TestDbHelper(
   public InviteCodeEntity? GetInviteCodeEntity(long id)
   {
     return _appDbContext.InviteCode.FirstOrDefault(x => x.Id == id);
+  }
+
+  public InviteCodeEntity? GetInviteCodeEntityWithNoTracking(long id)
+  {
+    return _appDbContext.InviteCode.AsNoTracking().FirstOrDefault(x => x.Id == id);
   }
 
   public InviteCodeEntity? GetInviteCodeEntityByEmail(string userEmail)

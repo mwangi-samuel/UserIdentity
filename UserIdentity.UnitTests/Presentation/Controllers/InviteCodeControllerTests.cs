@@ -6,6 +6,7 @@ using FakeItEasy;
 
 using Microsoft.AspNetCore.Mvc;
 
+using PolyzenKit.Application.Core;
 using PolyzenKit.Application.Core.Interfaces;
 using PolyzenKit.Application.Core.RegisteredApps.Resolvers;
 using PolyzenKit.Application.Enums;
@@ -28,12 +29,16 @@ public class InviteCodeControllerTests
 
   private readonly ICreateItemCommandHandler<CreateInviteCodeCommand, InviteCodeViewModel> _createInviteCodeCommandHandler;
   private readonly IGetItemQueryHandler<GetInviteCodeQuery, InviteCodeViewModel> _getInviteCodeQueryHandler;
+  private readonly IGetItemsQueryHandler<GetInviteCodesQuery, InviteCodesViewModel> _getInviteCodesQueryHandler;
+  private readonly IDeleteItemCommandHandler<DeleteInviteCodeCommand, DeleteRecordViewModel> _deleteInviteCodeCommandHandler;
   private readonly IRegisteredAppResolver _registeredAppResolver;
 
   public InviteCodeControllerTests()
   {
     _createInviteCodeCommandHandler = A.Fake<ICreateItemCommandHandler<CreateInviteCodeCommand, InviteCodeViewModel>>();
     _getInviteCodeQueryHandler = A.Fake<IGetItemQueryHandler<GetInviteCodeQuery, InviteCodeViewModel>>();
+    _getInviteCodesQueryHandler = A.Fake<IGetItemsQueryHandler<GetInviteCodesQuery, InviteCodesViewModel>>();
+    _deleteInviteCodeCommandHandler = A.Fake<IDeleteItemCommandHandler<DeleteInviteCodeCommand, DeleteRecordViewModel>>();
     _registeredAppResolver = A.Fake<IRegisteredAppResolver>();
   }
 
@@ -172,11 +177,94 @@ public class InviteCodeControllerTests
     A.CallTo(() => _createInviteCodeCommandHandler.CreateItemAsync(A<CreateInviteCodeCommand>._, TestStringHelper.UserId)).MustHaveHappenedOnceExactly();
   }
 
+  [Fact]
+  public async Task CreateInviteCode_Passes_The_Admins_App_To_The_Command()
+  {
+    // Arrange
+    var command = new CreateInviteCodeCommand
+    {
+      InviteCode = "NEWINVITE",
+      UserEmail = "owner@example.com",
+      Role = "testapp:owner"
+    };
+
+    A.CallTo(() => _registeredAppResolver.GetActiveAppAsync(A<string>._, A<CancellationToken>._))
+        .Returns(new RegisteredAppEntity { Id = 4, AppName = "TestApp" });
+    A.CallTo(() => _createInviteCodeCommandHandler.CreateItemAsync(A<CreateInviteCodeCommand>._, TestStringHelper.UserId, A<CancellationToken>._))
+        .Returns(new InviteCodeViewModel { InviteCode = new InviteCodeDto { Id = 1, InviteCode = command.InviteCode, UserEmail = command.UserEmail, Role = command.Role } });
+
+    var controller = GetInviteCodeController();
+    controller.UpdateContext(ControllerName, addUserId: true, userId: TestStringHelper.UserId, appName: "TestApp");
+
+    // Act
+    await controller.CreateInviteCode(command);
+
+    // Assert
+    A.CallTo(() => _createInviteCodeCommandHandler.CreateItemAsync(
+        A<CreateInviteCodeCommand>.That.Matches(c => c.AppId == 4 && c.AppName == "TestApp" && c.Role == "testapp:owner"), TestStringHelper.UserId, A<CancellationToken>._))
+        .MustHaveHappenedOnceExactly();
+  }
+
+  [Fact]
+  public async Task GetInviteCodes_Returns_The_Apps_InviteCodes()
+  {
+    // Arrange
+    var inviteCodesVM = new InviteCodesViewModel
+    {
+      InviteCodes = [new InviteCodeDto { Id = 1, InviteCode = "INVITE", UserEmail = "owner@example.com", AppId = 4 }],
+      TotalCount = 1
+    };
+
+    A.CallTo(() => _registeredAppResolver.GetActiveAppAsync(A<string>._, A<CancellationToken>._))
+        .Returns(new RegisteredAppEntity { Id = 4, AppName = "TestApp" });
+    A.CallTo(() => _getInviteCodesQueryHandler.GetItemsAsync(A<GetInviteCodesQuery>.That.Matches(q => q.AppId == 4 && q.Page == 2 && q.PageSize == 5), A<CancellationToken>._))
+        .Returns(inviteCodesVM);
+
+    var controller = GetInviteCodeController();
+    controller.UpdateContext(ControllerName, addUserId: true, userId: TestStringHelper.UserId, appName: "TestApp");
+
+    // Act
+    var actionResult = await controller.GetInviteCodes(2, 5);
+    var result = actionResult?.Result as ObjectResult;
+    var vm = result?.Value as InviteCodesViewModel;
+
+    // Assert
+    Assert.Equal((int)HttpStatusCode.OK, result?.StatusCode);
+    Assert.NotNull(vm);
+    Assert.Equal(1, vm.TotalCount);
+    Assert.Single(vm.InviteCodes);
+  }
+
+  [Fact]
+  public async Task DeleteInviteCode_Deletes_The_Apps_InviteCode()
+  {
+    // Arrange
+    A.CallTo(() => _registeredAppResolver.GetActiveAppAsync(A<string>._, A<CancellationToken>._))
+        .Returns(new RegisteredAppEntity { Id = 4, AppName = "TestApp" });
+    A.CallTo(() => _deleteInviteCodeCommandHandler.DeleteItemAsync(A<DeleteInviteCodeCommand>._, TestStringHelper.UserId, A<CancellationToken>._))
+        .Returns(new DeleteRecordViewModel());
+
+    var controller = GetInviteCodeController();
+    controller.UpdateContext(ControllerName, addUserId: true, userId: TestStringHelper.UserId, appName: "TestApp");
+
+    // Act
+    var actionResult = await controller.DeleteInviteCode(7);
+    var result = actionResult?.Result as ObjectResult;
+
+    // Assert
+    Assert.Equal((int)HttpStatusCode.OK, result?.StatusCode);
+    A.CallTo(() => _deleteInviteCodeCommandHandler.DeleteItemAsync(
+        A<DeleteInviteCodeCommand>.That.Matches(c => c.InviteCodeId == 7 && c.AppId == 4), TestStringHelper.UserId, A<CancellationToken>._))
+        .MustHaveHappenedOnceExactly();
+  }
+
   private InviteCodeController GetInviteCodeController()
   {
     return new InviteCodeController(
         _createInviteCodeCommandHandler,
         _getInviteCodeQueryHandler,
+        _getInviteCodesQueryHandler,
+        _deleteInviteCodeCommandHandler,
         _registeredAppResolver);
   }
 }

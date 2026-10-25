@@ -19,6 +19,18 @@ public class AppRolesHelperTests
     Assert.Equal(expected, AppRolesHelper.IsAppRole(roleName, appName));
   }
 
+  [Theory]
+  [InlineData("testapp:admin", "TestApp", "superuser", true)]
+  [InlineData("TestApp:SuperUser", "TestApp", "admin, superuser", true)]
+  [InlineData("testapp:owner", "TestApp", "admin,superuser", false)]
+  [InlineData("otherapp:admin", "TestApp", "admin", false)]
+  [InlineData(null, "TestApp", "admin", false)]
+  public void IsAppAdminRole_Matches_The_Apps_Admin_Roles_And_Its_Admin_Role(string? roleName, string appName, string adminRoles, bool expected)
+  {
+    // Act & Assert
+    Assert.Equal(expected, AppRolesHelper.IsAppAdminRole(roleName, appName, adminRoles));
+  }
+
   [Fact]
   public void ForApp_Keeps_The_Apps_Roles_And_The_Global_Admin_Role()
   {

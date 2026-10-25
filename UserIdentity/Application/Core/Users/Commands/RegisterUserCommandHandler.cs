@@ -137,15 +137,16 @@ public class RegisterUserCommandHandler(
 
     // Check if invite code is required for current app
     var inviteCodeRequired = command.RegisteredApp?.RequireInviteCode ?? false;
+    var hasInviteCode = !string.IsNullOrWhiteSpace(command.InviteCode);
 
     InviteCodeEntity? inviteCodeEntity = null;
 
-    if (inviteCodeRequired)
+    if (inviteCodeRequired || hasInviteCode)
     {
       if (command.UserEmail == null)
         throw new InvalidDataException("An email is required when signing up with an invite code.");
 
-      if (command.InviteCode == null)
+      if (!hasInviteCode)
         throw new InvalidDataException("A valid invite code is required when signing up.");
 
       inviteCodeEntity = (await _inviteCodeRepository.GetEntityByAlternateIdAsync(new() { AppId = command.RegisteredApp!.Id, UserEmail = command.UserEmail! }, QueryCondition.MUST_EXIST, cancellationToken))!;
@@ -192,6 +193,18 @@ public class RegisterUserCommandHandler(
       if (!resultUserRole.Succeeded)
         throw new RecordCreationException(userDefaultRole, EntityTypes.ROLE.Description());
 
+      var userRoles = new List<string> { userDefaultRole };
+
+      if (inviteCodeEntity?.Role is { } inviteRole && !string.Equals(inviteRole, userDefaultRole, StringComparison.OrdinalIgnoreCase))
+      {
+        var role = await _roleManager.FindByNameAsync(inviteRole)
+          ?? throw new InvalidDataException($"The role {inviteRole} granted by the invite code doesn't exist.");
+
+        if (!(await _userManager.AddToRoleAsync(newUser, role.Name!)).Succeeded)
+          throw new RecordCreationException(role.Name!, EntityTypes.ROLE.Description());
+
+        userRoles.Add(role.Name!);
+      }
 
       // Create user details
       var emailTokenBytes = Encoding.UTF8.GetBytes(await _userManager.GenerateEmailConfirmationTokenAsync(newUser));
@@ -232,7 +245,6 @@ public class RegisterUserCommandHandler(
       _userRegisteredAppRepository.CreateEntityItem(userRegisteredApp);
 
 
-      var userRoles = new List<string> { userDefaultRole };
       var roleClaimsVm = await _getRoleClaimsQueryHandler.GetItemsAsync(new GetRoleClaimsForRolesQuery { Roles = userRoles }, cancellationToken);
 
 

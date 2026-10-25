@@ -2,8 +2,10 @@
 
 using PolyzenKit.Application.Enums;
 using PolyzenKit.Common.Exceptions;
+using PolyzenKit.Common.Paging;
 using PolyzenKit.Common.Utilities;
 using PolyzenKit.Persistence.Repositories;
+using PolyzenKit.Persistence.Utilities;
 
 using UserIdentity.Common;
 using UserIdentity.Domain.InviteCodes;
@@ -32,5 +34,15 @@ public class InviteCodeRepository(
       .Where(e => e.Id == id)
       .Select(InviteCodeDto.Detailed)
       .SingleOrDefaultAsync(cancellationToken) ?? throw new NoRecordException($"{id}", EntityTypes.INVITE_CODE.Description());
+  }
+
+  public async Task<PagedList<InviteCodeDto>> GetEntityDtosByAppIdAsync(int appId, int page, int pageSize, CancellationToken cancellationToken = default)
+  {
+    return await _dbContext.InviteCode
+      .Where(e => e.AppId == appId)
+      .OrderByDescending(e => e.CreatedAt)
+      .ThenByDescending(e => e.Id)
+      .Select(InviteCodeDto.Detailed)
+      .ToPageAsync(page, pageSize, cancellationToken);
   }
 }

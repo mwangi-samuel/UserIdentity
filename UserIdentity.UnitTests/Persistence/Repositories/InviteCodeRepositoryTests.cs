@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Threading.Tasks;
 
 using Microsoft.EntityFrameworkCore;
@@ -147,6 +148,36 @@ public class InviteCodeRepositoryTests
     var repository = new InviteCodeRepository(context);
 
     await Assert.ThrowsAsync<NoRecordException>(() => repository.GetEntityDtoByIdAsync(999, TestContext.Current.CancellationToken));
+  }
+
+  [Fact]
+  public async Task GetEntityDtosByAppIdAsync_Returns_The_Apps_InviteCodes_Newest_First()
+  {
+    var context = GetAppDbContext();
+    var app = await SeedRegisteredApp(context);
+    context.RegisteredApp.Add(new RegisteredAppEntity { Id = 2, AppName = "OtherApp", AppSecretKey = "other-secret-key", BaseUrl = "https://other.com" });
+    var repository = new InviteCodeRepository(context);
+    var now = System.DateTime.UtcNow;
+
+    for (var i = 0; i < 3; i++)
+    {
+      var inviteCode = BuildInviteCode();
+      inviteCode.UserEmail = $"user{i}@example.com";
+      inviteCode.CreatedAt = now.AddMinutes(i);
+      inviteCode.Role = i == 2 ? "testapp:owner" : null;
+      context.InviteCode.Add(inviteCode);
+    }
+
+    var otherAppInviteCode = BuildInviteCode();
+    otherAppInviteCode.AppId = 2;
+    context.InviteCode.Add(otherAppInviteCode);
+    await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+
+    var page = await repository.GetEntityDtosByAppIdAsync(app.Id, 1, 2, TestContext.Current.CancellationToken);
+
+    Assert.Equal(3, page.TotalCount);
+    Assert.Equal(["user2@example.com", "user1@example.com"], page.Items.Select(i => i.UserEmail));
+    Assert.Equal("testapp:owner", page.Items[0].Role);
   }
 
   private static AppDbContext GetAppDbContext()

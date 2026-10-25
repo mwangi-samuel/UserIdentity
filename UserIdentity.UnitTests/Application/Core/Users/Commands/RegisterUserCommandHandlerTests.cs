@@ -340,6 +340,127 @@ public class RegisterUserCommandHandlerTests
   }
 
   [Fact]
+  public async Task Create_User_With_Optional_Invite_Code_Grants_The_Invites_Role()
+  {
+    // Arrange
+    var command = GetRegisterUserCommand();
+    const string inviteCode = "INVITE01";
+    const string inviteRole = "testapp:owner";
+    command.InviteCode = inviteCode.ToLower();
+
+    var defaultRole = new IdentityRole(GetDefaultRoleName());
+    var inviteCodeEntity = new InviteCodeEntity { Id = 7, InviteCode = inviteCode, UserEmail = command.UserEmail!, Applied = false, Role = inviteRole };
+
+    A.CallTo(() => _inviteCodeRepository.GetEntityByAlternateIdAsync(
+        A<InviteCodeEntity>.That.Matches(e => e.UserEmail == command.UserEmail && e.AppId == command.RegisteredApp!.Id), QueryCondition.MUST_EXIST, A<CancellationToken>._))
+        .Returns(inviteCodeEntity);
+    A.CallTo(() => _roleManager.FindByNameAsync(defaultRole.Name!)).Returns(defaultRole);
+    A.CallTo(() => _roleManager.FindByNameAsync(inviteRole)).Returns(new IdentityRole(inviteRole));
+    A.CallTo(() => _userManager.FindByNameAsync(command.UserName)).Returns((IdentityUser?)null);
+    A.CallTo(() => _userManager.FindByEmailAsync(command.UserEmail!)).Returns((IdentityUser?)null);
+    A.CallTo(() => _userManager.CreateAsync(A<IdentityUser>._, command.UserPassword)).Returns(IdentityResult.Success);
+    A.CallTo(() => _userManager.AddToRoleAsync(A<IdentityUser>._, A<string>._)).Returns(IdentityResult.Success);
+    A.CallTo(() => _userManager.GenerateEmailConfirmationTokenAsync(A<IdentityUser>._)).Returns("token");
+
+    var handler = GetRegisterUserCommandHandler();
+
+    // Act
+    var vm = await handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken);
+
+    // Assert
+    Assert.Equal([defaultRole.Name!, inviteRole], vm.User.Roles);
+    Assert.True(inviteCodeEntity.Applied);
+
+    A.CallTo(() => _userManager.AddToRoleAsync(A<IdentityUser>._, inviteRole)).MustHaveHappenedOnceExactly();
+    A.CallTo(() => _getRoleClaimsQueryHandler.GetItemsAsync(A<GetRoleClaimsForRolesQuery>.That.Matches(q => q.Roles.Contains(inviteRole) && q.Roles.Contains(defaultRole.Name!)), A<CancellationToken>._))
+        .MustHaveHappenedOnceExactly();
+    A.CallTo(() => _inviteCodeRepository.UpdateEntityItem(inviteCodeEntity)).MustHaveHappenedOnceExactly();
+    A.CallTo(() => _unitOfWork.CommitTransactionAsync(A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+  }
+
+  [Fact]
+  public async Task Create_User_With_Invalid_Optional_Invite_Code_Throws_InvalidDataException()
+  {
+    // Arrange
+    var command = GetRegisterUserCommand();
+    command.InviteCode = "WRONGCODE";
+
+    var inviteCodeEntity = new InviteCodeEntity { Id = 7, InviteCode = "INVITE01", UserEmail = command.UserEmail!, Applied = false, Role = "testapp:owner" };
+
+    A.CallTo(() => _inviteCodeRepository.GetEntityByAlternateIdAsync(A<InviteCodeEntity>._, QueryCondition.MUST_EXIST, A<CancellationToken>._))
+        .Returns(inviteCodeEntity);
+
+    var handler = GetRegisterUserCommandHandler();
+
+    // Act & Assert
+    await Assert.ThrowsAsync<InvalidDataException>(() => handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken));
+
+    A.CallTo(() => _userManager.CreateAsync(A<IdentityUser>._, A<string>._)).MustNotHaveHappened();
+    A.CallTo(() => _inviteCodeRepository.UpdateEntityItem(A<InviteCodeEntity>._)).MustNotHaveHappened();
+  }
+
+  [Fact]
+  public async Task Create_User_When_The_Invites_Role_Is_Missing_Throws_InvalidDataException_And_Rolls_Back()
+  {
+    // Arrange
+    var command = GetRegisterUserCommand();
+    const string inviteRole = "testapp:owner";
+    command.InviteCode = "INVITE01";
+
+    var defaultRole = new IdentityRole(GetDefaultRoleName());
+    var inviteCodeEntity = new InviteCodeEntity { Id = 7, InviteCode = "INVITE01", UserEmail = command.UserEmail!, Applied = false, Role = inviteRole };
+
+    A.CallTo(() => _inviteCodeRepository.GetEntityByAlternateIdAsync(A<InviteCodeEntity>._, QueryCondition.MUST_EXIST, A<CancellationToken>._))
+        .Returns(inviteCodeEntity);
+    A.CallTo(() => _roleManager.FindByNameAsync(defaultRole.Name!)).Returns(defaultRole);
+    A.CallTo(() => _roleManager.FindByNameAsync(inviteRole)).Returns((IdentityRole?)null);
+    A.CallTo(() => _userManager.FindByNameAsync(command.UserName)).Returns((IdentityUser?)null);
+    A.CallTo(() => _userManager.FindByEmailAsync(command.UserEmail!)).Returns((IdentityUser?)null);
+    A.CallTo(() => _userManager.CreateAsync(A<IdentityUser>._, command.UserPassword)).Returns(IdentityResult.Success);
+    A.CallTo(() => _userManager.AddToRoleAsync(A<IdentityUser>._, defaultRole.Name!)).Returns(IdentityResult.Success);
+
+    var handler = GetRegisterUserCommandHandler();
+
+    // Act & Assert
+    await Assert.ThrowsAsync<InvalidDataException>(() => handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken));
+
+    A.CallTo(() => _userManager.AddToRoleAsync(A<IdentityUser>._, inviteRole)).MustNotHaveHappened();
+    A.CallTo(() => _unitOfWork.RollbackTransactionAsync(A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+    A.CallTo(() => _unitOfWork.CommitTransactionAsync(A<CancellationToken>._)).MustNotHaveHappened();
+  }
+
+  [Theory]
+  [InlineData(null)]
+  [InlineData("")]
+  public async Task Create_User_Without_Invite_Code_When_Not_Required_Does_Not_Check_Invites(string? inviteCode)
+  {
+    // Arrange
+    var command = GetRegisterUserCommand();
+    command.InviteCode = inviteCode;
+
+    var defaultRole = new IdentityRole(GetDefaultRoleName());
+
+    A.CallTo(() => _roleManager.FindByNameAsync(defaultRole.Name!)).Returns(defaultRole);
+    A.CallTo(() => _userManager.FindByNameAsync(command.UserName)).Returns((IdentityUser?)null);
+    A.CallTo(() => _userManager.FindByEmailAsync(command.UserEmail!)).Returns((IdentityUser?)null);
+    A.CallTo(() => _userManager.CreateAsync(A<IdentityUser>._, command.UserPassword)).Returns(IdentityResult.Success);
+    A.CallTo(() => _userManager.AddToRoleAsync(A<IdentityUser>._, defaultRole.Name!)).Returns(IdentityResult.Success);
+    A.CallTo(() => _userManager.GenerateEmailConfirmationTokenAsync(A<IdentityUser>._)).Returns("token");
+
+    var handler = GetRegisterUserCommandHandler();
+
+    // Act
+    var vm = await handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken);
+
+    // Assert
+    Assert.Equal([defaultRole.Name!], vm.User.Roles);
+
+    A.CallTo(() => _inviteCodeRepository.GetEntityByAlternateIdAsync(A<InviteCodeEntity>._, A<QueryCondition>._, A<CancellationToken>._)).MustNotHaveHappened();
+    A.CallTo(() => _inviteCodeRepository.UpdateEntityItem(A<InviteCodeEntity>._)).MustNotHaveHappened();
+    A.CallTo(() => _userManager.AddToRoleAsync(A<IdentityUser>._, A<string>._)).MustHaveHappenedOnceExactly();
+  }
+
+  [Fact]
   public async Task Create_User_From_UI_When_Recaptcha_Fails_Throws_InvalidDataException()
   {
     // Arrange

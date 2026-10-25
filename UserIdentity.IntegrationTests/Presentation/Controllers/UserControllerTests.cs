@@ -5,6 +5,7 @@ using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
 
+using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
 
 using Newtonsoft.Json;
@@ -15,6 +16,7 @@ using PolyzenKit.Common.Enums;
 using PolyzenKit.Common.Extensions;
 using PolyzenKit.Common.Utilities;
 using PolyzenKit.Infrastructure.Kafka;
+using PolyzenKit.Infrastructure.Security.Jwt;
 using PolyzenKit.Infrastructure.Security.Tokens;
 using PolyzenKit.Presentation.Settings;
 using PolyzenKit.Presentation.ValidationHelpers;
@@ -488,6 +490,106 @@ public class UserControllerTests(
     Assert.Equal(DateTime.UtcNow.Year, dateTime.Value.Year);
     Assert.Equal(DateTime.UtcNow.Month, dateTime.Value.Month);
     Assert.Equal(DateTime.UtcNow.Day, dateTime.Value.Day);
+  }
+
+  [Fact]
+  public async Task Register_User_With_Invite_Code_Grants_The_Invites_Role_And_Its_Scopes()
+  {
+    // Arrange
+    const string ownerRole = "testapp:owner";
+    const string ownerScope = "commercemanager-product:all";
+    var googleRecaptchaToken = StringUtil.GenerateRandomString(90);
+    var userEmail = "invited-owner@example.com";
+    var userName = "invited.owner";
+
+    _testDbHelper.CreateIdentityRole(ownerRole);
+    _testDbHelper.UpdateRoleClaim(ownerRole, ownerScope);
+    var inviteCode = _testDbHelper.CreateInviteCodeEntity(userEmail, _registeredApp.AppName, inviteCode: "OWNERINVITE", role: ownerRole);
+
+    var requestPayload = new
+    {
+      UserSettingHelper.FirstName,
+      UserName = userName,
+      UserEmail = userEmail,
+      UserSettingHelper.UserPassword,
+      InviteCode = "ownerinvite",
+      googleRecaptchaToken
+    };
+
+    SetUpGoogleRecaptchaEndpoint(googleRecaptchaToken);
+
+    // Act
+    var response = await _httpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/register", requestPayload);
+
+    // Assert
+    var responseString = await response.ValidateRequestResponseAsync();
+
+    Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+
+    var userDetails = SerDeHelper.Deserialize<JObject>(responseString)?["user"]?.ToObject<UserDto>();
+
+    Assert.NotNull(userDetails);
+    Assert.NotNull(_testDbHelper.GetIdentityUserRole(ownerRole, userDetails.Id));
+    Assert.True(_testDbHelper.GetInviteCodeEntityWithNoTracking(inviteCode.Id)?.Applied);
+
+    // Simulate the code being verified for the welcome message
+    var attributes = new Dictionary<MessageAttribute, string>()
+    {
+      { MessageAttribute.USER_ID, userDetails.Id }
+    };
+
+    var messageEvent = MessageEventFactory.Create(userDetails.Id, _registeredApp.AppName, attributes, MessageAction.WELCOME_USER, CrudEvent.UPDATE);
+
+    await _kafkaProducerHelper.ProduceUserMessageManagerUserUpdatedEventAsync(userDetails.Id, messageEvent);
+
+    await _pollyResiliencePipeline.ExecuteAsync(token =>
+    {
+      Assert.True(_testDbHelper.GetIdentityUserWithNoTracking(userDetails.Id)?.EmailConfirmed);
+      return ValueTask.CompletedTask;
+    }, TestContext.Current.CancellationToken);
+
+    (var token, _) = await _httpClient.LoginUserAsync(userName, UserSettingHelper.UserPassword);
+
+    var claims = new JsonWebToken(token).Claims.ToList();
+
+    Assert.Contains(claims, c => c.Type == JwtCustomClaimNames.Roles && c.Value == ownerRole);
+    Assert.Contains(claims, c => c.Type == JwtCustomClaimNames.Scope && c.Value == ownerScope);
+  }
+
+  [Fact]
+  public async Task Register_User_With_Invalid_Optional_Invite_Code_Does_Not_Create_User()
+  {
+    // Arrange
+    var googleRecaptchaToken = StringUtil.GenerateRandomString(90);
+    var userEmail = "wrong-invite@example.com";
+    var userName = "wrong.invite";
+
+    var inviteCode = _testDbHelper.CreateInviteCodeEntity(userEmail, _registeredApp.AppName, inviteCode: "RIGHTCODE", role: "testapp:owner");
+
+    var requestPayload = new
+    {
+      UserSettingHelper.FirstName,
+      UserName = userName,
+      UserEmail = userEmail,
+      UserSettingHelper.UserPassword,
+      InviteCode = "WRONGCODE",
+      googleRecaptchaToken
+    };
+
+    SetUpGoogleRecaptchaEndpoint(googleRecaptchaToken);
+
+    // Act
+    var response = await _httpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/register", requestPayload);
+
+    // Assert
+    await response.ValidateRequestResponseAsync();
+
+    Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    Assert.False(_testDbHelper.GetInviteCodeEntityWithNoTracking(inviteCode.Id)?.Applied);
+
+    var loginResponse = await _httpClient.SendNoAuthRequestAsync(HttpMethod.Post, ApiRequestHelper.loginUrl, new { UserName = userName, Password = UserSettingHelper.UserPassword });
+
+    Assert.Equal(HttpStatusCode.Unauthorized, loginResponse.StatusCode);
   }
 
   [Fact]
