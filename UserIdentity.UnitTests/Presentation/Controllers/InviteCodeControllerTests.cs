@@ -25,7 +25,7 @@ namespace UserIdentity.UnitTests.Presentation.Controllers;
 
 public class InviteCodeControllerTests
 {
-  private static readonly string ControllerName = "invitecode";
+  private static readonly string ControllerName = "InviteCode";
 
   private readonly ICreateItemCommandHandler<CreateInviteCodeCommand, InviteCodeViewModel> _createInviteCodeCommandHandler;
   private readonly IGetItemQueryHandler<GetInviteCodeQuery, InviteCodeViewModel> _getInviteCodeQueryHandler;

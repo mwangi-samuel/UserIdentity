@@ -11,6 +11,10 @@ public record GetInviteCodesQuery : IBaseQuery
 {
   public required int AppId { get; init; }
 
+  public string? Search { get; init; }
+
+  public bool? Applied { get; init; }
+
   public int Page { get; init; } = 1;
 
   public int PageSize { get; init; } = Paging.DefaultPageSize;
@@ -24,7 +28,10 @@ public class GetInviteCodesQueryHandler(
 
   public async Task<InviteCodesViewModel> GetItemsAsync(GetInviteCodesQuery query, CancellationToken cancellationToken = default)
   {
-    var page = await _inviteCodeRepository.GetEntityDtosByAppIdAsync(query.AppId, query.Page, query.PageSize, cancellationToken);
+    var search = string.IsNullOrWhiteSpace(query.Search) ? null : query.Search.Trim();
+    var page = search is null && !query.Applied.HasValue
+      ? await _inviteCodeRepository.GetEntityDtosByAppIdAsync(query.AppId, query.Page, query.PageSize, cancellationToken)
+      : await _inviteCodeRepository.SearchEntityDtosByAppIdAsync(query.AppId, search, query.Applied, query.Page, query.PageSize, cancellationToken);
 
     return new InviteCodesViewModel
     {

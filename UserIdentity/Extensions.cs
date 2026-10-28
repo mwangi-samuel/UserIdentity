@@ -21,7 +21,6 @@ namespace UserIdentity;
 
 public static class Extensions
 {
-  // Add OpenAPI
   public static void AddAppOpenApi(this IServiceCollection services)
   {
     services.AddOpenApi();
@@ -45,7 +44,6 @@ public static class Extensions
     });
   }
 
-  // Add Mysql
   public static void AddAppMysql<TContext>(this IServiceCollection services, IConfiguration configuration) where TContext : DbContext
   {
     var mysqlSettings = configuration.GetSection(nameof(MysqlSettings)).Get<MysqlSettings>() ?? throw new MissingConfigurationException(nameof(MysqlSettings));
@@ -56,7 +54,6 @@ public static class Extensions
     });
   }
 
-  // Add App Command and Query Handlers
   public static void AddAppCommandAndQueryHandlers(this IServiceCollection services)
   {
     services.AddAppCommandAndQueryHandlers(Assembly.GetExecutingAssembly());
@@ -66,7 +63,6 @@ public static class Extensions
     services.AddAppCommandAndQueryHandlers(polyzenKitAssembly);
   }
 
-  // Add App Event Handlers
   public static void AddAppEventHandlers(this IServiceCollection services)
   {
     services.AddAppEventHandlers(Assembly.GetExecutingAssembly());
@@ -74,7 +70,6 @@ public static class Extensions
     services.AddAppEventHandlers(polyzenKitAssembly);
   }
 
-  // Add Repositories
   public static void AddAppRepositories(this IServiceCollection services)
   {
     services.AddAppRepositories(Assembly.GetExecutingAssembly());
@@ -83,7 +78,6 @@ public static class Extensions
     services.AddAppRepositories(polyzenKitAssembly);
   }
 
-  // Add Google Recaptcha
   public static void AddGoogleRecaptcha(this IServiceCollection services, IConfiguration configuration)
   {
     var googleRecaptchaSettings = configuration.GetSection(nameof(GoogleRecaptchaSettings)).Get<GoogleRecaptchaSettings>() ?? throw new MissingConfigurationException(nameof(GoogleRecaptchaSettings));
@@ -100,7 +94,6 @@ public static class Extensions
     services.AddScoped<IGoogleRecaptchaService, GoogleRecaptchaService>();
   }
 
-  // Add Refresh Token Settings
   public static void AddAppRefreshTokenSettings(this IServiceCollection services, IConfiguration configuration)
   {
     var refreshTokenSettings = configuration.GetSection(nameof(RefreshTokenSettings)).Get<RefreshTokenSettings>() ?? throw new MissingConfigurationException(nameof(RefreshTokenSettings));
@@ -114,7 +107,6 @@ public static class Extensions
     });
   }
 
-  // Add Password Reset Settings
   public static void AddAppPasswordResetSettings(this IServiceCollection services, IConfiguration configuration)
   {
     var passwordResetSettings = configuration.GetSection(nameof(PasswordResetSettings)).Get<PasswordResetSettings>() ?? throw new MissingConfigurationException(nameof(PasswordResetSettings));
@@ -133,7 +125,6 @@ public static class Extensions
     });
   }
 
-  // Add Cleanup Settings and the periodic cleanups
   public static void AddAppCleanups(this IServiceCollection services, IConfiguration configuration)
   {
     var cleanupSettings = configuration.GetSection(nameof(CleanupSettings)).Get<CleanupSettings>() ?? throw new MissingConfigurationException(nameof(CleanupSettings));
@@ -160,12 +151,5 @@ public static class Extensions
   public static void AddAppKafka(this IServiceCollection services, IConfiguration configuration)
   {
     services.AddAppKafka(configuration, Assembly.GetExecutingAssembly());
-  }
-
-
-  // Seed Entity Names
-  public static void AppSeedEntityNamesData(this IApplicationBuilder applicationBuilder)
-  {
-    Assembly.GetExecutingAssembly().AppSeedEntityNamesData(applicationBuilder);
   }
 }

@@ -167,7 +167,7 @@ public class AppScopingTests(
     _testDbHelper.ConfigureIdentityUserAsAdmin();
 
     // Act
-    var response = await _httpClient.SendValidAuthRequestAsync(HttpMethod.Get, "/api/v1/registeredapp");
+    var response = await _httpClient.SendValidAuthRequestAsync(HttpMethod.Get, "/api/v1/registered-app");
 
     // Assert
     await response.ValidateRequestResponseAsync();
@@ -183,7 +183,7 @@ public class AppScopingTests(
     _testDbHelper.ConfigureIdentityUserAsGlobalAdmin();
 
     // Act
-    var response = await _httpClient.SendValidAuthRequestAsync(HttpMethod.Get, "/api/v1/registeredapp");
+    var response = await _httpClient.SendValidAuthRequestAsync(HttpMethod.Get, "/api/v1/registered-app");
 
     // Assert
     await response.ValidateRequestResponseAsync();
@@ -223,7 +223,7 @@ public class AppScopingTests(
     _testDbHelper.CreateInviteCodeEntity(testEmail, TestingWebAppFactory.OtherAppName);
 
     // Act
-    var response = await _httpClient.SendValidAuthRequestAsync(HttpMethod.Get, $"/api/v1/invitecode/email/{testEmail}");
+    var response = await _httpClient.SendValidAuthRequestAsync(HttpMethod.Get, $"/api/v1/invite-code/email/{testEmail}");
 
     // Assert
     await response.ValidateRequestResponseAsync();

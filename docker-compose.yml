@@ -1,6 +1,8 @@
 services:
   db:
     image: mysql:8.4.0
+    volumes:
+      - mysql_data:/var/lib/mysql
     ports:
       - 3306:3306
     environment:
@@ -14,6 +16,8 @@ services:
 
   redpanda:
     image: redpandadata/redpanda:v25.3.3
+    volumes:
+      - redpanda_data:/var/lib/redpanda/data
     ports:
       - 9092:9092
       - 8081:8081
@@ -63,3 +67,7 @@ services:
       redpanda:
         condition: service_healthy
     restart: on-failure:5
+
+volumes:
+  mysql_data:
+  redpanda_data:

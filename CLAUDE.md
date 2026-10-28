@@ -35,3 +35,7 @@
 
 ## When adding or changing endpoints
 - Update `postman/UserIdentity.postman_collection.json` and `Readme.md`.
+
+Normal down/up preserves project-scoped MySQL, broker and object-storage volumes where present. Explicit `docker compose down --volumes` is a destructive reset, not normal shutdown.
+
+Invitation lists combine optional email search (up to 100 characters) and nullable applied status before app-scoped count/paging. The original unfiltered repository operation remains compatible. InviteOpenApiContractTests exports the actual Development contract using a disposable InMemory host; no broker or live database is needed.

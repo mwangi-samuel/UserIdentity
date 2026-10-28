@@ -18,7 +18,7 @@ public class JwksControllerTests(
     ) : BaseIntegrationTests(testingWebAppFactory, outputHelper)
 {
 
-  private readonly static string _baseUri = "/api/v1/JWKS/keys";
+  private readonly static string _baseUri = "/api/v1/jwks/keys";
 
   [Fact]
   public async Task Get_KeySets_Returns_KeySets()

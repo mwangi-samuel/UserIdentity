@@ -2,6 +2,7 @@
 using System.Security.Claims;
 
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.IdentityModel.JsonWebTokens;
 
@@ -30,6 +31,10 @@ internal static class ControllerUtils
     routedData.Values["controller"] = controllerName;
 
     controller.ControllerContext.RouteData = routedData;
+    controller.ControllerContext.ActionDescriptor = new ControllerActionDescriptor
+    {
+      ControllerName = controllerName ?? string.Empty
+    };
 
     DefaultHttpContext context = new();
 
