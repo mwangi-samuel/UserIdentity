@@ -14,5 +14,4 @@ internal class EntityConfigurationTestsHelper<T> where T : class
     var builder = new EntityTypeBuilder<T>(enityType);
     return (builder, enityType);
   }
-
 }

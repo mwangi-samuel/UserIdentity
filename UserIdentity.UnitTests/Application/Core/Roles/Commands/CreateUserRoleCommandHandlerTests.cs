@@ -25,7 +25,6 @@ public class CreateUserRoleCommandHandlerTests
   private readonly IGetItemsQueryHandler<GetUserRolesQuery, UserRolesViewModel> _getUserRolesQueryHandler;
   private readonly IUserRegisteredAppRepository _userRegisteredAppRepository;
 
-
   public CreateUserRoleCommandHandlerTests()
   {
     _roleManager = A.Fake<RoleManager<IdentityRole>>();

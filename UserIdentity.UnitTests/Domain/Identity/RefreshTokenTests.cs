@@ -16,7 +16,6 @@ public class RefreshTokenTests
     // Arrange
     RefreshTokenEntity refreshToken = new() { Id = Guid.NewGuid() };
 
-
     // Act & Assert
     Assert.IsType<BaseEntity<Guid>>(refreshToken, exactMatch: false);
   }

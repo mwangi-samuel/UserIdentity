@@ -308,5 +308,4 @@ public class ExchangeRefreshTokenCommandHandlerTests
         Options.Create(new RoleSettings { ServiceName = "UserIdentity", AdminRoles = "admin", DefaultRole = "user" })
     );
   }
-
 }

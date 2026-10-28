@@ -67,5 +67,4 @@ public class GetRoleQueryHandlerTests
     await Assert.ThrowsAsync<NoRecordException>(() => handler.GetItemAsync(query, TestContext.Current.CancellationToken));
 
   }
-
 }

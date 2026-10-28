@@ -23,8 +23,6 @@ public record CreateRoleCommand : IBaseCommand
   public string? AppName { get; internal set; }
 }
 
-
-
 public class CreateRoleCommandHandler(
     RoleManager<IdentityRole> roleManager
     ) : ICreateItemCommandHandler<CreateRoleCommand, RoleViewModel>

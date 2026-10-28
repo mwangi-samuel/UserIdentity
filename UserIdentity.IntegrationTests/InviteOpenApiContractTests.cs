@@ -53,10 +53,10 @@ public class InviteOpenApiContractTests
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
       builder.UseEnvironment("Development");
-      var keys = UserIdentity.IntegrationTests.TestUtils.EdDsaHelper.GenerateEd25519KeyPair();
+      var keys = TestUtils.EdDsaHelper.GenerateEd25519KeyPair();
       var phrase = StringUtil.GenerateRandomString(32, true, true);
-      builder.UseSetting("EDDSA_PRIVATE_KEY", UserIdentity.IntegrationTests.TestUtils.EdDsaHelper.ConvertToPem(keys.Private, phrase));
-      builder.UseSetting("EDDSA_PUBLIC_KEY", UserIdentity.IntegrationTests.TestUtils.EdDsaHelper.ConvertToPem(keys.Public));
+      builder.UseSetting("EDDSA_PRIVATE_KEY", TestUtils.EdDsaHelper.ConvertToPem(keys.Private, phrase));
+      builder.UseSetting("EDDSA_PUBLIC_KEY", TestUtils.EdDsaHelper.ConvertToPem(keys.Public));
       builder.UseSetting($"{nameof(KeySetOptions)}:{nameof(KeySetOptions.PrivateKeyPath)}", "EDDSA_PRIVATE_KEY");
       builder.UseSetting($"{nameof(KeySetOptions)}:{nameof(KeySetOptions.PrivateKeyPassPhrase)}", phrase);
       builder.ConfigureTestServices(services =>

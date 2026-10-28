@@ -20,7 +20,6 @@ public class CreateRoleCommandHandlerTests
 
   private readonly RoleManager<IdentityRole> _roleManager;
 
-
   public CreateRoleCommandHandlerTests()
   {
     _roleManager = A.Fake<RoleManager<IdentityRole>>();
@@ -80,7 +79,6 @@ public class CreateRoleCommandHandlerTests
     // Arrange
     CreateRoleCommand command = new() { RoleName = "Admin" };
 
-
     A.CallTo(() => _roleManager.FindByNameAsync(command.RoleName)).Returns(default(IdentityRole));
     A.CallTo(() => _roleManager.CreateAsync(A<IdentityRole>.That.Matches(r => r.Name == command.RoleName))).Returns(Task.FromResult(IdentityResult.Failed()));
 
@@ -109,5 +107,4 @@ public class CreateRoleCommandHandlerTests
     Assert.NotNull(vm.Role.Id);
     Assert.Equal(command.RoleName, vm.Role.Name);
   }
-
 }

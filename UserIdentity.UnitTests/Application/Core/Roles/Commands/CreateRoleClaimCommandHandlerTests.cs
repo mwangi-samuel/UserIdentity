@@ -46,7 +46,6 @@ public class CreateRoleClaimCommandHandlerTests
 
     A.CallTo(() => _roleManager.FindByIdAsync(command.RoleId)).Returns(default(IdentityRole));
 
-
     CreateRoleClaimCommandHandler handler = new(_roleManager, _jwtTokenHandler, _roleSettings);
 
     // Act & Assert
@@ -138,7 +137,6 @@ public class CreateRoleClaimCommandHandlerTests
 
     var scope = command.Resource + ":" + command.Action;
 
-
     IdentityRole role = new() { Id = command.RoleId, Name = "Admin" };
     A.CallTo(() => _roleManager.FindByIdAsync(command.RoleId)).Returns(role);
 
@@ -148,7 +146,6 @@ public class CreateRoleClaimCommandHandlerTests
     List<Claim> roleClaims = [new("scope", scope)];
 
     A.CallTo(() => _roleManager.GetClaimsAsync(role)).Returns(roleClaims);
-
 
     CreateRoleClaimCommandHandler handler = new(_roleManager, _jwtTokenHandler, _roleSettings);
 
@@ -168,7 +165,6 @@ public class CreateRoleClaimCommandHandlerTests
     };
 
     var scope = command.Resource + ":" + command.Action;
-
 
     IdentityRole role = new() { Id = command.RoleId, Name = "Admin" };
     A.CallTo(() => _roleManager.FindByIdAsync(command.RoleId)).Returns(role);
@@ -200,7 +196,6 @@ public class CreateRoleClaimCommandHandlerTests
     };
 
     var scope = command.Resource + ":" + command.Action;
-
 
     IdentityRole role = new() { Id = command.RoleId, Name = "Admin" };
     A.CallTo(() => _roleManager.FindByIdAsync(command.RoleId)).Returns(role);

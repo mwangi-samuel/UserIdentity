@@ -14,7 +14,6 @@ using UserIdentity.Domain.Roles;
 
 namespace UserIdentity.Application.Core.Roles.Commands;
 
-
 public record UpdateRoleCommand : IBaseCommand
 {
   public string RoleId { get; internal set; } = string.Empty;

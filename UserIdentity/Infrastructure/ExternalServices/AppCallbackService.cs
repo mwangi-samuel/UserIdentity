@@ -51,7 +51,6 @@ public class AppCallbackService(
               )
           );
 
-
     if (userUpdateEvent.RegisteredApp.CallbackHeaders != null && userUpdateEvent.RegisteredApp.CallbackHeaders.Count > 0)
       foreach (var header in userUpdateEvent.RegisteredApp.CallbackHeaders)
         requestMessage = requestMessage.WithRequestHeader(header.Key, header.Value);

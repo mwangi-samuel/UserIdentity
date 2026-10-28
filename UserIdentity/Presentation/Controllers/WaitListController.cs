@@ -63,5 +63,4 @@ public class WaitListController(
     var vm = await _createItemCommandHandler.CreateItemAsync(command, LoggedInUserId, RequestAborted);
     return ResolveCreateItemActionResult(vm, true);
   }
-
 }

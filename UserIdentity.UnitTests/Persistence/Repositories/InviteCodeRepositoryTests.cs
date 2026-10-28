@@ -195,6 +195,7 @@ public class InviteCodeRepositoryTests
       invite.CreatedAt = System.DateTime.UtcNow.AddMinutes(index);
       context.InviteCode.Add(invite);
     }
+
     var other = BuildInviteCode();
     other.AppId = 2;
     other.UserEmail = "owner-other@example.test";
@@ -207,7 +208,11 @@ public class InviteCodeRepositoryTests
     // Assert
     Assert.Equal(5, result.TotalCount);
     Assert.Equal(2, result.Items.Count);
-    Assert.All(result.Items, invite => { Assert.False(invite.Applied); Assert.DoesNotContain("other", invite.UserEmail); });
+    Assert.All(result.Items, invite =>
+    {
+      Assert.False(invite.Applied);
+      Assert.DoesNotContain("other", invite.UserEmail);
+    });
   }
 
   private static AppDbContext GetAppDbContext()

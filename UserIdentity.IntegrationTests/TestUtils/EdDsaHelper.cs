@@ -17,7 +17,6 @@ internal static class EdDsaHelper
     return keyPairGenerator.GenerateKeyPair();
   }
 
-
   public static string ConvertToPem(AsymmetricKeyParameter key, string? passphrase = null)
   {
     using var stringWriter = new StringWriter();

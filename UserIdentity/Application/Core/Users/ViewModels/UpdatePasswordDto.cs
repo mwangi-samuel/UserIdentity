@@ -3,5 +3,4 @@
 public record UpdatePasswordDto
 {
   public bool PassWordUpdated { get; init; }
-
 }

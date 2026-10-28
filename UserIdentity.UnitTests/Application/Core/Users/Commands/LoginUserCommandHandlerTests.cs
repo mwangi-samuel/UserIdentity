@@ -47,7 +47,6 @@ public class LoginUserCommandHandlerTests
 
   private readonly IGetItemQueryHandler<GetUserQuery, UserViewModel> _getUserQueryHandler;
 
-
   public LoginUserCommandHandlerTests()
   {
     _identityOptions = A.Fake<IOptions<IdentityOptions>>();
@@ -62,7 +61,6 @@ public class LoginUserCommandHandlerTests
     _userRegisteredAppRepository = A.Fake<IUserRegisteredAppRepository>();
 
   }
-
 
   [Fact]
   public async Task Login_With_Non_Existent_User_In_UserManager_Throws_InvalidCredentialException()
@@ -82,7 +80,6 @@ public class LoginUserCommandHandlerTests
     // Act & Assert
     await Assert.ThrowsAsync<InvalidCredentialException>(() => handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken));
   }
-
 
   [Fact]
   public async Task Login_With_Existing_And_No_Matching_Password_Throws_InvalidCredentialException()
@@ -223,7 +220,6 @@ public class LoginUserCommandHandlerTests
     A.CallTo(() => _unitOfWork.SaveChangesAsync(A<CancellationToken>._)).MustHaveHappenedOnceExactly();
   }
 
-
   private LoginUserCommandHandler GetLoginUserCommandHandler()
   {
     return new LoginUserCommandHandler(
@@ -250,5 +246,4 @@ public class LoginUserCommandHandlerTests
     };
 
   }
-
 }

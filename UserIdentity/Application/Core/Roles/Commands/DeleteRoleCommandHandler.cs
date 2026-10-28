@@ -8,7 +8,6 @@ using UserIdentity.Application.Helpers;
 
 namespace UserIdentity.Application.Core.Roles.Commands;
 
-
 public record DeleteRoleCommand : IBaseCommand
 {
   public required string RoleId { get; init; }

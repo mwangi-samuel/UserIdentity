@@ -19,7 +19,6 @@ public class GetRolesQueryHandlerTests
   private readonly RoleManager<IdentityRole> _roleManager;
   private readonly UserManager<IdentityUser> _userManager;
 
-
   public GetRolesQueryHandlerTests()
   {
     _roleManager = A.Fake<RoleManager<IdentityRole>>();
@@ -34,7 +33,6 @@ public class GetRolesQueryHandlerTests
         new () { Id = "1", Name = "Admin" },
             new () { Id = "2", Name = "User" }
     ];
-
 
     A.CallTo(() => _roleManager.Roles).Returns(roles.AsQueryable());
 

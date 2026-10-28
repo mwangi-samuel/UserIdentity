@@ -56,8 +56,6 @@ public class TestingWebAppFactory : WebApplicationFactory<Program>, IAsyncLifeti
         .Build();
   }
 
-
-
   public async ValueTask InitializeAsync()
   {
     await Task.WhenAll(
@@ -82,7 +80,6 @@ public class TestingWebAppFactory : WebApplicationFactory<Program>, IAsyncLifeti
     // Override Kafka Settings
     builder.UseSetting($"{nameof(KafkaSettings)}:{nameof(KafkaSettings.BootstrapServers)}", _redpandaContainer.GetBootstrapAddress());
     builder.UseSetting($"{nameof(KafkaSettings)}:{nameof(KafkaSettings.SchemaRegistryUrl)}", _redpandaContainer.GetSchemaRegistryAddress());
-
 
     // Override pub/private key Settings 
     var keyPair = EdDsaHelper.GenerateEd25519KeyPair();
