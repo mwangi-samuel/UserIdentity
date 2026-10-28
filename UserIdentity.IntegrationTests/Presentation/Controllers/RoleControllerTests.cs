@@ -18,7 +18,6 @@ using Xunit;
 
 namespace UserIdentity.IntegrationTests.Presentation.Controllers;
 
-
 public class RoleControllerTests(
     TestingWebAppFactory testingWebAppFactory,
     ITestOutputHelper outputHelper
@@ -49,7 +48,6 @@ public class RoleControllerTests(
     var jsonObject = SerDeHelper.Deserialize<JObject>(responseString);
 
     Assert.NotNull(jsonObject);
-
 
     Assert.Equal("Request Successful", $"{jsonObject["requestStatus"]}");
     Assert.Equal("Items fetched successfully", $"{jsonObject["statusMessage"]}");
@@ -223,7 +221,6 @@ public class RoleControllerTests(
 
     (_, _) = await _httpClient.LoginUserAsync(UserSettingHelper.UserName, UserSettingHelper.UserPassword);
 
-
     var requestPayload = new
     {
       RoleName = "testapp:newrole",
@@ -290,7 +287,6 @@ public class RoleControllerTests(
     Assert.Equal(DateTime.UtcNow.Month, dateTime.Value.Month);
     Assert.Equal(DateTime.UtcNow.Day, dateTime.Value.Day);
   }
-
 
   [Fact]
   public async Task Create_Role_With_Invalid_Payload_Returns_Validation_Result()
@@ -490,7 +486,6 @@ public class RoleControllerTests(
     Assert.Equal(DateTime.UtcNow.Day, dateTime.Value.Day);
   }
 
-
   [Fact]
   public async Task Update_Role_With_Invalid_Payload_Returns_Validation_Result()
   {
@@ -617,7 +612,6 @@ public class RoleControllerTests(
 
     var additionalRolename = "testapp:additionalrole";
     var role = _testDbHelper.CreateIdentityRole(additionalRolename);
-
 
     // Act
     var response = await _httpClient.SendValidAuthRequestAsync(HttpMethod.Delete, _baseUri + "/" + role.Id);
@@ -949,7 +943,6 @@ public class RoleControllerTests(
     Assert.Equal(DateTime.UtcNow.Day, dateTime.Value.Day);
   }
 
-
   [Fact]
   public async Task Create_User_Role_With_Invalid_Payload_Returns_Validation_Result()
   {
@@ -1028,7 +1021,6 @@ public class RoleControllerTests(
   {
     // Arrange
     _testDbHelper.SeedDatabase();
-
 
     var additionalRolename = "testapp:additionalrole";
 
@@ -1163,7 +1155,6 @@ public class RoleControllerTests(
     Assert.Equal(DateTime.UtcNow.Day, dateTime.Value.Day);
   }
 
-
   [Fact]
   public async Task Create_Role_Claim_With_Invalid_Payload_Returns_Validation_Result()
   {
@@ -1176,7 +1167,6 @@ public class RoleControllerTests(
     var additionalRolename = "testapp:additionalrole";
 
     var role = _testDbHelper.CreateIdentityRole(additionalRolename);
-
 
     var requestPayload = new
     {
@@ -1287,7 +1277,6 @@ public class RoleControllerTests(
       Action = "create",
     };
 
-
     // Act
     var response = await _httpClient.SendInvalidAuthRequestAsync(HttpMethod.Post, _baseUri + "/claim", requestPayload);
 
@@ -1324,7 +1313,6 @@ public class RoleControllerTests(
 
     Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
   }
-
 
   [Fact]
   public async Task Get_Role_Claims_Returns_Role_Claims()
@@ -1496,7 +1484,6 @@ public class RoleControllerTests(
     Assert.Equal("Item deleted successfully", $"{jsonObject["statusMessage"]}");
   }
 
-
   [Fact]
   public async Task Delete_Non_Existing_Role_Claim_Does_Not_Delete_Role_Claim()
   {
@@ -1540,7 +1527,6 @@ public class RoleControllerTests(
     Assert.Equal(DateTime.UtcNow.Month, dateTime.Value.Month);
     Assert.Equal(DateTime.UtcNow.Day, dateTime.Value.Day);
   }
-
 
   [Fact]
   public async Task Delete_Role_Claim_With_Invalid_Payload_Returns_Validation_Result()
@@ -1666,5 +1652,4 @@ public class RoleControllerTests(
 
     Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
   }
-
 }

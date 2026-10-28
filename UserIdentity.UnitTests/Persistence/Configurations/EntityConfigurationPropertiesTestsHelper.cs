@@ -1,6 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore.Metadata.Internal;
 
-
 namespace UserIdentity.UnitTests.Persistence.Configurations;
 
 internal static class EntityConfigurationPropertiesTestsHelper
@@ -53,5 +52,4 @@ internal static class EntityConfigurationPropertiesTestsHelper
 
     return false;
   }
-
 }

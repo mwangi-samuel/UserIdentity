@@ -14,10 +14,10 @@ namespace UserIdentity.Application.Core.WaitLists.Queries;
 
 public class GetWaitListQuery : IBaseQuery
 {
-  [EitherOr(nameof(GetWaitListQuery.WaitListId), nameof(GetWaitListQuery.UserEmail))]
+  [EitherOr(nameof(WaitListId), nameof(UserEmail))]
   public long? WaitListId { get; set; }
 
-  [EitherOr(nameof(GetWaitListQuery.WaitListId), nameof(GetWaitListQuery.UserEmail))]
+  [EitherOr(nameof(WaitListId), nameof(UserEmail))]
   public string? UserEmail { get; set; }
 
   public required int AppId { get; init; }

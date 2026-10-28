@@ -129,5 +129,4 @@ internal static class ApiRequestHelper
 
     return await httpResponse.Content.ReadAsStringAsync();
   }
-
 }

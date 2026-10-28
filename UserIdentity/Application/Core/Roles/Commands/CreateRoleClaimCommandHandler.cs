@@ -83,8 +83,6 @@ public class CreateRoleClaimCommandHandler(
         Action = action,
         Scope = scopeClaim.Value,
       }
-
     };
   }
-
 }

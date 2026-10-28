@@ -38,7 +38,6 @@ public class UserControllerTests
 
   private readonly IRegisteredAppResolver _registeredAppResolver;
 
-
   public UserControllerTests()
   {
     _getUserQueryHandler = A.Fake<IGetItemQueryHandler<GetUserQuery, UserViewModel>>();
@@ -124,7 +123,6 @@ public class UserControllerTests
     Assert.Equal(userLName, vm?.User?.LastName);
     Assert.Equal(userName, vm?.User?.UserName);
     Assert.Equal(userEmail, vm?.User?.Email);
-
 
     Assert.Equal(refreshToken, vm?.UserToken?.RefreshToken);
 
@@ -321,5 +319,4 @@ public class UserControllerTests
     );
 
   }
-
 }

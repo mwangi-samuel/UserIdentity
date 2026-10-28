@@ -11,7 +11,6 @@ using Xunit;
 
 namespace UserIdentity.IntegrationTests.Presentation.Controllers;
 
-
 public class JwksControllerTests(
     TestingWebAppFactory testingWebAppFactory,
     ITestOutputHelper outputHelper
@@ -66,5 +65,4 @@ public class JwksControllerTests(
     // Assert
     Assert.Equal(HttpStatusCode.OK, response.StatusCode);
   }
-
 }

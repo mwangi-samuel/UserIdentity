@@ -96,7 +96,6 @@ public sealed class TestDbHelper(
 
   #endregion
 
-
   #region IndentityRole Related
   public IdentityRole CreateIdentityRole(string roleName)
   {
@@ -173,6 +172,7 @@ public sealed class TestDbHelper(
     {
       return _appDbContext.UserRoles.FirstOrDefault(ur => ur.UserId == userId && ur.RoleId == role.Id);
     }
+
     return null;
   }
 
@@ -233,7 +233,6 @@ public sealed class TestDbHelper(
       _appDbContext.AppUser.Remove(user);
       _appDbContext.SaveChanges();
     }
-
   }
 
   #endregion
@@ -283,7 +282,6 @@ public sealed class TestDbHelper(
 
     return refreshToken;
   }
-
 
   public RefreshTokenEntity? GetRefreshTokenEntity(string userId)
   {
@@ -360,7 +358,6 @@ public sealed class TestDbHelper(
   }
 
   #endregion
-
 
   #region InviteCodeEntity Related
   public InviteCodeEntity CreateInviteCodeEntity(string userEmail, string appName, string? inviteCode = null, bool applied = false, string? role = null, DateTime? createdAt = null)

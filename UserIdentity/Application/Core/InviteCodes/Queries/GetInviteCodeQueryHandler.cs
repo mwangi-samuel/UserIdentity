@@ -14,10 +14,10 @@ namespace UserIdentity.Application.Core.InviteCodes.Queries;
 
 public record GetInviteCodeQuery : IBaseQuery
 {
-  [EitherOr(nameof(GetInviteCodeQuery.InviteCodeId), nameof(GetInviteCodeQuery.UserEmail))]
+  [EitherOr(nameof(InviteCodeId), nameof(UserEmail))]
   public long? InviteCodeId { get; init; }
 
-  [EitherOr(nameof(GetInviteCodeQuery.InviteCodeId), nameof(GetInviteCodeQuery.UserEmail))]
+  [EitherOr(nameof(InviteCodeId), nameof(UserEmail))]
   public string? UserEmail { get; init; }
 
   public required int AppId { get; init; }

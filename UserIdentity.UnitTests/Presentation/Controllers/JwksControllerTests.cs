@@ -52,7 +52,6 @@ public class JwksControllerTests
     var result = actionResult as ObjectResult;
     var kvp = result?.Value as Dictionary<string, IList<Dictionary<string, string>>>;
 
-
     // Assert
     Assert.NotNull(result);
     Assert.IsType<Dictionary<string, IList<Dictionary<string, string>>>>(result?.Value);

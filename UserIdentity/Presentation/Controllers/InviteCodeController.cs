@@ -35,7 +35,6 @@ public class InviteCodeController(
 
   private readonly IRegisteredAppResolver _registeredAppResolver = registeredAppResolver;
 
-
   // App admins work on their token's app, and global admins name the app in the X-App-Name header
   private Task<RegisteredAppEntity> GetAdminAppAsync()
   {
@@ -95,5 +94,4 @@ public class InviteCodeController(
     var vm = await _deleteItemCommandHandler.DeleteItemAsync(new DeleteInviteCodeCommand { InviteCodeId = id, AppId = (await GetAdminAppAsync()).Id }, LoggedInUserId, RequestAborted);
     return ResolveDeleteItemActionResult(vm);
   }
-
 }

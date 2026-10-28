@@ -40,7 +40,6 @@ public class GetRoleClaimsQueryHandlerTests
 
     GetRoleClaimsQueryHandler handler = new(_roleManager, _jwtTokenHandler);
 
-
     // Act & Assert
     await Assert.ThrowsAsync<NoRecordException>(() => handler.GetItemsAsync(query, TestContext.Current.CancellationToken));
   }
@@ -85,8 +84,6 @@ public class GetRoleClaimsQueryHandlerTests
     [
         new("scope", $"{resource}:{action}")
     ];
-
-
 
     A.CallTo(() => _roleManager.FindByIdAsync(query.RoleId)).Returns(role);
 
@@ -133,7 +130,6 @@ public class GetRoleClaimsQueryHandlerTests
     A.CallTo(() => _roleManager.FindByNameAsync(roles[0])).Returns(identityRole);
     A.CallTo(() => _roleManager.GetClaimsAsync(identityRole)).Returns(roleClaims);
 
-
     GetRoleClaimsQueryHandler handler = new(_roleManager, _jwtTokenHandler);
 
     // Act
@@ -144,5 +140,4 @@ public class GetRoleClaimsQueryHandlerTests
     Assert.Single(result.RoleClaims);
     Assert.Contains(scopedClaim, result.RoleClaims);
   }
-
 }

@@ -24,7 +24,6 @@ public sealed class KafkaConsumerHelper
     _kafkaJustInTimeConsumer = new KafkaJustInTimeConsumer(_kafkaSettings.BootstrapServers, _kafkaConsumerGroupId, AutoOffsetReset.Earliest);
   }
 
-
   public async Task<T?> WaitAndConsumeMessageAsync<T>(string targetTopic)
   {
     return await _kafkaJustInTimeConsumer.WaitAndConsumeMessageAsync<T>(targetTopic, 2);

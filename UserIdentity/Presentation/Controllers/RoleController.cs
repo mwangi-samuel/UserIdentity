@@ -82,7 +82,6 @@ public class RoleController(
     return ResolveUpdateItemActionResult(vm);
   }
 
-
   [Authorize(Policy = ZenConstants.ADMIN_OR_GLOBAL_ADMIN_POLICY)]
   [HttpDelete]
   [Route("{roleId}")]
@@ -101,7 +100,6 @@ public class RoleController(
     return ResolveGetItemsActionResult(vm);
   }
 
-
   [Authorize(Policy = ZenConstants.ADMIN_OR_GLOBAL_ADMIN_POLICY)]
   [HttpPost]
   [Route("user")]
@@ -116,7 +114,6 @@ public class RoleController(
 
     return StatusCode((int)HttpStatusCode.Created, vm);
   }
-
 
   /// <summary>
   /// Roles Claims

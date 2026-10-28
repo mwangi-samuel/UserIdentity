@@ -37,7 +37,6 @@ public class MessageManagerUserUpdatedKafkaMessageConsumerTests(
     // Act 
     await _kafkaProducerHelper.ProduceUserMessageManagerUserUpdatedEventAsync(user.Id, messageEvent);
 
-
     // Assert
     await _pollyResiliencePipeline.ExecuteAsync(async token =>
     {

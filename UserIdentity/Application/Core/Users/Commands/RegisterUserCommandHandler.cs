@@ -244,9 +244,7 @@ public class RegisterUserCommandHandler(
 
       _userRegisteredAppRepository.CreateEntityItem(userRegisteredApp);
 
-
       var roleClaimsVm = await _getRoleClaimsQueryHandler.GetItemsAsync(new GetRoleClaimsForRolesQuery { Roles = userRoles }, cancellationToken);
-
 
       // We only include the accessToken in the payload, when user is confirmed.
       var isConfirmed = !_identityOptions.SignIn.RequireConfirmedAccount || newUser.EmailConfirmed || newUser.PhoneNumberConfirmed;
@@ -256,7 +254,6 @@ public class RegisterUserCommandHandler(
       {
         // Generate access Token
         (var token, var expiresIn) = _jwtTokenHandler.CreateToken(newUser.Id, newUser.UserName, registeredAppName, [.. userRoles], roleClaimsVm.RoleClaims);
-
 
         //Generate and save Refresh Token details
         var refreshToken = _tokenFactory.GenerateToken();

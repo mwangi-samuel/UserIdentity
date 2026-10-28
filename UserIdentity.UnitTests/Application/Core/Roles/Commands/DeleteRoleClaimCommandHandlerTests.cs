@@ -91,7 +91,6 @@ public class DeleteRoleClaimCommandHandlerTests
                             new("scope", "SampleResource:SampleAction2")
                 ];
 
-
     A.CallTo(() => _roleManager.FindByIdAsync(command.RoleId)).Returns(role);
     A.CallTo(() => _jwtTokenHandler.GenerateScopeClaim(command.Resource, command.Action)).Returns(scopeClaim);
 
@@ -126,7 +125,6 @@ public class DeleteRoleClaimCommandHandlerTests
                         scopeClaim,
                             new("scope", "SampleResource:SampleAction2")
                 ];
-
 
     A.CallTo(() => _roleManager.FindByIdAsync(command.RoleId)).Returns(role);
     A.CallTo(() => _jwtTokenHandler.GenerateScopeClaim(command.Resource, command.Action)).Returns(scopeClaim);
@@ -164,7 +162,6 @@ public class DeleteRoleClaimCommandHandlerTests
                         scopeClaim,
                             new Claim("scope", "SampleResource:SampleAction2")
                 ];
-
 
     A.CallTo(() => _roleManager.FindByIdAsync(command.RoleId)).Returns(role);
     A.CallTo(() => _jwtTokenHandler.GenerateScopeClaim(command.Resource, command.Action)).Returns(scopeClaim);

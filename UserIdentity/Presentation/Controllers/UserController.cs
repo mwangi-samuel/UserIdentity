@@ -46,7 +46,6 @@ public class UserController(
 
   private readonly IRegisteredAppResolver _registeredAppResolver = registeredAppResolver;
 
-
   [Authorize(Policy = ZenConstants.ADMIN_GLOBAL_ADMIN_OR_SAME_USER_POLICY)]
   [HttpGet]
   [Route("{userId}")]
@@ -149,6 +148,7 @@ public class UserController(
       vm.ResolveRequestStatus(RequestStatus.FAILED, ItemStatusMessage.FETCH_ITEM_FAILED, "Password update failed");
       httpStatusCode = HttpStatusCode.NotAcceptable;
     }
+
     return StatusCode((int)httpStatusCode, vm);
   }
 }

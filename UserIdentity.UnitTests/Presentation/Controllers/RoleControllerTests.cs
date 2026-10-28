@@ -23,7 +23,6 @@ using Xunit;
 
 namespace UserIdentity.UnitTests.Presentation.Controllers;
 
-
 public class RoleControllerTests
 {
   private static readonly string Controllername = "role";
@@ -515,7 +514,6 @@ public class RoleControllerTests
     Assert.Contains(deleteMessage, vm?.StatusMessage);
 
   }
-
 
   private RoleController GetRoleController()
   {

@@ -26,7 +26,6 @@ public class GetUserRolesQueryHandlerTests
   private readonly IUserRegisteredAppRepository _userRegisteredAppRepository;
   private readonly IOptions<RoleSettings> _roleSettings = Options.Create(new RoleSettings { ServiceName = "UserIdentity", AdminRoles = "admin", DefaultRole = "user" });
 
-
   public GetUserRolesQueryHandlerTests()
   {
     _roleManager = A.Fake<RoleManager<IdentityRole>>();
@@ -80,8 +79,6 @@ public class GetUserRolesQueryHandlerTests
     Assert.IsType<UserRolesViewModel>(vm);
     Assert.Empty(vm.UserRoles);
   }
-
-
 
   [Fact]
   public async Task Get_UserRoles_for_NonExisiting_User_Throws_NoRecordException()
