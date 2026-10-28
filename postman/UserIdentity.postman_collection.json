@@ -106,12 +106,12 @@
 							}
 						],
 						"url": {
-							"raw": "{{user_identity_base_url}}/appentity",
+							"raw": "{{user_identity_base_url}}/app-entity",
 							"host": [
 								"{{user_identity_base_url}}"
 							],
 							"path": [
-								"appentity"
+								"app-entity"
 							]
 						}
 					},
@@ -1180,12 +1180,12 @@
 							}
 						},
 						"url": {
-							"raw": "{{user_identity_base_url}}/invitecode",
+							"raw": "{{user_identity_base_url}}/invite-code",
 							"host": [
 								"{{user_identity_base_url}}"
 							],
 							"path": [
-								"invitecode"
+								"invite-code"
 							]
 						}
 					},
@@ -1217,12 +1217,12 @@
 							}
 						],
 						"url": {
-							"raw": "{{user_identity_base_url}}/invitecode?page=1&pageSize=50",
+							"raw": "{{user_identity_base_url}}/invite-code?page=1&pageSize=50",
 							"host": [
 								"{{user_identity_base_url}}"
 							],
 							"path": [
-								"invitecode"
+								"invite-code"
 							],
 							"query": [
 								{
@@ -1249,12 +1249,12 @@
 							}
 						],
 						"url": {
-							"raw": "{{user_identity_base_url}}/invitecode/{{invite_code_id}}",
+							"raw": "{{user_identity_base_url}}/invite-code/{{invite_code_id}}",
 							"host": [
 								"{{user_identity_base_url}}"
 							],
 							"path": [
-								"invitecode",
+								"invite-code",
 								"{{invite_code_id}}"
 							]
 						}
@@ -1272,12 +1272,12 @@
 							}
 						],
 						"url": {
-							"raw": "{{user_identity_base_url}}/invitecode/email/{{invite_email}}",
+							"raw": "{{user_identity_base_url}}/invite-code/email/{{invite_email}}",
 							"host": [
 								"{{user_identity_base_url}}"
 							],
 							"path": [
-								"invitecode",
+								"invite-code",
 								"email",
 								"{{invite_email}}"
 							]
@@ -1310,12 +1310,12 @@
 							}
 						],
 						"url": {
-							"raw": "{{user_identity_base_url}}/invitecode/{{invite_code_id}}",
+							"raw": "{{user_identity_base_url}}/invite-code/{{invite_code_id}}",
 							"host": [
 								"{{user_identity_base_url}}"
 							],
 							"path": [
-								"invitecode",
+								"invite-code",
 								"{{invite_code_id}}"
 							]
 						}

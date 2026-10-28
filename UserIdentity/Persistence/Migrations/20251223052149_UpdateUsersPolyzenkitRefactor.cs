@@ -2,21 +2,20 @@
 
 #nullable disable
 
-namespace UserIdentity.Persistence.Migrations
+namespace UserIdentity.Persistence.Migrations;
+
+/// <inheritdoc />
+public partial class UpdateUsersPolyzenkitRefactor : Migration
 {
   /// <inheritdoc />
-  public partial class UpdateUsersPolyzenkitRefactor : Migration
+  protected override void Up(MigrationBuilder migrationBuilder)
   {
-    /// <inheritdoc />
-    protected override void Up(MigrationBuilder migrationBuilder)
-    {
 
-    }
+  }
 
-    /// <inheritdoc />
-    protected override void Down(MigrationBuilder migrationBuilder)
-    {
+  /// <inheritdoc />
+  protected override void Down(MigrationBuilder migrationBuilder)
+  {
 
-    }
   }
 }

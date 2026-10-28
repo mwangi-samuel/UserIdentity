@@ -19,7 +19,7 @@ public class InviteCodeControllerTests(
     ITestOutputHelper outputHelper
     ) : BaseIntegrationTests(testingWebAppFactory, outputHelper)
 {
-  private readonly static string _baseUri = "/api/v1/invitecode";
+  private readonly static string _baseUri = "/api/v1/invite-code";
   private const string OwnerRole = "testapp:owner";
 
   #region GetInviteCode Tests

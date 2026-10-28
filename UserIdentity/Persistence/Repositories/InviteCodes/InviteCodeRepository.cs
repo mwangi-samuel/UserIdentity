@@ -36,6 +36,15 @@ public class InviteCodeRepository(
       .SingleOrDefaultAsync(cancellationToken) ?? throw new NoRecordException($"{id}", EntityTypes.INVITE_CODE.Description());
   }
 
+  public async Task<PagedList<InviteCodeDto>> SearchEntityDtosByAppIdAsync(int appId, string? search, bool? applied, int page, int pageSize, CancellationToken cancellationToken = default)
+  {
+    return await _dbContext.InviteCode
+      .Where(invite => invite.AppId == appId && (search == null || invite.UserEmail.Contains(search)))
+      .Where(invite => applied == null || invite.Applied == applied)
+      .OrderByDescending(invite => invite.CreatedAt).ThenByDescending(invite => invite.Id)
+      .Select(InviteCodeDto.Detailed).ToPageAsync(page, pageSize, cancellationToken);
+  }
+
   public async Task<PagedList<InviteCodeDto>> GetEntityDtosByAppIdAsync(int appId, int page, int pageSize, CancellationToken cancellationToken = default)
   {
     return await _dbContext.InviteCode

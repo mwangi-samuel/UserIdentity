@@ -37,17 +37,21 @@ public class InviteCodeController(
 
 
   // App admins work on their token's app, and global admins name the app in the X-App-Name header
-  private Task<RegisteredAppEntity> GetAdminAppAsync() =>
-    IsGlobalAdmin ? GetRegisteredAppAsync(_registeredAppResolver) : _registeredAppResolver.GetActiveAppAsync(AuthorizedParty, RequestAborted);
+  private Task<RegisteredAppEntity> GetAdminAppAsync()
+  {
+    return IsGlobalAdmin ? GetRegisteredAppAsync(_registeredAppResolver) : _registeredAppResolver.GetActiveAppAsync(AuthorizedParty, RequestAborted);
+  }
 
   [Authorize(Policy = ZenConstants.ADMIN_OR_GLOBAL_ADMIN_POLICY)]
   [HttpGet]
   [Route("")]
   public async Task<ActionResult<InviteCodesViewModel>> GetInviteCodes(
     [FromQuery, Range(1, Paging.MaxPage)] int page = 1,
-    [FromQuery, Range(1, Paging.MaxPageSize)] int pageSize = Paging.DefaultPageSize)
+    [FromQuery, Range(1, Paging.MaxPageSize)] int pageSize = Paging.DefaultPageSize,
+    [FromQuery, MaxLength(100)] string? search = null,
+    [FromQuery] bool? applied = null)
   {
-    var vm = await _getItemsQueryHandler.GetItemsAsync(new GetInviteCodesQuery { AppId = (await GetAdminAppAsync()).Id, Page = page, PageSize = pageSize }, RequestAborted);
+    var vm = await _getItemsQueryHandler.GetItemsAsync(new GetInviteCodesQuery { AppId = (await GetAdminAppAsync()).Id, Page = page, PageSize = pageSize, Search = search, Applied = applied }, RequestAborted);
     return ResolveGetItemsActionResult(vm);
   }
 

@@ -23,7 +23,7 @@ UserIdentity is an easy-to-use RESTful API that simplifies user management by pr
 - `.\up.ps1 -UseLocal` starts MySQL and Redpanda, waits for them to be healthy, then runs UserIdentity from source on http://localhost:5050 with the `UserIdentity` launch profile. The OpenAPI document is at http://localhost:5050/openapi/v1.json.
 - `.\up.ps1 -Build` builds the image and runs everything in Docker. UserIdentity is on http://localhost:5050.
 - `.\up.ps1` runs everything in Docker without rebuilding.
-- `.\down.ps1` stops the stack and removes its volumes, so the next run starts with an empty database.
+- `.\down.ps1` stops the stack and preserves its named volumes for the next run.
 
 Kafka topics can be inspected in Redpanda Console at http://localhost:8090.
 
@@ -47,7 +47,7 @@ Get-Content .sql\add_admin_user_role.sql | docker compose exec -T db mysql -uroo
 Roles are read into the token at login, so the user has to log in again to get an admin token.
 
 ### Role Scopes
-A role can carry scopes, which give its users access to specific actions in other services without making them admins. A scope is `<resource>:<action>`, where a service's resources are `<service>-<controller>`, such as `catalog-product:create` for a `catalog` service. The actions are `create`, `read`, `edit`, `delete`, `download` and `all`.
+A role can carry scopes, which give its users access to specific actions in other services without making them admins. A scope is `<resource>:<action>`, where a service's resources are `<service>-<controller name in kebab-case>`, such as `catalog-option-definition:create` for a `catalog` service. The actions are `create`, `read`, `edit`, `delete`, `download` and `all`.
 
 - `POST /api/v1/role/claim` with `{ "roleId": "...", "resource": "catalog-product", "action": "create" }` adds a scope. Resources and actions are stored in lower case.
 - `GET /api/v1/role/claim/{roleId}` lists a role's scopes.
@@ -58,10 +58,10 @@ App admins manage the scopes of their app's roles, and get 404 for any other rol
 ## Invite Codes
 An invite code lets one email address sign up to an app, and can give the new account a role. App admins manage their app's invite codes, and global admins name the app in the `X-App-Name` header.
 
-- `POST /api/v1/invitecode` with `{ "inviteCode": "...", "userEmail": "...", "role": "<app>:owner" }` creates one. `role` is optional. When set, it must be an existing role of the app that isn't an admin role (`<app>:admin` or any of `RoleSettings:AdminRoles`), or the request returns 400. There's one invite code per app and email.
-- `GET /api/v1/invitecode?page=1&pageSize=50` lists the app's invite codes, newest first, with `totalCount`.
-- `GET /api/v1/invitecode/{id}` and `GET /api/v1/invitecode/email/{email}` read one.
-- `DELETE /api/v1/invitecode/{id}` revokes an unused invite code. A used one returns 400, and another app's returns 404.
+- `POST /api/v1/invite-code` with `{ "inviteCode": "...", "userEmail": "...", "role": "<app>:owner" }` creates one. `role` is optional. When set, it must be an existing role of the app that isn't an admin role (`<app>:admin` or any of `RoleSettings:AdminRoles`), or the request returns 400. There's one invite code per app and email.
+- `GET /api/v1/invite-code?page=1&pageSize=50&search=owner&applied=false` lists the app's invite codes, newest first, with `totalCount`. Optional `search` (email, up to 100 characters) and nullable `applied` filters are combined before counting/paging; omission retains the full list.
+- `GET /api/v1/invite-code/{id}` and `GET /api/v1/invite-code/email/{email}` read one.
+- `DELETE /api/v1/invite-code/{id}` revokes an unused invite code. A used one returns 400, and another app's returns 404.
 
 Signing up with `inviteCode` checks it whether or not the app has `RequireInviteCode` on: the email is required, an invite code must exist for the app and email, the code must match (ignoring case), and it must be unused. Otherwise the request returns 400. A valid code is marked used, and its role is given to the new account with the default role, so it's in the account's tokens with its scopes. If that role no longer exists, sign-up returns 400 and nothing is saved. Without `inviteCode`, sign-up only needs one when the app requires it.
 
@@ -126,3 +126,8 @@ Migrations need the global `dotnet-ef` tool, version 10 (`dotnet tool install --
 ```
 dotnet ef migrations add <MigrationName> --project UserIdentity
 ```
+
+## Persistent storage
+
+Normal `./down.ps1; ./up.ps1` and rebuilds reuse project-scoped named volumes. MySQL mounts `mysql_data` at `/var/lib/mysql`; object storage and the broker also retain their data when present. The scripts resolve Compose relative to their own directory. Deliberate reset uses `docker compose down --volumes` and deletes the stack's stored data; it is separate from normal shutdown.
+

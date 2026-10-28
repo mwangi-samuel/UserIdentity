@@ -17,7 +17,7 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
     <PackageReference Include="Microting.EntityFrameworkCore.MySql" Version="10.0.13" />
-    <PackageReference Include="PolyzenKit" Version="3.0.0" />
+    <PackageReference Include="PolyzenKit" Version="4.0.0" />
     <PackageReference Include="Serilog.Sinks.Console" Version="6.1.1" />
   </ItemGroup>
 

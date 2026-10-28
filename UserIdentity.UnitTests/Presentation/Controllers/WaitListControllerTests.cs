@@ -24,7 +24,7 @@ namespace UserIdentity.UnitTests.Presentation.Controllers;
 
 public class WaitListControllerTests
 {
-  private static readonly string ControllerName = "waitlist";
+  private static readonly string ControllerName = "WaitList";
 
   private readonly ICreateItemCommandHandler<CreateWaitListCommand, WaitListViewModel> _createWaitListCommandHandler;
   private readonly IGetItemQueryHandler<GetWaitListQuery, WaitListViewModel> _getWaitListQueryHandler;

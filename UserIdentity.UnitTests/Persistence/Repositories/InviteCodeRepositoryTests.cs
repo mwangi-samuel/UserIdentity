@@ -180,6 +180,36 @@ public class InviteCodeRepositoryTests
     Assert.Equal("testapp:owner", page.Items[0].Role);
   }
 
+  [Fact]
+  public async Task InvitationSearch_FiltersTheWholeAppBeforePaging()
+  {
+    // Arrange
+    var context = GetAppDbContext();
+    await SeedRegisteredApp(context);
+    context.RegisteredApp.Add(new RegisteredAppEntity { Id = 2, AppName = "OtherApp", AppSecretKey = "other-key", BaseUrl = "https://other.test" });
+    for (var index = 0; index < 10; index++)
+    {
+      var invite = BuildInviteCode();
+      invite.UserEmail = $"owner{index}@example.test";
+      invite.Applied = index % 2 == 0;
+      invite.CreatedAt = System.DateTime.UtcNow.AddMinutes(index);
+      context.InviteCode.Add(invite);
+    }
+    var other = BuildInviteCode();
+    other.AppId = 2;
+    other.UserEmail = "owner-other@example.test";
+    context.InviteCode.Add(other);
+    await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+
+    // Act
+    var result = await new InviteCodeRepository(context).SearchEntityDtosByAppIdAsync(1, "owner", false, 2, 2, TestContext.Current.CancellationToken);
+
+    // Assert
+    Assert.Equal(5, result.TotalCount);
+    Assert.Equal(2, result.Items.Count);
+    Assert.All(result.Items, invite => { Assert.False(invite.Applied); Assert.DoesNotContain("other", invite.UserEmail); });
+  }
+
   private static AppDbContext GetAppDbContext()
   {
     var options = new DbContextOptionsBuilder<AppDbContext>()

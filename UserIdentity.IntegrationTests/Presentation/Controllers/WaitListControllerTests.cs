@@ -17,7 +17,7 @@ public class WaitListControllerTests(
     ITestOutputHelper outputHelper
     ) : BaseIntegrationTests(testingWebAppFactory, outputHelper)
 {
-  private readonly static string _baseUri = "/api/v1/waitlist";
+  private readonly static string _baseUri = "/api/v1/wait-list";
 
   #region GetWaitList Tests
 
