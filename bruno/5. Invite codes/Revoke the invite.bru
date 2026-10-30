@@ -1,0 +1,21 @@
+meta {
+  name: Revoke the invite
+  type: http
+  seq: 11
+}
+
+delete {
+  url: {{user_identity_url}}/api/v1/invite-code/{{revoke_invite_id}}
+  body: none
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{admin_access_token}}
+}
+
+tests {
+  test("Revoke invite - Status is 200", () => {
+      expect(res.getStatus()).to.equal(200);
+  });
+}

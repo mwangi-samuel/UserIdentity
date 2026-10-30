@@ -108,7 +108,19 @@ Every setting has a default in `appsettings.json` that works locally. In product
 | `ForwardedHeadersSettings__KnownNetworks` | The reverse proxy's networks (see [Rate Limiting](#rate-limiting)) |
 
 ## API Collections
-Import `postman/UserIdentity.postman_collection.json` and `postman/UserIdentity.postman_environment.json` into Postman.
+The `bruno` folder is a [Bruno](https://www.usebruno.com/) collection covering registration, admin login and token refresh, users, roles and scopes, invite codes, the wait list, registered apps, password reset requests and logout. Open it in Bruno or its VS Code extension (**Open Collection**).
+
+- No environment needs selecting: the settings (URL, API key, app name and the admins' details) are collection variables in `bruno/collection.bru`. To point at another stack, create an environment with the same variable names; its values replace the collection's.
+- Tokens and ids are saved as runtime variables, so they never end up in the repo, and they're cleared when Bruno restarts. After a restart, run folder **2. Admin login** again before sending admin requests by hand.
+- The stack doesn't deliver confirmation codes, so folder **1. Admin setup** describes the SQL commands that confirm the admins and give them their roles. Other new accounts stay unconfirmed, and a password reset can't be completed.
+- In the Collection Runner, run folders 0 and 1, run the SQL commands, then run folders 2 to 8 in one run. A run stays under the default rate limit of 10 requests a minute per endpoint.
+- From the command line, with `npm install -g @usebruno/cli`:
+  ```
+  cd bruno
+  bru run "0. Health" "1. Admin setup"
+  # run the SQL commands from folder 1
+  bru run "2. Admin login" "3. Accounts" "4. Roles and scopes" "5. Invite codes" "6. Wait list and apps" "7. Password reset" "8. Session end"
+  ```
 
 ## Running the Tests
 The tests use xUnit v3 on Microsoft Testing Platform (selected in `global.json`). The integration tests start MySQL and Redpanda with Testcontainers, so Docker must be running.

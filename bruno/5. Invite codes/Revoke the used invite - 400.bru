@@ -1,0 +1,21 @@
+meta {
+  name: Revoke the used invite - 400
+  type: http
+  seq: 9
+}
+
+delete {
+  url: {{user_identity_url}}/api/v1/invite-code/{{invite_id}}
+  body: none
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{admin_access_token}}
+}
+
+tests {
+  test("Used invite - Status is 400", () => {
+      expect(res.getStatus()).to.equal(400);
+  });
+}

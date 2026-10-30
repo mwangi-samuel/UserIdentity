@@ -1,0 +1,29 @@
+meta {
+  name: Give the user the role
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{user_identity_url}}/api/v1/role/user
+  body: json
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{admin_access_token}}
+}
+
+body:json {
+  {
+    "userId": "{{user_id}}",
+    "roleId": "{{role_id}}"
+  }
+}
+
+tests {
+  test("Add user role - Status is 201", () => {
+      expect(res.getStatus()).to.equal(201);
+      expect(res.getBody().userRoles).to.include(bru.getVar("role_name"));
+  });
+}

@@ -1,0 +1,32 @@
+meta {
+  name: Create a role
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{user_identity_url}}/api/v1/role
+  body: json
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{admin_access_token}}
+}
+
+body:json {
+  {
+    "roleName": "{{role_name}}"
+  }
+}
+
+script:pre-request {
+  bru.setVar("role_name", `${bru.interpolate("{{app_name}}")}:editor${`${Date.now()}`.slice(-6)}`);
+}
+
+tests {
+  test("Create role - Status is 201", () => {
+      expect(res.getStatus()).to.equal(201);
+      bru.setVar("role_id", res.getBody().role.id);
+  });
+}

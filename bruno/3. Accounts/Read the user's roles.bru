@@ -1,0 +1,22 @@
+meta {
+  name: Read the user's roles
+  type: http
+  seq: 7
+}
+
+get {
+  url: {{user_identity_url}}/api/v1/role/user/{{user_id}}
+  body: none
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{admin_access_token}}
+}
+
+tests {
+  test("User roles - Status is 200", () => {
+      expect(res.getStatus()).to.equal(200);
+      expect(res.getBody().userRoles).to.include(`${bru.interpolate("{{app_name}}")}:user`);
+  });
+}

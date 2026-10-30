@@ -1,0 +1,22 @@
+meta {
+  name: Read the invite by id
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{user_identity_url}}/api/v1/invite-code/{{invite_id}}
+  body: none
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{admin_access_token}}
+}
+
+tests {
+  test("Invite by id - Status is 200", () => {
+      expect(res.getStatus()).to.equal(200);
+      expect(res.getBody().inviteCode.applied).to.be.false;
+  });
+}

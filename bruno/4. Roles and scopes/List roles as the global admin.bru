@@ -1,0 +1,22 @@
+meta {
+  name: List roles as the global admin
+  type: http
+  seq: 11
+}
+
+get {
+  url: {{user_identity_url}}/api/v1/role
+  body: none
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{global_admin_access_token}}
+}
+
+tests {
+  test("Roles for a global admin - Status is 200", () => {
+      expect(res.getStatus()).to.equal(200);
+      expect(res.getBody().roles.map(r => r.name)).to.include("global:admin");
+  });
+}

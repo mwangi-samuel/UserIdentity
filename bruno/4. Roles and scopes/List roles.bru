@@ -1,0 +1,24 @@
+meta {
+  name: List roles
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{user_identity_url}}/api/v1/role
+  body: none
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{admin_access_token}}
+}
+
+tests {
+  test("List roles - Status is 200", () => {
+      expect(res.getStatus()).to.equal(200);
+      const names = res.getBody().roles.map(r => r.name);
+      expect(names).to.include(bru.getVar("role_name"));
+      expect(names, "app admins see only their app's roles").to.not.include("global:admin");
+  });
+}

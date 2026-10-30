@@ -1,0 +1,30 @@
+meta {
+  name: Add a scope
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{user_identity_url}}/api/v1/role/claim
+  body: json
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{admin_access_token}}
+}
+
+body:json {
+  {
+    "roleId": "{{role_id}}",
+    "resource": "Catalog-Product",
+    "action": "Read"
+  }
+}
+
+tests {
+  test("Add scope - Status is 201", () => {
+      expect(res.getStatus()).to.equal(201);
+      expect(res.getBody().roleClaim.scope).to.be.eql("catalog-product:read");
+  });
+}

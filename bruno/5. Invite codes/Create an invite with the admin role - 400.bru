@@ -1,0 +1,35 @@
+meta {
+  name: Create an invite with the admin role - 400
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{user_identity_url}}/api/v1/invite-code
+  body: json
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{admin_access_token}}
+}
+
+body:json {
+  {
+    "inviteCode": "{{invite_code}}",
+    "userEmail": "{{invite_email}}",
+    "role": "{{app_name}}:admin"
+  }
+}
+
+script:pre-request {
+  const suffix = `${Date.now()}`.slice(-6);
+  bru.setVar("invite_email", `invitee${suffix}@example.com`);
+  bru.setVar("invite_code", `INV${suffix}`);
+}
+
+tests {
+  test("Admin role invite - Status is 400", () => {
+      expect(res.getStatus()).to.equal(400);
+  });
+}

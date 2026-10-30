@@ -1,0 +1,26 @@
+vars:pre-request {
+  user_identity_url: http://localhost:5050
+  api_key: TestApiKey
+  app_name: testapp
+  default_guid: 00000000-0000-0000-0000-000000000000
+  admin_user_name: admin
+  admin_email: admin@example.com
+  admin_password: Adm1n@P@ss
+  admin_first_name: Admin
+  admin_last_name: User
+  global_admin_user_name: globaladmin
+  global_admin_email: globaladmin@example.com
+  global_admin_password: Gl0b@lAdm1n
+  global_admin_first_name: Global
+  global_admin_last_name: Admin
+}
+
+script:pre-request {
+  req.setHeader("X-Api-Key", bru.interpolate("{{api_key}}"));
+}
+
+docs {
+  Flows against the local docker compose stack. The settings are collection variables, so no environment needs selecting.
+
+  Run **0** and **1** in the Collection Runner, run the SQL commands from folder 1's description, then run **2** to **8** in one run. Roles aren't in login or register responses, so the scripts read them from the access token.
+}

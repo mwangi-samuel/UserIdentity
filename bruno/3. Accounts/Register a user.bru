@@ -1,0 +1,44 @@
+meta {
+  name: Register a user
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{user_identity_url}}/api/v1/user/register
+  body: json
+  auth: none
+}
+
+headers {
+  X-App-Name: {{app_name}}
+}
+
+body:json {
+  {
+    "firstName": "Test",
+    "lastName": "User",
+    "userName": "{{user_name}}",
+    "userEmail": "{{user_email}}",
+    "userPassword": "{{user_password}}"
+  }
+}
+
+script:pre-request {
+  const suffix = `${Date.now()}`.slice(-6);
+  bru.setVar("user_name", `user${suffix}`);
+  bru.setVar("user_email", `user${suffix}@example.com`);
+  bru.setVar("user_password", "P@ssW1rd");
+}
+
+tests {
+  test("Register user - Status is 201", () => {
+      expect(res.getStatus()).to.equal(201);
+      const response = res.getBody();
+      expect(response.user.email).to.be.eql(bru.getVar("user_email"));
+      expect(response.isConfirmed).to.be.false;
+      expect(response.userToken).to.be.undefined;
+
+      bru.setVar("user_id", response.user.id);
+  });
+}

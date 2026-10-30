@@ -1,0 +1,40 @@
+meta {
+  name: Register global admin
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{user_identity_url}}/api/v1/user/register
+  body: json
+  auth: none
+}
+
+headers {
+  X-App-Name: {{app_name}}
+}
+
+body:json {
+  {
+    "firstName": "{{global_admin_first_name}}",
+    "lastName": "{{global_admin_last_name}}",
+    "userName": "{{global_admin_user_name}}",
+    "userEmail": "{{global_admin_email}}",
+    "userPassword": "{{global_admin_password}}"
+  }
+}
+
+tests {
+  const body = typeof res.getBody() === "string" ? res.getBody() : JSON.stringify(res.getBody());
+  if (res.getStatus() === 400 && body.toLowerCase().includes("exist")) {
+    test("global admin already registered", () => true);
+  } else {
+    test("Register global admin - Status is 201", () => {
+        expect(res.getStatus()).to.equal(201);
+        const response = res.getBody();
+        expect(response.user.userName).to.be.eql(bru.interpolate("{{global_admin_user_name}}"));
+        expect(response.isConfirmed, "a new account waits for confirmation").to.be.false;
+        expect(response.userToken, "null fields are left out of responses").to.be.undefined;
+    });
+  }
+}

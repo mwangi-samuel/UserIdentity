@@ -1,0 +1,21 @@
+meta {
+  name: Read an unknown user - 404
+  type: http
+  seq: 6
+}
+
+get {
+  url: {{user_identity_url}}/api/v1/user/{{default_guid}}
+  body: none
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{admin_access_token}}
+}
+
+tests {
+  test("Unknown user - Status is 404", () => {
+      expect(res.getStatus()).to.equal(404);
+  });
+}
