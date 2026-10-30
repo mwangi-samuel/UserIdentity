@@ -1,0 +1,30 @@
+meta {
+  name: Log in before confirming - no token
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{user_identity_url}}/api/v1/user/login
+  body: json
+  auth: none
+}
+
+headers {
+  X-App-Name: {{app_name}}
+}
+
+body:json {
+  {
+    "userName": "{{user_name}}",
+    "password": "{{user_password}}"
+  }
+}
+
+tests {
+  test("Unconfirmed login - Status is 200", () => {
+      expect(res.getStatus()).to.equal(200);
+      expect(res.getBody().isConfirmed).to.be.false;
+      expect(res.getBody().userToken).to.be.undefined;
+  });
+}

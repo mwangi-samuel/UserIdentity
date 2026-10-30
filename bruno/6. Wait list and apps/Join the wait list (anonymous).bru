@@ -1,0 +1,31 @@
+meta {
+  name: Join the wait list (anonymous)
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{user_identity_url}}/api/v1/wait-list
+  body: json
+  auth: none
+}
+
+headers {
+  X-App-Name: {{app_name}}
+}
+
+body:json {
+  {
+    "userEmail": "{{waitlist_email}}"
+  }
+}
+
+script:pre-request {
+  bru.setVar("waitlist_email", `waiting${`${Date.now()}`.slice(-6)}@example.com`);
+}
+
+tests {
+  test("Join wait list - Status is 201", () => {
+      expect(res.getStatus()).to.equal(201);
+  });
+}

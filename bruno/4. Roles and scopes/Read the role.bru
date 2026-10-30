@@ -1,0 +1,22 @@
+meta {
+  name: Read the role
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{user_identity_url}}/api/v1/role/{{role_id}}
+  body: none
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{admin_access_token}}
+}
+
+tests {
+  test("Read role - Status is 200", () => {
+      expect(res.getStatus()).to.equal(200);
+      expect(res.getBody().role.name).to.be.eql(bru.getVar("role_name"));
+  });
+}

@@ -1,0 +1,22 @@
+meta {
+  name: Read the scopes
+  type: http
+  seq: 8
+}
+
+get {
+  url: {{user_identity_url}}/api/v1/role/claim/{{role_id}}
+  body: none
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{admin_access_token}}
+}
+
+tests {
+  test("Role scopes - Status is 200", () => {
+      expect(res.getStatus()).to.equal(200);
+      expect(res.getBody().roleClaims.map(c => c.scope)).to.eql(["catalog-product:read"]);
+  });
+}

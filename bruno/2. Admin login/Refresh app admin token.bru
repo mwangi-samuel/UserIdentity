@@ -1,0 +1,29 @@
+meta {
+  name: Refresh app admin token
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{user_identity_url}}/api/v1/user/refresh-token
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "accessToken": "{{admin_access_token}}",
+    "refreshToken": "{{admin_refresh_token}}"
+  }
+}
+
+tests {
+  test("Refresh app admin token - Status is 200", () => {
+      expect(res.getStatus()).to.equal(200);
+      const userToken = res.getBody().userToken;
+      expect(userToken.refreshToken, "each refresh replaces the refresh token").to.not.be.eql(bru.getVar("admin_refresh_token"));
+
+      bru.setVar("admin_access_token", userToken.accessToken.token);
+      bru.setVar("admin_refresh_token", userToken.refreshToken);
+  });
+}

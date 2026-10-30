@@ -1,0 +1,29 @@
+meta {
+  name: Rename the role
+  type: http
+  seq: 4
+}
+
+put {
+  url: {{user_identity_url}}/api/v1/role/{{role_id}}
+  body: json
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{admin_access_token}}
+}
+
+body:json {
+  {
+    "roleName": "{{role_name}}x"
+  }
+}
+
+tests {
+  test("Rename role - Status is 200", () => {
+      expect(res.getStatus()).to.equal(200);
+      expect(res.getBody().role.name).to.be.eql(`${bru.getVar("role_name")}x`);
+      bru.setVar("role_name", res.getBody().role.name);
+  });
+}

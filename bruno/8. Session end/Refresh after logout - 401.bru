@@ -1,0 +1,24 @@
+meta {
+  name: Refresh after logout - 401
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{user_identity_url}}/api/v1/user/refresh-token
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "accessToken": "{{admin_access_token}}",
+    "refreshToken": "{{admin_refresh_token}}"
+  }
+}
+
+tests {
+  test("Logged-out refresh token - Status is 401", () => {
+      expect(res.getStatus()).to.equal(401);
+  });
+}

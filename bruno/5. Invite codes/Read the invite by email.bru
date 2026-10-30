@@ -1,0 +1,22 @@
+meta {
+  name: Read the invite by email
+  type: http
+  seq: 8
+}
+
+get {
+  url: {{user_identity_url}}/api/v1/invite-code/email/{{invite_email}}
+  body: none
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{admin_access_token}}
+}
+
+tests {
+  test("Invite by email - Status is 200", () => {
+      expect(res.getStatus()).to.equal(200);
+      expect(res.getBody().inviteCode.applied).to.be.true;
+  });
+}

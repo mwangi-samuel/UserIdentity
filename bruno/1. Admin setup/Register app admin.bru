@@ -1,0 +1,40 @@
+meta {
+  name: Register app admin
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{user_identity_url}}/api/v1/user/register
+  body: json
+  auth: none
+}
+
+headers {
+  X-App-Name: {{app_name}}
+}
+
+body:json {
+  {
+    "firstName": "{{admin_first_name}}",
+    "lastName": "{{admin_last_name}}",
+    "userName": "{{admin_user_name}}",
+    "userEmail": "{{admin_email}}",
+    "userPassword": "{{admin_password}}"
+  }
+}
+
+tests {
+  const body = typeof res.getBody() === "string" ? res.getBody() : JSON.stringify(res.getBody());
+  if (res.getStatus() === 400 && body.toLowerCase().includes("exist")) {
+    test("app admin already registered", () => true);
+  } else {
+    test("Register app admin - Status is 201", () => {
+        expect(res.getStatus()).to.equal(201);
+        const response = res.getBody();
+        expect(response.user.userName).to.be.eql(bru.interpolate("{{admin_user_name}}"));
+        expect(response.isConfirmed, "a new account waits for confirmation").to.be.false;
+        expect(response.userToken, "null fields are left out of responses").to.be.undefined;
+    });
+  }
+}

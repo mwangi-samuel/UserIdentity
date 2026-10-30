@@ -1,0 +1,23 @@
+meta {
+  name: List unused invites by email
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{user_identity_url}}/api/v1/invite-code?page=1&pageSize=10&search={{invite_email}}&applied=false
+  body: none
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{admin_access_token}}
+}
+
+tests {
+  test("Invite list - Status is 200", () => {
+      expect(res.getStatus()).to.equal(200);
+      expect(res.getBody().totalCount).to.equal(1);
+      expect(res.getBody().inviteCodes[0].id).to.equal(bru.getVar("invite_id"));
+  });
+}

@@ -1,0 +1,31 @@
+meta {
+  name: Create an invite with the role
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{user_identity_url}}/api/v1/invite-code
+  body: json
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{admin_access_token}}
+}
+
+body:json {
+  {
+    "inviteCode": "{{invite_code}}",
+    "userEmail": "{{invite_email}}",
+    "role": "{{invite_role_name}}"
+  }
+}
+
+tests {
+  test("Create invite - Status is 201", () => {
+      expect(res.getStatus()).to.equal(201);
+      expect(res.getBody().inviteCode.role).to.be.eql(bru.getVar("invite_role_name"));
+      bru.setVar("invite_id", res.getBody().inviteCode.id);
+  });
+}

@@ -1,0 +1,29 @@
+meta {
+  name: Create an invite to revoke
+  type: http
+  seq: 10
+}
+
+post {
+  url: {{user_identity_url}}/api/v1/invite-code
+  body: json
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{admin_access_token}}
+}
+
+body:json {
+  {
+    "inviteCode": "REV{{invite_code}}",
+    "userEmail": "revoke-{{invite_email}}"
+  }
+}
+
+tests {
+  test("Create invite - Status is 201", () => {
+      expect(res.getStatus()).to.equal(201);
+      bru.setVar("revoke_invite_id", res.getBody().inviteCode.id);
+  });
+}

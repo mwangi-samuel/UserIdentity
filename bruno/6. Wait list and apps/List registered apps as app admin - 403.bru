@@ -1,0 +1,21 @@
+meta {
+  name: List registered apps as app admin - 403
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{user_identity_url}}/api/v1/registered-app
+  body: none
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{admin_access_token}}
+}
+
+tests {
+  test("Registered apps for an app admin - Status is 403", () => {
+      expect(res.getStatus()).to.equal(403);
+  });
+}

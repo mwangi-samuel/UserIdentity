@@ -1,0 +1,27 @@
+meta {
+  name: Create another app's role - 400
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{user_identity_url}}/api/v1/role
+  body: json
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{admin_access_token}}
+}
+
+body:json {
+  {
+    "roleName": "otherapp:editor"
+  }
+}
+
+tests {
+  test("Role outside the app - Status is 400", () => {
+      expect(res.getStatus()).to.equal(400);
+  });
+}

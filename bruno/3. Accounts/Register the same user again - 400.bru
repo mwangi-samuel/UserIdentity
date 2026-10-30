@@ -1,0 +1,31 @@
+meta {
+  name: Register the same user again - 400
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{user_identity_url}}/api/v1/user/register
+  body: json
+  auth: none
+}
+
+headers {
+  X-App-Name: {{app_name}}
+}
+
+body:json {
+  {
+    "firstName": "Test",
+    "lastName": "User",
+    "userName": "{{user_name}}",
+    "userEmail": "{{user_email}}",
+    "userPassword": "{{user_password}}"
+  }
+}
+
+tests {
+  test("Existing user - Status is 400", () => {
+      expect(res.getStatus()).to.equal(400);
+  });
+}

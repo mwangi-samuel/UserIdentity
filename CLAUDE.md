@@ -34,7 +34,7 @@
 - Kafka messages from other tests also land on the topic, so filter by correlation id with `KafkaConsumerHelper.WaitAndConsumeUserUpdatedMessageAsync(correlationId)`.
 
 ## When adding or changing endpoints
-- Update `postman/UserIdentity.postman_collection.json` and `Readme.md`.
+- Update `Readme.md` and the Bruno collection in `bruno/`. Its settings are collection variables in `bruno/collection.bru`, and scripts save state with `bru.setVar` (runtime variables), not `bru.setEnvVar`.
 
 Normal down/up preserves project-scoped MySQL, broker and object-storage volumes where present. Explicit `docker compose down --volumes` is a destructive reset, not normal shutdown.
 

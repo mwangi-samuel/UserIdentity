@@ -1,0 +1,35 @@
+meta {
+  name: Login app admin
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{user_identity_url}}/api/v1/user/login
+  body: json
+  auth: none
+}
+
+headers {
+  X-App-Name: {{app_name}}
+}
+
+body:json {
+  {
+    "userName": "{{admin_user_name}}",
+    "password": "{{admin_password}}"
+  }
+}
+
+tests {
+  test("Login app admin - Status is 200", () => {
+      expect(res.getStatus()).to.equal(200);
+      expect(res.getBody().isConfirmed, "run the SQL commands first").to.be.true;
+      const roles = [].concat(require("jsonwebtoken").decode(res.getBody().userToken.accessToken.token).roles || []);
+      expect(roles, "run the SQL commands first").to.include(`${bru.interpolate("{{app_name}}")}:admin`);
+      expect(roles).to.not.include("global:admin");
+
+      bru.setVar("admin_access_token", res.getBody().userToken.accessToken.token);
+      bru.setVar("admin_refresh_token", res.getBody().userToken.refreshToken);
+  });
+}

@@ -1,0 +1,33 @@
+meta {
+  name: Register with the invite
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{user_identity_url}}/api/v1/user/register
+  body: json
+  auth: none
+}
+
+headers {
+  X-App-Name: {{app_name}}
+}
+
+body:json {
+  {
+    "firstName": "Invited",
+    "lastName": "User",
+    "userName": "{{invite_code}}",
+    "userEmail": "{{invite_email}}",
+    "userPassword": "P@ssW1rd",
+    "inviteCode": "{{invite_code}}"
+  }
+}
+
+tests {
+  test("Register with invite - Status is 201", () => {
+      expect(res.getStatus()).to.equal(201);
+      bru.setVar("invitee_user_id", res.getBody().user.id);
+  });
+}

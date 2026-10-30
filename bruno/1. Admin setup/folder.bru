@@ -1,0 +1,18 @@
+meta {
+  name: 1. Admin setup
+  seq: 1
+}
+
+docs {
+  Registers the app admin (`admin_user_name`, `admin_email`, `admin_password`) and the global admin (`global_admin_user_name`, `global_admin_email`, `global_admin_password`). Admins that already exist are left as they are.
+
+  This stack doesn't deliver confirmation codes, so from the repo root confirm both admins and give them their roles:
+
+  ```
+  docker compose exec -T db mysql -uroot -proot useridentity -e "UPDATE users SET email_confirmed = 1 WHERE normalized_user_name IN ('ADMIN', 'GLOBALADMIN')"
+  Get-Content .sql\add_admin_user_role.sql | docker compose exec -T db mysql -uroot -proot --init-command="SET @username='admin', @app_name='testapp'"
+  Get-Content .sql\add_admin_user_role.sql | docker compose exec -T db mysql -uroot -proot --init-command="SET @username='globaladmin', @role_name='global:admin'"
+  ```
+
+  and run **2. Admin login**.
+}
