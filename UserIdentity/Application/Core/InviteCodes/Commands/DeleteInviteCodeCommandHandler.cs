@@ -1,10 +1,9 @@
 ﻿using PolyzenKit.Application.Core;
 using PolyzenKit.Application.Core.Interfaces;
-using PolyzenKit.Application.Enums;
 using PolyzenKit.Common.Exceptions;
 using PolyzenKit.Persistence.Repositories;
 
-using UserIdentity.Common;
+using UserIdentity.Common.Errors;
 using UserIdentity.Persistence.Repositories.InviteCodes;
 
 namespace UserIdentity.Application.Core.InviteCodes.Commands;
@@ -29,10 +28,10 @@ public class DeleteInviteCodeCommandHandler(
     var entity = await _inviteCodeRepository.GetEntityItemAsync(command.InviteCodeId, cancellationToken);
 
     if (entity.AppId != command.AppId)
-      throw new NoRecordException($"{command.InviteCodeId}", EntityTypes.INVITE_CODE.Description());
+      throw NoRecordException.ForIdentifier($"{command.InviteCodeId}");
 
     if (entity.Applied)
-      throw new InvalidDataException("An invite code that has been used can't be revoked");
+      throw new InvalidDataException(ErrorMessages.InviteCodes.UsedInviteNotRevocable);
 
     _inviteCodeRepository.RemoveEntityItem(entity);
 

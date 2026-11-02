@@ -7,15 +7,13 @@ using Microsoft.Extensions.Options;
 
 using PolyzenKit.Application.Core;
 using PolyzenKit.Application.Core.Interfaces;
+using PolyzenKit.Application.Core.Messages.Shared;
 using PolyzenKit.Application.Interfaces;
 using PolyzenKit.Common.Exceptions;
-using PolyzenKit.Domain.RegisteredApps;
-using PolyzenKit.Infrastructure.Configurations;
-using PolyzenKit.Infrastructure.Security.Tokens;
+using PolyzenKit.Domain.Entities.RegisteredApps;
 using PolyzenKit.Persistence.Repositories;
 
-using UserIdentity.Application.Core.Users.Events;
-using UserIdentity.Application.Core.Users.Settings;
+using UserIdentity.Application.Core.Users.Shared;
 using UserIdentity.Application.Core.Users.ViewModels;
 using UserIdentity.Domain.PasswordResets;
 using UserIdentity.Domain.Users;
@@ -43,9 +41,7 @@ public class ResetPasswordCommandHandler(
     IUnitOfWork unitOfWork,
     IUserRepository userRepository,
     IPasswordResetRepository passwordResetRepository,
-    IEventHandler<PasswordResetEvent> passwordResetEventHandler,
-    IConfiguration configuration,
-    ILogHelper<ResetPasswordCommandHandler> logHelper,
+    IMessageOutbox messageOutbox,
     IUserRegisteredAppRepository userRegisteredAppRepository
     ) : BaseAuditableItemCommandHandler<Guid, PasswordResetEntity, IPasswordResetRepository>(unitOfWork, passwordResetRepository, machineDateTime),
       ICreateItemCommandHandler<ResetPasswordCommand, ResetPasswordViewModel>
@@ -55,14 +51,12 @@ public class ResetPasswordCommandHandler(
   private readonly ITokenFactory _tokenFactory = tokenFactory;
   private readonly IUserRepository _userRepository = userRepository;
   private readonly IUserRegisteredAppRepository _userRegisteredAppRepository = userRegisteredAppRepository;
-  private readonly IEventHandler<PasswordResetEvent> _passwordResetEventHandler = passwordResetEventHandler;
-  private readonly IConfiguration _configuration = configuration;
-  private readonly ILogHelper<ResetPasswordCommandHandler> _logHelper = logHelper;
+  private readonly IMessageOutbox _messageOutbox = messageOutbox;
+
+  public const string DefaultResetPasswordMessage = "If an account matches the details provided, you will receive a code to reset your password.";
 
   public async Task<ResetPasswordViewModel> CreateItemAsync(ResetPasswordCommand command, string userId, CancellationToken cancellationToken = default)
   {
-    var resetPasswordMessage = _configuration.GetEnvironmentVariable("DefaultResetPasswordMessage", "If an account matches the details provided, you will receive a code to reset your password");
-
     // Same response whether or not the user exists
     var resetRequestId = _tokenFactory.GenerateToken();
 
@@ -70,7 +64,7 @@ public class ResetPasswordCommandHandler(
     {
       ResetPasswordDetails = new ResetPasswordDto
       {
-        EmailMessage = resetPasswordMessage,
+        EmailMessage = DefaultResetPasswordMessage,
         ResetRequestId = resetRequestId
       }
     };
@@ -109,42 +103,10 @@ public class ResetPasswordCommandHandler(
       Expires = _machineDateTime.Now.AddSeconds(_passwordResetSettings.ValidForSeconds)
     };
 
-    await _repository.RemoveExpiredEntityItemsAsync(existingUser.Id, _machineDateTime.Now - PasswordResetSettings.RequestCountWindow, cancellationToken);
+    _messageOutbox.Add(UserMessages.UserUpdated, UserMessages.PasswordReset(resetRequestId, existingUser, userEntity, command.RegisteredApp!.AppName));
 
     await CreateEntityItemAsync(passwordResetEntity, existingUser.Id, cancellationToken);
 
-    // Publish Password Reset Event - not awaited
-    _ = HandleEventAsync(resetRequestId, userEntity, existingUser, command.RegisteredApp!);
-
     return vm;
-  }
-
-  private async Task HandleEventAsync(string resetRequestId, UserEntity userEntity, IdentityUser identityUser, RegisteredAppEntity registeredAppEntity)
-  {
-    var eventItem = new PasswordResetEvent
-    {
-      ResetRequestId = resetRequestId,
-      UserContent = new UserEventContent
-      {
-        UserIdentityId = identityUser.Id,
-        FirstName = userEntity.FirstName,
-        LastName = userEntity.LastName,
-        UserName = identityUser.UserName,
-        PhoneNumber = identityUser.PhoneNumber,
-        PhoneNumberConfirmed = identityUser.PhoneNumberConfirmed,
-        UserEmail = identityUser.Email,
-        EmailConfirmed = identityUser.EmailConfirmed
-      },
-      RegisteredApp = registeredAppEntity
-    };
-
-    try
-    {
-      await _passwordResetEventHandler.HandleEventAsync(eventItem, CancellationToken.None);
-    }
-    catch (Exception ex)
-    {
-      _logHelper.LogEvent(LogLevel.Error, ex, "Failed to publish password reset event for user {UserId} of app {AppName}", identityUser.Id, registeredAppEntity.AppName);
-    }
   }
 }

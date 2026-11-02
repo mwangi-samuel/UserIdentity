@@ -1,21 +1,29 @@
 # UserIdentity
 
-.NET 10 auth service on PolyzenKit, EF Core 10 (Microting MySQL provider, snake_case names) and Kafka (Redpanda locally).
+.NET 10 auth service on PolyzenKit, EF Core 10 (Microting MySQL provider, snake_case names) and NATS JetStream.
 
 ## Layout
-- `Application/Core/<Feature>/{Commands,Queries,Events,ViewModels,Settings}`. Handlers implement PolyzenKit interfaces such as `ICreateItemCommandHandler<,>`, `IUpdateItemCommandHandler<,>` or `IEventHandler<>`. Handlers and repositories are registered by name scan.
-- `Domain/<Feature>` holds entities and their DTO projections (audit fields via `SetDtoAuditFields`); response-only DTOs go in the feature's `ViewModels`, and external API shapes (`GoogleRecaptchaResponseDto`) in `Infrastructure`.
-- Settings are bound in `Extensions.cs` (`AddApp...Settings`) and wired up in `Program.cs`.
-- The Kafka consumer lets exceptions through so PolyzenKit retries the message.
-- `AddAppCleanups` registers PolyzenKit periodic deletes for expired refresh tokens, expired password resets and unconfirmed users (`CleanupSettings`). The unconfirmed-user cleanup does nothing unless `RequireConfirmedAccount` is on. Nothing is soft-deleted, so queries don't filter on `IsDeleted`.
+- `Application/Core/<Feature>/{Commands,Queries,Events,ViewModels,Shared}`. Handlers implement PolyzenKit interfaces such as `ICreateItemCommandHandler<,>`, `IUpdateItemCommandHandler<,>` or `IEventHandler<>`. Handlers and repositories are registered by name scan. `Shared/` classes (`UserTokenIssuer`, `AppRoleNames`, `UserMessages`) aren't registered: handlers use them statically or create them with `new`.
+- `Domain/<Table>` holds entities, their constants and their DTO projections (audit fields via `SetDtoAuditFields`); response-only DTOs go in the feature's `ViewModels`, and external API shapes (`GoogleRecaptchaResponseDto`) in `Infrastructure`.
+- `Common/Enums` holds `RequestSource`, and `Common/Errors/ErrorMessages` every error text a client sees.
+- The service's settings records sit in the `Shared/` folder of the feature that reads them (`GoogleRecaptchaSettings` in `Infrastructure/ExternalServices`). `Extensions.cs` binds each with `GetRequiredSetting<T>()`, checks it and registers `Options.Create(settings)`.
+- `Persistence/Repositories/Roles` reads Identity's roles, user roles and role claims in single queries (`IdentityRole` isn't a `BaseEntity`, so `RoleRepository` implements its interface directly).
+- `UnitTests/Architecture/LayerDependencyTests` enforces which layer may use which. Fix the code rather than loosening it.
+- `AddAppCleanups` registers PolyzenKit periodic deletes for expired refresh tokens, expired password resets and unconfirmed users (`CleanupSettings`). The expiry cleanups delete in batches of 100 with `ExecuteDeleteAsync`. The unconfirmed-user cleanup does nothing unless `RequireConfirmedAccount` is on; it frees the invite of the user's own app and deletes the Identity user, and foreign keys with cascading deletes remove the details, app links, refresh tokens and reset requests. Nothing is soft-deleted, so queries don't filter on `IsDeleted`.
+
+## Messaging
+- Sign-up and password reset add `UserMessages` to PolyzenKit's outbox (`IMessageOutbox`) before their save or commit, on `useridentity.user.updated`.
+- `Infrastructure/Messaging` holds the two message handlers: one turns the message saying a code was verified into `CodeVerifiedEvent` (confirm the user, or verify the reset request), and `CallbackRequestedMessageHandler` turns `useridentity.callback.requested` into `UserRegisteredEvent`, which calls the app's callback. Only UserIdentity reads that subject; sign-up adds it only for UI sign-ups to apps with a `CallbackUrl`.
+- Handlers let exceptions through so PolyzenKit retries the message; `NoRecordException` and `InvalidDataException` drop it.
 
 ## Apps and roles
-- Roles are shared by all apps and named `<app>:<role>`, so admin endpoints are scoped in the handlers. Controllers pass `AppName` (`IsGlobalAdmin ? null : AuthorizedParty`), and handlers use `AppRolesHelper` for role names and `IUserRegisteredAppRepository.IsUserRegisteredForAppAsync` for users, returning 404 for another app's records. Null means a global admin (`RoleSettings:GlobalAdminRole`). Registered apps are global admin only.
-- App admins manage their own app's role scopes. Scope strings don't name an app, so this is safe only because tokens carry only `ForApp` roles; every scope-protected endpoint must act only on the caller's app, or also require a role app admins can't give. `CreateRoleClaimCommandHandler` refuses scopes on the global admin role (it's in every app's tokens) and lowercases resource and action, since scopes are compared case-sensitively against lowercase names.
-- Accounts belong to the apps in `user_registered_apps`. `GetUserQuery` with an `AppName` fails for other apps' users, which is what makes login fail. Login, register and refresh put only `AppRolesHelper.ForApp` roles in tokens.
-- Invite codes and wait list entries are keyed by `(AppId, UserEmail)`, and their controllers resolve the admin's app with `GetAdminAppAsync`. Invite lists filter by email (up to 100 characters) and applied status before counting and paging.
-- An invite's optional `Role` is granted on sign-up, after the default role and in the same transaction. `CreateInviteCodeCommandHandler` accepts only an existing `ForApp` role that isn't an admin role (`AppRolesHelper.IsAppAdminRole`, which counts `<app>:admin` as well as `RoleSettings:AdminRoles`), since app admins create invites and must not hand out admin. `RegisterUserCommandHandler` checks the invite whenever `InviteCode` is sent, not only when the app requires one. Only unused invites can be revoked.
+- Roles are shared by all apps and named `<app>:<role>`, so admin endpoints are scoped in the handlers. Controllers pass `AppName` (`IsGlobalAdmin ? null : AuthorizedParty`), and handlers use `AppRoleNames` for role names and `IUserRegisteredAppRepository.IsUserRegisteredForAppAsync` for users, returning 404 for another app's records. Null means a global admin (`RoleSettings:GlobalAdminRole`). Registered apps are global admin only. Role names are stored in lower case on create and rename.
+- App admins manage their own app's role scopes. Scope strings don't name an app, so this is safe only because tokens carry only `ForApp` roles; every scope-protected endpoint must act only on the caller's app, or also require a role app admins can't give. `CreateRoleClaimCommandHandler` refuses scopes on the global admin role (it's in every app's tokens) and lowercases resource and action, since scopes are compared case-sensitively against lowercase names; `DeleteRoleClaimCommandHandler` lowercases them too.
+- Accounts belong to the apps in `user_registered_apps`. `IUserRepository.GetUserDtoAsync` with an app name returns `null` for other apps' users, which is what makes login fail. `UserTokenIssuer` puts only `AppRoleNames.ForApp` roles and their scopes in login, sign-up and refresh tokens.
+- Invite codes and wait list entries are keyed by `(AppId, UserEmail)`, and their controllers resolve the admin's app with `AppAdminController.GetAdminAppAsync`. Invite lists filter by email (up to 100 characters) and applied status before counting and paging.
+- An invite's optional `Role` is granted on sign-up, after the default role and in the same transaction. `CreateInviteCodeCommandHandler` accepts only an existing `ForApp` role that isn't an admin role (`AppRoleNames.IsAppAdminRole`, which counts `<app>:admin` as well as `RoleSettings:AdminRoles`), since app admins create invites and must not hand out admin. `RegisterUserCommandHandler` checks the invite whenever `InviteCode` is sent, not only when the app requires one, and answers a missing, wrong or used invite the same way. Only unused invites can be revoked.
 - `PasswordResetSettings:MaxRequestsPerDay` counts the last `PasswordResetSettings.RequestCountWindow` of requests, so expired requests are deleted only that long after they expire.
+- `users.normalized_email` is unique (`IdentityUserConfiguration`), and `UniqueViolationInterceptor` turns a race into a 400. `RefreshTokenEntity.Version` is a concurrency token, so the second of two simultaneous refreshes gets a 409.
 
 ## Commands
 - Add a migration: run `dotnet ef migrations add <Name> --project UserIdentity/UserIdentity.csproj --output-dir Persistence/Migrations`.
@@ -25,7 +33,9 @@
 
 ## Tests
 - Tests use FakeItEasy, not Moq.
-- `TestingWebAppFactory` starts MySQL and Redpanda, fakes Google reCAPTCHA with WireMock and turns rate limiting off. It seeds a second app, `OtherApp`, for cross-app checks (`AppScopingTests`). `TestDbHelper.CreateUserEntity` also links the user to `TestApp`.
+- `TestingWebAppFactory` starts MySQL and NATS, fakes Google reCAPTCHA with WireMock and turns rate limiting off. Before the host starts it creates the sending service's stream and UserIdentity's own (`NatsTestHelper.CreateStreamsAsync`), so the message handlers attach at once instead of backing off. It seeds a second app, `OtherApp`, for cross-app checks (`AppScopingTests`), and a third, `CallbackApp`, whose `CallbackUrl` points at WireMock. `TestDbHelper.CreateUserEntity` also links the user to `TestApp`.
+- `SqlCommandCounter` counts each request's SQL commands by its `X-Request-Id`.
 - Respawn resets the database before each test. It must ignore `__EFMigrationsHistory`, or a second host re-runs every migration.
-- Other tests' Kafka messages land on the same topic, so filter by correlation id with `KafkaConsumerHelper.WaitAndConsumeUserUpdatedMessageAsync(correlationId)`.
+- Other tests' messages share the stream, so `NatsTestHelper.FindMessageAsync(subject, correlationId)` reads it with an ordered consumer and filters by correlation id; the helper also publishes the message saying a code was verified.
+- Compare JSON values as text (`$"{jsonObject["error"]?["message"]}"`): `Assert.Equal(string, JToken)` passes for any value.
 - `InviteOpenApiContractTests` exports the Development contract from a disposable InMemory host, with no broker or database.

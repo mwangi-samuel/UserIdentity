@@ -37,30 +37,12 @@ public class PasswordResetRepository(
       .CountAsync(e => e.UserId == userId && e.CreatedAt > createdAfter, cancellationToken);
   }
 
-  public async Task RemoveEntityItemsAsync(string userId, CancellationToken cancellationToken = default)
-  {
-    var existingEntities = await _dbContext.PasswordReset
-      .Where(e => e.UserId == userId)
-      .ToListAsync(cancellationToken);
-
-    _dbContext.PasswordReset.RemoveRange(existingEntities);
-  }
-
-  public async Task<List<PasswordResetEntity>> GetEntityItemsExpiredBeforeAsync(DateTime now, int count, CancellationToken cancellationToken = default)
+  public async Task<int> DeleteEntityItemsExpiredBeforeAsync(DateTime expiredBefore, int count, CancellationToken cancellationToken = default)
   {
     return await _dbContext.PasswordReset
-      .Where(e => e.Expires <= now)
+      .Where(e => e.Expires <= expiredBefore)
       .OrderBy(e => e.Expires)
       .Take(count)
-      .ToListAsync(cancellationToken);
-  }
-
-  public async Task RemoveExpiredEntityItemsAsync(string userId, DateTime now, CancellationToken cancellationToken = default)
-  {
-    var expiredEntities = await _dbContext.PasswordReset
-      .Where(e => e.UserId == userId && e.Expires <= now)
-      .ToListAsync(cancellationToken);
-
-    _dbContext.PasswordReset.RemoveRange(expiredEntities);
+      .ExecuteDeleteAsync(cancellationToken);
   }
 }

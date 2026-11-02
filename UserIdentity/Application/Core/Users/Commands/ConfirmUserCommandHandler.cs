@@ -4,11 +4,9 @@ using Microsoft.AspNetCore.Identity;
 
 using PolyzenKit.Application.Core;
 using PolyzenKit.Application.Core.Interfaces;
-using PolyzenKit.Application.Enums;
 using PolyzenKit.Common.Exceptions;
 
 using UserIdentity.Application.Core.Users.ViewModels;
-using UserIdentity.Common;
 
 namespace UserIdentity.Application.Core.Users.Commands;
 
@@ -26,7 +24,7 @@ public class ConfirmUserCommandHandler(
 
   public async Task<ConfirmUserViewModel> UpdateItemAsync(ConfirmUserCommand command, string userId, CancellationToken cancellationToken = default)
   {
-    var userDetails = await _userManager.FindByIdAsync(command.UserId) ?? throw new NoRecordException(command.UserId, EntityTypes.USER.Description());
+    var userDetails = await _userManager.FindByIdAsync(command.UserId) ?? throw NoRecordException.ForIdentifier(command.UserId);
 
     userDetails.EmailConfirmed = true;
 

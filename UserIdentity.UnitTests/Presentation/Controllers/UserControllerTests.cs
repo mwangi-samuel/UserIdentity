@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Net;
+using System.Threading;
 using System.Threading.Tasks;
 
 using FakeItEasy;
@@ -8,14 +9,16 @@ using Microsoft.AspNetCore.Mvc;
 
 using PolyzenKit.Application.Core;
 using PolyzenKit.Application.Core.Interfaces;
-using PolyzenKit.Application.Core.RegisteredApps.Resolvers;
-using PolyzenKit.Application.Enums;
+using PolyzenKit.Application.Core.RegisteredApps.Shared;
+using PolyzenKit.Common.Enums;
+using PolyzenKit.Domain.Entities.RegisteredApps;
 
 using UserIdentity.Application.Core.Tokens.Commands;
 using UserIdentity.Application.Core.Tokens.ViewModels;
 using UserIdentity.Application.Core.Users.Commands;
 using UserIdentity.Application.Core.Users.Queries;
 using UserIdentity.Application.Core.Users.ViewModels;
+using UserIdentity.Common.Enums;
 using UserIdentity.Domain.Users;
 using UserIdentity.Presentation.Controllers;
 using UserIdentity.UnitTests.TestUtils;
@@ -131,6 +134,31 @@ public class UserControllerTests
 
     Assert.Contains(RequestStatus.SUCCESSFUL.Description(), vm?.RequestStatus);
     Assert.Contains(ItemStatusMessage.CREATE_ITEM_SUCCESSFUL.Description(), vm?.StatusMessage);
+  }
+
+  [Fact]
+  public async Task Create_User_For_Service_Registers_The_User_As_An_Api_Sign_Up()
+  {
+    // Arrange
+    RegisterUserCommand command = new() { FirstName = "Test", UserName = "test.user", UserEmail = "test.user@test.com", UserPassword = "testPassword" };
+    var registeredApp = new RegisteredAppEntity { Id = 1, AppName = "test-app" };
+
+    A.CallTo(() => _registeredAppResolver.GetActiveAppAsync(A<string>._, A<CancellationToken>._)).Returns(registeredApp);
+    A.CallTo(() => _registerUserCommandHandler.CreateItemAsync(command, A<string>._, A<CancellationToken>._))
+      .Returns(new AuthUserViewModel { User = new UserDto { Id = "user-id", UserName = command.UserName } });
+
+    var controller = GetUserController();
+    controller.UpdateContext(Controllername, addUserId: true, userId: TestStringHelper.UserId, appName: "test-app");
+
+    // Act
+    var actionResult = await controller.CreateUserForService(command);
+
+    // Assert
+    var result = actionResult.Result as ObjectResult;
+
+    Assert.Equal((int)HttpStatusCode.Created, result?.StatusCode);
+    Assert.Equal(RequestSource.API, command.RequestSource);
+    Assert.Same(registeredApp, command.RegisteredApp);
   }
 
   [Fact]

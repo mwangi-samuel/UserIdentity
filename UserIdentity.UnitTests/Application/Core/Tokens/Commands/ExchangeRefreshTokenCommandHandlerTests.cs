@@ -7,26 +7,21 @@ using System.Threading.Tasks;
 
 using FakeItEasy;
 
-using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
 
-using PolyzenKit.Application.Core.Interfaces;
 using PolyzenKit.Application.Interfaces;
-using PolyzenKit.Infrastructure.Security.Jwt;
-using PolyzenKit.Infrastructure.Security.Tokens;
+using PolyzenKit.Common.Settings;
 using PolyzenKit.Infrastructure.Utilities;
 using PolyzenKit.Persistence.Repositories;
-using PolyzenKit.Presentation.Settings;
 
-using UserIdentity.Application.Core.Roles.Queries;
-using UserIdentity.Application.Core.Roles.ViewModels;
 using UserIdentity.Application.Core.Tokens.Commands;
-using UserIdentity.Application.Core.Tokens.Settings;
+using UserIdentity.Application.Core.Tokens.Shared;
 using UserIdentity.Application.Core.Tokens.ViewModels;
 using UserIdentity.Domain.RefreshTokens;
 using UserIdentity.Persistence.Repositories.RefreshTokens;
+using UserIdentity.Persistence.Repositories.Roles;
 using UserIdentity.Persistence.Repositories.UserRegisteredApps;
 using UserIdentity.UnitTests.TestUtils;
 
@@ -43,12 +38,11 @@ public class ExchangeRefreshTokenCommandHandlerTests
   private readonly IOptions<RefreshTokenSettings> _refreshTokenSettings;
   private readonly IJwtTokenHandler _jwtTokenHandler;
   private readonly ITokenFactory _tokenFactory;
-  private readonly UserManager<IdentityUser> _userManager;
   private readonly IUnitOfWork _unitOfWork;
   private readonly IRefreshTokenRepository _refreshTokenRepository;
   private readonly IMachineDateTime _machineDateTime;
 
-  private readonly IGetItemsQueryHandler<GetRoleClaimsForRolesQuery, RoleClaimsForRolesViewModels> _getRoleClaimsQueryHandler;
+  private readonly IRoleRepository _roleRepository = A.Fake<IRoleRepository>();
   private readonly IUserRegisteredAppRepository _userRegisteredAppRepository = A.Fake<IUserRegisteredAppRepository>();
 
   public ExchangeRefreshTokenCommandHandlerTests()
@@ -58,11 +52,9 @@ public class ExchangeRefreshTokenCommandHandlerTests
     _refreshTokenSettings = Options.Create(new RefreshTokenSettings { ValidForSeconds = 2592000 });
     _jwtTokenHandler = A.Fake<IJwtTokenHandler>();
     _tokenFactory = A.Fake<ITokenFactory>();
-    _userManager = IdentityFakes.UserManager();
     _unitOfWork = A.Fake<IUnitOfWork>();
     _refreshTokenRepository = A.Fake<IRefreshTokenRepository>();
     _machineDateTime = new MachineDateTime();
-    _getRoleClaimsQueryHandler = A.Fake<IGetItemsQueryHandler<GetRoleClaimsForRolesQuery, RoleClaimsForRolesViewModels>>();
 
     A.CallTo(() => _tokenFactory.HashToken(RefreshToken)).Returns(RefreshTokenHash);
   }
@@ -197,8 +189,9 @@ public class ExchangeRefreshTokenCommandHandlerTests
       Expires = _machineDateTime.Now.AddMinutes(5),
     };
 
-    List<string> userRoles = ["testapp:admin", "otherapp:admin"];
-    var userRoleClaims = new RoleClaimsForRolesViewModels { RoleClaims = ["Admin"] };
+    var originalVersion = Guid.NewGuid();
+    dbRefreshToken.Version = originalVersion;
+    HashSet<string> scopes = ["useridentity-user:read"];
     var updatedRefreshToken = RefreshToken + "updated";
     var updatedRefreshTokenHash = RefreshTokenHash + "updated";
 
@@ -211,14 +204,14 @@ public class ExchangeRefreshTokenCommandHandlerTests
         A<RefreshTokenEntity>.That.Matches(e => e.UserId == TestStringHelper.UserId && e.Token == RefreshTokenHash),
         QueryCondition.MAY_OR_MAY_NOT_EXIST, A<CancellationToken>._)).Returns(dbRefreshToken);
 
-    A.CallTo(() => _userManager.GetRolesAsync(A<IdentityUser>.That.Matches(x => x.Id == TestStringHelper.UserId))).Returns(userRoles);
+    A.CallTo(() => _roleRepository.GetUserRoleNamesAsync(TestStringHelper.UserId, A<CancellationToken>._)).Returns(["otherapp:admin", "testapp:admin"]);
 
     // Only the token's app's roles go into the new token
-    A.CallTo(() => _getRoleClaimsQueryHandler.GetItemsAsync(A<GetRoleClaimsForRolesQuery>.That.Matches(q => q.Roles.SequenceEqual(new[] { "testapp:admin" })), A<CancellationToken>._)).Returns(userRoleClaims);
+    A.CallTo(() => _roleRepository.GetScopesAsync(A<IReadOnlyCollection<string>>.That.Matches(roles => roles.SequenceEqual(new[] { "testapp:admin" })), A<CancellationToken>._)).Returns(scopes);
     A.CallTo(() => _tokenFactory.GenerateToken(32)).Returns(updatedRefreshToken);
     A.CallTo(() => _tokenFactory.HashToken(updatedRefreshToken)).Returns(updatedRefreshTokenHash);
 
-    A.CallTo(() => _jwtTokenHandler.CreateToken(TestStringHelper.UserId, TestStringHelper.UserName, "TestApp", A<HashSet<string>>.That.Matches(r => r.SetEquals(new[] { "testapp:admin" })), userRoleClaims.RoleClaims, A<HashSet<Claim>?>._)).Returns((newAccesToken, newAccesstokenExpiresIn));
+    A.CallTo(() => _jwtTokenHandler.CreateToken(TestStringHelper.UserId, TestStringHelper.UserName, "TestApp", A<HashSet<string>>.That.Matches(r => r.SetEquals(new[] { "testapp:admin" })), scopes, A<HashSet<Claim>?>._)).Returns((newAccesToken, newAccesstokenExpiresIn));
 
     var hanndler = GetExchangeRefreshTokenCommandHandler();
 
@@ -236,7 +229,8 @@ public class ExchangeRefreshTokenCommandHandlerTests
 
     A.CallTo(() => _refreshTokenRepository.UpdateEntityItem(A<RefreshTokenEntity>.That.Matches(e =>
         e.Token == updatedRefreshTokenHash && e.PreviousToken == RefreshTokenHash && e.Expires > DateTime.UtcNow.AddDays(29) &&
-        e.UserId == TestStringHelper.UserId && e.UpdatedBy == TestStringHelper.UserId && e.UpdatedAt != null)))
+        e.UserId == TestStringHelper.UserId && e.UpdatedBy == TestStringHelper.UserId && e.UpdatedAt != null &&
+        e.Version != originalVersion && e.Version != Guid.Empty)))
         .MustHaveHappenedOnceExactly();
     A.CallTo(() => _unitOfWork.SaveChangesAsync(A<CancellationToken>._)).MustHaveHappenedOnceExactly();
   }
@@ -299,11 +293,10 @@ public class ExchangeRefreshTokenCommandHandlerTests
         _refreshTokenSettings,
         _jwtTokenHandler,
         _tokenFactory,
-        _userManager,
         _unitOfWork,
         _refreshTokenRepository,
+        _roleRepository,
         _machineDateTime,
-        _getRoleClaimsQueryHandler,
         _userRegisteredAppRepository,
         Options.Create(new RoleSettings { ServiceName = "UserIdentity", AdminRoles = "admin", DefaultRole = "user" })
     );

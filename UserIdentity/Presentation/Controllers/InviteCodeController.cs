@@ -5,11 +5,9 @@ using Microsoft.AspNetCore.Mvc;
 
 using PolyzenKit.Application.Core;
 using PolyzenKit.Application.Core.Interfaces;
-using PolyzenKit.Application.Core.RegisteredApps.Resolvers;
+using PolyzenKit.Application.Core.RegisteredApps.Shared;
 using PolyzenKit.Common.Paging;
 using PolyzenKit.Common.Utilities;
-using PolyzenKit.Domain.RegisteredApps;
-using PolyzenKit.Presentation.Controllers;
 
 using UserIdentity.Application.Core.InviteCodes.Commands;
 using UserIdentity.Application.Core.InviteCodes.Queries;
@@ -25,21 +23,13 @@ public class InviteCodeController(
   IDeleteItemCommandHandler<DeleteInviteCodeCommand, DeleteRecordViewModel> deleteItemCommandHandler,
 
   IRegisteredAppResolver registeredAppResolver
-  ) : BaseController
+  ) : AppAdminController(registeredAppResolver)
 {
 
   private readonly ICreateItemCommandHandler<CreateInviteCodeCommand, InviteCodeViewModel> _createItemCommandHandler = createItemCommandHandler;
   private readonly IGetItemQueryHandler<GetInviteCodeQuery, InviteCodeViewModel> _getItemQueryHandler = getItemQueryHandler;
   private readonly IGetItemsQueryHandler<GetInviteCodesQuery, InviteCodesViewModel> _getItemsQueryHandler = getItemsQueryHandler;
   private readonly IDeleteItemCommandHandler<DeleteInviteCodeCommand, DeleteRecordViewModel> _deleteItemCommandHandler = deleteItemCommandHandler;
-
-  private readonly IRegisteredAppResolver _registeredAppResolver = registeredAppResolver;
-
-  // App admins work on their token's app, and global admins name the app in the X-App-Name header
-  private Task<RegisteredAppEntity> GetAdminAppAsync()
-  {
-    return IsGlobalAdmin ? GetRegisteredAppAsync(_registeredAppResolver) : _registeredAppResolver.GetActiveAppAsync(AuthorizedParty, RequestAborted);
-  }
 
   [Authorize(Policy = ZenConstants.ADMIN_OR_GLOBAL_ADMIN_POLICY)]
   [HttpGet]

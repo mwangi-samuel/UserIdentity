@@ -1,3 +1,5 @@
+﻿using Microsoft.AspNetCore.Identity;
+
 using UserIdentity.Domain.PasswordResets;
 using UserIdentity.Persistence.Configurations;
 
@@ -19,9 +21,8 @@ public class PasswordResetConfigurationTests
 
     // Assert
     Assert.True(entityType.ConfirmMaxColumnLength(nameof(PasswordResetEntity.RequestId), 200));
-    Assert.True(entityType.ConfirmMaxColumnLength(nameof(PasswordResetEntity.UserId), 50));
 
     Assert.True(entityType.ConfirmColumnHasIndex(nameof(PasswordResetEntity.RequestId)));
-    Assert.True(entityType.ConfirmColumnHasIndex(nameof(PasswordResetEntity.UserId)));
+    Assert.True(entityType.ConfirmCascadingForeignKey<IdentityUser>(nameof(PasswordResetEntity.UserId)));
   }
 }

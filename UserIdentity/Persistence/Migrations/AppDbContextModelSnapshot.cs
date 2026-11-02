@@ -155,6 +155,7 @@ namespace UserIdentity.Persistence.Migrations
                         .HasName("pk_users");
 
                     b.HasIndex("NormalizedEmail")
+                        .IsUnique()
                         .HasDatabaseName("EmailIndex");
 
                     b.HasIndex("NormalizedUserName")
@@ -266,7 +267,7 @@ namespace UserIdentity.Persistence.Migrations
                     b.ToTable("user_tokens", (string)null);
                 });
 
-            modelBuilder.Entity("PolyzenKit.Domain.AppEntities.AppEntity", b =>
+            modelBuilder.Entity("PolyzenKit.Domain.Entities.AppEntities.AppEntity", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -307,7 +308,31 @@ namespace UserIdentity.Persistence.Migrations
                     b.ToTable("app_entities", (string)null);
                 });
 
-            modelBuilder.Entity("PolyzenKit.Domain.RegisteredApps.RegisteredAppEntity", b =>
+            modelBuilder.Entity("PolyzenKit.Domain.Entities.OutboxMessages.OutboxMessageEntity", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Payload")
+                        .IsRequired()
+                        .HasColumnType("longtext")
+                        .HasColumnName("payload");
+
+                    b.Property<string>("Subject")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)")
+                        .HasColumnName("subject");
+
+                    b.HasKey("Id")
+                        .HasName("pk_outbox_messages");
+
+                    b.ToTable("outbox_messages", (string)null);
+                });
+
+            modelBuilder.Entity("PolyzenKit.Domain.Entities.RegisteredApps.RegisteredAppEntity", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -442,7 +467,8 @@ namespace UserIdentity.Persistence.Migrations
 
                     b.Property<string>("InviteCode")
                         .IsRequired()
-                        .HasColumnType("longtext")
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)")
                         .HasColumnName("invite_code");
 
                     b.Property<bool>("IsDeleted")
@@ -524,8 +550,7 @@ namespace UserIdentity.Persistence.Migrations
 
                     b.Property<string>("UserId")
                         .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("varchar(50)")
+                        .HasColumnType("varchar(255)")
                         .HasColumnName("user_id");
 
                     b.Property<bool>("Verified")
@@ -577,11 +602,6 @@ namespace UserIdentity.Persistence.Migrations
                         .HasColumnType("varchar(200)")
                         .HasColumnName("previous_token");
 
-                    b.Property<string>("RemoteIpAddress")
-                        .HasMaxLength(20)
-                        .HasColumnType("varchar(20)")
-                        .HasColumnName("remote_ip_address");
-
                     b.Property<string>("Token")
                         .HasMaxLength(200)
                         .HasColumnType("varchar(200)")
@@ -597,9 +617,14 @@ namespace UserIdentity.Persistence.Migrations
                         .HasColumnName("updated_by");
 
                     b.Property<string>("UserId")
-                        .HasMaxLength(50)
-                        .HasColumnType("varchar(50)")
+                        .IsRequired()
+                        .HasColumnType("varchar(255)")
                         .HasColumnName("user_id");
+
+                    b.Property<Guid>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("char(36)")
+                        .HasColumnName("version");
 
                     b.HasKey("Id")
                         .HasName("pk_refresh_tokens");
@@ -683,11 +708,6 @@ namespace UserIdentity.Persistence.Migrations
                         .HasColumnType("varchar(50)")
                         .HasColumnName("created_by");
 
-                    b.Property<string>("EmailConfirmationToken")
-                        .HasMaxLength(600)
-                        .HasColumnType("varchar(600)")
-                        .HasColumnName("email_confirmation_token");
-
                     b.Property<string>("FirstName")
                         .HasMaxLength(20)
                         .HasColumnType("varchar(20)")
@@ -757,6 +777,7 @@ namespace UserIdentity.Persistence.Migrations
 
                     b.Property<string>("UserEmail")
                         .IsRequired()
+                        .HasMaxLength(255)
                         .HasColumnType("varchar(255)")
                         .HasColumnName("user_email");
 
@@ -829,7 +850,7 @@ namespace UserIdentity.Persistence.Migrations
 
             modelBuilder.Entity("UserIdentity.Domain.InviteCodes.InviteCodeEntity", b =>
                 {
-                    b.HasOne("PolyzenKit.Domain.RegisteredApps.RegisteredAppEntity", "App")
+                    b.HasOne("PolyzenKit.Domain.Entities.RegisteredApps.RegisteredAppEntity", "App")
                         .WithMany()
                         .HasForeignKey("AppId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -839,9 +860,29 @@ namespace UserIdentity.Persistence.Migrations
                     b.Navigation("App");
                 });
 
+            modelBuilder.Entity("UserIdentity.Domain.PasswordResets.PasswordResetEntity", b =>
+                {
+                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_password_resets_asp_net_users_user_id");
+                });
+
+            modelBuilder.Entity("UserIdentity.Domain.RefreshTokens.RefreshTokenEntity", b =>
+                {
+                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_refresh_tokens_asp_net_users_user_id");
+                });
+
             modelBuilder.Entity("UserIdentity.Domain.UserRegisteredApps.UserRegisteredAppEntity", b =>
                 {
-                    b.HasOne("PolyzenKit.Domain.RegisteredApps.RegisteredAppEntity", "App")
+                    b.HasOne("PolyzenKit.Domain.Entities.RegisteredApps.RegisteredAppEntity", "App")
                         .WithMany()
                         .HasForeignKey("AppId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -860,9 +901,19 @@ namespace UserIdentity.Persistence.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("UserIdentity.Domain.Users.UserEntity", b =>
+                {
+                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser", null)
+                        .WithOne()
+                        .HasForeignKey("UserIdentity.Domain.Users.UserEntity", "Id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_user_details_asp_net_users_id");
+                });
+
             modelBuilder.Entity("UserIdentity.Domain.WaitLists.WaitListEntity", b =>
                 {
-                    b.HasOne("PolyzenKit.Domain.RegisteredApps.RegisteredAppEntity", "App")
+                    b.HasOne("PolyzenKit.Domain.Entities.RegisteredApps.RegisteredAppEntity", "App")
                         .WithMany()
                         .HasForeignKey("AppId")
                         .OnDelete(DeleteBehavior.Cascade)

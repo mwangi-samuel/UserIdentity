@@ -2,8 +2,9 @@
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
-using PolyzenKit.Domain.AppEntities;
-using PolyzenKit.Domain.RegisteredApps;
+using PolyzenKit.Domain.Entities.AppEntities;
+using PolyzenKit.Domain.Entities.OutboxMessages;
+using PolyzenKit.Domain.Entities.RegisteredApps;
 using PolyzenKit.Persistence.Configurations;
 
 using UserIdentity.Domain.InviteCodes;
@@ -20,8 +21,6 @@ public class AppDbContext(
     DbContextOptions<AppDbContext> dbContextOptions
     ) : IdentityDbContext<IdentityUser>(dbContextOptions)
 {
-  private readonly string _entityKeyPrefix = "";
-
   public DbSet<UserEntity> AppUser { get; internal set; }
 
   public DbSet<RefreshTokenEntity> RefreshToken { get; internal set; }
@@ -38,10 +37,13 @@ public class AppDbContext(
 
   public DbSet<PasswordResetEntity> PasswordReset { get; internal set; }
 
+  public DbSet<OutboxMessageEntity> OutboxMessage { get; internal set; }
+
   protected override void OnModelCreating(ModelBuilder modelBuilder)
   {
     base.OnModelCreating(modelBuilder);
 
+    modelBuilder.ApplyConfiguration(new IdentityUserConfiguration());
     modelBuilder.ApplyConfiguration(new UserConfiguration());
     modelBuilder.ApplyConfiguration(new RefreshTokenConfiguration());
     modelBuilder.ApplyConfiguration(new AppEntityConfiguration());
@@ -50,22 +52,24 @@ public class AppDbContext(
     modelBuilder.ApplyConfiguration(new WaitListConfiguration());
     modelBuilder.ApplyConfiguration(new InviteCodeConfiguration());
     modelBuilder.ApplyConfiguration(new PasswordResetConfiguration());
+    modelBuilder.ApplyConfiguration(new OutboxMessageConfiguration());
 
-    modelBuilder.Entity<UserEntity>().ToTable(_entityKeyPrefix + "user_details");
-    modelBuilder.Entity<RefreshTokenEntity>().ToTable(_entityKeyPrefix + "refresh_tokens");
-    modelBuilder.Entity<AppEntity>().ToTable(_entityKeyPrefix + "app_entities");
-    modelBuilder.Entity<RegisteredAppEntity>().ToTable(_entityKeyPrefix + "registered_apps");
-    modelBuilder.Entity<UserRegisteredAppEntity>().ToTable(_entityKeyPrefix + "user_registered_apps");
-    modelBuilder.Entity<WaitListEntity>().ToTable(_entityKeyPrefix + "wait_lists");
-    modelBuilder.Entity<InviteCodeEntity>().ToTable(_entityKeyPrefix + "invite_codes");
-    modelBuilder.Entity<PasswordResetEntity>().ToTable(_entityKeyPrefix + "password_resets");
+    modelBuilder.Entity<UserEntity>().ToTable("user_details");
+    modelBuilder.Entity<RefreshTokenEntity>().ToTable("refresh_tokens");
+    modelBuilder.Entity<AppEntity>().ToTable("app_entities");
+    modelBuilder.Entity<RegisteredAppEntity>().ToTable("registered_apps");
+    modelBuilder.Entity<UserRegisteredAppEntity>().ToTable("user_registered_apps");
+    modelBuilder.Entity<WaitListEntity>().ToTable("wait_lists");
+    modelBuilder.Entity<InviteCodeEntity>().ToTable("invite_codes");
+    modelBuilder.Entity<PasswordResetEntity>().ToTable("password_resets");
+    modelBuilder.Entity<OutboxMessageEntity>().ToTable("outbox_messages");
 
-    modelBuilder.Entity<IdentityUser>().ToTable(_entityKeyPrefix + "users");
-    modelBuilder.Entity<IdentityRole>().ToTable(_entityKeyPrefix + "roles");
-    modelBuilder.Entity<IdentityUserClaim<string>>().ToTable(_entityKeyPrefix + "user_claims");
-    modelBuilder.Entity<IdentityRoleClaim<string>>().ToTable(_entityKeyPrefix + "role_claims");
-    modelBuilder.Entity<IdentityUserLogin<string>>().ToTable(_entityKeyPrefix + "user_logins").HasKey(i => new { i.LoginProvider, i.ProviderKey });
-    modelBuilder.Entity<IdentityUserRole<string>>().ToTable(_entityKeyPrefix + "user_roles").HasKey(i => new { i.UserId, i.RoleId });
-    modelBuilder.Entity<IdentityUserToken<string>>().ToTable(_entityKeyPrefix + "user_tokens").HasKey(i => new { i.UserId, i.LoginProvider, i.Name });
+    modelBuilder.Entity<IdentityUser>().ToTable("users");
+    modelBuilder.Entity<IdentityRole>().ToTable("roles");
+    modelBuilder.Entity<IdentityUserClaim<string>>().ToTable("user_claims");
+    modelBuilder.Entity<IdentityRoleClaim<string>>().ToTable("role_claims");
+    modelBuilder.Entity<IdentityUserLogin<string>>().ToTable("user_logins").HasKey(i => new { i.LoginProvider, i.ProviderKey });
+    modelBuilder.Entity<IdentityUserRole<string>>().ToTable("user_roles").HasKey(i => new { i.UserId, i.RoleId });
+    modelBuilder.Entity<IdentityUserToken<string>>().ToTable("user_tokens").HasKey(i => new { i.UserId, i.LoginProvider, i.Name });
   }
 }

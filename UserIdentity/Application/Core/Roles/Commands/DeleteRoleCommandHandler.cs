@@ -4,7 +4,7 @@ using PolyzenKit.Application.Core;
 using PolyzenKit.Application.Core.Interfaces;
 using PolyzenKit.Common.Exceptions;
 
-using UserIdentity.Application.Helpers;
+using UserIdentity.Application.Core.Roles.Shared;
 
 namespace UserIdentity.Application.Core.Roles.Commands;
 
@@ -22,15 +22,15 @@ public class DeleteRoleCommandHandler(
 
   public async Task<DeleteRecordViewModel> DeleteItemAsync(DeleteRoleCommand command, string userId, CancellationToken cancellationToken = default)
   {
-    var role = await _roleManager.FindByIdAsync(command.RoleId) ?? throw new NoRecordException(command.RoleId, "Role");
+    var role = await _roleManager.FindByIdAsync(command.RoleId) ?? throw NoRecordException.ForIdentifier(command.RoleId);
 
-    if (command.AppName is not null && !AppRolesHelper.IsAppRole(role.Name, command.AppName))
-      throw new NoRecordException(command.RoleId, "Role");
+    if (command.AppName is not null && !AppRoleNames.IsAppRole(role.Name, command.AppName))
+      throw NoRecordException.ForIdentifier(command.RoleId);
 
     var deleteRoleResult = await _roleManager.DeleteAsync(role);
 
     if (!deleteRoleResult.Succeeded)
-      throw new RecordDeletionException(command.RoleId, "Role");
+      throw new RecordDeletionException($"Role {command.RoleId} wasn't deleted");
 
     return new DeleteRecordViewModel
     {

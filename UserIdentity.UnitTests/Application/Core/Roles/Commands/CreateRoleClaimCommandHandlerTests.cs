@@ -8,9 +8,9 @@ using FakeItEasy;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Options;
 
+using PolyzenKit.Application.Interfaces;
 using PolyzenKit.Common.Exceptions;
-using PolyzenKit.Infrastructure.Security.Jwt;
-using PolyzenKit.Presentation.Settings;
+using PolyzenKit.Common.Settings;
 
 using UserIdentity.Application.Core.Roles.Commands;
 using UserIdentity.Application.Core.Roles.ViewModels;

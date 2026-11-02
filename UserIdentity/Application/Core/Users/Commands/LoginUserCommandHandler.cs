@@ -9,21 +9,16 @@ using Microsoft.Extensions.Options;
 using PolyzenKit.Application.Core;
 using PolyzenKit.Application.Core.Interfaces;
 using PolyzenKit.Application.Interfaces;
-using PolyzenKit.Common.Exceptions;
-using PolyzenKit.Domain.Entity;
-using PolyzenKit.Domain.RegisteredApps;
-using PolyzenKit.Infrastructure.Security.Jwt;
-using PolyzenKit.Infrastructure.Security.Tokens;
+using PolyzenKit.Common.Settings;
+using PolyzenKit.Domain.Entities.RegisteredApps;
 using PolyzenKit.Persistence.Repositories;
 
-using UserIdentity.Application.Core.Tokens.Settings;
+using UserIdentity.Application.Core.Tokens.Shared;
 using UserIdentity.Application.Core.Tokens.ViewModels;
-using UserIdentity.Application.Core.Users.Queries;
 using UserIdentity.Application.Core.Users.ViewModels;
-using UserIdentity.Domain.RefreshTokens;
-using UserIdentity.Domain.Users;
 using UserIdentity.Persistence.Repositories.RefreshTokens;
-using UserIdentity.Persistence.Repositories.UserRegisteredApps;
+using UserIdentity.Persistence.Repositories.Roles;
+using UserIdentity.Persistence.Repositories.Users;
 
 namespace UserIdentity.Application.Core.Users.Commands;
 
@@ -45,58 +40,46 @@ public record LoginUserCommand : IBaseCommand
 
 public class LoginUserCommandHandler(
     IOptions<IdentityOptions> identityOptions,
+    IOptions<RoleSettings> roleSettingsOptions,
     IOptions<RefreshTokenSettings> refreshTokenSettingsOptions,
     IJwtTokenHandler jwtTokenHandler,
     ITokenFactory tokenFactory,
     UserManager<IdentityUser> userManager,
     IUnitOfWork unitOfWork,
+    IUserRepository userRepository,
+    IRoleRepository roleRepository,
     IRefreshTokenRepository refreshTokenRepository,
-    IMachineDateTime machineDateTime,
-    IGetItemQueryHandler<GetUserQuery, UserViewModel> getUserQueryHandler,
-    IUserRegisteredAppRepository userRegisteredAppRepository
+    IMachineDateTime machineDateTime
     ) : ICreateItemCommandHandler<LoginUserCommand, AuthUserViewModel>
 {
   private readonly IdentityOptions _identityOptions = identityOptions.Value;
-  private readonly RefreshTokenSettings _refreshTokenSettings = refreshTokenSettingsOptions.Value;
-  private readonly IJwtTokenHandler _jwtTokenHandler = jwtTokenHandler;
-  private readonly ITokenFactory _tokenFactory = tokenFactory;
   private readonly UserManager<IdentityUser> _userManager = userManager;
   private readonly IUnitOfWork _unitOfWork = unitOfWork;
-  private readonly IRefreshTokenRepository _refreshTokenRepository = refreshTokenRepository;
-  private readonly IMachineDateTime _machineDateTime = machineDateTime;
-  private readonly IGetItemQueryHandler<GetUserQuery, UserViewModel> _getUserQueryHandler = getUserQueryHandler;
-  private readonly IUserRegisteredAppRepository _userRegisteredAppRepository = userRegisteredAppRepository;
+  private readonly IUserRepository _userRepository = userRepository;
+  private readonly UserTokenIssuer _userTokenIssuer = new(roleRepository, refreshTokenRepository, jwtTokenHandler, tokenFactory, machineDateTime, roleSettingsOptions.Value, refreshTokenSettingsOptions.Value);
 
   public async Task<AuthUserViewModel> CreateItemAsync(LoginUserCommand command, string userId, CancellationToken cancellationToken = default)
   {
+    var appName = command.RegisteredApp!.AppName;
+
     var user = (
             await _userManager.FindByNameAsync(command.UserName)
             ?? await _userManager.FindByEmailAsync(command.UserName)
-            ) ?? throw new InvalidCredentialException("No Identity User for User Name - " + command.UserName);
+            ) ?? throw new InvalidCredentialException("Unknown user name or email");
 
     if (await _userManager.IsLockedOutAsync(user))
-      throw new InvalidCredentialException("Locked Out Identity User - " + command.UserName);
+      throw new InvalidCredentialException($"User {user.Id} is locked out");
 
-    var userExists = await _userManager.CheckPasswordAsync(user, command.Password);
-
-    if (!userExists)
+    if (!await _userManager.CheckPasswordAsync(user, command.Password))
     {
       await _userManager.AccessFailedAsync(user);
-      throw new InvalidCredentialException("Invalid Credentials Provided for - " + command.UserName);
+      throw new InvalidCredentialException($"Wrong password for user {user.Id}");
     }
 
     await _userManager.ResetAccessFailedCountAsync(user);
 
-    UserDto userDto;
-
-    try
-    {
-      userDto = (await _getUserQueryHandler.GetItemAsync(new GetUserQuery { UserId = user.Id, AppName = command.RegisteredApp!.AppName }, cancellationToken)).User;
-    }
-    catch (NoRecordException ex)
-    {
-      throw new InvalidCredentialException("No User Record for Identity User - " + command.UserName, ex);
-    }
+    var userDto = await _userRepository.GetUserDtoAsync(user.Id, appName, cancellationToken)
+      ?? throw new InvalidCredentialException($"User {user.Id} has no profile for app {appName}");
 
     // We only include the accessToken in the payload, when user is confirmed.
     var isConfirmed = !_identityOptions.SignIn.RequireConfirmedAccount || user.EmailConfirmed || user.PhoneNumberConfirmed;
@@ -104,30 +87,9 @@ public class LoginUserCommandHandler(
 
     if (isConfirmed)
     {
-      var refreshToken = _tokenFactory.GenerateToken();
-
-      (var token, var expiresIn) = _jwtTokenHandler.CreateToken(user.Id, user.UserName!, command.RegisteredApp!.AppName, userDto.Roles, userDto.RoleClaims);
-
-      var newRefreshToken = new RefreshTokenEntity
-      {
-        Expires = _machineDateTime.Now.AddSeconds(_refreshTokenSettings.ValidForSeconds),
-        UserId = user.Id,
-        Token = _tokenFactory.HashToken(refreshToken),
-      };
-
-      newRefreshToken.SetEntityAuditFields(user.Id, _machineDateTime.Now);
-
-      await _refreshTokenRepository.RemoveExpiredEntityItemsAsync(user.Id, _machineDateTime.Now, cancellationToken);
-
-      _refreshTokenRepository.CreateEntityItem(newRefreshToken);
+      userToken = await _userTokenIssuer.StartSessionAsync(user.Id, user.UserName!, appName, cancellationToken);
 
       await _unitOfWork.SaveChangesAsync(cancellationToken);
-
-      userToken = new AccessTokenViewModel
-      {
-        AccessToken = new AccessTokenDto { Token = token, ExpiresIn = expiresIn },
-        RefreshToken = refreshToken,
-      };
     }
 
     return new AuthUserViewModel

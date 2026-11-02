@@ -1,4 +1,4 @@
-using System.Threading;
+﻿using System.Threading;
 using System.Threading.Tasks;
 
 using FakeItEasy;
@@ -68,7 +68,7 @@ public class GetInviteCodeQueryHandlerTests
       InviteCode = "INVITE456",
       UserEmail = userEmail,
       AppId = 2,
-      App = new PolyzenKit.Domain.RegisteredApps.RegisteredAppEntity { AppName = "TestApp" }
+      App = new PolyzenKit.Domain.Entities.RegisteredApps.RegisteredAppEntity { AppName = "TestApp" }
     };
 
     A.CallTo(() => _inviteCodeRepository.GetEntityByAlternateIdAsync(
@@ -117,7 +117,7 @@ public class GetInviteCodeQueryHandlerTests
     var inviteCodeId = 999L;
 
     A.CallTo(() => _inviteCodeRepository.GetEntityDtoByIdAsync(inviteCodeId, A<CancellationToken>._))
-        .ThrowsAsync(new NoRecordException($"{inviteCodeId}", "InviteCode"));
+        .ThrowsAsync(NoRecordException.ForIdentifier($"{inviteCodeId}"));
 
     var query = new GetInviteCodeQuery { InviteCodeId = inviteCodeId, AppId = 1 };
     var handler = new GetInviteCodeQueryHandler(_inviteCodeRepository);
@@ -135,7 +135,7 @@ public class GetInviteCodeQueryHandlerTests
     A.CallTo(() => _inviteCodeRepository.GetEntityByAlternateIdAsync(
         A<InviteCodeEntity>.That.Matches(e => e.UserEmail == userEmail && e.AppId == 2),
         QueryCondition.MUST_EXIST, A<CancellationToken>._))
-        .ThrowsAsync(new NoRecordException(userEmail, nameof(InviteCodeEntity)));
+        .ThrowsAsync(NoRecordException.ForIdentifier(userEmail));
 
     var query = new GetInviteCodeQuery { UserEmail = userEmail, AppId = 2 };
     var handler = new GetInviteCodeQueryHandler(_inviteCodeRepository);

@@ -4,8 +4,8 @@ using System.Linq;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
-using PolyzenKit.Domain.AppEntities;
-using PolyzenKit.Domain.RegisteredApps;
+using PolyzenKit.Domain.Entities.AppEntities;
+using PolyzenKit.Domain.Entities.RegisteredApps;
 
 using UserIdentity.Domain.InviteCodes;
 using UserIdentity.Domain.PasswordResets;

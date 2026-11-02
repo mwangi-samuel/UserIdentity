@@ -6,12 +6,9 @@ using PolyzenKit.Application.Core.Interfaces;
 using PolyzenKit.Application.Interfaces;
 using PolyzenKit.Persistence.Repositories;
 
-using UserIdentity.Application.Core.Users.Settings;
-using UserIdentity.Domain.InviteCodes;
+using UserIdentity.Application.Core.Users.Shared;
 using UserIdentity.Domain.Users;
 using UserIdentity.Persistence.Repositories.InviteCodes;
-using UserIdentity.Persistence.Repositories.PasswordResets;
-using UserIdentity.Persistence.Repositories.RefreshTokens;
 using UserIdentity.Persistence.Repositories.Users;
 
 namespace UserIdentity.Application.Core.Users.Commands;
@@ -25,8 +22,6 @@ public class DeleteUnconfirmedUsersCommandHandler(
   IUnitOfWork unitOfWork,
   IUserRepository userRepository,
   IInviteCodeRepository inviteCodeRepository,
-  IRefreshTokenRepository refreshTokenRepository,
-  IPasswordResetRepository passwordResetRepository,
   IMachineDateTime machineDateTime
   ) : IDeleteItemCommandHandler<DeleteUnconfirmedUsersCommand, DeleteRecordViewModel>
 {
@@ -38,8 +33,6 @@ public class DeleteUnconfirmedUsersCommandHandler(
   private readonly IUnitOfWork _unitOfWork = unitOfWork;
   private readonly IUserRepository _userRepository = userRepository;
   private readonly IInviteCodeRepository _inviteCodeRepository = inviteCodeRepository;
-  private readonly IRefreshTokenRepository _refreshTokenRepository = refreshTokenRepository;
-  private readonly IPasswordResetRepository _passwordResetRepository = passwordResetRepository;
   private readonly IMachineDateTime _machineDateTime = machineDateTime;
 
   public async Task<DeleteRecordViewModel> DeleteItemAsync(DeleteUnconfirmedUsersCommand command, string userId, CancellationToken cancellationToken = default)
@@ -62,30 +55,22 @@ public class DeleteUnconfirmedUsersCommandHandler(
     return new DeleteRecordViewModel();
   }
 
+  // One transaction per user, so a failure leaves the other users' deletes in place
   private async Task DeleteUserAsync(UserEntity entity, CancellationToken cancellationToken)
   {
-    var identityUser = await _userManager.FindByIdAsync(entity.Id);
-
     await _unitOfWork.BeginTransactionAsync(cancellationToken);
 
     try
     {
-      if (identityUser?.Email is not null)
+      foreach (var inviteCode in await _inviteCodeRepository.GetAppliedEntityItemsForUserAsync(entity.Id, cancellationToken))
       {
-        var inviteCode = await _inviteCodeRepository.GetEntityByAlternateIdAsync(new InviteCodeEntity { UserEmail = identityUser.Email }, QueryCondition.MAY_OR_MAY_NOT_EXIST, cancellationToken);
-
-        if (inviteCode is { Applied: true })
-        {
-          inviteCode.Applied = false;
-          _inviteCodeRepository.UpdateEntityItem(inviteCode);
-        }
+        inviteCode.Applied = false;
+        _inviteCodeRepository.UpdateEntityItem(inviteCode);
       }
 
-      await _refreshTokenRepository.RemoveEntityItemsAsync(entity.Id, cancellationToken);
-      await _passwordResetRepository.RemoveEntityItemsAsync(entity.Id, cancellationToken);
-      _userRepository.RemoveEntityItem(entity);
-
       await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+      var identityUser = await _userManager.FindByIdAsync(entity.Id);
 
       if (identityUser is not null)
       {

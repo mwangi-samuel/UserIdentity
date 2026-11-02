@@ -7,8 +7,8 @@ using FakeItEasy;
 using Microsoft.AspNetCore.Identity;
 
 using PolyzenKit.Application.Core;
+using PolyzenKit.Application.Interfaces;
 using PolyzenKit.Common.Exceptions;
-using PolyzenKit.Infrastructure.Security.Jwt;
 
 using UserIdentity.Application.Core.Roles.Commands;
 using UserIdentity.UnitTests.TestUtils;
@@ -34,8 +34,8 @@ public class DeleteRoleClaimCommandHandlerTests
     DeleteRoleClaimCommand command = new()
     {
       RoleId = "SampleInvalidId",
-      Resource = "SampleResource",
-      Action = "SampleAction"
+      Resource = "sampleresource",
+      Action = "sampleaction"
     };
 
     A.CallTo(() => _roleManager.FindByIdAsync(command.RoleId)).Returns(default(IdentityRole));
@@ -74,8 +74,8 @@ public class DeleteRoleClaimCommandHandlerTests
     DeleteRoleClaimCommand command = new()
     {
       RoleId = "SampleValidId",
-      Resource = "SampleResource",
-      Action = "SampleAction"
+      Resource = "sampleresource",
+      Action = "sampleaction"
     };
 
     IdentityRole role = new()
@@ -88,7 +88,7 @@ public class DeleteRoleClaimCommandHandlerTests
     List<Claim> roleClaims =
     [
                         new("scope", "SampleResource:SampleAction1"),
-                            new("scope", "SampleResource:SampleAction2")
+                            new("scope", "sampleresource:sampleaction2")
                 ];
 
     A.CallTo(() => _roleManager.FindByIdAsync(command.RoleId)).Returns(role);
@@ -109,8 +109,8 @@ public class DeleteRoleClaimCommandHandlerTests
     DeleteRoleClaimCommand command = new()
     {
       RoleId = "SampleValidId",
-      Resource = "SampleResource",
-      Action = "SampleAction"
+      Resource = "sampleresource",
+      Action = "sampleaction"
     };
 
     IdentityRole role = new()
@@ -123,7 +123,7 @@ public class DeleteRoleClaimCommandHandlerTests
     List<Claim> roleClaims =
     [
                         scopeClaim,
-                            new("scope", "SampleResource:SampleAction2")
+                            new("scope", "sampleresource:sampleaction2")
                 ];
 
     A.CallTo(() => _roleManager.FindByIdAsync(command.RoleId)).Returns(role);
@@ -146,8 +146,8 @@ public class DeleteRoleClaimCommandHandlerTests
     DeleteRoleClaimCommand command = new()
     {
       RoleId = "SampleValidId",
-      Resource = "SampleResource",
-      Action = "SampleAction"
+      Resource = "sampleresource",
+      Action = "sampleaction"
     };
 
     IdentityRole role = new()
@@ -160,7 +160,7 @@ public class DeleteRoleClaimCommandHandlerTests
     List<Claim> roleClaims =
     [
                         scopeClaim,
-                            new Claim("scope", "SampleResource:SampleAction2")
+                            new Claim("scope", "sampleresource:sampleaction2")
                 ];
 
     A.CallTo(() => _roleManager.FindByIdAsync(command.RoleId)).Returns(role);
@@ -178,5 +178,28 @@ public class DeleteRoleClaimCommandHandlerTests
     // Assert
     Assert.IsType<DeleteRecordViewModel>(vm);
 
+  }
+
+  [Fact]
+  public async Task DeleteRoleClaim_Matches_And_Removes_The_Lower_Case_Scope()
+  {
+    // Arrange
+    DeleteRoleClaimCommand command = new() { RoleId = "SampleValidId", Resource = "Owner", Action = "READ" };
+
+    IdentityRole role = new() { Id = command.RoleId, Name = "testapp:owner" };
+    Claim scopeClaim = new("scope", "owner:read");
+
+    A.CallTo(() => _roleManager.FindByIdAsync(command.RoleId)).Returns(role);
+    A.CallTo(() => _jwtTokenHandler.GenerateScopeClaim("owner", "read")).Returns(scopeClaim);
+    A.CallTo(() => _roleManager.GetClaimsAsync(role)).Returns([new Claim("scope", "owner:read")]);
+    A.CallTo(() => _roleManager.RemoveClaimAsync(role, scopeClaim)).Returns(IdentityResult.Success);
+
+    DeleteRoleClaimCommandHandler handler = new(_roleManager, _jwtTokenHandler);
+
+    // Act
+    await handler.DeleteItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken);
+
+    // Assert
+    A.CallTo(() => _roleManager.RemoveClaimAsync(role, A<Claim>.That.Matches(c => c.Value == "owner:read"))).MustHaveHappenedOnceExactly();
   }
 }

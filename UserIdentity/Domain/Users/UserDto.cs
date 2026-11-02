@@ -1,7 +1,5 @@
-﻿using System.Text.Json.Serialization;
-
-using PolyzenKit.Domain.Dto;
-using PolyzenKit.Domain.Entity;
+﻿using PolyzenKit.Domain.Dtos;
+using PolyzenKit.Domain.Entities;
 
 namespace UserIdentity.Domain.Users;
 
@@ -16,10 +14,4 @@ public class UserDto : BaseAuditableEntity<string>, IBaseAuditableEntityDto<stri
   public string? Email { get; init; }
 
   public string? PhoneNumber { get; init; }
-
-  [JsonIgnore]
-  public HashSet<string> Roles { get; init; } = [];
-
-  [JsonIgnore]
-  public HashSet<string> RoleClaims { get; init; } = [];
 }

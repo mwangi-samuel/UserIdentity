@@ -1,49 +1,41 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.Data;
-using System.Text;
 using System.Text.Json.Serialization;
 
 using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Options;
 
 using PolyzenKit.Application.Core;
-using PolyzenKit.Application.Core.Attributes;
 using PolyzenKit.Application.Core.Interfaces;
-using PolyzenKit.Application.Enums;
+using PolyzenKit.Application.Core.Messages.Shared;
 using PolyzenKit.Application.Interfaces;
 using PolyzenKit.Common.Enums;
 using PolyzenKit.Common.Exceptions;
-using PolyzenKit.Common.Utilities;
-using PolyzenKit.Domain.Dto;
-using PolyzenKit.Domain.Entity;
-using PolyzenKit.Domain.RegisteredApps;
-using PolyzenKit.Infrastructure.Security.Jwt;
-using PolyzenKit.Infrastructure.Security.Tokens;
+using PolyzenKit.Common.Settings;
+using PolyzenKit.Domain.Dtos;
+using PolyzenKit.Domain.Entities;
+using PolyzenKit.Domain.Entities.RegisteredApps;
 using PolyzenKit.Persistence.Repositories;
-using PolyzenKit.Presentation.Settings;
 
-using UserIdentity.Application.Core.Roles.Queries;
-using UserIdentity.Application.Core.Roles.ViewModels;
-using UserIdentity.Application.Core.Tokens.Settings;
-using UserIdentity.Application.Core.Tokens.ViewModels;
-using UserIdentity.Application.Core.Users.Events;
+using UserIdentity.Application.Core.Roles.Shared;
+using UserIdentity.Application.Core.Tokens.Shared;
+using UserIdentity.Application.Core.Users.Shared;
 using UserIdentity.Application.Core.Users.ViewModels;
-using UserIdentity.Application.Enums;
 using UserIdentity.Application.Interfaces;
-using UserIdentity.Common;
+using UserIdentity.Common.Enums;
+using UserIdentity.Common.Errors;
 using UserIdentity.Domain.InviteCodes;
-using UserIdentity.Domain.RefreshTokens;
 using UserIdentity.Domain.UserRegisteredApps;
 using UserIdentity.Domain.Users;
 using UserIdentity.Persistence.Repositories.InviteCodes;
 using UserIdentity.Persistence.Repositories.RefreshTokens;
+using UserIdentity.Persistence.Repositories.Roles;
 using UserIdentity.Persistence.Repositories.UserRegisteredApps;
 using UserIdentity.Persistence.Repositories.Users;
 
 namespace UserIdentity.Application.Core.Users.Commands;
 
-public record RegisterUserCommand : IBaseCommand
+public record RegisterUserCommand : IBaseCommand, IValidatableObject
 {
   [JsonIgnore]
   public RequestSource RequestSource { get; internal set; } = RequestSource.UI;
@@ -62,10 +54,8 @@ public record RegisterUserCommand : IBaseCommand
   [Required]
   public string UserName { get; init; } = null!;
 
-  [EitherOr(nameof(PhoneNumber), nameof(UserEmail))]
   public string? PhoneNumber { get; init; }
 
-  [EitherOr(nameof(PhoneNumber), nameof(UserEmail))]
   public string? UserEmail { get; init; }
 
   [Required]
@@ -74,6 +64,12 @@ public record RegisterUserCommand : IBaseCommand
   public string? GoogleRecaptchaToken { get; set; }
 
   public string? InviteCode { get; set; }
+
+  public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+  {
+    if (string.IsNullOrWhiteSpace(PhoneNumber) && string.IsNullOrWhiteSpace(UserEmail))
+      yield return new ValidationResult(ErrorMessages.Users.PhoneNumberOrEmailRequired, [nameof(PhoneNumber), nameof(UserEmail)]);
+  }
 }
 
 public class RegisterUserCommandHandler(
@@ -87,50 +83,42 @@ public class RegisterUserCommandHandler(
     IRefreshTokenRepository refreshTokenRepository,
     IUserRegisteredAppRepository userRegisteredAppRepository,
     IInviteCodeRepository inviteCodeRepository,
+    IRoleRepository roleRepository,
     IJwtTokenHandler jwtTokenHandler,
     ITokenFactory tokenFactory,
     IMachineDateTime machineDateTime,
-    IEventHandler<UserUpdateEvent> userUpdateEventHandler,
-    IGoogleRecaptchaService googleRecaptchaService,
-    IGetItemsQueryHandler<GetRoleClaimsForRolesQuery, RoleClaimsForRolesViewModels> getRoleClaimsQueryHandler,
-    ILogHelper<RegisterUserCommandHandler> logHelper
+    IMessageOutbox messageOutbox,
+    IGoogleRecaptchaService googleRecaptchaService
     ) : ICreateItemCommandHandler<RegisterUserCommand, AuthUserViewModel>
 {
   private readonly RoleSettings _roleSettings = roleSettingsOptions.Value;
   private readonly IdentityOptions _identityOptions = identityOptions.Value;
-  private readonly RefreshTokenSettings _refreshTokenSettings = refreshTokenSettingsOptions.Value;
   private readonly UserManager<IdentityUser> _userManager = userManager;
   private readonly RoleManager<IdentityRole> _roleManager = roleManager;
 
   private readonly IUnitOfWork _unitOfWork = unitOfWork;
   private readonly IUserRepository _userRepository = userRepository;
-  private readonly IRefreshTokenRepository _refreshTokenRepository = refreshTokenRepository;
   private readonly IUserRegisteredAppRepository _userRegisteredAppRepository = userRegisteredAppRepository;
   private readonly IInviteCodeRepository _inviteCodeRepository = inviteCodeRepository;
 
-  private readonly IJwtTokenHandler _jwtTokenHandler = jwtTokenHandler;
-  private readonly ITokenFactory _tokenFactory = tokenFactory;
-
   private readonly IMachineDateTime _machineDateTime = machineDateTime;
 
-  private readonly IEventHandler<UserUpdateEvent> _userUpdateEventHandler = userUpdateEventHandler;
+  private readonly IMessageOutbox _messageOutbox = messageOutbox;
 
   private readonly IGoogleRecaptchaService _googleRecaptchaService = googleRecaptchaService;
 
-  private readonly IGetItemsQueryHandler<GetRoleClaimsForRolesQuery, RoleClaimsForRolesViewModels> _getRoleClaimsQueryHandler = getRoleClaimsQueryHandler;
-
-  private readonly ILogHelper<RegisterUserCommandHandler> _logHelper = logHelper;
+  private readonly UserTokenIssuer _userTokenIssuer = new(roleRepository, refreshTokenRepository, jwtTokenHandler, tokenFactory, machineDateTime, roleSettingsOptions.Value, refreshTokenSettingsOptions.Value);
 
   public async Task<AuthUserViewModel> CreateItemAsync(RegisterUserCommand command, string userId, CancellationToken cancellationToken = default)
   {
 
     // Confirm Google Recaptcha Token is valid before processing
     if (command.RequestSource == RequestSource.UI && !await _googleRecaptchaService.VerifyTokenAsync(command.GoogleRecaptchaToken, cancellationToken))
-      throw new InvalidDataException($"Invalid {nameof(command.GoogleRecaptchaToken)} provided");
+      throw new InvalidDataException(ErrorMessages.Users.InvalidRecaptchaToken);
 
     var registeredAppName = command.RegisteredApp!.AppName;
 
-    var userDefaultRole = ResolveDefaultRole(registeredAppName);
+    var userDefaultRole = AppRoleNames.DefaultRole(registeredAppName, _roleSettings);
 
     // Start DB Transaction
     await _unitOfWork.BeginTransactionAsync(cancellationToken);
@@ -144,29 +132,30 @@ public class RegisterUserCommandHandler(
     if (inviteCodeRequired || hasInviteCode)
     {
       if (command.UserEmail == null)
-        throw new InvalidDataException("An email is required when signing up with an invite code.");
+        throw new InvalidDataException(ErrorMessages.Users.EmailRequiredForInviteCode);
 
       if (!hasInviteCode)
-        throw new InvalidDataException("A valid invite code is required when signing up.");
+        throw new InvalidDataException(ErrorMessages.Users.InviteCodeRequired);
 
-      inviteCodeEntity = (await _inviteCodeRepository.GetEntityByAlternateIdAsync(new() { AppId = command.RegisteredApp!.Id, UserEmail = command.UserEmail! }, QueryCondition.MUST_EXIST, cancellationToken))!;
+      inviteCodeEntity = await _inviteCodeRepository.GetEntityByAlternateIdAsync(new() { AppId = command.RegisteredApp!.Id, UserEmail = command.UserEmail! }, QueryCondition.MAY_OR_MAY_NOT_EXIST, cancellationToken);
 
-      if (!string.Equals(command.InviteCode, inviteCodeEntity.InviteCode, StringComparison.OrdinalIgnoreCase) || inviteCodeEntity.Applied)
-        throw new InvalidDataException("A valid invite code is required when signing up.");
+      // A missing, wrong or used code gets the same answer, so sign-up never says whether an email has an invite
+      if (inviteCodeEntity is null || inviteCodeEntity.Applied || !string.Equals(command.InviteCode, inviteCodeEntity.InviteCode, StringComparison.OrdinalIgnoreCase))
+        throw new InvalidDataException(ErrorMessages.Users.InviteCodeRequired);
     }
 
     //  Check if default role is created otherwise create 
     if (await _roleManager.FindByNameAsync(userDefaultRole) == null)
       if (!(await _roleManager.CreateAsync(new IdentityRole { Name = userDefaultRole })).Succeeded)
-        throw new RecordCreationException(userDefaultRole, EntityTypes.ROLE.Description());
+        throw new RecordCreationException($"Role {userDefaultRole} wasn't created");
 
-    // Check if user exists by user name, throw RecordExistsException 
+    // Check if user exists by user name, throw RecordExistsException
     if (await _userManager.FindByNameAsync(command.UserName) != null)
-      throw new RecordExistsException(command.UserName, EntityTypes.USER.Description());
+      throw RecordExistsException.ForIdentifier(command.UserName);
 
     // Check if user exists by user email, throw RecordExistsException
     if (command.UserEmail != null && await _userManager.FindByEmailAsync(command.UserEmail) != null)
-      throw new RecordExistsException(command.UserEmail, EntityTypes.USER.Description());
+      throw RecordExistsException.ForIdentifier(command.UserEmail);
 
     var newUser = new IdentityUser
     {
@@ -191,31 +180,23 @@ public class RegisterUserCommandHandler(
       var resultUserRole = await _userManager.AddToRoleAsync(newUser, userDefaultRole);
 
       if (!resultUserRole.Succeeded)
-        throw new RecordCreationException(userDefaultRole, EntityTypes.ROLE.Description());
-
-      var userRoles = new List<string> { userDefaultRole };
+        throw new RecordCreationException($"Role {userDefaultRole} wasn't added to user {newUser.Id}");
 
       if (inviteCodeEntity?.Role is { } inviteRole && !string.Equals(inviteRole, userDefaultRole, StringComparison.OrdinalIgnoreCase))
       {
         var role = await _roleManager.FindByNameAsync(inviteRole)
-          ?? throw new InvalidDataException($"The role {inviteRole} granted by the invite code doesn't exist.");
+          ?? throw new InvalidDataException(ErrorMessages.Users.InviteRoleMissing(inviteRole));
 
         if (!(await _userManager.AddToRoleAsync(newUser, role.Name!)).Succeeded)
-          throw new RecordCreationException(role.Name!, EntityTypes.ROLE.Description());
-
-        userRoles.Add(role.Name!);
+          throw new RecordCreationException($"Role {role.Name} wasn't added to user {newUser.Id}");
       }
 
       // Create user details
-      var emailTokenBytes = Encoding.UTF8.GetBytes(await _userManager.GenerateEmailConfirmationTokenAsync(newUser));
-      var confirmEmailToken = WebEncoders.Base64UrlEncode(emailTokenBytes);
-
       var userDetails = new UserEntity
       {
         Id = newUser.Id,
         FirstName = command.FirstName,
         LastName = command.LastName,
-        EmailConfirmationToken = confirmEmailToken,
         IsDeleted = false
       };
 
@@ -244,48 +225,20 @@ public class RegisterUserCommandHandler(
 
       _userRegisteredAppRepository.CreateEntityItem(userRegisteredApp);
 
-      var roleClaimsVm = await _getRoleClaimsQueryHandler.GetItemsAsync(new GetRoleClaimsForRolesQuery { Roles = userRoles }, cancellationToken);
-
       // We only include the accessToken in the payload, when user is confirmed.
       var isConfirmed = !_identityOptions.SignIn.RequireConfirmedAccount || newUser.EmailConfirmed || newUser.PhoneNumberConfirmed;
-      AccessTokenViewModel? userToken = null;
 
-      if (isConfirmed)
-      {
-        // Generate access Token
-        (var token, var expiresIn) = _jwtTokenHandler.CreateToken(newUser.Id, newUser.UserName, registeredAppName, [.. userRoles], roleClaimsVm.RoleClaims);
+      var userToken = isConfirmed ? await _userTokenIssuer.StartSessionAsync(newUser.Id, command.UserName, registeredAppName, cancellationToken) : null;
 
-        //Generate and save Refresh Token details
-        var refreshToken = _tokenFactory.GenerateToken();
+      var welcomeMessage = UserMessages.Welcome(newUser, userDetails, registeredAppName);
 
-        var userRefreshToken = new RefreshTokenEntity
-        {
-          UserId = newUser.Id,
-          Expires = _machineDateTime.Now.AddSeconds(_refreshTokenSettings.ValidForSeconds),
-          Token = _tokenFactory.HashToken(refreshToken)
-        };
+      _messageOutbox.Add(UserMessages.UserUpdated, welcomeMessage);
 
-        userRefreshToken.SetEntityAuditFields(newUser.Id, _machineDateTime.Now);
+      if (command.RequestSource == RequestSource.UI && command.RegisteredApp.CallbackUrl != null)
+        _messageOutbox.Add(UserMessages.CallbackRequested, welcomeMessage);
 
-        _refreshTokenRepository.CreateEntityItem(userRefreshToken);
-
-        userToken = new AccessTokenViewModel
-        {
-          AccessToken = new AccessTokenDto
-          {
-            Token = token,
-            ExpiresIn = expiresIn
-          },
-          RefreshToken = refreshToken,
-        };
-
-      }
-
-      // Commit DB Transaction 
+      // Commit DB Transaction
       await _unitOfWork.CommitTransactionAsync(cancellationToken);
-
-      // Publish User Created Event - not awaited, so a slow callback or broker does not delay the response
-      _ = HandleEventAsync(userDetails, newUser, command.RegisteredApp, command.RequestSource);
 
       // Return registration results
       var userDto = new UserDto
@@ -295,9 +248,7 @@ public class RegisterUserCommandHandler(
         FirstName = userDetails.FirstName,
         LastName = userDetails.LastName,
         Email = newUser.Email,
-        PhoneNumber = newUser.PhoneNumber,
-        Roles = [.. userRoles],
-        RoleClaims = roleClaimsVm.RoleClaims
+        PhoneNumber = newUser.PhoneNumber
       };
 
       userDto.SetDtoAuditFields(userDetails);
@@ -313,43 +264,6 @@ public class RegisterUserCommandHandler(
     {
       await _unitOfWork.RollbackTransactionAsync();
       throw;
-    }
-  }
-
-  private string ResolveDefaultRole(string appName)
-  {
-    return $"{appName.TrimAndLowerInvariant()}{ZenConstants.SERVICE_ROLE_SEPARATOR}{_roleSettings.DefaultRole.TrimAndLowerInvariant()}";
-  }
-
-  private async Task HandleEventAsync(UserEntity userEntity, IdentityUser identityUser, RegisteredAppEntity registeredAppEntity, RequestSource requestSource)
-  {
-    var eventItem = new UserUpdateEvent
-    {
-      EventType = CrudEvent.CREATE,
-      UserContent = new UserEventContent
-      {
-        UserIdentityId = identityUser.Id,
-        FirstName = userEntity.FirstName,
-        LastName = userEntity.LastName,
-        UserName = identityUser.UserName,
-        PhoneNumber = identityUser.PhoneNumber,
-        PhoneNumberConfirmed = identityUser.PhoneNumberConfirmed,
-        UserEmail = identityUser.Email,
-        EmailConfirmed = identityUser.EmailConfirmed
-      },
-      RegisteredApp = registeredAppEntity,
-      RequestSource = requestSource
-    };
-
-    // Nothing awaits this task, so failures (callback errors, Kafka delivery failures) are logged here.
-    // It also outlives the request, so it must not use the request's cancellation token.
-    try
-    {
-      await _userUpdateEventHandler.HandleEventAsync(eventItem, CancellationToken.None);
-    }
-    catch (Exception ex)
-    {
-      _logHelper.LogEvent(LogLevel.Error, ex, "Failed to publish {EventType} event for user {UserId} of app {AppName}", eventItem.EventType, identityUser.Id, registeredAppEntity.AppName);
     }
   }
 }

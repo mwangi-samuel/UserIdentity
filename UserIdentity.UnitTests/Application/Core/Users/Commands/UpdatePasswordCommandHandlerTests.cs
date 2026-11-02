@@ -8,7 +8,6 @@ using FakeItEasy;
 using Microsoft.AspNetCore.Identity;
 
 using PolyzenKit.Application.Interfaces;
-using PolyzenKit.Infrastructure.Security.Tokens;
 using PolyzenKit.Persistence.Repositories;
 
 using UserIdentity.Application.Core.Users.Commands;

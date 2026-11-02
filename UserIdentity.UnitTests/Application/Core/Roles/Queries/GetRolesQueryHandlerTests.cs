@@ -1,14 +1,12 @@
-﻿using System.Collections.Generic;
-using System.Linq;
+﻿using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 
 using FakeItEasy;
 
-using Microsoft.AspNetCore.Identity;
-
 using UserIdentity.Application.Core.Roles.Queries;
-using UserIdentity.Application.Core.Roles.ViewModels;
-using UserIdentity.UnitTests.TestUtils;
+using UserIdentity.Domain.Roles;
+using UserIdentity.Persistence.Repositories.Roles;
 
 using Xunit;
 
@@ -16,52 +14,37 @@ namespace UserIdentity.UnitTests.Application.Core.Roles.Queries;
 
 public class GetRolesQueryHandlerTests
 {
-  private readonly RoleManager<IdentityRole> _roleManager;
-  private readonly UserManager<IdentityUser> _userManager;
+  private readonly IRoleRepository _roleRepository = A.Fake<IRoleRepository>();
 
-  public GetRolesQueryHandlerTests()
+  [Fact]
+  public async Task Get_Roles_For_An_App_Admin_Reads_The_Apps_Roles()
   {
-    _roleManager = A.Fake<RoleManager<IdentityRole>>();
-    _userManager = IdentityFakes.UserManager();
+    // Arrange
+    A.CallTo(() => _roleRepository.GetRoleDtosAsync("testapp:", A<CancellationToken>._))
+      .Returns([new RoleDto { Id = "1", Name = "testapp:admin" }, new RoleDto { Id = "2", Name = "testapp:user" }]);
+
+    var handler = new GetRolesQueryHandler(_roleRepository);
+
+    // Act
+    var vm = await handler.GetItemsAsync(new GetRolesQuery { AppName = "TestApp" }, TestContext.Current.CancellationToken);
+
+    // Assert
+    Assert.Equal(["testapp:admin", "testapp:user"], vm.Roles.Select(role => role.Name));
   }
 
   [Fact]
-  public async Task Get_Roles_Returns_Roles()
+  public async Task Get_Roles_For_A_Global_Admin_Reads_Every_Role()
   {
     // Arrange
-    List<IdentityRole> roles = [
-        new () { Id = "1", Name = "Admin" },
-            new () { Id = "2", Name = "User" }
-    ];
+    A.CallTo(() => _roleRepository.GetRoleDtosAsync(null, A<CancellationToken>._)).Returns([]);
 
-    A.CallTo(() => _roleManager.Roles).Returns(roles.AsQueryable());
-
-    GetRolesQueryHandler handler = new(_roleManager);
+    var handler = new GetRolesQueryHandler(_roleRepository);
 
     // Act
-    var vm = await handler.GetItemsAsync(new GetRolesQuery { }, TestContext.Current.CancellationToken);
+    var vm = await handler.GetItemsAsync(new GetRolesQuery(), TestContext.Current.CancellationToken);
 
     // Assert
-    Assert.IsType<RolesViewModel>(vm);
-    Assert.Equal(roles.Count, vm.Roles.Count);
-    Assert.Equal(roles.Select(r => r.Id), vm.Roles.Select(r => r.Id));
-    Assert.Equal(roles.Select(r => r.Name), vm.Roles.Select(r => r.Name));
-  }
-
-  [Fact]
-  public async Task Get_Roles__When_No_Roles_Returns_Zero_Roles()
-  {
-    // Arrange
-    List<IdentityRole> roles = [];
-    A.CallTo(() => _roleManager.Roles).Returns(roles.AsQueryable());
-
-    GetRolesQueryHandler handler = new(_roleManager);
-
-    // Act
-    var vm = await handler.GetItemsAsync(new GetRolesQuery { }, TestContext.Current.CancellationToken);
-
-    // Assert
-    Assert.IsType<RolesViewModel>(vm);
     Assert.Empty(vm.Roles);
+    A.CallTo(() => _roleRepository.GetRoleDtosAsync(null, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
   }
 }

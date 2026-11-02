@@ -1,12 +1,9 @@
 ﻿using PolyzenKit.Application.Core;
-using PolyzenKit.Application.Core.Attributes;
 using PolyzenKit.Application.Core.Interfaces;
-using PolyzenKit.Application.Enums;
 using PolyzenKit.Common.Exceptions;
 using PolyzenKit.Persistence.Repositories;
 
 using UserIdentity.Application.Core.WaitLists.ViewModels;
-using UserIdentity.Common;
 using UserIdentity.Domain.WaitLists;
 using UserIdentity.Persistence.Repositories.WaitLists;
 
@@ -14,10 +11,8 @@ namespace UserIdentity.Application.Core.WaitLists.Queries;
 
 public class GetWaitListQuery : IBaseQuery
 {
-  [EitherOr(nameof(WaitListId), nameof(UserEmail))]
   public long? WaitListId { get; set; }
 
-  [EitherOr(nameof(WaitListId), nameof(UserEmail))]
   public string? UserEmail { get; set; }
 
   public required int AppId { get; init; }
@@ -37,7 +32,7 @@ public class GetWaitListQueryHandler(
       : WaitListDto.FromEntityDetailed((await _waitListRepository.GetEntityByAlternateIdAsync(new() { AppId = query.AppId, UserEmail = query.UserEmail! }, QueryCondition.MUST_EXIST, cancellationToken))!);
 
     if (dto.AppId != query.AppId)
-      throw new NoRecordException($"{query.WaitListId}", EntityTypes.WAIT_LIST.Description());
+      throw NoRecordException.ForIdentifier($"{query.WaitListId}");
 
     return new WaitListViewModel { WaitList = dto };
   }

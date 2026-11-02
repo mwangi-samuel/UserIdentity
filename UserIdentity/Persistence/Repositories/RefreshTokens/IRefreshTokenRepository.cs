@@ -10,9 +10,7 @@ public interface IRefreshTokenRepository
 {
   Task<RefreshTokenEntity?> GetEntityByPreviousTokenAsync(string userId, string previousToken, CancellationToken cancellationToken = default);
 
-  Task RemoveExpiredEntityItemsAsync(string userId, DateTime now, CancellationToken cancellationToken = default);
-
   Task RemoveEntityItemsAsync(string userId, CancellationToken cancellationToken = default);
 
-  Task<List<RefreshTokenEntity>> GetEntityItemsExpiredBeforeAsync(DateTime now, int count, CancellationToken cancellationToken = default);
+  Task<int> DeleteEntityItemsExpiredBeforeAsync(DateTime expiredBefore, int count, CancellationToken cancellationToken = default);
 }

@@ -1,13 +1,11 @@
 ﻿using Microsoft.EntityFrameworkCore;
 
-using PolyzenKit.Application.Enums;
 using PolyzenKit.Common.Exceptions;
 using PolyzenKit.Common.Paging;
 using PolyzenKit.Common.Utilities;
 using PolyzenKit.Persistence.Repositories;
 using PolyzenKit.Persistence.Utilities;
 
-using UserIdentity.Common;
 using UserIdentity.Domain.InviteCodes;
 
 namespace UserIdentity.Persistence.Repositories.InviteCodes;
@@ -33,7 +31,16 @@ public class InviteCodeRepository(
     return await _dbContext.InviteCode
       .Where(e => e.Id == id)
       .Select(InviteCodeDto.Detailed)
-      .SingleOrDefaultAsync(cancellationToken) ?? throw new NoRecordException($"{id}", EntityTypes.INVITE_CODE.Description());
+      .SingleOrDefaultAsync(cancellationToken) ?? throw NoRecordException.ForIdentifier($"{id}");
+  }
+
+  public async Task<List<InviteCodeEntity>> GetAppliedEntityItemsForUserAsync(string userId, CancellationToken cancellationToken = default)
+  {
+    return await _dbContext.InviteCode
+      .Where(invite => invite.Applied
+        && _dbContext.UserRegisteredApp.Any(registration => registration.UserId == userId && registration.AppId == invite.AppId)
+        && _dbContext.Users.Any(user => user.Id == userId && user.Email == invite.UserEmail))
+      .ToListAsync(cancellationToken);
   }
 
   public async Task<PagedList<InviteCodeDto>> SearchEntityDtosByAppIdAsync(int appId, string? search, bool? applied, int page, int pageSize, CancellationToken cancellationToken = default)
@@ -43,15 +50,5 @@ public class InviteCodeRepository(
       .Where(invite => applied == null || invite.Applied == applied)
       .OrderByDescending(invite => invite.CreatedAt).ThenByDescending(invite => invite.Id)
       .Select(InviteCodeDto.Detailed).ToPageAsync(page, pageSize, cancellationToken);
-  }
-
-  public async Task<PagedList<InviteCodeDto>> GetEntityDtosByAppIdAsync(int appId, int page, int pageSize, CancellationToken cancellationToken = default)
-  {
-    return await _dbContext.InviteCode
-      .Where(e => e.AppId == appId)
-      .OrderByDescending(e => e.CreatedAt)
-      .ThenByDescending(e => e.Id)
-      .Select(InviteCodeDto.Detailed)
-      .ToPageAsync(page, pageSize, cancellationToken);
   }
 }

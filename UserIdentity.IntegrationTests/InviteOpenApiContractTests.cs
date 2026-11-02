@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Net;
 using System.Threading.Tasks;
@@ -44,6 +44,23 @@ public class InviteOpenApiContractTests
     {
       await File.WriteAllTextAsync(target, json, TestContext.Current.CancellationToken);
     }
+  }
+
+  [Fact]
+  public async Task OpenApi_RegisteredAppUpdateBody_HasNoId()
+  {
+    // Arrange
+    await using var factory = new MemoryFactory();
+    using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { BaseAddress = new Uri("https://localhost") });
+
+    // Act
+    var json = await client.GetStringAsync("/openapi/v1.json", TestContext.Current.CancellationToken);
+
+    // Assert
+    using var document = System.Text.Json.JsonDocument.Parse(json);
+    var properties = document.RootElement.GetProperty("components").GetProperty("schemas").GetProperty("UpdateRegisteredAppCommand").GetProperty("properties");
+    Assert.True(properties.TryGetProperty("appName", out _));
+    Assert.False(properties.TryGetProperty("id", out _));
   }
 
   private sealed class MemoryFactory : WebApplicationFactory<Program>

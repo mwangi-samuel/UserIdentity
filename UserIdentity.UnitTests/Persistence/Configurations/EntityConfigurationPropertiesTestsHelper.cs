@@ -1,4 +1,7 @@
-﻿using Microsoft.EntityFrameworkCore.Metadata.Internal;
+﻿using System.Linq;
+
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Internal;
 
 namespace UserIdentity.UnitTests.Persistence.Configurations;
 
@@ -36,6 +39,13 @@ internal static class EntityConfigurationPropertiesTestsHelper
 
     return false;
   }
+
+  [System.Diagnostics.CodeAnalysis.SuppressMessage("Usage", "EF1001:Internal EF Core API usage.", Justification = "Unit Tests")]
+  public static bool ConfirmCascadingForeignKey<TPrincipal>(this EntityType entityType, string column) =>
+    entityType.GetForeignKeys().Any(foreignKey =>
+      foreignKey.Properties.Any(property => property.Name == column)
+      && foreignKey.PrincipalEntityType.ClrType == typeof(TPrincipal)
+      && foreignKey.DeleteBehavior == DeleteBehavior.Cascade);
 
   [System.Diagnostics.CodeAnalysis.SuppressMessage("Usage", "EF1001:Internal EF Core API usage.", Justification = "Unit Tests")]
   public static bool ConfirmColumnHasKey(this EntityType entityType, string column)

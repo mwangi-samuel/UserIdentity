@@ -1,4 +1,4 @@
-﻿using PolyzenKit.Domain.Entity;
+﻿using PolyzenKit.Domain.Entities;
 
 namespace UserIdentity.Domain.RefreshTokens;
 
@@ -12,5 +12,5 @@ public class RefreshTokenEntity : BaseAuditableEntity<Guid>
 
   public string? UserId { get; internal set; }
 
-  public string? RemoteIpAddress { get; internal set; }
+  public Guid Version { get; internal set; }
 }

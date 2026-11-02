@@ -1,4 +1,6 @@
-﻿using UserIdentity.Domain.Users;
+﻿using Microsoft.AspNetCore.Identity;
+
+using UserIdentity.Domain.Users;
 using UserIdentity.Persistence.Configurations;
 
 using Xunit;
@@ -18,10 +20,10 @@ public class UserConfigurationTests
     userConfiguration.Configure(builder);
 
     // Assert
-    Assert.True(entityType.ConfirmMaxColumnLength(nameof(UserEntity.EmailConfirmationToken), 600));
     Assert.True(entityType.ConfirmMaxColumnLength(nameof(UserEntity.FirstName), 20));
     Assert.True(entityType.ConfirmMaxColumnLength(nameof(UserEntity.LastName), 20));
 
     Assert.True(entityType.ConfirmColumnHasKey(nameof(UserEntity.Id)));
+    Assert.True(entityType.ConfirmCascadingForeignKey<IdentityUser>(nameof(UserEntity.Id)));
   }
 }

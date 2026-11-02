@@ -4,7 +4,7 @@ using System.Threading.Tasks;
 
 using FakeItEasy;
 
-using PolyzenKit.Infrastructure.Security.Tokens;
+using PolyzenKit.Application.Interfaces;
 using PolyzenKit.Persistence.Repositories;
 
 using UserIdentity.Application.Core.Users.Commands;

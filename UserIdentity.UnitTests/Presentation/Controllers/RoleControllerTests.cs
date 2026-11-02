@@ -9,7 +9,7 @@ using Microsoft.AspNetCore.Mvc;
 
 using PolyzenKit.Application.Core;
 using PolyzenKit.Application.Core.Interfaces;
-using PolyzenKit.Application.Enums;
+using PolyzenKit.Common.Enums;
 
 using UserIdentity.Application.Core.Roles.Commands;
 using UserIdentity.Application.Core.Roles.Queries;

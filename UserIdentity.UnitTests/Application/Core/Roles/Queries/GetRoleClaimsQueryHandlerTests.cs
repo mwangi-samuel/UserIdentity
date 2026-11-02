@@ -6,8 +6,8 @@ using FakeItEasy;
 
 using Microsoft.AspNetCore.Identity;
 
+using PolyzenKit.Application.Interfaces;
 using PolyzenKit.Common.Exceptions;
-using PolyzenKit.Infrastructure.Security.Jwt;
 
 using UserIdentity.Application.Core.Roles.Queries;
 using UserIdentity.Application.Core.Roles.ViewModels;
@@ -100,44 +100,5 @@ public class GetRoleClaimsQueryHandlerTests
     Assert.IsType<RoleClaimsViewModel>(vm);
     Assert.IsType<ICollection<RoleClaimDto>>(vm.RoleClaims, exactMatch: false);
     Assert.Equal(roleClaims.Count, vm.RoleClaims.Count);
-  }
-
-  [Fact]
-  public async Task Get_RoleClaims_Given_Roles_Returns_Unique_RoleClaims()
-  {
-
-    // Arrange
-    List<string> roles =
-    [
-        "Admin"
-    ];
-
-    IdentityRole identityRole = new()
-    {
-      Id = "1234Admin",
-      Name = "Admin"
-    };
-
-    var resource = "resource";
-    var action = "action";
-    var scopedClaim = $"{resource}:{action}";
-
-    List<Claim> roleClaims =
-    [
-        new("scope",scopedClaim)
-    ];
-
-    A.CallTo(() => _roleManager.FindByNameAsync(roles[0])).Returns(identityRole);
-    A.CallTo(() => _roleManager.GetClaimsAsync(identityRole)).Returns(roleClaims);
-
-    GetRoleClaimsQueryHandler handler = new(_roleManager, _jwtTokenHandler);
-
-    // Act
-    var result = await handler.GetItemsAsync(new GetRoleClaimsForRolesQuery { Roles = roles }, TestContext.Current.CancellationToken);
-
-    // Assert
-    Assert.IsType<RoleClaimsForRolesViewModels>(result);
-    Assert.Single(result.RoleClaims);
-    Assert.Contains(scopedClaim, result.RoleClaims);
   }
 }

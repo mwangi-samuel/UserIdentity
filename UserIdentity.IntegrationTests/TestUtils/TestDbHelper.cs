@@ -7,11 +7,10 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 
+using PolyzenKit.Common.Settings;
 using PolyzenKit.Common.Utilities;
-using PolyzenKit.Domain.RegisteredApps;
-using PolyzenKit.Infrastructure.Security.Jwt;
+using PolyzenKit.Domain.Entities.RegisteredApps;
 using PolyzenKit.Infrastructure.Security.Tokens;
-using PolyzenKit.Presentation.Settings;
 
 using UserIdentity.Domain.InviteCodes;
 using UserIdentity.Domain.PasswordResets;
@@ -480,6 +479,12 @@ public sealed class TestDbHelper(
       _appDbContext.SaveChanges();
     }
   }
+
+  #endregion
+
+  #region OutboxMessageEntity Related
+
+  public int CountOutboxMessages() => _appDbContext.OutboxMessage.AsNoTracking().Count();
 
   #endregion
 

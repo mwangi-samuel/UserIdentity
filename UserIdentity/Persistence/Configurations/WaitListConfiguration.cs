@@ -13,6 +13,7 @@ public class WaitListConfiguration : IEntityTypeConfiguration<WaitListEntity>
   {
     builder.ConfigureLongPrimaryKey();
 
+    builder.Property(e => e.UserEmail).HasMaxLength(WaitListEntity.UserEmailMaxLength);
     builder.HasIndex(e => new { e.AppId, e.UserEmail }).IsUnique();
   }
 }

@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
@@ -9,7 +9,6 @@ using Microsoft.Extensions.Options;
 
 using PolyzenKit.Infrastructure.ExternalServices;
 
-using UserIdentity.Application.Core.Users.Settings;
 using UserIdentity.Infrastructure.ExternalServices;
 
 using Xunit;

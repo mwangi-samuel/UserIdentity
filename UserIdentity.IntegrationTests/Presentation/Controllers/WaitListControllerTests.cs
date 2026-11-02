@@ -1,9 +1,12 @@
+﻿using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
 
 using Newtonsoft.Json.Linq;
+
+using PolyzenKit.Presentation.ValidationHelpers;
 
 using UserIdentity.Domain.WaitLists;
 using UserIdentity.IntegrationTests.TestUtils;
@@ -246,6 +249,70 @@ public class WaitListControllerTests(
     await response.ValidateRequestResponseAsync();
 
     Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+  }
+
+  [Fact]
+  public async Task Create_WaitList_Ignores_Fields_The_Server_Sets()
+  {
+    // Arrange
+    _testDbHelper.SeedDatabase();
+
+    var newEmail = "mass-assignment@example.com";
+    var otherApp = _testDbHelper.GetRegisteredAppEntityByAppName(TestingWebAppFactory.OtherAppName);
+
+    var requestPayload = new
+    {
+      Id = 999999,
+      UserEmail = newEmail,
+      AppId = otherApp.Id,
+      Applied = true,
+      IsDeleted = true,
+      CreatedBy = "attacker",
+      UpdatedBy = "attacker"
+    };
+
+    // Act
+    var response = await _httpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri, requestPayload);
+
+    // Assert
+    await response.ValidateRequestResponseAsync();
+
+    Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+
+    var savedEntity = _testDbHelper.GetWaitListEntityByEmail(newEmail);
+
+    Assert.NotNull(savedEntity);
+    Assert.NotEqual(999999, savedEntity.Id);
+    Assert.Equal(_testDbHelper.GetRegisteredAppEntityByAppName(_registeredApp.AppName).Id, savedEntity.AppId);
+    Assert.False(savedEntity.IsDeleted);
+    Assert.NotEqual("attacker", savedEntity.CreatedBy);
+    Assert.NotEqual("attacker", savedEntity.UpdatedBy);
+  }
+
+  [Fact]
+  public async Task Create_WaitList_With_A_Malformed_Email_Returns_BadRequest_With_Error_List()
+  {
+    // Arrange
+    _testDbHelper.SeedDatabase();
+
+    var requestPayload = new
+    {
+      UserEmail = "not-an-email"
+    };
+
+    // Act
+    var response = await _httpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri, requestPayload);
+
+    // Assert
+    var responseString = await response.ValidateRequestResponseAsync();
+
+    Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+
+    var errorList = SerDeHelper.Deserialize<JObject>(responseString)?["error"]?["errorList"]?.ToObject<List<ValidationError>>();
+
+    Assert.NotNull(errorList);
+    Assert.Contains(errorList, error => error.Field == "UserEmail");
+    Assert.Null(_testDbHelper.GetWaitListEntityByEmail("not-an-email"));
   }
 
   #endregion
