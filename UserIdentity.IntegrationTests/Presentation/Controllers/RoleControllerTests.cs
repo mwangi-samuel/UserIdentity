@@ -278,7 +278,7 @@ public class RoleControllerTests(
     Assert.Equal("Request Failed", $"{jsonObject["requestStatus"]}");
     Assert.Equal("400 - BAD REQUEST", $"{jsonObject["statusMessage"]}");
 
-    Assert.Equal($"A record identified with - {requestPayload.RoleName} - exists", jsonObject["error"]?["message"]);
+    Assert.Equal($"A record identified with - {requestPayload.RoleName} - exists", $"{jsonObject["error"]?["message"]}");
 
     var dateTime = (DateTime?)jsonObject["error"]?["timestamp"];
 
@@ -318,7 +318,7 @@ public class RoleControllerTests(
     Assert.Equal("Request Failed", $"{jsonObject["requestStatus"]}");
     Assert.Equal("400 - BAD REQUEST", $"{jsonObject["statusMessage"]}");
 
-    Assert.Equal("Validation Failed", jsonObject["error"]?["message"]);
+    Assert.Equal("Validation Failed", $"{jsonObject["error"]?["message"]}");
 
     var dateTime = (DateTime?)jsonObject["error"]?["timestamp"];
 
@@ -476,7 +476,7 @@ public class RoleControllerTests(
     Assert.Equal("Request Failed", $"{jsonObject["requestStatus"]}");
     Assert.Equal("404 - NOT FOUND", $"{jsonObject["statusMessage"]}");
 
-    Assert.Equal($"No record exists for the provided identifier - {requestPayload.RoleId}", jsonObject["error"]?["message"]);
+    Assert.Equal($"No record exists for the provided identifier - {requestPayload.RoleId}", $"{jsonObject["error"]?["message"]}");
 
     var dateTime = (DateTime?)jsonObject["error"]?["timestamp"];
 
@@ -515,7 +515,7 @@ public class RoleControllerTests(
     Assert.Equal("Request Failed", $"{jsonObject["requestStatus"]}");
     Assert.Equal("400 - BAD REQUEST", $"{jsonObject["statusMessage"]}");
 
-    Assert.Equal("Validation Failed", jsonObject["error"]?["message"]);
+    Assert.Equal("Validation Failed", $"{jsonObject["error"]?["message"]}");
 
     var dateTime = (DateTime?)jsonObject["error"]?["timestamp"];
 
@@ -655,7 +655,7 @@ public class RoleControllerTests(
     Assert.Equal("Request Failed", $"{jsonObject["requestStatus"]}");
     Assert.Equal("404 - NOT FOUND", $"{jsonObject["statusMessage"]}");
 
-    Assert.Equal($"No record exists for the provided identifier - {nonExistentRuleId}", jsonObject["error"]?["message"]);
+    Assert.Equal($"No record exists for the provided identifier - {nonExistentRuleId}", $"{jsonObject["error"]?["message"]}");
 
     var dateTime = (DateTime?)jsonObject["error"]?["timestamp"];
 
@@ -776,7 +776,7 @@ public class RoleControllerTests(
     Assert.Equal("Request Failed", $"{jsonObject["requestStatus"]}");
     Assert.Equal("404 - NOT FOUND", $"{jsonObject["statusMessage"]}");
 
-    Assert.Equal($"No record exists for the provided identifier - {nonExistentUserId}", jsonObject["error"]?["message"]);
+    Assert.Equal($"No record exists for the provided identifier - {nonExistentUserId}", $"{jsonObject["error"]?["message"]}");
 
     var dateTime = (DateTime?)jsonObject["error"]?["timestamp"];
 
@@ -933,7 +933,7 @@ public class RoleControllerTests(
     Assert.Equal("Request Failed", $"{jsonObject["requestStatus"]}");
     Assert.Equal("400 - BAD REQUEST", $"{jsonObject["statusMessage"]}");
 
-    Assert.Equal($"A record identified with - {requestPayload.RoleId} - exists", jsonObject["error"]?["message"]);
+    Assert.Equal($"A record identified with - {requestPayload.RoleId} - exists", $"{jsonObject["error"]?["message"]}");
 
     var dateTime = (DateTime?)jsonObject["error"]?["timestamp"];
 
@@ -974,7 +974,7 @@ public class RoleControllerTests(
     Assert.Equal("Request Failed", $"{jsonObject["requestStatus"]}");
     Assert.Equal("400 - BAD REQUEST", $"{jsonObject["statusMessage"]}");
 
-    Assert.Equal("Validation Failed", jsonObject["error"]?["message"]);
+    Assert.Equal("Validation Failed", $"{jsonObject["error"]?["message"]}");
 
     var dateTime = (DateTime?)jsonObject["error"]?["timestamp"];
 
@@ -1145,7 +1145,7 @@ public class RoleControllerTests(
     Assert.Equal("Request Failed", $"{jsonObject["requestStatus"]}");
     Assert.Equal("400 - BAD REQUEST", $"{jsonObject["statusMessage"]}");
 
-    Assert.Equal($"A record identified with - {$"user{ZenConstants.SCOPE_CLAIM_SEPARATOR}edit"} - exists", jsonObject["error"]?["message"]);
+    Assert.Equal($"A record identified with - {$"user{ZenConstants.SCOPE_CLAIM_SEPARATOR}edit"} - exists", $"{jsonObject["error"]?["message"]}");
 
     var dateTime = (DateTime?)jsonObject["error"]?["timestamp"];
 
@@ -1186,7 +1186,7 @@ public class RoleControllerTests(
     Assert.Equal("Request Failed", $"{jsonObject["requestStatus"]}");
     Assert.Equal("400 - BAD REQUEST", $"{jsonObject["statusMessage"]}");
 
-    Assert.Equal("Validation Failed", jsonObject["error"]?["message"]);
+    Assert.Equal("Validation Failed", $"{jsonObject["error"]?["message"]}");
 
     var dateTime = (DateTime?)jsonObject["error"]?["timestamp"];
 
@@ -1378,7 +1378,7 @@ public class RoleControllerTests(
     Assert.Equal("Request Failed", $"{jsonObject["requestStatus"]}");
     Assert.Equal("404 - NOT FOUND", $"{jsonObject["statusMessage"]}");
 
-    Assert.Equal($"No record exists for the provided identifier - {nonExistentRoleId}", jsonObject["error"]?["message"]);
+    Assert.Equal($"No record exists for the provided identifier - {nonExistentRoleId}", $"{jsonObject["error"]?["message"]}");
 
     var dateTime = (DateTime?)jsonObject["error"]?["timestamp"];
 
@@ -1518,7 +1518,7 @@ public class RoleControllerTests(
     Assert.Equal("Request Failed", $"{jsonObject["requestStatus"]}");
     Assert.Equal("404 - NOT FOUND", $"{jsonObject["statusMessage"]}");
 
-    Assert.Equal($"No record exists for the provided identifier - {requestPayload.Resource}:{requestPayload.Action}", jsonObject["error"]?["message"]);
+    Assert.Equal($"No record exists for the provided identifier - {requestPayload.Resource}:{requestPayload.Action}", $"{jsonObject["error"]?["message"]}");
 
     var dateTime = (DateTime?)jsonObject["error"]?["timestamp"];
 
@@ -1557,7 +1557,7 @@ public class RoleControllerTests(
     Assert.Equal("Request Failed", $"{jsonObject["requestStatus"]}");
     Assert.Equal("400 - BAD REQUEST", $"{jsonObject["statusMessage"]}");
 
-    Assert.Equal("Validation Failed", jsonObject["error"]?["message"]);
+    Assert.Equal("Validation Failed", $"{jsonObject["error"]?["message"]}");
 
     var dateTime = (DateTime?)jsonObject["error"]?["timestamp"];
 

@@ -14,38 +14,30 @@ services:
       timeout: 5s
       retries: 30
 
-  redpanda:
-    image: redpandadata/redpanda:v25.3.3
+  nats:
+    image: nats:2.15.2-alpine
     volumes:
-      - redpanda_data:/var/lib/redpanda/data
+      - nats_data:/data
     ports:
-      - 9092:9092
-      - 8081:8081
-    command:
-      - redpanda
-      - start
-      - --mode=dev-container
-      # One shard: each shard reserves Linux AIO slots, and one per core exhausts fs.aio-max-nr so MySQL cannot start
-      - --smp=1
-      - --kafka-addr=internal://0.0.0.0:19092,external://0.0.0.0:9092
-      - --advertise-kafka-addr=internal://redpanda:19092,external://localhost:9092
-      - --schema-registry-addr=internal://0.0.0.0:8081
+      - 4222:4222
+      - 8222:8222
+    configs:
+      - source: nats_config
+        target: /etc/nats/nats-server.conf
     healthcheck:
-      test: ["CMD-SHELL", "rpk cluster health | grep -E 'Healthy:.+true' || exit 1"]
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8222/healthz?js-enabled-only=true"]
       interval: 5s
       timeout: 5s
       retries: 30
 
-  redpanda-console:
-    image: redpandadata/console:v3.3.2
+  nats-ui:
+    image: ghcr.io/nats-nui/nui:0.10.0
+    volumes:
+      - nats_ui_data:/db
     ports:
-      - 8090:8080
-    environment:
-      KAFKA_BROKERS: redpanda:19092
-      KAFKA_SCHEMAREGISTRY_ENABLED: "true"
-      KAFKA_SCHEMAREGISTRY_URLS: http://redpanda:8081
+      - 31311:31311
     depends_on:
-      redpanda:
+      nats:
         condition: service_healthy
 
   useridentity:
@@ -56,18 +48,37 @@ services:
       - 5050:8080
     environment:
       MysqlSettings__Host: db
-      KafkaSettings__BootstrapServers: redpanda:19092
-      KafkaSettings__SchemaRegistryUrl: redpanda:8081
+      MessagingSettings__NatsUrl: nats://nats:4222
       KeySetOptions__PrivateKeyPassPhrase: ${EDDSA_PRIVATE_KEY_PASSPHRASE:-S3T@G00dPa22Phr@S3}
+      Serilog__MinimumLevel: Information
       EDDSA_PRIVATE_KEY:
       EDDSA_PUBLIC_KEY:
     depends_on:
       db:
         condition: service_healthy
-      redpanda:
+      nats:
         condition: service_healthy
     restart: on-failure:5
 
 volumes:
   mysql_data:
-  redpanda_data:
+  nats_data:
+  nats_ui_data:
+
+configs:
+  nats_config:
+    content: |
+      port: 4222
+      http_port: 8222
+
+      jetstream {
+        store_dir: /data
+        # A single server must sync every write, or a crash loses messages it has already acknowledged
+        sync_interval: always
+      }
+
+      authorization {
+        users: [
+          { user: useridentity, password: useridentity-local, permissions: { publish: ["useridentity.>", "$$JS.API.>", "$$JS.ACK.>"], subscribe: ["_INBOX.>"] } }
+        ]
+      }

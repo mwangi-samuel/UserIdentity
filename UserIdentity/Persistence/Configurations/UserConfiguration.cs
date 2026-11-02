@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 using UserIdentity.Domain.Users;
@@ -10,9 +11,9 @@ public class UserConfiguration : IEntityTypeConfiguration<UserEntity>
   public void Configure(EntityTypeBuilder<UserEntity> builder)
   {
     builder.HasKey(e => e.Id);
-    builder.HasIndex(e => e.CreatedAt);
+    builder.HasOne<IdentityUser>().WithOne().HasForeignKey<UserEntity>(e => e.Id).OnDelete(DeleteBehavior.Cascade);
 
-    builder.Property(e => e.EmailConfirmationToken).HasMaxLength(600);
+    builder.HasIndex(e => e.CreatedAt);
 
     builder.Property(e => e.FirstName).HasMaxLength(20);
 

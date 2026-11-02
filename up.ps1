@@ -7,7 +7,7 @@ $composeArguments = @('--project-directory', $PSScriptRoot, '-f', (Join-Path $PS
 
 if ($UseLocal) {
 
-  # --wait returns once the db and redpanda health checks pass
+  # --wait returns once the db and nats health checks pass
   docker compose @composeArguments up -d --wait --scale useridentity=0
   if ($LASTEXITCODE -ne 0) {
     exit $LASTEXITCODE

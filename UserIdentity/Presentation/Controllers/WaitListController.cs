@@ -3,10 +3,8 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 
 using PolyzenKit.Application.Core.Interfaces;
-using PolyzenKit.Application.Core.RegisteredApps.Resolvers;
+using PolyzenKit.Application.Core.RegisteredApps.Shared;
 using PolyzenKit.Common.Utilities;
-using PolyzenKit.Domain.RegisteredApps;
-using PolyzenKit.Presentation.Controllers;
 using PolyzenKit.Presentation.Settings;
 
 using UserIdentity.Application.Core.WaitLists.Commands;
@@ -20,17 +18,11 @@ public class WaitListController(
    IGetItemQueryHandler<GetWaitListQuery, WaitListViewModel> getItemQueryHandler,
 
    IRegisteredAppResolver registeredAppResolver
-  ) : BaseController
+  ) : AppAdminController(registeredAppResolver)
 {
 
   private readonly ICreateItemCommandHandler<CreateWaitListCommand, WaitListViewModel> _createItemCommandHandler = createItemCommandHandler;
   private readonly IGetItemQueryHandler<GetWaitListQuery, WaitListViewModel> _getItemQueryHandler = getItemQueryHandler;
-
-  private readonly IRegisteredAppResolver _registeredAppResolver = registeredAppResolver;
-
-  // App admins work on their token's app, and global admins name the app in the X-App-Name header
-  private Task<RegisteredAppEntity> GetAdminAppAsync() =>
-    IsGlobalAdmin ? GetRegisteredAppAsync(_registeredAppResolver) : _registeredAppResolver.GetActiveAppAsync(AuthorizedParty, RequestAborted);
 
   [Authorize(Policy = ZenConstants.ADMIN_OR_GLOBAL_ADMIN_POLICY)]
   [HttpGet]

@@ -1,8 +1,8 @@
 ﻿using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
 
-using PolyzenKit.Domain.Entity;
-using PolyzenKit.Domain.RegisteredApps;
+using PolyzenKit.Domain.Entities;
+using PolyzenKit.Domain.Entities.RegisteredApps;
 
 using UserIdentity.Domain.Users;
 

@@ -32,7 +32,7 @@ public class UpdateRoleCommandHandlerTests
     UpdateRoleCommand command = new()
     {
       RoleId = "1",
-      RoleName = "Admin"
+      RoleName = "admin"
     };
 
     A.CallTo(() => _roleManager.FindByIdAsync(command.RoleId)).Returns(default(IdentityRole));
@@ -82,7 +82,7 @@ public class UpdateRoleCommandHandlerTests
     UpdateRoleCommand command = new()
     {
       RoleId = "1",
-      RoleName = "Admin"
+      RoleName = "admin"
     };
 
     IdentityRole identityRole = new()
@@ -108,7 +108,7 @@ public class UpdateRoleCommandHandlerTests
     UpdateRoleCommand command = new()
     {
       RoleId = "1",
-      RoleName = "Admin"
+      RoleName = "admin"
     };
 
     IdentityRole identityRole = new()
@@ -130,5 +130,26 @@ public class UpdateRoleCommandHandlerTests
     Assert.IsType<RoleViewModel>(vm);
     Assert.IsType<RoleDto>(vm.Role);
     Assert.Equal(command.RoleName, vm.Role.Name);
+  }
+
+  [Fact]
+  public async Task Update_Role_Stores_The_Trimmed_Name_In_Lower_Case()
+  {
+    // Arrange
+    UpdateRoleCommand command = new() { RoleId = "1", RoleName = " TestApp:Editor ", AppName = "TestApp" };
+
+    IdentityRole identityRole = new() { Id = command.RoleId, Name = "testapp:user" };
+
+    A.CallTo(() => _roleManager.FindByIdAsync(command.RoleId)).Returns(identityRole);
+    A.CallTo(() => _roleManager.UpdateAsync(identityRole)).Returns(IdentityResult.Success);
+
+    UpdateRoleCommandHandler handler = new(_roleManager);
+
+    // Act
+    var vm = await handler.UpdateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken);
+
+    // Assert
+    Assert.Equal("testapp:editor", vm.Role.Name);
+    Assert.Equal("testapp:editor", identityRole.Name);
   }
 }

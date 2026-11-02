@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -9,8 +9,8 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Options;
 
 using PolyzenKit.Application.Interfaces;
+using PolyzenKit.Common.Settings;
 using PolyzenKit.Persistence.Repositories;
-using PolyzenKit.Presentation.Settings;
 
 using UserIdentity.Application.Core.InviteCodes.Commands;
 using UserIdentity.Domain.InviteCodes;
@@ -48,9 +48,12 @@ public class CreateInviteCodeCommandHandlerTests
     {
       InviteCode = "INVITE123",
       UserEmail = "test@example.com",
-      AppId = 1,
-      Applied = false
+      AppId = 1
     };
+
+    InviteCodeEntity? capturedEntity = null;
+    A.CallTo(() => _inviteCodeRepository.CreateEntityItem(A<InviteCodeEntity>._))
+        .Invokes((InviteCodeEntity e) => capturedEntity = e);
 
     var expectedDto = new InviteCodeDto
     {
@@ -58,7 +61,6 @@ public class CreateInviteCodeCommandHandlerTests
       InviteCode = command.InviteCode,
       UserEmail = command.UserEmail,
       AppId = command.AppId,
-      Applied = command.Applied,
       AppName = "TestApp"
     };
 
@@ -75,6 +77,12 @@ public class CreateInviteCodeCommandHandlerTests
     Assert.Equal(expectedDto.InviteCode, result.InviteCode.InviteCode);
     Assert.Equal(expectedDto.UserEmail, result.InviteCode.UserEmail);
     Assert.Equal(expectedDto.AppId, result.InviteCode.AppId);
+
+    Assert.NotNull(capturedEntity);
+    Assert.Equal(command.InviteCode, capturedEntity.InviteCode);
+    Assert.Equal(command.UserEmail, capturedEntity.UserEmail);
+    Assert.Equal(command.AppId, capturedEntity.AppId);
+    Assert.False(capturedEntity.Applied);
 
     A.CallTo(() => _inviteCodeRepository.CreateEntityItem(A<InviteCodeEntity>._)).MustHaveHappenedOnceExactly();
     A.CallTo(() => _unitOfWork.SaveChangesAsync(A<CancellationToken>._)).MustHaveHappenedOnceExactly();

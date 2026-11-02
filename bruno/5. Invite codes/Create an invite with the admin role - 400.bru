@@ -25,7 +25,7 @@ body:json {
 script:pre-request {
   const suffix = `${Date.now()}`.slice(-6);
   bru.setVar("invite_email", `invitee${suffix}@example.com`);
-  bru.setVar("invite_code", `INV${suffix}`);
+  bru.setVar("invite_code", `INVITE${suffix}`);
 }
 
 tests {

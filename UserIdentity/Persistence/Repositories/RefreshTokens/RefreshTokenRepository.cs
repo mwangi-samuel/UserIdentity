@@ -30,22 +30,13 @@ public class RefreshTokenRepository(
         .SingleOrDefaultAsync(e => e.UserId == userId && e.PreviousToken == previousToken, cancellationToken);
   }
 
-  public async Task RemoveExpiredEntityItemsAsync(string userId, DateTime now, CancellationToken cancellationToken = default)
-  {
-    var expiredEntities = await _appDbContext.RefreshToken
-        .Where(e => e.UserId == userId && e.Expires <= now)
-        .ToListAsync(cancellationToken);
-
-    _appDbContext.RefreshToken.RemoveRange(expiredEntities);
-  }
-
-  public async Task<List<RefreshTokenEntity>> GetEntityItemsExpiredBeforeAsync(DateTime now, int count, CancellationToken cancellationToken = default)
+  public async Task<int> DeleteEntityItemsExpiredBeforeAsync(DateTime expiredBefore, int count, CancellationToken cancellationToken = default)
   {
     return await _appDbContext.RefreshToken
-        .Where(e => e.Expires <= now)
+        .Where(e => e.Expires <= expiredBefore)
         .OrderBy(e => e.Expires)
         .Take(count)
-        .ToListAsync(cancellationToken);
+        .ExecuteDeleteAsync(cancellationToken);
   }
 
   public async Task RemoveEntityItemsAsync(string userId, CancellationToken cancellationToken = default)

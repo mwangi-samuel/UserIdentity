@@ -10,7 +10,7 @@ public interface IInviteCodeRepository
   IItemEntityRepository<InviteCodeEntity, long>,
   IItemEntityDtoRepository<InviteCodeDto, long>
 {
-  Task<PagedList<InviteCodeDto>> SearchEntityDtosByAppIdAsync(int appId, string? search, bool? applied, int page, int pageSize, CancellationToken cancellationToken = default);
+  Task<List<InviteCodeEntity>> GetAppliedEntityItemsForUserAsync(string userId, CancellationToken cancellationToken = default);
 
-  Task<PagedList<InviteCodeDto>> GetEntityDtosByAppIdAsync(int appId, int page, int pageSize, CancellationToken cancellationToken = default);
+  Task<PagedList<InviteCodeDto>> SearchEntityDtosByAppIdAsync(int appId, string? search, bool? applied, int page, int pageSize, CancellationToken cancellationToken = default);
 }

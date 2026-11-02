@@ -29,9 +29,7 @@ public class GetInviteCodesQueryHandler(
   public async Task<InviteCodesViewModel> GetItemsAsync(GetInviteCodesQuery query, CancellationToken cancellationToken = default)
   {
     var search = string.IsNullOrWhiteSpace(query.Search) ? null : query.Search.Trim();
-    var page = search is null && !query.Applied.HasValue
-      ? await _inviteCodeRepository.GetEntityDtosByAppIdAsync(query.AppId, query.Page, query.PageSize, cancellationToken)
-      : await _inviteCodeRepository.SearchEntityDtosByAppIdAsync(query.AppId, search, query.Applied, query.Page, query.PageSize, cancellationToken);
+    var page = await _inviteCodeRepository.SearchEntityDtosByAppIdAsync(query.AppId, search, query.Applied, query.Page, query.PageSize, cancellationToken);
 
     return new InviteCodesViewModel
     {

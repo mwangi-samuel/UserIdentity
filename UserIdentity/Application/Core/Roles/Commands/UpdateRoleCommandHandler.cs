@@ -8,8 +8,9 @@ using PolyzenKit.Application.Core.Interfaces;
 using PolyzenKit.Common.Exceptions;
 using PolyzenKit.Common.Utilities;
 
+using UserIdentity.Application.Core.Roles.Shared;
 using UserIdentity.Application.Core.Roles.ViewModels;
-using UserIdentity.Application.Helpers;
+using UserIdentity.Common.Errors;
 using UserIdentity.Domain.Roles;
 
 namespace UserIdentity.Application.Core.Roles.Commands;
@@ -32,23 +33,25 @@ public class UpdateRoleCommandHandler(
 
   public async Task<RoleViewModel> UpdateItemAsync(UpdateRoleCommand command, string userId, CancellationToken cancellationToken = default)
   {
-    var role = await _roleManager.FindByIdAsync(command.RoleId!) ?? throw new NoRecordException(command.RoleId, "Role");
+    var role = await _roleManager.FindByIdAsync(command.RoleId!) ?? throw NoRecordException.ForIdentifier(command.RoleId);
+
+    var roleName = command.RoleName.TrimAndLowerInvariant();
 
     if (command.AppName is not null)
     {
-      if (!AppRolesHelper.IsAppRole(role.Name, command.AppName))
-        throw new NoRecordException(command.RoleId, "Role");
+      if (!AppRoleNames.IsAppRole(role.Name, command.AppName))
+        throw NoRecordException.ForIdentifier(command.RoleId);
 
-      if (!AppRolesHelper.IsAppRole(command.RoleName, command.AppName))
-        throw new InvalidDataException($"Role names must start with {command.AppName.TrimAndLowerInvariant()}{ZenConstants.SERVICE_ROLE_SEPARATOR}");
+      if (!AppRoleNames.IsAppRole(roleName, command.AppName))
+        throw new InvalidDataException(ErrorMessages.Roles.NameOutsideApp(AppRoleNames.Prefix(command.AppName)));
     }
 
-    role.Name = command.RoleName;
+    role.Name = roleName;
 
     var updateRoleResult = await _roleManager.UpdateAsync(role);
 
     if (!updateRoleResult.Succeeded)
-      throw new RecordUpdateException(command.RoleId, "Role");
+      throw new RecordUpdateException($"Role {command.RoleId} wasn't updated");
 
     return new RoleViewModel
     {

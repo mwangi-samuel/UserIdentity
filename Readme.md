@@ -18,14 +18,14 @@ UserIdentity is an easy-to-use RESTful API that simplifies user management by pr
   ```
 
 ### Instructions
-`docker-compose.yml` starts MySQL, Redpanda (Kafka), Redpanda Console and UserIdentity.
+`docker-compose.yml` starts MySQL, NATS (with JetStream) and UserIdentity.
 
-- `.\up.ps1 -UseLocal` starts MySQL and Redpanda, waits for them to be healthy, then runs UserIdentity from source on http://localhost:5050 with the `UserIdentity` launch profile. The OpenAPI document is at http://localhost:5050/openapi/v1.json.
+- `.\up.ps1 -UseLocal` starts MySQL and NATS, waits for them to be healthy, then runs UserIdentity from source on http://localhost:5050 with the `UserIdentity` launch profile. The OpenAPI document is at http://localhost:5050/openapi/v1.json.
 - `.\up.ps1 -Build` builds the image and runs everything in Docker. UserIdentity is on http://localhost:5050.
 - `.\up.ps1` runs everything in Docker without rebuilding.
 - `.\down.ps1` stops the stack and preserves its named volumes for the next run.
 
-Kafka topics can be inspected in Redpanda Console at http://localhost:8090.
+NATS monitoring is on http://localhost:8222, and NUI, a web UI for browsing streams and messages, is on http://localhost:31311 (add a connection to `nats://nats:4222` with the user below). The local NATS server has one user, `useridentity` (password `useridentity-local`), which may publish only to UserIdentity's own subjects and the JetStream API.
 
 The app applies database migrations on startup.
 
@@ -34,7 +34,7 @@ Each account belongs to the app it registered with. Logging in, refreshing a tok
 
 There are two kinds of admin:
 
-- **App admins** have the `<app>:admin` role. They manage their app's roles (names must start with `<app>:`) and those roles' scopes, give those roles to their app's users, read their app's users, and manage their app's invite codes and wait list. Anything belonging to another app returns 404, or 400 for a role name outside the prefix.
+- **App admins** have the `<app>:admin` role. They manage their app's roles (names must start with `<app>:`, and are stored in lower case) and those roles' scopes, give those roles to their app's users, read their app's users, and manage their app's invite codes and wait list. Anything belonging to another app returns 404, or 400 for a role name outside the prefix.
 - **Global admins** have `RoleSettings:GlobalAdminRole` (default `global:admin`), whatever app they log in through. They manage registered apps, and every app's roles, role scopes and users. For invite codes and wait list entries they name the app in the `X-App-Name` header. The app names `global` and `service` are reserved.
 
 No user starts as an admin, so the first admins are created with `.sql/add_admin_user_role.sql`. It takes the user name or email and the app name, creates the role if it's missing, and is safe to run again. Add `@role_name='global:admin'` for a global admin:
@@ -58,15 +58,20 @@ App admins manage the scopes of their app's roles, and get 404 for any other rol
 ## Invite Codes
 An invite code lets one email address sign up to an app, and can give the new account a role. App admins manage their app's invite codes, and global admins name the app in the `X-App-Name` header.
 
-- `POST /api/v1/invite-code` with `{ "inviteCode": "...", "userEmail": "...", "role": "<app>:owner" }` creates one. `role` is optional. When set, it must be an existing role of the app that isn't an admin role (`<app>:admin` or any of `RoleSettings:AdminRoles`), or the request returns 400. There's one invite code per app and email.
+- `POST /api/v1/invite-code` with `{ "inviteCode": "...", "userEmail": "...", "role": "<app>:owner" }` creates one. The code has 10 to 255 characters and the email must be a valid address. `role` is optional. When set, it must be an existing role of the app that isn't an admin role (`<app>:admin` or any of `RoleSettings:AdminRoles`), or the request returns 400. There's one invite code per app and email.
 - `GET /api/v1/invite-code?page=1&pageSize=50&search=owner&applied=false` lists the app's invite codes, newest first, with `totalCount`. Optional `search` (email, up to 100 characters) and nullable `applied` filters are combined before counting/paging; omission retains the full list.
 - `GET /api/v1/invite-code/{id}` and `GET /api/v1/invite-code/email/{email}` read one.
 - `DELETE /api/v1/invite-code/{id}` revokes an unused invite code. A used one returns 400, and another app's returns 404.
 
-Signing up with `inviteCode` checks it whether or not the app has `RequireInviteCode` on: the email is required, an invite code must exist for the app and email, the code must match (ignoring case), and it must be unused. Otherwise the request returns 400. A valid code is marked used, and its role is given to the new account with the default role, so it's in the account's tokens with its scopes. If that role no longer exists, sign-up returns 400 and nothing is saved. Without `inviteCode`, sign-up only needs one when the app requires it.
+Signing up with `inviteCode` checks it whether or not the app has `RequireInviteCode` on: the email is required, an invite code must exist for the app and email, the code must match (ignoring case), and it must be unused. Otherwise the request returns 400, with the same message whether the invite is missing, wrong or used, so sign-up never says whether an email has an invite. A valid code is marked used, and its role is given to the new account with the default role, so it's in the account's tokens with its scopes. If that role no longer exists, sign-up returns 400 and nothing is saved. Without `inviteCode`, sign-up only needs one when the app requires it.
+
+## Wait List
+`POST /api/v1/wait-list` with the `X-App-Name` header and `{ "userEmail": "..." }` adds an email to the app's wait list. Anyone can call it. The email must be a valid address of up to 255 characters, and any other field in the body is ignored. App admins read their app's entries with `GET /api/v1/wait-list/{id}` and `GET /api/v1/wait-list/email/{email}`, and global admins name the app in the `X-App-Name` header.
 
 ## App Callbacks
-When a user registers through an app's UI and the app has a `CallbackUrl`, UserIdentity POSTs the user details to it. Each callback is signed with the app's `AppSecretKey`:
+When a user registers through an app's UI and the app has a `CallbackUrl`, UserIdentity POSTs the user details to it. Registrations through `register-for-service` get no callback. The callback goes through the outbox: sign-up stores a message with the new account and sends it to NATS JetStream, and UserIdentity receives it and calls the app. A failed callback is retried after each of `MessagingSettings:RetryDelaysSeconds` until it succeeds or `MessagingSettings:MaxDeliver` runs out. Delivery is at least once, so an app may get the same callback twice and should ignore a repeated `userIdentityId`.
+
+Each callback is signed with the app's `AppSecretKey`:
 
 - `X-Timestamp`: Unix time in seconds.
 - `X-Signature`: `sha256=` followed by the hex HMAC-SHA256 of `{timestamp}.{body}`.
@@ -75,15 +80,15 @@ Apps should recompute the signature over the raw request body, compare it in con
 
 ## Sessions
 - Login and registration return a short-lived access token and a refresh token. A session lasts `RefreshTokenSettings:ValidForSeconds` (default 30 days) and each refresh extends it. Only hashes of refresh tokens are stored.
-- Each refresh returns a new refresh token, and the one sent can't be used again. If a replaced refresh token is sent again, UserIdentity treats it as copied and ends that session. Clients must keep the newest refresh token, and must not send the same refresh token twice at once (for example, from two tabs).
+- Each refresh returns a new refresh token, and the one sent can't be used again. If a replaced refresh token is sent again, UserIdentity treats it as copied and ends that session. Clients must keep the newest refresh token, and must not send the same refresh token twice at once (for example, from two tabs): the second of two simultaneous refreshes gets a 409.
 - `POST /api/v1/user/logout` with the access token and `{ "refreshToken": "..." }` ends that session. The access token keeps working until it expires.
 - Five wrong passwords in a row lock an account for five minutes. A locked account gets the same response as a wrong password.
 
 ## Password Reset
 Users reset their password with a code, the same way they confirm their account:
 
-1. `POST /api/v1/user/reset-password` with the `X-App-Name` header and `{ "userName": "<user name or email>" }`. The response is always 200 with a `resetRequestId`, whether or not the account exists. For an existing user, a `PASSWORD_RESET` message is produced to Kafka with the reset request id as its correlation id. Another request for the same user within `PasswordResetSettings:RequestCooldownSeconds`, or after `PasswordResetSettings:MaxRequestsPerDay` requests (default 5) in the last 24 hours, produces nothing. Each request gets its own code and attempts, so the daily cap limits how many codes can be guessed.
-2. Once a message saying the code for that correlation id was verified is consumed from Kafka, the reset request is marked verified.
+1. `POST /api/v1/user/reset-password` with the `X-App-Name` header and `{ "userName": "<user name or email>" }`. The response is always 200 with a `resetRequestId`, whether or not the account exists. For an existing user, a `PASSWORD_RESET` message with the reset request id as its correlation id is stored with the request and sent to NATS JetStream. Another request for the same user within `PasswordResetSettings:RequestCooldownSeconds`, or after `PasswordResetSettings:MaxRequestsPerDay` requests (default 5) in the last 24 hours, sends nothing. Each request gets its own code and attempts, so the daily cap limits how many codes can be guessed.
+2. Once a message saying the code for that correlation id was verified is received from NATS JetStream, the reset request is marked verified.
 3. `POST /api/v1/user/update-password` with `{ "resetRequestId": "...", "newPassword": "..." }`. It returns 406 if the request is unknown, not verified yet, expired (`PasswordResetSettings:ValidForSeconds`, default 15 minutes) or already used, and 400 if the new password breaks the password rules. A successful reset ends all of the user's sessions and lifts any lockout.
 
 ## Rate Limiting
@@ -92,7 +97,7 @@ Register, login, reset-password, update-password and the waitlist sign-up allow 
 Behind a reverse proxy, set `ForwardedHeadersSettings__KnownNetworks` to the proxy's network (comma-separated CIDR ranges). Otherwise every request appears to come from the proxy, and all clients share one limit.
 
 ## Cleanup
-Every `CleanupSettings:IntervalInMinutes` (default 60), expired refresh tokens are deleted, and so are password reset requests a day after they expire (kept that long for the daily cap). When confirmed accounts are required, accounts still unconfirmed after `CleanupSettings:UnconfirmedUserLifetimeInDays` (default 30) are deleted too, along with their sessions, app links and roles, and their invite code can be used again.
+Every `CleanupSettings:IntervalInMinutes` (default 60), expired refresh tokens are deleted, and so are password reset requests a day after they expire (kept that long for the daily cap). When confirmed accounts are required, accounts still unconfirmed after `CleanupSettings:UnconfirmedUserLifetimeInDays` (default 30) are deleted too, along with their details, sessions, reset requests, app links and roles, and the invite code they used for their app can be used again.
 
 ## Settings
 Every setting has a default in `appsettings.json` that works locally. In production, set at least these:
@@ -103,8 +108,8 @@ Every setting has a default in `appsettings.json` that works locally. In product
 | `AppSecretOptions__Keys__<id>`, `AppSecretOptions__CurrentKeyId` | Base64 256-bit keys that encrypt registered apps' secrets at rest. Generate one with `openssl rand -base64 32` and keep it in a secret store: secrets encrypted with a lost key can't be recovered |
 | `ApiKeySettings__ApiKey` | The key clients send in `X-Api-Key` |
 | `MysqlSettings__*` | Database connection |
-| `KafkaSettings__BootstrapServers`, `KafkaSettings__SchemaRegistryUrl` | Kafka connection |
-| `CorsSettings__AllowedOrigins` | Comma-separated origins allowed to call the API |
+| `MessagingSettings__NatsUrl` | The NATS server, without credentials |
+| `MessagingSettings__NatsUser`, `MessagingSettings__NatsPassword` | UserIdentity's own NATS user. Keep the password in a secret store |
 | `ForwardedHeadersSettings__KnownNetworks` | The reverse proxy's networks (see [Rate Limiting](#rate-limiting)) |
 
 ## API Collections
@@ -123,7 +128,7 @@ The `bruno` folder is a [Bruno](https://www.usebruno.com/) collection covering r
   ```
 
 ## Running the Tests
-The tests use xUnit v3 on Microsoft Testing Platform (selected in `global.json`). The integration tests start MySQL and Redpanda with Testcontainers, so Docker must be running.
+The tests use xUnit v3 on Microsoft Testing Platform (selected in `global.json`). The integration tests start MySQL and NATS with Testcontainers, so Docker must be running.
 
 ```
 dotnet test --project UserIdentity.UnitTests/UserIdentity.UnitTests.csproj

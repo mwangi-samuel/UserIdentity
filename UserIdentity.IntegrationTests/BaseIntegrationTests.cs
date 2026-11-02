@@ -9,15 +9,15 @@ using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
+using NATS.Client.JetStream;
+
 using Polly;
 using Polly.Retry;
 
-using PolyzenKit.Application.Core.Messages.Events;
-using PolyzenKit.Application.Core.RegisteredApps.Settings;
-using PolyzenKit.Application.Interfaces;
+using PolyzenKit.Application.Core.RegisteredApps.Shared;
 using PolyzenKit.Common.Exceptions;
-using PolyzenKit.Domain.AppEntities;
-using PolyzenKit.Domain.RegisteredApps;
+using PolyzenKit.Domain.Entities.AppEntities;
+using PolyzenKit.Domain.Entities.RegisteredApps;
 using PolyzenKit.Persistence.Infrastructure;
 using PolyzenKit.Presentation.Settings;
 
@@ -43,10 +43,9 @@ public class BaseIntegrationTests : IAsyncLifetime
   private readonly AppDbContext _appDbContext;
 
   protected readonly TestDbHelper _testDbHelper;
-  protected readonly KafkaConsumerHelper _kafkaConsumerHelper;
-  protected readonly KafkaProducerHelper _kafkaProducerHelper;
+  protected readonly NatsTestHelper _natsTestHelper;
 
-  protected readonly RegisteredAppEntity _registeredApp;
+  protected readonly RegisteredAppSeed _registeredApp;
   protected readonly ApiKeySettings _apiKeySettings;
 
   protected readonly IConfiguration _configuration;
@@ -71,11 +70,7 @@ public class BaseIntegrationTests : IAsyncLifetime
       _serviceProvider.GetRequiredService<RoleManager<IdentityRole>>()
     );
 
-    _kafkaConsumerHelper = new KafkaConsumerHelper(_configuration);
-    _kafkaProducerHelper = new KafkaProducerHelper(
-      _configuration,
-      _serviceProvider.GetRequiredService<IKafkaMessageProducer<string, MessageEvent>>()
-      );
+    _natsTestHelper = new NatsTestHelper(_serviceProvider.GetRequiredService<INatsJSContext>());
 
     _registeredApp = _configuration.GetSetting<RegisteredAppsSettings>().RegisteredApps.FirstOrDefault()
       ?? throw new MissingConfigurationException("At least one registered app must be provided");

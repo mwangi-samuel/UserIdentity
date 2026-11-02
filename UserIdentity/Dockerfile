@@ -31,23 +31,10 @@ RUN dotnet publish "UserIdentity.csproj" \
     /p:PublishDocumentationFiles=false \
     /p:PublishReferencesSymbols=false
 
-RUN rm -f \
-    /app/publish/librdkafka.so \
-    /app/publish/centos8-librdkafka.so
-
-FROM base AS stripped
-COPY --from=build /app/publish /app/publish
-RUN apk add --no-cache binutils \
-    && strip --strip-unneeded /app/publish/alpine-librdkafka.so
-
 FROM base AS final
-ARG TARGETARCH
 RUN apk upgrade --no-cache
-RUN if [ "$TARGETARCH" = "arm64" ]; then \
-        apk add --no-cache libsasl; \
-    fi
 
 WORKDIR /app
-COPY --from=stripped /app/publish .
+COPY --from=build /app/publish .
 USER $APP_UID
 ENTRYPOINT ["./UserIdentity"]

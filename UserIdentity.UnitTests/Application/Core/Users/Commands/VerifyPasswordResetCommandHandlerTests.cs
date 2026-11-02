@@ -6,7 +6,6 @@ using FakeItEasy;
 
 using PolyzenKit.Application.Interfaces;
 using PolyzenKit.Common.Exceptions;
-using PolyzenKit.Infrastructure.Security.Tokens;
 using PolyzenKit.Persistence.Repositories;
 
 using UserIdentity.Application.Core.Users.Commands;
@@ -43,7 +42,7 @@ public class VerifyPasswordResetCommandHandlerTests
   public async Task UpdateItemAsync_WhenRequestNotFound_ThrowsNoRecordException()
   {
     A.CallTo(() => _passwordResetRepository.GetEntityByAlternateIdAsync(A<PasswordResetEntity>._, QueryCondition.MUST_EXIST, A<CancellationToken>._))
-      .Throws(new NoRecordException(ResetRequestIdHash, nameof(PasswordResetEntity)));
+      .Throws(NoRecordException.ForIdentifier(ResetRequestIdHash));
 
     var handler = new VerifyPasswordResetCommandHandler(_tokenFactory, _unitOfWork, _passwordResetRepository, _machineDateTime);
 

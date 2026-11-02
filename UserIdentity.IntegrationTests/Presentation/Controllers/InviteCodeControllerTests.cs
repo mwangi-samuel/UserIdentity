@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
@@ -161,7 +161,7 @@ public class InviteCodeControllerTests(
     _testDbHelper.CreateIdentityRole(_testDbHelper.AdminRoles.First());
     _testDbHelper.ConfigureIdentityUserAsAdmin();
 
-    var inviteCode = "TESTCODE";
+    var inviteCode = "TESTCODE01";
     var userEmail = "new-invitecode@example.com";
 
     var requestPayload = new
@@ -210,7 +210,7 @@ public class InviteCodeControllerTests(
 
     var requestPayload = new
     {
-      InviteCode = "FORBCODE",
+      InviteCode = "FORBCODE01",
       UserEmail = "forbidden-invitecode@example.com"
     };
 
@@ -256,7 +256,7 @@ public class InviteCodeControllerTests(
     var userEmail = "owner-invitecode@example.com";
 
     // Act
-    var response = await _httpClient.SendValidAuthRequestAsync(HttpMethod.Post, _baseUri, new { inviteCode = "OWNERCODE", userEmail, role = OwnerRole });
+    var response = await _httpClient.SendValidAuthRequestAsync(HttpMethod.Post, _baseUri, new { inviteCode = "OWNERCODE1", userEmail, role = OwnerRole });
 
     // Assert
     var responseString = await response.ValidateRequestResponseAsync();
@@ -286,7 +286,7 @@ public class InviteCodeControllerTests(
     var userEmail = "bad-role-invitecode@example.com";
 
     // Act
-    var response = await _httpClient.SendValidAuthRequestAsync(HttpMethod.Post, _baseUri, new { inviteCode = "BADROLE", userEmail, role });
+    var response = await _httpClient.SendValidAuthRequestAsync(HttpMethod.Post, _baseUri, new { inviteCode = "BADROLE001", userEmail, role });
 
     // Assert
     await response.ValidateRequestResponseAsync();

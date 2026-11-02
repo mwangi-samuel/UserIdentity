@@ -8,7 +8,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Options;
 
 using PolyzenKit.Common.Exceptions;
-using PolyzenKit.Presentation.Settings;
+using PolyzenKit.Common.Settings;
 
 using UserIdentity.Application.Core.Roles.Queries;
 using UserIdentity.Application.Core.Roles.ViewModels;

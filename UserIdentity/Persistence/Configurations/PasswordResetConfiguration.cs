@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 using PolyzenKit.Persistence.Configurations;
@@ -16,8 +17,7 @@ public class PasswordResetConfiguration : IEntityTypeConfiguration<PasswordReset
     builder.Property(e => e.RequestId).HasMaxLength(200);
     builder.HasIndex(e => e.RequestId).IsUnique();
 
-    builder.Property(e => e.UserId).HasMaxLength(50);
-    builder.HasIndex(e => e.UserId);
+    builder.HasOne<IdentityUser>().WithMany().HasForeignKey(e => e.UserId).OnDelete(DeleteBehavior.Cascade);
     builder.HasIndex(e => e.Expires);
   }
 }

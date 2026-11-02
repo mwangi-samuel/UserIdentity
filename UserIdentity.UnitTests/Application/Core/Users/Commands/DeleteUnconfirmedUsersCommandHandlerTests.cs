@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -11,12 +13,10 @@ using PolyzenKit.Application.Interfaces;
 using PolyzenKit.Persistence.Repositories;
 
 using UserIdentity.Application.Core.Users.Commands;
-using UserIdentity.Application.Core.Users.Settings;
+using UserIdentity.Application.Core.Users.Shared;
 using UserIdentity.Domain.InviteCodes;
 using UserIdentity.Domain.Users;
 using UserIdentity.Persistence.Repositories.InviteCodes;
-using UserIdentity.Persistence.Repositories.PasswordResets;
-using UserIdentity.Persistence.Repositories.RefreshTokens;
 using UserIdentity.Persistence.Repositories.Users;
 using UserIdentity.UnitTests.TestUtils;
 
@@ -31,8 +31,6 @@ public class DeleteUnconfirmedUsersCommandHandlerTests
   private readonly IUnitOfWork _unitOfWork = A.Fake<IUnitOfWork>();
   private readonly IUserRepository _userRepository = A.Fake<IUserRepository>();
   private readonly IInviteCodeRepository _inviteCodeRepository = A.Fake<IInviteCodeRepository>();
-  private readonly IRefreshTokenRepository _refreshTokenRepository = A.Fake<IRefreshTokenRepository>();
-  private readonly IPasswordResetRepository _passwordResetRepository = A.Fake<IPasswordResetRepository>();
   private readonly IMachineDateTime _machineDateTime = A.Fake<IMachineDateTime>();
 
   public DeleteUnconfirmedUsersCommandHandlerTests()
@@ -46,11 +44,11 @@ public class DeleteUnconfirmedUsersCommandHandlerTests
     identityOptions.SignIn.RequireConfirmedAccount = requireConfirmedAccount;
 
     return new(_userManager, Options.Create(identityOptions), Options.Create(new CleanupSettings { UnconfirmedUserLifetimeInDays = 30 }),
-      _unitOfWork, _userRepository, _inviteCodeRepository, _refreshTokenRepository, _passwordResetRepository, _machineDateTime);
+      _unitOfWork, _userRepository, _inviteCodeRepository, _machineDateTime);
   }
 
   [Fact]
-  public async Task DeleteItemAsync_DeletesTheUser_AndReopensTheirInviteCode()
+  public async Task DeleteItemAsync_Frees_The_Invite_Of_The_Users_App_And_Deletes_The_Identity_User()
   {
     // Arrange
     var userEntity = new UserEntity { Id = Guid.NewGuid().ToString() };
@@ -61,19 +59,15 @@ public class DeleteUnconfirmedUsersCommandHandlerTests
       .Returns([userEntity]);
     A.CallTo(() => _userManager.FindByIdAsync(userEntity.Id)).Returns(identityUser);
     A.CallTo(() => _userManager.DeleteAsync(identityUser)).Returns(IdentityResult.Success);
-    A.CallTo(() => _inviteCodeRepository.GetEntityByAlternateIdAsync(A<InviteCodeEntity>.That.Matches(e => e.UserEmail == identityUser.Email), QueryCondition.MAY_OR_MAY_NOT_EXIST, A<CancellationToken>._))
-      .Returns(inviteCode);
+    A.CallTo(() => _inviteCodeRepository.GetAppliedEntityItemsForUserAsync(userEntity.Id, A<CancellationToken>._)).Returns([inviteCode]);
 
     // Act
     await CreateHandler().DeleteItemAsync(new DeleteUnconfirmedUsersCommand(), "system", TestContext.Current.CancellationToken);
 
     // Assert
     Assert.False(inviteCode.Applied);
-    A.CallTo(() => _inviteCodeRepository.UpdateEntityItem(inviteCode)).MustHaveHappenedOnceExactly();
-    A.CallTo(() => _refreshTokenRepository.RemoveEntityItemsAsync(userEntity.Id, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
-    A.CallTo(() => _passwordResetRepository.RemoveEntityItemsAsync(userEntity.Id, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
-    A.CallTo(() => _userRepository.RemoveEntityItem(userEntity)).MustHaveHappenedOnceExactly();
-    A.CallTo(() => _userManager.DeleteAsync(identityUser)).MustHaveHappenedOnceExactly();
+    A.CallTo(() => _inviteCodeRepository.UpdateEntityItem(inviteCode)).MustHaveHappenedOnceExactly()
+      .Then(A.CallTo(() => _userManager.DeleteAsync(identityUser)).MustHaveHappenedOnceExactly());
     A.CallTo(() => _unitOfWork.CommitTransactionAsync(A<CancellationToken>._)).MustHaveHappenedOnceExactly();
   }
 
@@ -105,5 +99,24 @@ public class DeleteUnconfirmedUsersCommandHandlerTests
 
     A.CallTo(() => _unitOfWork.RollbackTransactionAsync(A<CancellationToken>._)).MustHaveHappenedOnceExactly();
     A.CallTo(() => _unitOfWork.CommitTransactionAsync(A<CancellationToken>._)).MustNotHaveHappened();
+  }
+
+  [Fact]
+  public async Task DeleteItemAsync_Keeps_Reading_Batches_Until_One_Is_Short()
+  {
+    // Arrange
+    static List<UserEntity> Build(int count) => [.. Enumerable.Range(0, count).Select(_ => new UserEntity { Id = Guid.NewGuid().ToString() })];
+
+    A.CallTo(() => _userRepository.GetUnconfirmedEntityItemsCreatedBeforeAsync(A<DateTime>._, DeleteUnconfirmedUsersCommandHandler.BatchSize, A<CancellationToken>._))
+      .ReturnsNextFromSequence(Build(DeleteUnconfirmedUsersCommandHandler.BatchSize), Build(1));
+    A.CallTo(() => _userManager.FindByIdAsync(A<string>._)).ReturnsLazily((string id) => new IdentityUser { Id = id });
+    A.CallTo(() => _userManager.DeleteAsync(A<IdentityUser>._)).Returns(IdentityResult.Success);
+
+    // Act
+    await CreateHandler().DeleteItemAsync(new DeleteUnconfirmedUsersCommand(), "system", TestContext.Current.CancellationToken);
+
+    // Assert
+    A.CallTo(() => _userManager.DeleteAsync(A<IdentityUser>._)).MustHaveHappened(DeleteUnconfirmedUsersCommandHandler.BatchSize + 1, Times.Exactly);
+    A.CallTo(() => _unitOfWork.CommitTransactionAsync(A<CancellationToken>._)).MustHaveHappened(DeleteUnconfirmedUsersCommandHandler.BatchSize + 1, Times.Exactly);
   }
 }

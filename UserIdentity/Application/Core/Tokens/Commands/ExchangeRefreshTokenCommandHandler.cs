@@ -1,6 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
-using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
@@ -8,20 +7,16 @@ using Microsoft.IdentityModel.Tokens;
 using PolyzenKit.Application.Core;
 using PolyzenKit.Application.Core.Interfaces;
 using PolyzenKit.Application.Interfaces;
+using PolyzenKit.Common.Settings;
 using PolyzenKit.Common.Utilities;
-using PolyzenKit.Domain.Entity;
-using PolyzenKit.Infrastructure.Security.Jwt;
-using PolyzenKit.Infrastructure.Security.Tokens;
+using PolyzenKit.Domain.Entities;
 using PolyzenKit.Persistence.Repositories;
-using PolyzenKit.Presentation.Settings;
 
-using UserIdentity.Application.Core.Roles.Queries;
-using UserIdentity.Application.Core.Roles.ViewModels;
-using UserIdentity.Application.Core.Tokens.Settings;
+using UserIdentity.Application.Core.Tokens.Shared;
 using UserIdentity.Application.Core.Tokens.ViewModels;
-using UserIdentity.Application.Helpers;
 using UserIdentity.Domain.RefreshTokens;
 using UserIdentity.Persistence.Repositories.RefreshTokens;
+using UserIdentity.Persistence.Repositories.Roles;
 using UserIdentity.Persistence.Repositories.UserRegisteredApps;
 
 namespace UserIdentity.Application.Core.Tokens.Commands;
@@ -39,11 +34,10 @@ public class ExchangeRefreshTokenCommandHandler(
     IOptions<RefreshTokenSettings> refreshTokenSettingsOptions,
     IJwtTokenHandler jwtTokenHandler,
     ITokenFactory tokenFactory,
-    UserManager<IdentityUser> userManager,
     IUnitOfWork unitOfWork,
     IRefreshTokenRepository refreshTokenRepository,
+    IRoleRepository roleRepository,
     IMachineDateTime machineDateTime,
-    IGetItemsQueryHandler<GetRoleClaimsForRolesQuery, RoleClaimsForRolesViewModels> getRoleClaimsQueryHandler,
     IUserRegisteredAppRepository userRegisteredAppRepository,
     IOptions<RoleSettings> roleSettingsOptions
     ) : IUpdateItemCommandHandler<ExchangeRefreshTokenCommand, ExchangeRefreshTokenViewModel>
@@ -52,14 +46,12 @@ public class ExchangeRefreshTokenCommandHandler(
   private readonly IJwtTokenHandler _jwtTokenHandler = jwtTokenHandler;
   private readonly ITokenFactory _tokenFactory = tokenFactory;
 
-  private readonly UserManager<IdentityUser> _userManager = userManager;
   private readonly IUnitOfWork _unitOfWork = unitOfWork;
   private readonly IRefreshTokenRepository _refreshTokenRepository = refreshTokenRepository;
   private readonly IMachineDateTime _machineDateTime = machineDateTime;
 
-  private readonly IGetItemsQueryHandler<GetRoleClaimsForRolesQuery, RoleClaimsForRolesViewModels> _getRoleClaimsQueryHandler = getRoleClaimsQueryHandler;
   private readonly IUserRegisteredAppRepository _userRegisteredAppRepository = userRegisteredAppRepository;
-  private readonly RoleSettings _roleSettings = roleSettingsOptions.Value;
+  private readonly UserTokenIssuer _userTokenIssuer = new(roleRepository, refreshTokenRepository, jwtTokenHandler, tokenFactory, machineDateTime, roleSettingsOptions.Value, refreshTokenSettingsOptions.Value);
 
   public async Task<ExchangeRefreshTokenViewModel> UpdateItemAsync(ExchangeRefreshTokenCommand command, string userId, CancellationToken cancellationToken = default)
   {
@@ -112,17 +104,14 @@ public class ExchangeRefreshTokenCommandHandler(
       throw new SecurityTokenException("Invalid refresh token provided");
     }
 
-    var userRoles = AppRolesHelper.ForApp(await _userManager.GetRolesAsync(new IdentityUser { Id = tokenUserId }), azp, _roleSettings.GlobalAdminRole);
-
-    var userRoleClaims = await _getRoleClaimsQueryHandler.GetItemsAsync(new GetRoleClaimsForRolesQuery { Roles = userRoles }, cancellationToken);
+    var accessToken = await _userTokenIssuer.CreateAccessTokenAsync(tokenUserId, tokenUserName, azp, cancellationToken);
 
     var updateRefreshToken = _tokenFactory.GenerateToken();
-
-    (var token, var expiresIn) = _jwtTokenHandler.CreateToken(tokenUserId, tokenUserName, azp, [.. userRoles], userRoleClaims.RoleClaims);
 
     existingEntity.PreviousToken = existingEntity.Token;
     existingEntity.Token = _tokenFactory.HashToken(updateRefreshToken);
     existingEntity.Expires = _machineDateTime.Now.AddSeconds(_refreshTokenSettings.ValidForSeconds);
+    existingEntity.Version = Guid.NewGuid();
     existingEntity.UpdateEntityAuditFields(tokenUserId, _machineDateTime.Now);
 
     _refreshTokenRepository.UpdateEntityItem(existingEntity);
@@ -133,7 +122,7 @@ public class ExchangeRefreshTokenCommandHandler(
     {
       UserToken = new AccessTokenViewModel
       {
-        AccessToken = new AccessTokenDto { Token = token, ExpiresIn = expiresIn },
+        AccessToken = accessToken,
         RefreshToken = updateRefreshToken,
       },
       EditEnabled = false,

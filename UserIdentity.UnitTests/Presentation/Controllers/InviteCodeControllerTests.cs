@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -8,9 +8,9 @@ using Microsoft.AspNetCore.Mvc;
 
 using PolyzenKit.Application.Core;
 using PolyzenKit.Application.Core.Interfaces;
-using PolyzenKit.Application.Core.RegisteredApps.Resolvers;
-using PolyzenKit.Application.Enums;
-using PolyzenKit.Domain.RegisteredApps;
+using PolyzenKit.Application.Core.RegisteredApps.Shared;
+using PolyzenKit.Common.Enums;
+using PolyzenKit.Domain.Entities.RegisteredApps;
 
 using UserIdentity.Application.Core.InviteCodes.Commands;
 using UserIdentity.Application.Core.InviteCodes.Queries;

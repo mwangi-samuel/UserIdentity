@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.IdentityModel.JsonWebTokens;
 
-using PolyzenKit.Infrastructure.Security.Jwt;
+using PolyzenKit.Common.Utilities;
 using PolyzenKit.Presentation.Controllers;
 
 namespace UserIdentity.UnitTests.Presentation.Controllers;

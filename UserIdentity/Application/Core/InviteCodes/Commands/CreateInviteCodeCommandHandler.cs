@@ -1,4 +1,5 @@
-﻿using System.Text.Json.Serialization;
+﻿using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Options;
@@ -6,19 +7,31 @@ using Microsoft.Extensions.Options;
 using PolyzenKit.Application.Core;
 using PolyzenKit.Application.Core.Interfaces;
 using PolyzenKit.Application.Interfaces;
-using PolyzenKit.Common.Utilities;
+using PolyzenKit.Common.Settings;
 using PolyzenKit.Persistence.Repositories;
-using PolyzenKit.Presentation.Settings;
 
 using UserIdentity.Application.Core.InviteCodes.ViewModels;
-using UserIdentity.Application.Helpers;
+using UserIdentity.Application.Core.Roles.Shared;
+using UserIdentity.Common.Errors;
 using UserIdentity.Domain.InviteCodes;
 using UserIdentity.Persistence.Repositories.InviteCodes;
 
 namespace UserIdentity.Application.Core.InviteCodes.Commands;
 
-public class CreateInviteCodeCommand : InviteCodeEntity, IBaseCommand
+public record CreateInviteCodeCommand : IBaseCommand
 {
+  [Required, EmailAddress, StringLength(InviteCodeEntity.UserEmailMaxLength)]
+  public string UserEmail { get; init; } = null!;
+
+  [Required, StringLength(InviteCodeEntity.InviteCodeMaxLength, MinimumLength = InviteCodeEntity.InviteCodeMinLength)]
+  public string InviteCode { get; init; } = null!;
+
+  [StringLength(InviteCodeEntity.RoleMaxLength)]
+  public string? Role { get; init; }
+
+  [JsonIgnore]
+  public int AppId { get; internal set; }
+
   [JsonIgnore]
   public string AppName { get; internal set; } = string.Empty;
 }
@@ -37,9 +50,13 @@ public class CreateInviteCodeCommandHandler(
 
   public async Task<InviteCodeViewModel> CreateItemAsync(CreateInviteCodeCommand command, string userId, CancellationToken cancellationToken = default)
   {
-    var entity = (InviteCodeEntity)command;
-
-    entity.Role = await ResolveRoleAsync(command.Role, command.AppName);
+    var entity = new InviteCodeEntity
+    {
+      UserEmail = command.UserEmail,
+      InviteCode = command.InviteCode,
+      Role = await ResolveRoleAsync(command.Role, command.AppName),
+      AppId = command.AppId
+    };
 
     await CreateEntityItemAsync(entity, userId, cancellationToken);
 
@@ -56,13 +73,13 @@ public class CreateInviteCodeCommandHandler(
 
     roleName = roleName.Trim();
 
-    if (!AppRolesHelper.IsAppRole(roleName, appName)
-      || AppRolesHelper.IsAppAdminRole(roleName, appName, _roleSettings.AdminRoles)
-      || AppRolesHelper.IsGlobalAdminRole(roleName, _roleSettings.GlobalAdminRole))
-      throw new InvalidDataException($"An invite can only grant a {appName.TrimAndLowerInvariant()}{ZenConstants.SERVICE_ROLE_SEPARATOR} role that isn't an admin role");
+    if (!AppRoleNames.IsAppRole(roleName, appName)
+      || AppRoleNames.IsAppAdminRole(roleName, appName, _roleSettings)
+      || AppRoleNames.IsGlobalAdminRole(roleName, _roleSettings.GlobalAdminRole))
+      throw new InvalidDataException(ErrorMessages.InviteCodes.RoleNotGrantable(AppRoleNames.Prefix(appName)));
 
     var role = await _roleManager.FindByNameAsync(roleName)
-      ?? throw new InvalidDataException($"The role {roleName} doesn't exist");
+      ?? throw new InvalidDataException(ErrorMessages.InviteCodes.RoleMissing(roleName));
 
     return role.Name;
   }

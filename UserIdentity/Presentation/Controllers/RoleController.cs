@@ -4,9 +4,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 using PolyzenKit.Application.Core;
-using PolyzenKit.Application.Core.Extensions;
 using PolyzenKit.Application.Core.Interfaces;
-using PolyzenKit.Application.Enums;
+using PolyzenKit.Common.Enums;
 using PolyzenKit.Common.Utilities;
 using PolyzenKit.Presentation.Controllers;
 
@@ -114,12 +113,6 @@ public class RoleController(
 
     return StatusCode((int)HttpStatusCode.Created, vm);
   }
-
-  /// <summary>
-  /// Roles Claims
-  /// </summary>
-  /// <param name="command"></param>
-  /// <returns></returns>
 
   [Authorize(Policy = ZenConstants.ADMIN_OR_GLOBAL_ADMIN_POLICY)]
   [HttpPost]

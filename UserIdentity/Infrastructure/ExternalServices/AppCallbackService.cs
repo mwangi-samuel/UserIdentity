@@ -1,9 +1,11 @@
 ﻿using Microsoft.Extensions.Options;
 
+using PolyzenKit.Application.Interfaces;
+using PolyzenKit.Common.Enums;
+using PolyzenKit.Common.Settings;
 using PolyzenKit.Common.Utilities;
+using PolyzenKit.Domain.Entities.RegisteredApps;
 using PolyzenKit.Infrastructure.ExternalServices;
-using PolyzenKit.Infrastructure.Security.Jwt;
-using PolyzenKit.Presentation.Settings;
 
 using UserIdentity.Application.Core.Users.Events;
 using UserIdentity.Application.Interfaces;
@@ -24,40 +26,45 @@ public class AppCallbackService(
 
   private const string targetServiceName = "AppCallback";
 
-  public async Task SendCallbackRequestAsync(UserUpdateEvent userUpdateEvent, CancellationToken cancellationToken = default)
+  public async Task SendCallbackRequestAsync(RegisteredAppEntity registeredApp, UserRegisteredEvent user, CancellationToken cancellationToken = default)
   {
-    var externalServiceName = userUpdateEvent.RegisteredApp.AppName!;
-    var externalServiceUrl = userUpdateEvent.RegisteredApp.CallbackUrl!;
-
-    var xRequestId = ResolveRequestId();
-
     var content = new
     {
-      userUpdateEvent.UserContent,
-      userUpdateEvent.EventType
+      UserContent = new
+      {
+        UserIdentityId = user.UserId,
+        user.FirstName,
+        user.LastName,
+        user.UserName,
+        user.PhoneNumber,
+        PhoneNumberConfirmed = false,
+        user.UserEmail,
+        EmailConfirmed = false
+      },
+      EventType = CrudEvent.CREATE
     };
 
-    var requestMessage = _httpClientHelper.CreateHttpRequestMessage(HttpMethod.Post, externalServiceUrl)
-        .WithXRequestId(xRequestId)
+    var requestMessage = _httpClientHelper.CreateHttpRequestMessage(HttpMethod.Post, registeredApp.CallbackUrl!)
+        .WithXRequestId(ResolveRequestId())
         .WithHttpContent(content);
 
-    if (userUpdateEvent.RegisteredApp.ForwardServiceToken)
+    if (registeredApp.ForwardServiceToken)
       requestMessage = requestMessage.WithBearerToken(
           GenerateServiceToken(
               CurrentServiceName,
-              userUpdateEvent.RegisteredApp.AppName,
-              ResolveServiceResource(externalServiceName, "user"),
+              registeredApp.AppName,
+              ResolveServiceResource(registeredApp.AppName, "user"),
               ZenConstants.SCOPE_ACTION_CREATE
               )
           );
 
-    if (userUpdateEvent.RegisteredApp.CallbackHeaders != null && userUpdateEvent.RegisteredApp.CallbackHeaders.Count > 0)
-      foreach (var header in userUpdateEvent.RegisteredApp.CallbackHeaders)
+    if (registeredApp.CallbackHeaders != null && registeredApp.CallbackHeaders.Count > 0)
+      foreach (var header in registeredApp.CallbackHeaders)
         requestMessage = requestMessage.WithRequestHeader(header.Key, header.Value);
 
     // Signed last so app-defined callback headers cannot replace X-Timestamp / X-Signature.
     // The app verifies the body with its secret (see HmacSignatureUtil.IsValidSignature).
-    await requestMessage.WithHmacSignatureAsync(userUpdateEvent.RegisteredApp.AppSecretKey, _timeProvider, cancellationToken);
+    await requestMessage.WithHmacSignatureAsync(registeredApp.AppSecretKey, _timeProvider, cancellationToken);
 
     await _httpClientHelper.SendRequestAsync(targetServiceName, requestMessage, cancellationToken);
   }

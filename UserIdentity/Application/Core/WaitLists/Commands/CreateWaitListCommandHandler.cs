@@ -1,4 +1,7 @@
-﻿using PolyzenKit.Application.Core;
+﻿using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
+
+using PolyzenKit.Application.Core;
 using PolyzenKit.Application.Core.Interfaces;
 using PolyzenKit.Application.Interfaces;
 using PolyzenKit.Persistence.Repositories;
@@ -9,9 +12,13 @@ using UserIdentity.Persistence.Repositories.WaitLists;
 
 namespace UserIdentity.Application.Core.WaitLists.Commands;
 
-public class CreateWaitListCommand : WaitListEntity, IBaseCommand
+public record CreateWaitListCommand : IBaseCommand
 {
+  [Required, EmailAddress, StringLength(WaitListEntity.UserEmailMaxLength)]
+  public string UserEmail { get; init; } = null!;
 
+  [JsonIgnore]
+  public int AppId { get; internal set; }
 }
 
 public class CreateWaitListCommandHandler(
@@ -23,7 +30,11 @@ public class CreateWaitListCommandHandler(
 {
   public async Task<WaitListViewModel> CreateItemAsync(CreateWaitListCommand command, string userId, CancellationToken cancellationToken = default)
   {
-    var entity = (WaitListEntity)command;
+    var entity = new WaitListEntity
+    {
+      UserEmail = command.UserEmail,
+      AppId = command.AppId
+    };
 
     await CreateEntityItemAsync(entity, userId, cancellationToken);
 

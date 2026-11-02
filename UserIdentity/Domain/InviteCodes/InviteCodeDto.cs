@@ -1,6 +1,6 @@
 ﻿using System.Linq.Expressions;
 
-using PolyzenKit.Domain.Dto;
+using PolyzenKit.Domain.Dtos;
 
 namespace UserIdentity.Domain.InviteCodes;
 

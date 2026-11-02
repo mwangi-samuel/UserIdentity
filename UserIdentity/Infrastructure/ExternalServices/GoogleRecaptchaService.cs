@@ -4,7 +4,6 @@ using Microsoft.Extensions.Options;
 
 using PolyzenKit.Infrastructure.ExternalServices;
 
-using UserIdentity.Application.Core.Users.Settings;
 using UserIdentity.Application.Interfaces;
 
 namespace UserIdentity.Infrastructure.ExternalServices;

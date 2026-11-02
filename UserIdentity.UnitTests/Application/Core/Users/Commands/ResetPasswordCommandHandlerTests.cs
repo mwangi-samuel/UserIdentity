@@ -5,20 +5,18 @@ using System.Threading.Tasks;
 using FakeItEasy;
 
 using Microsoft.AspNetCore.Identity;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
-using PolyzenKit.Application.Core.Interfaces;
+using PolyzenKit.Application.Core.Messages.Events;
+using PolyzenKit.Application.Core.Messages.Shared;
 using PolyzenKit.Application.Interfaces;
+using PolyzenKit.Common.Enums;
 using PolyzenKit.Common.Exceptions;
-using PolyzenKit.Domain.RegisteredApps;
-using PolyzenKit.Infrastructure.Security.Tokens;
+using PolyzenKit.Domain.Entities.RegisteredApps;
 using PolyzenKit.Persistence.Repositories;
 
 using UserIdentity.Application.Core.Users.Commands;
-using UserIdentity.Application.Core.Users.Events;
-using UserIdentity.Application.Core.Users.Settings;
+using UserIdentity.Application.Core.Users.Shared;
 using UserIdentity.Application.Core.Users.ViewModels;
 using UserIdentity.Domain.PasswordResets;
 using UserIdentity.Domain.Users;
@@ -31,12 +29,10 @@ using Xunit;
 
 namespace UserIdentity.UnitTests.Application.Core.Users.Commands;
 
-public class ResetPasswordCommandHandlerTests : IClassFixture<TestSettingsFixture>
+public class ResetPasswordCommandHandlerTests
 {
   private const string ResetRequestId = "SampleResetRequestId";
   private const string ResetRequestIdHash = "SampleResetRequestIdHash";
-
-  private readonly TestSettingsFixture _testSettings;
 
   private readonly IOptions<PasswordResetSettings> _passwordResetSettings;
   private readonly UserManager<IdentityUser> _userManager;
@@ -45,18 +41,14 @@ public class ResetPasswordCommandHandlerTests : IClassFixture<TestSettingsFixtur
   private readonly IUnitOfWork _unitOfWork;
   private readonly IUserRepository _userRepository;
   private readonly IPasswordResetRepository _passwordResetRepository;
-  private readonly IEventHandler<PasswordResetEvent> _passwordResetEventHandler;
-  private readonly IConfiguration _configuration;
-  private readonly ILogHelper<ResetPasswordCommandHandler> _logHelper;
+  private readonly IMessageOutbox _messageOutbox;
   private readonly IUserRegisteredAppRepository _userRegisteredAppRepository = A.Fake<IUserRegisteredAppRepository>();
 
   private readonly DateTime _fixedNow = new(2024, 01, 01, 10, 0, 0, DateTimeKind.Utc);
   private readonly RegisteredAppEntity _registeredApp = new() { Id = 1, AppName = "TestApp" };
 
-  public ResetPasswordCommandHandlerTests(TestSettingsFixture testSettings)
+  public ResetPasswordCommandHandlerTests()
   {
-    _testSettings = testSettings;
-
     _passwordResetSettings = Options.Create(new PasswordResetSettings { ValidForSeconds = 900, RequestCooldownSeconds = 60 });
     _userManager = IdentityFakes.UserManager();
     _machineDateTime = A.Fake<IMachineDateTime>();
@@ -64,9 +56,7 @@ public class ResetPasswordCommandHandlerTests : IClassFixture<TestSettingsFixtur
     _unitOfWork = A.Fake<IUnitOfWork>();
     _userRepository = A.Fake<IUserRepository>();
     _passwordResetRepository = A.Fake<IPasswordResetRepository>();
-    _passwordResetEventHandler = A.Fake<IEventHandler<PasswordResetEvent>>();
-    _configuration = _testSettings.Configuration;
-    _logHelper = A.Fake<ILogHelper<ResetPasswordCommandHandler>>();
+    _messageOutbox = A.Fake<IMessageOutbox>();
 
     A.CallTo(() => _machineDateTime.Now).Returns(_fixedNow);
     A.CallTo(() => _tokenFactory.GenerateToken(32)).Returns(ResetRequestId);
@@ -91,14 +81,14 @@ public class ResetPasswordCommandHandlerTests : IClassFixture<TestSettingsFixtur
     // Assert
     Assert.IsType<ResetPasswordViewModel>(vm);
     Assert.Equal(ResetRequestId, vm.ResetPasswordDetails.ResetRequestId);
-    Assert.NotNull(vm.ResetPasswordDetails.EmailMessage);
+    Assert.Equal(ResetPasswordCommandHandler.DefaultResetPasswordMessage, vm.ResetPasswordDetails.EmailMessage);
     A.CallTo(() => _passwordResetRepository.CreateEntityItem(A<PasswordResetEntity>._)).MustNotHaveHappened();
     A.CallTo(() => _unitOfWork.SaveChangesAsync(A<CancellationToken>._)).MustNotHaveHappened();
-    A.CallTo(() => _passwordResetEventHandler.HandleEventAsync(A<PasswordResetEvent>._, A<CancellationToken>._)).MustNotHaveHappened();
+    A.CallTo(() => _messageOutbox.Add(A<string>._, A<MessageEvent>._)).MustNotHaveHappened();
   }
 
   [Fact]
-  public async Task ResetPassword_With_Valid_Details_Stores_Request_And_Publishes_Event()
+  public async Task ResetPassword_With_Valid_Details_Stores_Request_And_Adds_A_Message_Before_Saving()
   {
     // Arrange
     var existingIdentityUser = GetIdentityUser();
@@ -121,17 +111,22 @@ public class ResetPasswordCommandHandlerTests : IClassFixture<TestSettingsFixtur
     A.CallTo(() => _passwordResetRepository.CreateEntityItem(A<PasswordResetEntity>.That.Matches(e =>
         e.RequestId == ResetRequestIdHash && e.UserId == existingIdentityUser.Id && e.Expires == _fixedNow.AddSeconds(900) &&
         !e.Verified && !e.Applied && e.CreatedBy == existingIdentityUser.Id))).MustHaveHappenedOnceExactly();
-    A.CallTo(() => _passwordResetRepository.RemoveExpiredEntityItemsAsync(existingIdentityUser.Id, _fixedNow.AddDays(-1), A<CancellationToken>._)).MustHaveHappenedOnceExactly();
     A.CallTo(() => _unitOfWork.SaveChangesAsync(A<CancellationToken>._)).MustHaveHappenedOnceExactly();
 
-    A.CallTo(() => _passwordResetEventHandler.HandleEventAsync(A<PasswordResetEvent>.That.Matches(e =>
-        e.ResetRequestId == ResetRequestId && e.RegisteredApp == _registeredApp && e.UserContent.UserIdentityId == existingIdentityUser.Id &&
-        e.UserContent.UserEmail == existingIdentityUser.Email && e.UserContent.PhoneNumber == existingIdentityUser.PhoneNumber &&
-        e.UserContent.FirstName == existingEntity.FirstName), CancellationToken.None)).MustHaveHappenedOnceExactly();
+    A.CallTo(() => _messageOutbox.Add(UserMessages.UserUpdated, A<MessageEvent>.That.Matches(m =>
+        m.Action == MessageAction.PASSWORD_RESET
+        && m.CorrelationId == ResetRequestId
+        && m.RegisteredApp == _registeredApp.AppName
+        && m.Attributes[MessageAttribute.USER_ID] == existingIdentityUser.Id
+        && m.Attributes[MessageAttribute.RECIPIENT_EMAIL] == existingIdentityUser.Email
+        && m.Attributes[MessageAttribute.RECIPIENT_PHONE] == existingIdentityUser.PhoneNumber
+        && m.Attributes[MessageAttribute.FIRST_NAME] == existingEntity.FirstName)))
+        .MustHaveHappenedOnceExactly()
+        .Then(A.CallTo(() => _unitOfWork.SaveChangesAsync(A<CancellationToken>._)).MustHaveHappenedOnceExactly());
   }
 
   [Fact]
-  public async Task ResetPassword_For_A_User_Of_Another_App_Does_Not_Store_Request_Or_Publish_Event()
+  public async Task ResetPassword_For_A_User_Of_Another_App_Does_Not_Store_Request_Or_Add_A_Message()
   {
     // Arrange
     var existingIdentityUser = GetIdentityUser();
@@ -148,11 +143,11 @@ public class ResetPasswordCommandHandlerTests : IClassFixture<TestSettingsFixtur
     // Assert
     Assert.Equal(ResetRequestId, vm.ResetPasswordDetails.ResetRequestId);
     A.CallTo(() => _passwordResetRepository.CreateEntityItem(A<PasswordResetEntity>._)).MustNotHaveHappened();
-    A.CallTo(() => _passwordResetEventHandler.HandleEventAsync(A<PasswordResetEvent>._, A<CancellationToken>._)).MustNotHaveHappened();
+    A.CallTo(() => _messageOutbox.Add(A<string>._, A<MessageEvent>._)).MustNotHaveHappened();
   }
 
   [Fact]
-  public async Task ResetPassword_After_The_Daily_Limit_Does_Not_Store_Request_Or_Publish_Event()
+  public async Task ResetPassword_After_The_Daily_Limit_Does_Not_Store_Request_Or_Add_A_Message()
   {
     // Arrange
     var existingIdentityUser = GetIdentityUser();
@@ -170,11 +165,11 @@ public class ResetPasswordCommandHandlerTests : IClassFixture<TestSettingsFixtur
     // Assert
     Assert.Equal(ResetRequestId, vm.ResetPasswordDetails.ResetRequestId);
     A.CallTo(() => _passwordResetRepository.CreateEntityItem(A<PasswordResetEntity>._)).MustNotHaveHappened();
-    A.CallTo(() => _passwordResetEventHandler.HandleEventAsync(A<PasswordResetEvent>._, A<CancellationToken>._)).MustNotHaveHappened();
+    A.CallTo(() => _messageOutbox.Add(A<string>._, A<MessageEvent>._)).MustNotHaveHappened();
   }
 
   [Fact]
-  public async Task ResetPassword_Within_Cooldown_Does_Not_Store_Request_Or_Publish_Event()
+  public async Task ResetPassword_Within_Cooldown_Does_Not_Store_Request_Or_Add_A_Message()
   {
     // Arrange
     var existingIdentityUser = GetIdentityUser();
@@ -192,11 +187,11 @@ public class ResetPasswordCommandHandlerTests : IClassFixture<TestSettingsFixtur
     // Assert
     Assert.Equal(ResetRequestId, vm.ResetPasswordDetails.ResetRequestId);
     A.CallTo(() => _passwordResetRepository.CreateEntityItem(A<PasswordResetEntity>._)).MustNotHaveHappened();
-    A.CallTo(() => _passwordResetEventHandler.HandleEventAsync(A<PasswordResetEvent>._, A<CancellationToken>._)).MustNotHaveHappened();
+    A.CallTo(() => _messageOutbox.Add(A<string>._, A<MessageEvent>._)).MustNotHaveHappened();
   }
 
   [Fact]
-  public async Task ResetPassword_Without_User_Record_Does_Not_Store_Request_Or_Publish_Event()
+  public async Task ResetPassword_Without_User_Record_Does_Not_Store_Request_Or_Add_A_Message()
   {
     // Arrange
     var existingIdentityUser = GetIdentityUser();
@@ -204,7 +199,7 @@ public class ResetPasswordCommandHandlerTests : IClassFixture<TestSettingsFixtur
 
     A.CallTo(() => _userManager.FindByNameAsync(command.UserName)).Returns(existingIdentityUser);
     A.CallTo(() => _passwordResetRepository.GetLatestEntityItemAsync(existingIdentityUser.Id, A<CancellationToken>._)).Returns((PasswordResetEntity?)null);
-    A.CallTo(() => _userRepository.GetEntityItemAsync(existingIdentityUser.Id, A<CancellationToken>._)).Throws(new NoRecordException(existingIdentityUser.Id, "User"));
+    A.CallTo(() => _userRepository.GetEntityItemAsync(existingIdentityUser.Id, A<CancellationToken>._)).Throws(NoRecordException.ForIdentifier(existingIdentityUser.Id));
 
     var handler = GetResetPasswordCommandHandler();
 
@@ -214,29 +209,7 @@ public class ResetPasswordCommandHandlerTests : IClassFixture<TestSettingsFixtur
     // Assert
     Assert.Equal(ResetRequestId, vm.ResetPasswordDetails.ResetRequestId);
     A.CallTo(() => _passwordResetRepository.CreateEntityItem(A<PasswordResetEntity>._)).MustNotHaveHappened();
-    A.CallTo(() => _passwordResetEventHandler.HandleEventAsync(A<PasswordResetEvent>._, A<CancellationToken>._)).MustNotHaveHappened();
-  }
-
-  [Fact]
-  public async Task ResetPassword_When_Event_Publishing_Fails_Logs_Error_And_Returns_Request_Id()
-  {
-    // Arrange
-    var existingIdentityUser = GetIdentityUser();
-    var command = GetResetPasswordCommand(existingIdentityUser.UserName!);
-
-    A.CallTo(() => _userManager.FindByNameAsync(command.UserName)).Returns(existingIdentityUser);
-    A.CallTo(() => _passwordResetRepository.GetLatestEntityItemAsync(existingIdentityUser.Id, A<CancellationToken>._)).Returns((PasswordResetEntity?)null);
-    A.CallTo(() => _userRepository.GetEntityItemAsync(existingIdentityUser.Id, A<CancellationToken>._)).Returns(new UserEntity { Id = existingIdentityUser.Id });
-    A.CallTo(() => _passwordResetEventHandler.HandleEventAsync(A<PasswordResetEvent>._, A<CancellationToken>._)).ThrowsAsync(new InvalidOperationException("Broker unavailable"));
-
-    var handler = GetResetPasswordCommandHandler();
-
-    // Act
-    var vm = await handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken);
-
-    // Assert
-    Assert.Equal(ResetRequestId, vm.ResetPasswordDetails.ResetRequestId);
-    A.CallTo(() => _logHelper.LogEvent(LogLevel.Error, A<InvalidOperationException>._, A<string>._, A<object?[]>._)).MustHaveHappenedOnceExactly();
+    A.CallTo(() => _messageOutbox.Add(A<string>._, A<MessageEvent>._)).MustNotHaveHappened();
   }
 
   private ResetPasswordCommand GetResetPasswordCommand(string userName)
@@ -269,9 +242,7 @@ public class ResetPasswordCommandHandlerTests : IClassFixture<TestSettingsFixtur
       _unitOfWork,
       _userRepository,
       _passwordResetRepository,
-      _passwordResetEventHandler,
-      _configuration,
-      _logHelper,
+      _messageOutbox,
       _userRegisteredAppRepository
     );
   }

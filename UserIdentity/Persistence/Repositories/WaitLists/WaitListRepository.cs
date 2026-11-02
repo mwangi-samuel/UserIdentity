@@ -1,11 +1,9 @@
 ﻿using Microsoft.EntityFrameworkCore;
 
-using PolyzenKit.Application.Enums;
 using PolyzenKit.Common.Exceptions;
 using PolyzenKit.Common.Utilities;
 using PolyzenKit.Persistence.Repositories;
 
-using UserIdentity.Common;
 using UserIdentity.Domain.WaitLists;
 
 namespace UserIdentity.Persistence.Repositories.WaitLists;
@@ -33,6 +31,6 @@ public class WaitListRepository(
     return await _dbContext.WaitList
       .Where(e => e.Id == id)
       .Select(WaitListDto.Detailed)
-      .SingleOrDefaultAsync(cancellationToken) ?? throw new NoRecordException($"{id}", EntityTypes.WAIT_LIST.Description());
+      .SingleOrDefaultAsync(cancellationToken) ?? throw NoRecordException.ForIdentifier($"{id}");
   }
 }

@@ -8,8 +8,9 @@ using PolyzenKit.Application.Core.Interfaces;
 using PolyzenKit.Common.Exceptions;
 using PolyzenKit.Common.Utilities;
 
+using UserIdentity.Application.Core.Roles.Shared;
 using UserIdentity.Application.Core.Roles.ViewModels;
-using UserIdentity.Application.Helpers;
+using UserIdentity.Common.Errors;
 using UserIdentity.Domain.Roles;
 
 namespace UserIdentity.Application.Core.Roles.Commands;
@@ -31,20 +32,22 @@ public class CreateRoleCommandHandler(
 
   public async Task<RoleViewModel> CreateItemAsync(CreateRoleCommand command, string userid, CancellationToken cancellationToken = default)
   {
-    if (command.AppName is not null && !AppRolesHelper.IsAppRole(command.RoleName, command.AppName))
-      throw new InvalidDataException($"Role names must start with {command.AppName.TrimAndLowerInvariant()}{ZenConstants.SERVICE_ROLE_SEPARATOR}");
+    var roleName = command.RoleName.TrimAndLowerInvariant();
 
-    var existingRole = await _roleManager.FindByNameAsync(command.RoleName);
+    if (command.AppName is not null && !AppRoleNames.IsAppRole(roleName, command.AppName))
+      throw new InvalidDataException(ErrorMessages.Roles.NameOutsideApp(AppRoleNames.Prefix(command.AppName)));
+
+    var existingRole = await _roleManager.FindByNameAsync(roleName);
 
     if (existingRole != null)
-      throw new RecordExistsException(command.RoleName, "Role");
+      throw RecordExistsException.ForIdentifier(roleName);
 
-    var newRole = new IdentityRole { Name = command.RoleName };
+    var newRole = new IdentityRole { Name = roleName };
 
     var createdRoleResult = await _roleManager.CreateAsync(newRole);
 
     if (!createdRoleResult.Succeeded)
-      throw new RecordCreationException(command.RoleName, "Role");
+      throw new RecordCreationException($"Role {roleName} wasn't created");
 
     return new RoleViewModel
     {

@@ -6,7 +6,6 @@ using System.Threading.Tasks;
 using Microsoft.IdentityModel.JsonWebTokens;
 
 using PolyzenKit.Common.Utilities;
-using PolyzenKit.Infrastructure.Security.Jwt;
 
 using UserIdentity.IntegrationTests.TestUtils;
 

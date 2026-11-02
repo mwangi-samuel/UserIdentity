@@ -5,12 +5,11 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 
 using PolyzenKit.Application.Core;
-using PolyzenKit.Application.Core.Extensions;
 using PolyzenKit.Application.Core.Interfaces;
-using PolyzenKit.Application.Core.RegisteredApps.Resolvers;
-using PolyzenKit.Application.Enums;
+using PolyzenKit.Application.Core.RegisteredApps.Shared;
+using PolyzenKit.Common.Enums;
 using PolyzenKit.Common.Utilities;
-using PolyzenKit.Domain.Dto;
+using PolyzenKit.Domain.Dtos;
 using PolyzenKit.Presentation.Controllers;
 using PolyzenKit.Presentation.Settings;
 
@@ -19,7 +18,7 @@ using UserIdentity.Application.Core.Tokens.ViewModels;
 using UserIdentity.Application.Core.Users.Commands;
 using UserIdentity.Application.Core.Users.Queries;
 using UserIdentity.Application.Core.Users.ViewModels;
-using UserIdentity.Application.Enums;
+using UserIdentity.Common.Enums;
 
 namespace UserIdentity.Presentation.Controllers;
 

@@ -1,5 +1,6 @@
 ﻿using System.Net;
 
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 using PolyzenKit.Application.Core.Interfaces;
@@ -15,6 +16,7 @@ public class JwksController(
 {
   private readonly IGetItemsQueryHandler<GetKeySetsQuery, KeySetsViewModel> _getKeySetsQueryHandler = getKeySetsQueryHandler;
 
+  [AllowAnonymous]
   [HttpGet]
   [Route("keys")]
   public async Task<IActionResult> GetKeySetsAsync()

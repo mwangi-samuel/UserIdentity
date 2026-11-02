@@ -15,16 +15,14 @@ using PolyzenKit.Application.Core.Messages.Events;
 using PolyzenKit.Common.Enums;
 using PolyzenKit.Common.Extensions;
 using PolyzenKit.Common.Utilities;
-using PolyzenKit.Infrastructure.Kafka;
-using PolyzenKit.Infrastructure.Security.Jwt;
 using PolyzenKit.Infrastructure.Security.Tokens;
 using PolyzenKit.Presentation.Settings;
 using PolyzenKit.Presentation.ValidationHelpers;
 
 using UserIdentity.Application.Core.Tokens.ViewModels;
-using UserIdentity.Application.Core.Users.Settings;
 using UserIdentity.Application.Core.Users.ViewModels;
 using UserIdentity.Domain.Users;
+using UserIdentity.Infrastructure.ExternalServices;
 using UserIdentity.IntegrationTests.TestUtils;
 
 using WireMock.RequestBuilders;
@@ -78,6 +76,46 @@ public class UserControllerTests(
   }
 
   [Fact]
+  public async Task Get_User_Returns_The_Profile_Fields_And_No_Roles()
+  {
+    // Arrange
+    _testDbHelper.SeedDatabase();
+
+    // Act
+    var response = await _httpClient.SendValidAuthRequestAsync(HttpMethod.Get, _baseUri + "/" + UserSettingHelper.UserId);
+
+    // Assert
+    var user = SerDeHelper.Deserialize<JObject>(await response.ValidateRequestResponseAsync())?["user"] as JObject;
+
+    Assert.NotNull(user);
+    Assert.Equal(
+      ["createdAt", "createdBy", "email", "firstName", "id", "lastName", "phoneNumber", "updatedAt", "updatedBy", "userName"],
+      user.Properties().Select(property => property.Name).Order());
+    Assert.Equal(UserSettingHelper.UserId, $"{user["id"]}");
+    Assert.Equal(UserSettingHelper.PhoneNumber, $"{user["phoneNumber"]}");
+  }
+
+  [Fact]
+  public async Task Get_User_Runs_One_Sql_Command()
+  {
+    // Arrange
+    _testDbHelper.SeedDatabase();
+
+    var requestId = Guid.NewGuid().ToString("N");
+    var request = await _httpClient.CreateAuthorizedHttpRequestMessageAsync(HttpMethod.Get, _baseUri + "/" + UserSettingHelper.UserId);
+    request.Headers.Add("X-Request-Id", requestId);
+
+    // Act
+    var response = await _httpClient.SendAsync(request, TestContext.Current.CancellationToken);
+
+    // Assert
+    await response.ValidateRequestResponseAsync();
+
+    Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    Assert.Equal(1, _testingWebAppFactory.SqlCommandCounter.CountFor(requestId));
+  }
+
+  [Fact]
   public async Task Get_Non_Existing_User_Returns_Forbidden_Error_For_Unauthorized_User()
   {
     // Arrange
@@ -123,7 +161,7 @@ public class UserControllerTests(
     Assert.Equal("Request Failed", $"{jsonObject["requestStatus"]}");
     Assert.Equal("404 - NOT FOUND", $"{jsonObject["statusMessage"]}");
 
-    Assert.Equal($"No record exists for the provided identifier - {nonExistingUserId}", jsonObject["error"]?["message"]);
+    Assert.Equal($"No record exists for the provided identifier - {nonExistingUserId}", $"{jsonObject["error"]?["message"]}");
 
     var dateTime = (DateTime?)jsonObject["error"]?["timestamp"];
 
@@ -161,7 +199,7 @@ public class UserControllerTests(
     Assert.Equal("Request Failed", $"{jsonObject["requestStatus"]}");
     Assert.Equal("404 - NOT FOUND", $"{jsonObject["statusMessage"]}");
 
-    Assert.Equal($"No record exists for the provided identifier - {UserSettingHelper.UserId}", jsonObject["error"]?["message"]);
+    Assert.Equal($"No record exists for the provided identifier - {UserSettingHelper.UserId}", $"{jsonObject["error"]?["message"]}");
 
     var dateTime = (DateTime?)jsonObject["error"]?["timestamp"];
 
@@ -203,7 +241,7 @@ public class UserControllerTests(
     Assert.Equal("Request Failed", $"{jsonObject["requestStatus"]}");
     Assert.Equal("404 - NOT FOUND", $"{jsonObject["statusMessage"]}");
 
-    Assert.Equal($"No record exists for the provided identifier - {nonExistingUserId}", jsonObject["error"]?["message"]);
+    Assert.Equal($"No record exists for the provided identifier - {nonExistingUserId}", $"{jsonObject["error"]?["message"]}");
 
     var dateTime = (DateTime?)jsonObject["error"]?["timestamp"];
 
@@ -239,7 +277,7 @@ public class UserControllerTests(
     Assert.Equal("Request Failed", $"{jsonObject["requestStatus"]}");
     Assert.Equal("400 - BAD REQUEST", $"{jsonObject["statusMessage"]}");
 
-    Assert.Equal("Validation Failed", jsonObject["error"]?["message"]);
+    Assert.Equal("Validation Failed", $"{jsonObject["error"]?["message"]}");
 
     var dateTime = (DateTime?)jsonObject["error"]?["timestamp"];
 
@@ -283,7 +321,7 @@ public class UserControllerTests(
     Assert.Equal("Request Failed", $"{jsonObject["requestStatus"]}");
     Assert.Equal("400 - BAD REQUEST", $"{jsonObject["statusMessage"]}");
 
-    Assert.Equal("Validation Failed", jsonObject["error"]?["message"]);
+    Assert.Equal("Validation Failed", $"{jsonObject["error"]?["message"]}");
 
     var dateTime = (DateTime?)jsonObject["error"]?["timestamp"];
 
@@ -350,20 +388,14 @@ public class UserControllerTests(
 
     VerifyGoogleRecaptchaEndpoint();
 
-    // Confirm produced message 
-    var kafkaMessage = null as MessageEvent;
+    // Confirm the message reached the stream
+    var message = await _natsTestHelper.FindMessageAsync(NatsTestHelper.UserUpdatedSubject, userDetails!.Id);
 
-    await _pollyResiliencePipeline.ExecuteAsync(async token =>
-    {
-      kafkaMessage = await _kafkaConsumerHelper.WaitAndConsumeUserUpdatedMessageAsync(userDetails!.Id);
-      Assert.NotNull(kafkaMessage);
-    }, TestContext.Current.CancellationToken);
+    Assert.NotNull(message);
+    Assert.Equal(_registeredApp.AppName, message.RegisteredApp);
+    Assert.Equal(MessageAction.WELCOME_USER, message.Action);
 
-    Assert.Equal(userDetails?.Id, kafkaMessage!.CorrelationId);
-    Assert.Equal(_registeredApp.AppName, kafkaMessage.RegisteredApp);
-    Assert.Equal(MessageAction.WELCOME_USER, kafkaMessage.Action);
-
-    var messageAttributes = kafkaMessage.Attributes;
+    var messageAttributes = message.Attributes;
     Assert.NotNull(messageAttributes);
 
     Assert.Equal(requestPayload.UserEmail, messageAttributes.GetAttributeValue(MessageAttribute.RECIPIENT_EMAIL));
@@ -372,6 +404,39 @@ public class UserControllerTests(
     Assert.Equal(requestPayload.LastName, messageAttributes.GetAttributeValue(MessageAttribute.LAST_NAME));
     Assert.Equal(requestPayload.UserName, messageAttributes.GetAttributeValue(MessageAttribute.USER_NAME));
     Assert.Equal(userDetails?.Id, messageAttributes.GetAttributeValue(MessageAttribute.USER_ID));
+  }
+
+  [Fact]
+  public async Task Register_User_Message_Leaves_The_Outbox_Once_It_Is_In_The_Stream()
+  {
+    // Arrange
+    var googleRecaptchaToken = StringUtil.GenerateRandomString(90);
+
+    var requestPayload = new
+    {
+      UserSettingHelper.FirstName,
+      UserSettingHelper.UserName,
+      UserSettingHelper.UserEmail,
+      UserSettingHelper.UserPassword,
+      googleRecaptchaToken
+    };
+
+    SetUpGoogleRecaptchaEndpoint(googleRecaptchaToken);
+
+    // Act
+    var response = await _httpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/register", requestPayload);
+
+    // Assert
+    var userId = SerDeHelper.Deserialize<JObject>(await response.ValidateRequestResponseAsync())?["user"]?["id"]?.ToString();
+
+    Assert.NotNull(userId);
+    Assert.NotNull(await _natsTestHelper.FindMessageAsync(NatsTestHelper.UserUpdatedSubject, userId));
+
+    await _pollyResiliencePipeline.ExecuteAsync(token =>
+    {
+      Assert.Equal(0, _testDbHelper.CountOutboxMessages());
+      return ValueTask.CompletedTask;
+    }, TestContext.Current.CancellationToken);
   }
 
   [Theory]
@@ -427,20 +492,14 @@ public class UserControllerTests(
 
     VerifyGoogleRecaptchaEndpoint();
 
-    // Confirm produced message 
-    var kafkaMessage = null as MessageEvent;
+    // Confirm the message reached the stream
+    var message = await _natsTestHelper.FindMessageAsync(NatsTestHelper.UserUpdatedSubject, userDetails!.Id);
 
-    await _pollyResiliencePipeline.ExecuteAsync(async token =>
-    {
-      kafkaMessage = await _kafkaConsumerHelper.WaitAndConsumeUserUpdatedMessageAsync(userDetails!.Id);
-      Assert.NotNull(kafkaMessage);
-    }, TestContext.Current.CancellationToken);
+    Assert.NotNull(message);
+    Assert.Equal(_registeredApp.AppName, message.RegisteredApp);
+    Assert.Equal(MessageAction.WELCOME_USER, message.Action);
 
-    Assert.Equal(userDetails?.Id, kafkaMessage!.CorrelationId);
-    Assert.Equal(_registeredApp.AppName, kafkaMessage.RegisteredApp);
-    Assert.Equal(MessageAction.WELCOME_USER, kafkaMessage.Action);
-
-    var messageAttributes = kafkaMessage.Attributes;
+    var messageAttributes = message.Attributes;
     Assert.NotNull(messageAttributes);
 
     Assert.Equal(requestPayload.UserEmail ?? string.Empty, messageAttributes.GetAttributeValue(MessageAttribute.RECIPIENT_EMAIL));
@@ -457,6 +516,8 @@ public class UserControllerTests(
     // Arrange
     _testDbHelper.SeedDatabase();
 
+    var googleRecaptchaToken = StringUtil.GenerateRandomString(90);
+
     var requestPayload = new
     {
       UserSettingHelper.FirstName,
@@ -464,9 +525,11 @@ public class UserControllerTests(
       UserSettingHelper.UserName,
       UserSettingHelper.PhoneNumber,
       UserSettingHelper.UserEmail,
-      UserSettingHelper.UserPassword
-
+      UserSettingHelper.UserPassword,
+      googleRecaptchaToken
     };
+
+    SetUpGoogleRecaptchaEndpoint(googleRecaptchaToken);
 
     // Act
     var response = await _httpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/register", requestPayload);
@@ -482,7 +545,7 @@ public class UserControllerTests(
     Assert.Equal("Request Failed", $"{jsonObject["requestStatus"]}");
     Assert.Equal("400 - BAD REQUEST", $"{jsonObject["statusMessage"]}");
 
-    Assert.Equal($"A record identified with - {requestPayload.UserName} - exists", jsonObject["error"]?["message"]);
+    Assert.Equal($"A record identified with - {requestPayload.UserName} - exists", $"{jsonObject["error"]?["message"]}");
 
     var dateTime = (DateTime?)jsonObject["error"]?["timestamp"];
 
@@ -540,7 +603,7 @@ public class UserControllerTests(
 
     var messageEvent = MessageEventFactory.Create(userDetails.Id, _registeredApp.AppName, attributes, MessageAction.WELCOME_USER, CrudEvent.UPDATE);
 
-    await _kafkaProducerHelper.ProduceUserMessageManagerUserUpdatedEventAsync(userDetails.Id, messageEvent);
+    await _natsTestHelper.PublishCodeVerifiedAsync(messageEvent);
 
     await _pollyResiliencePipeline.ExecuteAsync(token =>
     {
@@ -656,7 +719,7 @@ public class UserControllerTests(
     Assert.Equal("Request Failed", $"{jsonObject["requestStatus"]}");
     Assert.Equal("401 - UNAUTHORIZED", $"{jsonObject["statusMessage"]}");
 
-    Assert.Equal("Provided credentials are invalid", jsonObject["error"]?["message"]);
+    Assert.Equal("Provided credentials are invalid", $"{jsonObject["error"]?["message"]}");
 
     var dateTime = (DateTime?)jsonObject["error"]?["timestamp"];
 
@@ -693,7 +756,7 @@ public class UserControllerTests(
     Assert.Equal("Request Failed", $"{jsonObject["requestStatus"]}");
     Assert.Equal("401 - UNAUTHORIZED", $"{jsonObject["statusMessage"]}");
 
-    Assert.Equal("Provided credentials are invalid", jsonObject["error"]?["message"]);
+    Assert.Equal("Provided credentials are invalid", $"{jsonObject["error"]?["message"]}");
 
     var dateTime = (DateTime?)jsonObject["error"]?["timestamp"];
 
@@ -730,7 +793,7 @@ public class UserControllerTests(
     Assert.Equal("Request Failed", $"{jsonObject["requestStatus"]}");
     Assert.Equal("401 - UNAUTHORIZED", $"{jsonObject["statusMessage"]}");
 
-    Assert.Equal("Provided credentials are invalid", jsonObject["error"]?["message"]);
+    Assert.Equal("Provided credentials are invalid", $"{jsonObject["error"]?["message"]}");
 
     var dateTime = (DateTime?)jsonObject["error"]?["timestamp"];
 
@@ -766,7 +829,7 @@ public class UserControllerTests(
     Assert.Equal("Request Failed", $"{jsonObject["requestStatus"]}");
     Assert.Equal("401 - UNAUTHORIZED", $"{jsonObject["statusMessage"]}");
 
-    Assert.Equal("Provided credentials are invalid", jsonObject["error"]?["message"]);
+    Assert.Equal("Provided credentials are invalid", $"{jsonObject["error"]?["message"]}");
 
     var dateTime = (DateTime?)jsonObject["error"]?["timestamp"];
 
@@ -850,7 +913,7 @@ public class UserControllerTests(
     Assert.Equal("Request Failed", $"{jsonObject["requestStatus"]}");
     Assert.Equal("401 - UNAUTHORIZED", $"{jsonObject["statusMessage"]}");
 
-    Assert.Equal("Invalid refresh token provided", jsonObject["error"]?["message"]);
+    Assert.Equal("An invalid access token was provided", $"{jsonObject["error"]?["message"]}");
 
     var dateTime = (DateTime?)jsonObject["error"]?["timestamp"];
 
@@ -893,7 +956,7 @@ public class UserControllerTests(
     Assert.Equal("Request Failed", $"{jsonObject["requestStatus"]}");
     Assert.Equal("401 - UNAUTHORIZED", $"{jsonObject["statusMessage"]}");
 
-    Assert.Equal("Invalid refresh token provided", jsonObject["error"]?["message"]);
+    Assert.Equal("An invalid access token was provided", $"{jsonObject["error"]?["message"]}");
 
     var dateTime = (DateTime?)jsonObject["error"]?["timestamp"];
 
@@ -934,7 +997,7 @@ public class UserControllerTests(
     Assert.Equal("Request Failed", $"{jsonObject["requestStatus"]}");
     Assert.Equal("401 - UNAUTHORIZED", $"{jsonObject["statusMessage"]}");
 
-    Assert.Equal("An invalid access token was provided", jsonObject["error"]?["message"]);
+    Assert.Equal("An invalid access token was provided", $"{jsonObject["error"]?["message"]}");
 
     var dateTime = (DateTime?)jsonObject["error"]?["timestamp"];
 
@@ -997,7 +1060,7 @@ public class UserControllerTests(
     Assert.NotNull(jsonObject);
 
     Assert.Equal("Request Failed", $"{jsonObject["requestStatus"]}");
-    Assert.Equal("Provided credentials are invalid", jsonObject["error"]?["message"]);
+    Assert.Equal("Provided credentials are invalid", $"{jsonObject["error"]?["message"]}");
 
     var lockedOutUser = _testDbHelper.GetIdentityUserWithNoTracking(UserSettingHelper.UserId);
 
@@ -1014,7 +1077,6 @@ public class UserControllerTests(
       builder.UseSetting($"{nameof(RateLimitSettings)}:{nameof(RateLimitSettings.Enabled)}", "true");
       builder.UseSetting($"{nameof(RateLimitSettings)}:{nameof(RateLimitSettings.PermitLimit)}", "2");
       builder.UseSetting($"{nameof(RateLimitSettings)}:{nameof(RateLimitSettings.WindowSeconds)}", "60");
-      builder.UseSetting($"{nameof(KafkaSettings)}:{nameof(KafkaSettings.ConsumerEnabled)}", "false");
     });
 
     using var httpClient = rateLimitedFactory.CreateClient();
@@ -1048,7 +1110,7 @@ public class UserControllerTests(
 
     Assert.Equal("Request Failed", $"{jsonObject["requestStatus"]}");
     Assert.Equal("429 - TOO MANY REQUESTS", $"{jsonObject["statusMessage"]}");
-    Assert.Equal("Too many requests, try again later", jsonObject["error"]?["message"]);
+    Assert.Equal("Too many requests, try again later", $"{jsonObject["error"]?["message"]}");
   }
 
   [Fact]
@@ -1079,9 +1141,10 @@ public class UserControllerTests(
     Assert.NotNull(jsonObject);
 
     Assert.Equal("Request Failed", $"{jsonObject["requestStatus"]}");
-    Assert.Equal("Expired refresh token provided", jsonObject["error"]?["message"]);
+    Assert.Equal("An invalid access token was provided", $"{jsonObject["error"]?["message"]}");
 
-    Assert.Empty(_testDbHelper.GetRefreshTokenEntitiesWithNoTracking(UserSettingHelper.UserId));
+    var exchangedTokenHash = new TokenFactory().HashToken(refreshToken);
+    Assert.DoesNotContain(_testDbHelper.GetRefreshTokenEntitiesWithNoTracking(UserSettingHelper.UserId), token => token.Token == exchangedTokenHash);
   }
 
   [Fact]
@@ -1117,7 +1180,7 @@ public class UserControllerTests(
 
     Assert.NotNull(jsonObject);
 
-    Assert.Equal("Invalid refresh token provided", jsonObject["error"]?["message"]);
+    Assert.Equal("An invalid access token was provided", $"{jsonObject["error"]?["message"]}");
 
     var newTokenResponse = await _httpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/refresh-token", new
     {
@@ -1195,7 +1258,7 @@ public class UserControllerTests(
     Assert.Equal("Request Failed", $"{jsonObject["requestStatus"]}");
     Assert.Equal("400 - BAD REQUEST", $"{jsonObject["statusMessage"]}");
 
-    Assert.Equal("Validation Failed", jsonObject["error"]?["message"]);
+    Assert.Equal("Validation Failed", $"{jsonObject["error"]?["message"]}");
 
     var dateTime = (DateTime?)jsonObject["error"]?["timestamp"];
 
@@ -1321,7 +1384,7 @@ public class UserControllerTests(
 
     var messageEvent = MessageEventFactory.Create(resetRequestId, _registeredApp.AppName, attributes, MessageAction.PASSWORD_RESET, CrudEvent.UPDATE);
 
-    await _kafkaProducerHelper.ProduceUserMessageManagerUserUpdatedEventAsync(resetRequestId, messageEvent);
+    await _natsTestHelper.PublishCodeVerifiedAsync(messageEvent);
 
     await _pollyResiliencePipeline.ExecuteAsync(token =>
     {
@@ -1385,7 +1448,7 @@ public class UserControllerTests(
     Assert.Equal("Request Failed", $"{jsonObject["requestStatus"]}");
     Assert.Equal("400 - BAD REQUEST", $"{jsonObject["statusMessage"]}");
 
-    Assert.Equal("Validation Failed", jsonObject["error"]?["message"]);
+    Assert.Equal("Validation Failed", $"{jsonObject["error"]?["message"]}");
 
     var dateTime = (DateTime?)jsonObject["error"]?["timestamp"];
 

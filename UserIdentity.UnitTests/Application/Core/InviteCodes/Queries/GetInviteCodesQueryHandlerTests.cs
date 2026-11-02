@@ -1,4 +1,4 @@
-using System.Threading;
+﻿using System.Threading;
 using System.Threading.Tasks;
 
 using FakeItEasy;
@@ -23,7 +23,7 @@ public class GetInviteCodesQueryHandlerTests
     // Arrange
     var dto = new InviteCodeDto { Id = 3, InviteCode = "INVITE", UserEmail = "owner@example.com", AppId = 1, Role = "testapp:owner" };
 
-    A.CallTo(() => _inviteCodeRepository.GetEntityDtosByAppIdAsync(1, 2, 10, A<CancellationToken>._))
+    A.CallTo(() => _inviteCodeRepository.SearchEntityDtosByAppIdAsync(1, null, null, 2, 10, A<CancellationToken>._))
         .Returns(new PagedList<InviteCodeDto>([dto], 11));
 
     var handler = new GetInviteCodesQueryHandler(_inviteCodeRepository);

@@ -4,10 +4,10 @@ using Microsoft.Extensions.Options;
 using PolyzenKit.Application.Core;
 using PolyzenKit.Application.Core.Interfaces;
 using PolyzenKit.Common.Exceptions;
-using PolyzenKit.Presentation.Settings;
+using PolyzenKit.Common.Settings;
 
+using UserIdentity.Application.Core.Roles.Shared;
 using UserIdentity.Application.Core.Roles.ViewModels;
-using UserIdentity.Application.Helpers;
 using UserIdentity.Persistence.Repositories.UserRegisteredApps;
 
 namespace UserIdentity.Application.Core.Roles.Queries;
@@ -34,15 +34,15 @@ public class GetUserRolesQueryHandler(
   public async Task<UserRolesViewModel> GetItemsAsync(GetUserRolesQuery query, CancellationToken cancellationToken = default)
   {
 
-    var user = await _userManager.FindByIdAsync(query.UserId) ?? throw new NoRecordException(query.UserId, "User");
+    var user = await _userManager.FindByIdAsync(query.UserId) ?? throw NoRecordException.ForIdentifier(query.UserId);
 
     if (query.AppName is not null && !await _userRegisteredAppRepository.IsUserRegisteredForAppAsync(query.UserId, query.AppName, cancellationToken))
-      throw new NoRecordException(query.UserId, "User");
+      throw NoRecordException.ForIdentifier(query.UserId);
 
     var userRoles = await _userManager.GetRolesAsync(user) ?? [];
 
     if (query.AppName is not null)
-      userRoles = AppRolesHelper.ForApp(userRoles, query.AppName, _roleSettings.GlobalAdminRole);
+      userRoles = AppRoleNames.ForApp(userRoles, query.AppName, _roleSettings.GlobalAdminRole);
 
     return new UserRolesViewModel
     {

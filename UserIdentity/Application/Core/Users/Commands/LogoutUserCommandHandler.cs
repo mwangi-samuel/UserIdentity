@@ -2,7 +2,7 @@
 
 using PolyzenKit.Application.Core;
 using PolyzenKit.Application.Core.Interfaces;
-using PolyzenKit.Infrastructure.Security.Tokens;
+using PolyzenKit.Application.Interfaces;
 using PolyzenKit.Persistence.Repositories;
 
 using UserIdentity.Domain.RefreshTokens;

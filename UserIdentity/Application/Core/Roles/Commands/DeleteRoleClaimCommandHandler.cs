@@ -5,10 +5,11 @@ using Microsoft.AspNetCore.Identity;
 
 using PolyzenKit.Application.Core;
 using PolyzenKit.Application.Core.Interfaces;
+using PolyzenKit.Application.Interfaces;
 using PolyzenKit.Common.Exceptions;
-using PolyzenKit.Infrastructure.Security.Jwt;
+using PolyzenKit.Common.Utilities;
 
-using UserIdentity.Application.Helpers;
+using UserIdentity.Application.Core.Roles.Shared;
 
 namespace UserIdentity.Application.Core.Roles.Commands;
 
@@ -37,34 +38,23 @@ public class DeleteRoleClaimCommandHandler(
   public async Task<DeleteRecordViewModel> DeleteItemAsync(DeleteRoleClaimCommand command, string userId, CancellationToken cancellationToken = default)
   {
     // Confirm role exists
-    var role = await _roleManager.FindByIdAsync(command.RoleId) ?? throw new NoRecordException(command.RoleId, "Role");
+    var role = await _roleManager.FindByIdAsync(command.RoleId) ?? throw NoRecordException.ForIdentifier(command.RoleId);
 
-    if (command.AppName is not null && !AppRolesHelper.IsAppRole(role.Name, command.AppName))
-      throw new NoRecordException(command.RoleId, "Role");
+    if (command.AppName is not null && !AppRoleNames.IsAppRole(role.Name, command.AppName))
+      throw NoRecordException.ForIdentifier(command.RoleId);
 
-    // Confirm claim does not exist
-    var scopeClaim = _jwtTokenHandler.GenerateScopeClaim(command.Resource, command.Action);
+    // Scopes are stored in lower case, and the claim is removed by its exact value
+    var scopeClaim = _jwtTokenHandler.GenerateScopeClaim(command.Resource.TrimAndLowerInvariant(), command.Action.TrimAndLowerInvariant());
     var roleClaims = await _roleManager.GetClaimsAsync(role);
 
-    var claimFound = false;
-
-    foreach (var roleClaim in roleClaims)
-    {
-      if (string.Equals(roleClaim.Value, scopeClaim.Value, StringComparison.OrdinalIgnoreCase))
-      {
-        claimFound = true;
-        break;
-      }
-    }
-
-    if (!claimFound)
-      throw new NoRecordException($"{command.Resource}:{command.Action}", "RoleClaim");
+    if (!roleClaims.Any(roleClaim => roleClaim.Value == scopeClaim.Value))
+      throw NoRecordException.ForIdentifier($"{command.Resource}:{command.Action}");
 
     // Delete Claim
     var deleteRoleClaimResults = await _roleManager.RemoveClaimAsync(role, scopeClaim);
 
     if (!deleteRoleClaimResults.Succeeded)
-      throw new RecordDeletionException($"{command.Resource}:{command.Action}", "RoleClaim");
+      throw new RecordDeletionException($"Scope {command.Resource}:{command.Action} wasn't removed from role {role.Id}");
 
     return new DeleteRecordViewModel
     {

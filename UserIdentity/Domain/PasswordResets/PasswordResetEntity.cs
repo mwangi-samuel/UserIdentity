@@ -1,4 +1,4 @@
-﻿using PolyzenKit.Domain.Entity;
+﻿using PolyzenKit.Domain.Entities;
 
 namespace UserIdentity.Domain.PasswordResets;
 
