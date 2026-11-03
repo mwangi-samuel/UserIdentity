@@ -2,7 +2,7 @@
 
 using PolyzenKit.Application.Core.Messages.Events;
 using PolyzenKit.Common.Enums;
-using PolyzenKit.Common.Utilities;
+using PolyzenKit.Common.Extensions;
 
 using UserIdentity.Domain.Users;
 
@@ -15,18 +15,18 @@ public static class UserMessages
   public const string CallbackRequested = "callback.requested";
 
   public static MessageEvent Welcome(IdentityUser user, UserEntity userDetails, string appName) =>
-    MessageEventFactory.Create(user.Id, appName, Attributes(user, userDetails), MessageAction.WELCOME_USER);
+    MessageEventFactory.Create(user.Id, appName, Attributes(user, userDetails), MessageAction.WelcomeUser);
 
   public static MessageEvent PasswordReset(string resetRequestId, IdentityUser user, UserEntity userDetails, string appName) =>
-    MessageEventFactory.Create(resetRequestId, appName, Attributes(user, userDetails), MessageAction.PASSWORD_RESET);
+    MessageEventFactory.Create(resetRequestId, appName, Attributes(user, userDetails), MessageAction.PasswordReset);
 
-  private static Dictionary<MessageAttribute, string> Attributes(IdentityUser user, UserEntity userDetails) => new()
+  private static Dictionary<MessageAttributeKey, string> Attributes(IdentityUser user, UserEntity userDetails) => new()
   {
-    { MessageAttribute.RECIPIENT_EMAIL, user.Email.EmptyIfNullOrWhiteSpace() },
-    { MessageAttribute.RECIPIENT_PHONE, user.PhoneNumber.EmptyIfNullOrWhiteSpace() },
-    { MessageAttribute.FIRST_NAME, userDetails.FirstName.EmptyIfNullOrWhiteSpace() },
-    { MessageAttribute.LAST_NAME, userDetails.LastName.EmptyIfNullOrWhiteSpace() },
-    { MessageAttribute.USER_NAME, user.UserName.EmptyIfNullOrWhiteSpace() },
-    { MessageAttribute.USER_ID, user.Id.EmptyIfNullOrWhiteSpace() }
+    { MessageAttributeKey.RecipientEmail, user.Email.EmptyIfNullOrWhiteSpace() },
+    { MessageAttributeKey.RecipientPhone, user.PhoneNumber.EmptyIfNullOrWhiteSpace() },
+    { MessageAttributeKey.FirstName, userDetails.FirstName.EmptyIfNullOrWhiteSpace() },
+    { MessageAttributeKey.LastName, userDetails.LastName.EmptyIfNullOrWhiteSpace() },
+    { MessageAttributeKey.UserName, user.UserName.EmptyIfNullOrWhiteSpace() },
+    { MessageAttributeKey.UserId, user.Id.EmptyIfNullOrWhiteSpace() }
   };
 }

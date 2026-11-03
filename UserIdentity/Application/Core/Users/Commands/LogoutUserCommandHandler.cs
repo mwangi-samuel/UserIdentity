@@ -34,7 +34,7 @@ public class LogoutUserCommandHandler(
       Token = _tokenFactory.HashToken(command.RefreshToken)
     };
 
-    var existingEntity = await _refreshTokenRepository.GetEntityByAlternateIdAsync(tokenEntity, QueryCondition.MAY_OR_MAY_NOT_EXIST, cancellationToken);
+    var existingEntity = await _refreshTokenRepository.GetEntityByAlternateIdAsync(tokenEntity, QueryCondition.MayOrMayNotExist, cancellationToken);
 
     if (existingEntity is not null)
     {

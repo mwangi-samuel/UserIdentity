@@ -6,7 +6,6 @@ using Microsoft.Extensions.Options;
 
 using PolyzenKit.Application.Core;
 using PolyzenKit.Application.Core.Interfaces;
-using PolyzenKit.Application.Interfaces;
 using PolyzenKit.Common.Settings;
 using PolyzenKit.Persistence.Repositories;
 
@@ -41,8 +40,8 @@ public class CreateInviteCodeCommandHandler(
    RoleManager<IdentityRole> roleManager,
    IUnitOfWork unitOfWork,
    IInviteCodeRepository inviteCodeRepository,
-   IMachineDateTime machineDateTime
-  ) : BaseAuditableItemCommandHandler<long, InviteCodeEntity, IInviteCodeRepository>(unitOfWork, inviteCodeRepository, machineDateTime),
+   TimeProvider timeProvider
+  ) : BaseAuditableItemCommandHandler<long, InviteCodeEntity, IInviteCodeRepository>(unitOfWork, inviteCodeRepository, timeProvider),
       ICreateItemCommandHandler<CreateInviteCodeCommand, InviteCodeViewModel>
 {
   private readonly RoleSettings _roleSettings = roleSettingsOptions.Value;
@@ -62,7 +61,7 @@ public class CreateInviteCodeCommandHandler(
 
     return new InviteCodeViewModel
     {
-      InviteCode = await _repository.GetEntityDtoByIdAsync(entity.Id, cancellationToken)
+      InviteCode = await Repository.GetEntityDtoByIdAsync(entity.Id, cancellationToken)
     };
   }
 

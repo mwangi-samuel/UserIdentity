@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Identity;
 using PolyzenKit.Application.Core;
 using PolyzenKit.Application.Core.Interfaces;
 using PolyzenKit.Common.Exceptions;
-using PolyzenKit.Common.Utilities;
+using PolyzenKit.Common.Extensions;
 
 using UserIdentity.Application.Core.Roles.Shared;
 using UserIdentity.Application.Core.Roles.ViewModels;
@@ -30,7 +30,7 @@ public class CreateRoleCommandHandler(
 {
   private readonly RoleManager<IdentityRole> _roleManager = roleManager;
 
-  public async Task<RoleViewModel> CreateItemAsync(CreateRoleCommand command, string userid, CancellationToken cancellationToken = default)
+  public async Task<RoleViewModel> CreateItemAsync(CreateRoleCommand command, string userId, CancellationToken cancellationToken = default)
   {
     var roleName = command.RoleName.TrimAndLowerInvariant();
 

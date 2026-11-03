@@ -1,20 +1,17 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Net;
-using System.Net.Http;
-using System.Threading.Tasks;
+﻿using System.Net;
 
 using Newtonsoft.Json.Linq;
+
+using PolyzenKit.Presentation.Validation;
 
 using UserIdentity.Domain.InviteCodes;
 using UserIdentity.IntegrationTests.TestUtils;
 
 using Xunit;
 
-namespace UserIdentity.IntegrationTests.Presentation.Controllers;
+namespace UserIdentity.IntegrationTests.Presentation.Endpoints;
 
-public class InviteCodeControllerTests(
+public class InviteCodeEndpointsTests(
     TestingWebAppFactory testingWebAppFactory,
     ITestOutputHelper outputHelper
     ) : BaseIntegrationTests(testingWebAppFactory, outputHelper)
@@ -28,14 +25,14 @@ public class InviteCodeControllerTests(
   public async Task Get_InviteCode_By_Id_Returns_InviteCode()
   {
     // Arrange
-    _testDbHelper.SeedDatabase();
-    _testDbHelper.ConfigureIdentityUserAsAdmin();
+    TestDbHelper.SeedDatabase();
+    TestDbHelper.ConfigureIdentityUserAsAdmin();
 
     var testEmail = "invitecode-test@example.com";
-    var inviteCode = _testDbHelper.CreateInviteCodeEntity(testEmail, _registeredApp.AppName);
+    var inviteCode = TestDbHelper.CreateInviteCodeEntity(testEmail, RegisteredApp.AppName);
 
     // Act
-    var response = await _httpClient.SendValidAuthRequestAsync(HttpMethod.Get, $"{_baseUri}/{inviteCode.Id}");
+    var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Get, $"{_baseUri}/{inviteCode.Id}");
 
     // Assert
     var responseString = await response.ValidateRequestResponseAsync();
@@ -60,15 +57,15 @@ public class InviteCodeControllerTests(
   public async Task Get_InviteCode_By_Email_Returns_InviteCode()
   {
     // Arrange
-    _testDbHelper.SeedDatabase();
-    _testDbHelper.CreateIdentityRole(_testDbHelper.AdminRoles.First());
-    _testDbHelper.ConfigureIdentityUserAsAdmin();
+    TestDbHelper.SeedDatabase();
+    TestDbHelper.CreateIdentityRole(TestDbHelper.AdminRoles.First());
+    TestDbHelper.ConfigureIdentityUserAsAdmin();
 
     var testEmail = "invitecode-email-test@example.com";
-    var inviteCode = _testDbHelper.CreateInviteCodeEntity(testEmail, _registeredApp.AppName);
+    var inviteCode = TestDbHelper.CreateInviteCodeEntity(testEmail, RegisteredApp.AppName);
 
     // Act
-    var response = await _httpClient.SendValidAuthRequestAsync(HttpMethod.Get, $"{_baseUri}/email/{testEmail}");
+    var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Get, $"{_baseUri}/email/{testEmail}");
 
     // Assert
     var responseString = await response.ValidateRequestResponseAsync();
@@ -92,13 +89,13 @@ public class InviteCodeControllerTests(
   public async Task Get_InviteCode_With_Non_Admin_User_Returns_Forbidden()
   {
     // Arrange
-    _testDbHelper.SeedDatabase();
+    TestDbHelper.SeedDatabase();
 
     var testEmail = "invitecode-forbidden@example.com";
-    var inviteCode = _testDbHelper.CreateInviteCodeEntity(testEmail, _registeredApp.AppName);
+    var inviteCode = TestDbHelper.CreateInviteCodeEntity(testEmail, RegisteredApp.AppName);
 
     // Act
-    var response = await _httpClient.SendValidAuthRequestAsync(HttpMethod.Get, $"{_baseUri}/{inviteCode.Id}");
+    var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Get, $"{_baseUri}/{inviteCode.Id}");
 
     // Assert
     await response.ValidateRequestResponseAsync();
@@ -110,13 +107,13 @@ public class InviteCodeControllerTests(
   public async Task Get_InviteCode_With_No_Auth_Returns_Unauthorized()
   {
     // Arrange
-    _testDbHelper.SeedDatabase();
+    TestDbHelper.SeedDatabase();
 
     var testEmail = "invitecode-noauth@example.com";
-    var inviteCode = _testDbHelper.CreateInviteCodeEntity(testEmail, _registeredApp.AppName);
+    var inviteCode = TestDbHelper.CreateInviteCodeEntity(testEmail, RegisteredApp.AppName);
 
     // Act
-    var response = await _httpClient.SendNoAuthRequestAsync(HttpMethod.Get, $"{_baseUri}/{inviteCode.Id}");
+    var response = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Get, $"{_baseUri}/{inviteCode.Id}");
 
     // Assert
     await response.ValidateRequestResponseAsync();
@@ -128,14 +125,14 @@ public class InviteCodeControllerTests(
   public async Task Get_Non_Existing_InviteCode_Returns_NotFound()
   {
     // Arrange
-    _testDbHelper.SeedDatabase();
-    _testDbHelper.CreateIdentityRole(_testDbHelper.AdminRoles.First());
-    _testDbHelper.ConfigureIdentityUserAsAdmin();
+    TestDbHelper.SeedDatabase();
+    TestDbHelper.CreateIdentityRole(TestDbHelper.AdminRoles.First());
+    TestDbHelper.ConfigureIdentityUserAsAdmin();
 
     var nonExistingId = 99999L;
 
     // Act
-    var response = await _httpClient.SendValidAuthRequestAsync(HttpMethod.Get, $"{_baseUri}/{nonExistingId}");
+    var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Get, $"{_baseUri}/{nonExistingId}");
 
     // Assert
     var responseString = await response.ValidateRequestResponseAsync();
@@ -157,9 +154,9 @@ public class InviteCodeControllerTests(
   public async Task Create_InviteCode_Creates_And_Returns_InviteCode()
   {
     // Arrange
-    _testDbHelper.SeedDatabase();
-    _testDbHelper.CreateIdentityRole(_testDbHelper.AdminRoles.First());
-    _testDbHelper.ConfigureIdentityUserAsAdmin();
+    TestDbHelper.SeedDatabase();
+    TestDbHelper.CreateIdentityRole(TestDbHelper.AdminRoles.First());
+    TestDbHelper.ConfigureIdentityUserAsAdmin();
 
     var inviteCode = "TESTCODE01";
     var userEmail = "new-invitecode@example.com";
@@ -171,15 +168,15 @@ public class InviteCodeControllerTests(
     };
 
     // Clean up any existing record
-    _testDbHelper.DeleteInviteCodeEntityByEmail(userEmail);
+    TestDbHelper.DeleteInviteCodeEntityByEmail(userEmail);
 
     // Act
-    var response = await _httpClient.SendValidAuthRequestAsync(HttpMethod.Post, _baseUri, requestPayload);
+    var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Post, _baseUri, requestPayload);
 
     // Assert
     var responseString = await response.ValidateRequestResponseAsync();
 
-    _outputHelper.WriteLine(responseString);
+    OutputHelper.WriteLine(responseString);
 
     Assert.Equal(HttpStatusCode.Created, response.StatusCode);
 
@@ -197,7 +194,7 @@ public class InviteCodeControllerTests(
     Assert.True(inviteCodeDetails.Id > 0);
 
     // Verify in database
-    var savedEntity = _testDbHelper.GetInviteCodeEntityByEmail(userEmail);
+    var savedEntity = TestDbHelper.GetInviteCodeEntityByEmail(userEmail);
     Assert.NotNull(savedEntity);
     Assert.Equal(inviteCode, savedEntity.InviteCode);
   }
@@ -206,7 +203,7 @@ public class InviteCodeControllerTests(
   public async Task Create_InviteCode_With_Non_Admin_User_Returns_Forbidden()
   {
     // Arrange
-    _testDbHelper.SeedDatabase();
+    TestDbHelper.SeedDatabase();
 
     var requestPayload = new
     {
@@ -215,7 +212,7 @@ public class InviteCodeControllerTests(
     };
 
     // Act
-    var response = await _httpClient.SendValidAuthRequestAsync(HttpMethod.Post, _baseUri, requestPayload);
+    var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Post, _baseUri, requestPayload);
 
     // Assert
     await response.ValidateRequestResponseAsync();
@@ -227,7 +224,7 @@ public class InviteCodeControllerTests(
   public async Task Create_InviteCode_With_No_Auth_Returns_Unauthorized()
   {
     // Arrange
-    _testDbHelper.SeedDatabase();
+    TestDbHelper.SeedDatabase();
 
     var requestPayload = new
     {
@@ -236,7 +233,7 @@ public class InviteCodeControllerTests(
     };
 
     // Act
-    var response = await _httpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri, requestPayload);
+    var response = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri, requestPayload);
 
     // Assert
     await response.ValidateRequestResponseAsync();
@@ -248,15 +245,15 @@ public class InviteCodeControllerTests(
   public async Task Create_InviteCode_With_Role_Returns_The_Role()
   {
     // Arrange
-    _testDbHelper.SeedDatabase();
-    _testDbHelper.CreateIdentityRole(_testDbHelper.AdminRoles.First());
-    _testDbHelper.ConfigureIdentityUserAsAdmin();
-    _testDbHelper.CreateIdentityRole(OwnerRole);
+    TestDbHelper.SeedDatabase();
+    TestDbHelper.CreateIdentityRole(TestDbHelper.AdminRoles.First());
+    TestDbHelper.ConfigureIdentityUserAsAdmin();
+    TestDbHelper.CreateIdentityRole(OwnerRole);
 
     var userEmail = "owner-invitecode@example.com";
 
     // Act
-    var response = await _httpClient.SendValidAuthRequestAsync(HttpMethod.Post, _baseUri, new { inviteCode = "OWNERCODE1", userEmail, role = OwnerRole });
+    var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Post, _baseUri, new { inviteCode = "OWNERCODE1", userEmail, role = OwnerRole });
 
     // Assert
     var responseString = await response.ValidateRequestResponseAsync();
@@ -268,7 +265,7 @@ public class InviteCodeControllerTests(
     Assert.NotNull(inviteCodeDetails);
     Assert.Equal(OwnerRole, inviteCodeDetails.Role);
     Assert.False(inviteCodeDetails.Applied);
-    Assert.Equal(OwnerRole, _testDbHelper.GetInviteCodeEntityByEmail(userEmail)?.Role);
+    Assert.Equal(OwnerRole, TestDbHelper.GetInviteCodeEntityByEmail(userEmail)?.Role);
   }
 
   [Theory]
@@ -278,21 +275,21 @@ public class InviteCodeControllerTests(
   public async Task Create_InviteCode_With_An_Admin_Another_Apps_Or_A_Missing_Role_Returns_BadRequest(string role)
   {
     // Arrange
-    _testDbHelper.SeedDatabase();
-    _testDbHelper.CreateIdentityRole(_testDbHelper.AdminRoles.First());
-    _testDbHelper.ConfigureIdentityUserAsAdmin();
-    _testDbHelper.CreateIdentityRole("otherapp:owner");
+    TestDbHelper.SeedDatabase();
+    TestDbHelper.CreateIdentityRole(TestDbHelper.AdminRoles.First());
+    TestDbHelper.ConfigureIdentityUserAsAdmin();
+    TestDbHelper.CreateIdentityRole("otherapp:owner");
 
     var userEmail = "bad-role-invitecode@example.com";
 
     // Act
-    var response = await _httpClient.SendValidAuthRequestAsync(HttpMethod.Post, _baseUri, new { inviteCode = "BADROLE001", userEmail, role });
+    var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Post, _baseUri, new { inviteCode = "BADROLE001", userEmail, role });
 
     // Assert
     await response.ValidateRequestResponseAsync();
 
     Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-    Assert.Null(_testDbHelper.GetInviteCodeEntityByEmail(userEmail));
+    Assert.Null(TestDbHelper.GetInviteCodeEntityByEmail(userEmail));
   }
 
   #endregion
@@ -303,18 +300,18 @@ public class InviteCodeControllerTests(
   public async Task Get_InviteCodes_Returns_The_Apps_InviteCodes_Newest_First()
   {
     // Arrange
-    _testDbHelper.SeedDatabase();
-    _testDbHelper.CreateIdentityRole(_testDbHelper.AdminRoles.First());
-    _testDbHelper.ConfigureIdentityUserAsAdmin();
+    TestDbHelper.SeedDatabase();
+    TestDbHelper.CreateIdentityRole(TestDbHelper.AdminRoles.First());
+    TestDbHelper.ConfigureIdentityUserAsAdmin();
 
     var now = DateTime.UtcNow;
-    _testDbHelper.CreateInviteCodeEntity("first-list@example.com", _registeredApp.AppName, createdAt: now.AddMinutes(-2));
-    _testDbHelper.CreateInviteCodeEntity("second-list@example.com", _registeredApp.AppName, applied: true, createdAt: now.AddMinutes(-1));
-    _testDbHelper.CreateInviteCodeEntity("third-list@example.com", _registeredApp.AppName, role: OwnerRole, createdAt: now);
-    _testDbHelper.CreateInviteCodeEntity("other-app-list@example.com", TestingWebAppFactory.OtherAppName);
+    TestDbHelper.CreateInviteCodeEntity("first-list@example.com", RegisteredApp.AppName, createdAt: now.AddMinutes(-2));
+    TestDbHelper.CreateInviteCodeEntity("second-list@example.com", RegisteredApp.AppName, applied: true, createdAt: now.AddMinutes(-1));
+    TestDbHelper.CreateInviteCodeEntity("third-list@example.com", RegisteredApp.AppName, role: OwnerRole, createdAt: now);
+    TestDbHelper.CreateInviteCodeEntity("other-app-list@example.com", TestingWebAppFactory.OtherAppName);
 
     // Act
-    var response = await _httpClient.SendValidAuthRequestAsync(HttpMethod.Get, $"{_baseUri}?page=1&pageSize=2");
+    var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Get, $"{_baseUri}?page=1&pageSize=2");
 
     // Assert
     var responseString = await response.ValidateRequestResponseAsync();
@@ -336,13 +333,43 @@ public class InviteCodeControllerTests(
   }
 
   [Fact]
+  public async Task Get_InviteCodes_With_Page_Zero_Returns_Validation_Error()
+  {
+    // Arrange
+    TestDbHelper.SeedDatabase();
+    TestDbHelper.CreateIdentityRole(TestDbHelper.AdminRoles.First());
+    TestDbHelper.ConfigureIdentityUserAsAdmin();
+
+    // Act
+    var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Get, $"{_baseUri}?page=0");
+
+    // Assert
+    var responseString = await response.ValidateRequestResponseAsync();
+
+    Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+
+    var jsonObject = SerDeHelper.Deserialize<JObject>(responseString);
+
+    Assert.NotNull(jsonObject);
+    Assert.Equal("Request Failed", $"{jsonObject["requestStatus"]}");
+    Assert.Equal("Validation Failed", $"{jsonObject["error"]?["message"]}");
+
+    var errorList = jsonObject["error"]?["errorList"]?.ToObject<List<ValidationError>>();
+
+    Assert.NotNull(errorList);
+    var error = Assert.Single(errorList);
+    Assert.Equal("page", error.Field);
+    Assert.Equal("The field page must be between 1 and 21474836.", error.Message);
+  }
+
+  [Fact]
   public async Task Get_InviteCodes_With_Non_Admin_User_Returns_Forbidden()
   {
     // Arrange
-    _testDbHelper.SeedDatabase();
+    TestDbHelper.SeedDatabase();
 
     // Act
-    var response = await _httpClient.SendValidAuthRequestAsync(HttpMethod.Get, _baseUri);
+    var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Get, _baseUri);
 
     // Assert
     await response.ValidateRequestResponseAsync();
@@ -358,60 +385,60 @@ public class InviteCodeControllerTests(
   public async Task Delete_Unused_InviteCode_Revokes_It()
   {
     // Arrange
-    _testDbHelper.SeedDatabase();
-    _testDbHelper.CreateIdentityRole(_testDbHelper.AdminRoles.First());
-    _testDbHelper.ConfigureIdentityUserAsAdmin();
+    TestDbHelper.SeedDatabase();
+    TestDbHelper.CreateIdentityRole(TestDbHelper.AdminRoles.First());
+    TestDbHelper.ConfigureIdentityUserAsAdmin();
 
-    var inviteCode = _testDbHelper.CreateInviteCodeEntity("revoke@example.com", _registeredApp.AppName);
+    var inviteCode = TestDbHelper.CreateInviteCodeEntity("revoke@example.com", RegisteredApp.AppName);
 
     // Act
-    var response = await _httpClient.SendValidAuthRequestAsync(HttpMethod.Delete, $"{_baseUri}/{inviteCode.Id}");
+    var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Delete, $"{_baseUri}/{inviteCode.Id}");
 
     // Assert
     await response.ValidateRequestResponseAsync();
 
     Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-    Assert.Null(_testDbHelper.GetInviteCodeEntityWithNoTracking(inviteCode.Id));
+    Assert.Null(TestDbHelper.GetInviteCodeEntityWithNoTracking(inviteCode.Id));
   }
 
   [Fact]
   public async Task Delete_Used_InviteCode_Returns_BadRequest()
   {
     // Arrange
-    _testDbHelper.SeedDatabase();
-    _testDbHelper.CreateIdentityRole(_testDbHelper.AdminRoles.First());
-    _testDbHelper.ConfigureIdentityUserAsAdmin();
+    TestDbHelper.SeedDatabase();
+    TestDbHelper.CreateIdentityRole(TestDbHelper.AdminRoles.First());
+    TestDbHelper.ConfigureIdentityUserAsAdmin();
 
-    var inviteCode = _testDbHelper.CreateInviteCodeEntity("revoke-used@example.com", _registeredApp.AppName, applied: true);
+    var inviteCode = TestDbHelper.CreateInviteCodeEntity("revoke-used@example.com", RegisteredApp.AppName, applied: true);
 
     // Act
-    var response = await _httpClient.SendValidAuthRequestAsync(HttpMethod.Delete, $"{_baseUri}/{inviteCode.Id}");
+    var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Delete, $"{_baseUri}/{inviteCode.Id}");
 
     // Assert
     await response.ValidateRequestResponseAsync();
 
     Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-    Assert.NotNull(_testDbHelper.GetInviteCodeEntityWithNoTracking(inviteCode.Id));
+    Assert.NotNull(TestDbHelper.GetInviteCodeEntityWithNoTracking(inviteCode.Id));
   }
 
   [Fact]
   public async Task Delete_Another_Apps_InviteCode_Returns_NotFound()
   {
     // Arrange
-    _testDbHelper.SeedDatabase();
-    _testDbHelper.CreateIdentityRole(_testDbHelper.AdminRoles.First());
-    _testDbHelper.ConfigureIdentityUserAsAdmin();
+    TestDbHelper.SeedDatabase();
+    TestDbHelper.CreateIdentityRole(TestDbHelper.AdminRoles.First());
+    TestDbHelper.ConfigureIdentityUserAsAdmin();
 
-    var inviteCode = _testDbHelper.CreateInviteCodeEntity("revoke-other-app@example.com", TestingWebAppFactory.OtherAppName);
+    var inviteCode = TestDbHelper.CreateInviteCodeEntity("revoke-other-app@example.com", TestingWebAppFactory.OtherAppName);
 
     // Act
-    var response = await _httpClient.SendValidAuthRequestAsync(HttpMethod.Delete, $"{_baseUri}/{inviteCode.Id}");
+    var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Delete, $"{_baseUri}/{inviteCode.Id}");
 
     // Assert
     await response.ValidateRequestResponseAsync();
 
     Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
-    Assert.NotNull(_testDbHelper.GetInviteCodeEntityWithNoTracking(inviteCode.Id));
+    Assert.NotNull(TestDbHelper.GetInviteCodeEntityWithNoTracking(inviteCode.Id));
   }
 
   #endregion

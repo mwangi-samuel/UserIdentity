@@ -1,10 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Security.Claims;
-using System.Threading;
-using System.Threading.Tasks;
+﻿using System.Security.Claims;
 
 using FakeItEasy;
+
+using Microsoft.Extensions.Time.Testing;
 
 using PolyzenKit.Application.Interfaces;
 using PolyzenKit.Common.Settings;
@@ -21,16 +19,17 @@ namespace UserIdentity.UnitTests.Application.Core.Tokens.Shared;
 public class UserTokenIssuerTests
 {
   private static readonly DateTime _now = new(2026, 11, 2, 10, 0, 0, DateTimeKind.Utc);
+  private static readonly string[] AppRoles = ["global:admin", "testapp:owner", "testapp:user"];
 
   private readonly IRoleRepository _roleRepository = A.Fake<IRoleRepository>();
   private readonly IRefreshTokenRepository _refreshTokenRepository = A.Fake<IRefreshTokenRepository>();
   private readonly IJwtTokenHandler _jwtTokenHandler = A.Fake<IJwtTokenHandler>();
   private readonly ITokenFactory _tokenFactory = A.Fake<ITokenFactory>();
-  private readonly IMachineDateTime _machineDateTime = A.Fake<IMachineDateTime>();
+  private readonly FakeTimeProvider _timeProvider = new();
 
   public UserTokenIssuerTests()
   {
-    A.CallTo(() => _machineDateTime.Now).Returns(_now);
+    _timeProvider.SetUtcNow(_now);
     A.CallTo(() => _roleRepository.GetUserRoleNamesAsync("user-id", A<CancellationToken>._))
       .Returns(["global:admin", "otherapp:admin", "service:internal", "testapp:owner", "testapp:user"]);
   }
@@ -41,10 +40,10 @@ public class UserTokenIssuerTests
     // Arrange
     HashSet<string> scopes = ["useridentity-user:read", "catalog-product:all"];
 
-    A.CallTo(() => _roleRepository.GetScopesAsync(A<IReadOnlyCollection<string>>.That.IsSameSequenceAs(new[] { "global:admin", "testapp:owner", "testapp:user" }), A<CancellationToken>._))
+    A.CallTo(() => _roleRepository.GetScopesAsync(A<IReadOnlyCollection<string>>.That.IsSameSequenceAs(AppRoles), A<CancellationToken>._))
       .Returns(scopes);
     A.CallTo(() => _jwtTokenHandler.CreateToken("user-id", "test.user", "TestApp",
-        A<HashSet<string>>.That.Matches(roles => roles.SetEquals(new[] { "global:admin", "testapp:owner", "testapp:user" })), scopes, A<HashSet<Claim>?>._))
+        A<HashSet<string>>.That.Matches(roles => roles.SetEquals(AppRoles)), scopes, A<HashSet<Claim>?>._))
       .Returns(("access-token", 180));
 
     var issuer = CreateIssuer();
@@ -92,7 +91,7 @@ public class UserTokenIssuerTests
     _refreshTokenRepository,
     _jwtTokenHandler,
     _tokenFactory,
-    _machineDateTime,
+    _timeProvider,
     new RoleSettings { ServiceName = "UserIdentity" },
     new RefreshTokenSettings { ValidForSeconds = 3600 });
 }

@@ -1,8 +1,4 @@
-﻿using System;
-using System.Linq;
-using System.Threading.Tasks;
-
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 
 using PolyzenKit.Common.Exceptions;
 using PolyzenKit.Persistence.Repositories;
@@ -45,7 +41,7 @@ public class RefreshTokenRepositoryTests
     {
       UserId = refreshToken.UserId,
       Token = refreshToken.Token
-    }, QueryCondition.MUST_EXIST, TestContext.Current.CancellationToken);
+    }, QueryCondition.MustExist, TestContext.Current.CancellationToken);
 
     Assert.NotNull(result);
     Assert.Equal(refreshToken.Id, result!.Id);
@@ -60,7 +56,7 @@ public class RefreshTokenRepositoryTests
     {
       UserId = Guid.NewGuid().ToString(),
       Token = Guid.NewGuid().ToString()
-    }, QueryCondition.MUST_EXIST, TestContext.Current.CancellationToken));
+    }, QueryCondition.MustExist, TestContext.Current.CancellationToken));
   }
 
   [Fact]
@@ -77,7 +73,7 @@ public class RefreshTokenRepositoryTests
     {
       UserId = refreshToken.UserId,
       Token = refreshToken.Token
-    }, QueryCondition.MUST_NOT_EXIST, TestContext.Current.CancellationToken));
+    }, QueryCondition.MustNotExist, TestContext.Current.CancellationToken));
   }
 
   [Fact]

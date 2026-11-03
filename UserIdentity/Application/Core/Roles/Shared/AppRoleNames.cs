@@ -1,4 +1,5 @@
-﻿using PolyzenKit.Common.Settings;
+﻿using PolyzenKit.Common.Extensions;
+using PolyzenKit.Common.Settings;
 using PolyzenKit.Common.Utilities;
 
 namespace UserIdentity.Application.Core.Roles.Shared;
@@ -6,9 +7,9 @@ namespace UserIdentity.Application.Core.Roles.Shared;
 public static class AppRoleNames
 {
   // Always admin roles, since token consumers may treat <app>:admin as an admin role whatever this service's AdminRoles says
-  private static readonly HashSet<string> _defaultAdminRoles = RoleSettings.ParseRoles(ZenConstants.DEFAULT_ADMIN_ROLES);
+  private static readonly HashSet<string> _defaultAdminRoles = RoleSettings.ParseRoles(KnownRoles.Admin);
 
-  public static string Prefix(string appName) => $"{appName.TrimAndLowerInvariant()}{ZenConstants.SERVICE_ROLE_SEPARATOR}";
+  public static string Prefix(string appName) => $"{appName.TrimAndLowerInvariant()}{Separators.ServiceRole}";
 
   public static string DefaultRole(string appName, RoleSettings roleSettings) => $"{Prefix(appName)}{roleSettings.DefaultRole.TrimAndLowerInvariant()}";
 

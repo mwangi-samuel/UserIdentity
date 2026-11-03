@@ -1,14 +1,9 @@
-﻿using System;
-using System.IO;
-using System.Threading;
-using System.Threading.Tasks;
-
-using FakeItEasy;
+﻿using FakeItEasy;
 
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Time.Testing;
 
-using PolyzenKit.Application.Interfaces;
 using PolyzenKit.Common.Settings;
 using PolyzenKit.Persistence.Repositories;
 
@@ -27,7 +22,7 @@ public class CreateInviteCodeCommandHandlerTests
   private readonly RoleManager<IdentityRole> _roleManager;
   private readonly IUnitOfWork _unitOfWork;
   private readonly IInviteCodeRepository _inviteCodeRepository;
-  private readonly IMachineDateTime _machineDateTime;
+  private readonly FakeTimeProvider _timeProvider;
 
   public CreateInviteCodeCommandHandlerTests()
   {
@@ -35,9 +30,9 @@ public class CreateInviteCodeCommandHandlerTests
     _roleManager = A.Fake<RoleManager<IdentityRole>>();
     _unitOfWork = A.Fake<IUnitOfWork>();
     _inviteCodeRepository = A.Fake<IInviteCodeRepository>();
-    _machineDateTime = A.Fake<IMachineDateTime>();
+    _timeProvider = new FakeTimeProvider();
 
-    A.CallTo(() => _machineDateTime.Now).Returns(DateTime.UtcNow);
+    _timeProvider.SetUtcNow(DateTime.UtcNow);
   }
 
   [Fact]
@@ -94,7 +89,7 @@ public class CreateInviteCodeCommandHandlerTests
   {
     // Arrange
     var now = DateTime.UtcNow;
-    A.CallTo(() => _machineDateTime.Now).Returns(now);
+    _timeProvider.SetUtcNow(now);
 
     var command = new CreateInviteCodeCommand
     {
@@ -221,5 +216,5 @@ public class CreateInviteCodeCommandHandlerTests
   };
 
   private CreateInviteCodeCommandHandler GetHandler() =>
-    new(_roleSettings, _roleManager, _unitOfWork, _inviteCodeRepository, _machineDateTime);
+    new(_roleSettings, _roleManager, _unitOfWork, _inviteCodeRepository, _timeProvider);
 }

@@ -1,7 +1,4 @@
-﻿using System;
-using System.IO;
-using System.Linq;
-using System.Text.RegularExpressions;
+﻿using System.Text.RegularExpressions;
 
 using Xunit;
 
@@ -12,10 +9,10 @@ public class LayerDependencyTests
   private static string ServiceDirectory()
   {
     var directory = new DirectoryInfo(AppContext.BaseDirectory);
-    while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "UserIdentity.sln")))
+    while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "UserIdentity.slnx")))
       directory = directory.Parent;
 
-    return Path.Combine((directory ?? throw new DirectoryNotFoundException("UserIdentity.sln")).FullName, "UserIdentity");
+    return Path.Combine((directory ?? throw new DirectoryNotFoundException("UserIdentity.slnx")).FullName, "UserIdentity");
   }
 
   [Theory]

@@ -1,7 +1,4 @@
-﻿using System.Collections.Generic;
-using System.Threading.Tasks;
-
-using PolyzenKit.Application.Core.Messages.Events;
+﻿using PolyzenKit.Application.Core.Messages.Events;
 using PolyzenKit.Common.Enums;
 
 using UserIdentity.IntegrationTests.TestUtils;
@@ -19,21 +16,21 @@ public class CodeVerifiedMessageHandlerTests(
   public async Task Welcome_User_Message_Confirms_The_User()
   {
     // Arrange
-    var user = _testDbHelper.CreateIdentityUser();
+    var user = TestDbHelper.CreateIdentityUser();
     user.EmailConfirmed = false;
-    _testDbHelper.UpdateIdentityUser(user);
+    TestDbHelper.UpdateIdentityUser(user);
 
-    Assert.False(_testDbHelper.GetIdentityUserWithNoTracking(user.Id)?.EmailConfirmed);
+    Assert.False(TestDbHelper.GetIdentityUserWithNoTracking(user.Id)?.EmailConfirmed);
 
-    var messageEvent = MessageEventFactory.Create(user.Id, _registeredApp.AppName, new Dictionary<MessageAttribute, string>(), MessageAction.WELCOME_USER, CrudEvent.UPDATE);
+    var messageEvent = MessageEventFactory.Create(user.Id, RegisteredApp.AppName, new Dictionary<MessageAttributeKey, string>(), MessageAction.WelcomeUser, CrudEvent.Update);
 
     // Act
-    await _natsTestHelper.PublishCodeVerifiedAsync(messageEvent);
+    await NatsTestHelper.PublishCodeVerifiedAsync(messageEvent);
 
     // Assert
-    await _pollyResiliencePipeline.ExecuteAsync(token =>
+    await PollyResiliencePipeline.ExecuteAsync(token =>
     {
-      Assert.True(_testDbHelper.GetIdentityUserWithNoTracking(user.Id)?.EmailConfirmed);
+      Assert.True(TestDbHelper.GetIdentityUserWithNoTracking(user.Id)?.EmailConfirmed);
       return ValueTask.CompletedTask;
     }, TestContext.Current.CancellationToken);
   }
@@ -44,18 +41,18 @@ public class CodeVerifiedMessageHandlerTests(
     // Arrange
     const string resetRequestId = "reset-request-id-for-messaging";
 
-    _testDbHelper.CreateIdentityUser();
-    _testDbHelper.CreatePasswordResetEntity(resetRequestId, verified: false);
+    TestDbHelper.CreateIdentityUser();
+    TestDbHelper.CreatePasswordResetEntity(resetRequestId, verified: false);
 
-    var messageEvent = MessageEventFactory.Create(resetRequestId, _registeredApp.AppName, new Dictionary<MessageAttribute, string>(), MessageAction.PASSWORD_RESET, CrudEvent.UPDATE);
+    var messageEvent = MessageEventFactory.Create(resetRequestId, RegisteredApp.AppName, new Dictionary<MessageAttributeKey, string>(), MessageAction.PasswordReset, CrudEvent.Update);
 
     // Act
-    await _natsTestHelper.PublishCodeVerifiedAsync(messageEvent);
+    await NatsTestHelper.PublishCodeVerifiedAsync(messageEvent);
 
     // Assert
-    await _pollyResiliencePipeline.ExecuteAsync(token =>
+    await PollyResiliencePipeline.ExecuteAsync(token =>
     {
-      Assert.True(_testDbHelper.GetPasswordResetEntityWithNoTracking(UserSettingHelper.UserId)?.Verified);
+      Assert.True(TestDbHelper.GetPasswordResetEntityWithNoTracking(UserSettingHelper.UserId)?.Verified);
       return ValueTask.CompletedTask;
     }, TestContext.Current.CancellationToken);
   }

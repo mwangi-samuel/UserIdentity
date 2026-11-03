@@ -15,7 +15,7 @@ public class EdDsaCertsHelper(
   [Fact]
   public void Generating_Certs_Pair_Generates_And_Prints_As_Expected()
   {
-    var privateKeyPassPhrase = StringUtil.GenerateRandomString(32, true, true);
+    var privateKeyPassPhrase = RandomStrings.Generate(32, true, true);
 
     var keyPair = EdDsaHelper.GenerateEd25519KeyPair();
 

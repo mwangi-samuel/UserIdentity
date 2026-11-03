@@ -1,8 +1,5 @@
-﻿using System;
-using System.Reflection;
+﻿using System.Reflection;
 using System.Text.Json;
-using System.Threading;
-using System.Threading.Tasks;
 
 using NATS.Client.JetStream;
 using NATS.Client.JetStream.Models;
@@ -48,7 +45,7 @@ public sealed class NatsTestHelper(INatsJSContext jetStream)
 
       await foreach (var delivery in consumer.ConsumeAsync<byte[]>(cancellationToken: timeout.Token))
       {
-        var message = JsonSerializer.Deserialize<MessageEvent>(delivery.Data, JsonUtil.GetJsonSerializerOptions());
+        var message = JsonSerializer.Deserialize<MessageEvent>(delivery.Data, JsonOptionsCache.Get());
 
         if (message?.CorrelationId == correlationId)
           return message;
@@ -63,7 +60,7 @@ public sealed class NatsTestHelper(INatsJSContext jetStream)
 
   public async Task PublishCodeVerifiedAsync(MessageEvent message)
   {
-    var payload = JsonSerializer.SerializeToUtf8Bytes(message, JsonUtil.GetJsonSerializerOptions());
+    var payload = JsonSerializer.SerializeToUtf8Bytes(message, JsonOptionsCache.Get());
 
     var ack = await _jetStream.PublishAsync(CodeVerifiedSubject, payload, cancellationToken: TestContext.Current.CancellationToken);
 

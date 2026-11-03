@@ -1,9 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Security.Authentication;
+﻿using System.Security.Authentication;
 using System.Security.Claims;
-using System.Threading;
-using System.Threading.Tasks;
 
 using FakeItEasy;
 
@@ -13,7 +9,6 @@ using Microsoft.Extensions.Options;
 using PolyzenKit.Application.Interfaces;
 using PolyzenKit.Common.Settings;
 using PolyzenKit.Domain.Entities.RegisteredApps;
-using PolyzenKit.Infrastructure.Utilities;
 using PolyzenKit.Persistence.Repositories;
 
 using UserIdentity.Application.Core.Tokens.Shared;
@@ -31,6 +26,9 @@ namespace UserIdentity.UnitTests.Application.Core.Users.Commands;
 
 public class LoginUserCommandHandlerTests
 {
+  private static readonly string[] TestAppUserRoles = ["testapp:user"];
+  private static readonly string[] UserReadScopes = ["useridentity-user:read"];
+
   private readonly IOptions<IdentityOptions> _identityOptions = Options.Create(new IdentityOptions());
   private readonly IOptions<RoleSettings> _roleSettings = Options.Create(new RoleSettings { ServiceName = "UserIdentity" });
   private readonly IOptions<RefreshTokenSettings> _refreshTokenSettings = Options.Create(new RefreshTokenSettings { ValidForSeconds = 2592000 });
@@ -41,7 +39,7 @@ public class LoginUserCommandHandlerTests
   private readonly IUserRepository _userRepository = A.Fake<IUserRepository>();
   private readonly IRoleRepository _roleRepository = A.Fake<IRoleRepository>();
   private readonly IRefreshTokenRepository _refreshTokenRepository = A.Fake<IRefreshTokenRepository>();
-  private readonly IMachineDateTime _machineDateTime = new MachineDateTime();
+  private readonly TimeProvider _timeProvider = TimeProvider.System;
 
   private readonly RegisteredAppEntity _registeredApp = new() { AppName = "TestApp" };
 
@@ -136,11 +134,11 @@ public class LoginUserCommandHandlerTests
     A.CallTo(() => _userManager.CheckPasswordAsync(existingIdentityUser, command.Password)).Returns(true);
     A.CallTo(() => _userRepository.GetUserDtoAsync(existingIdentityUser.Id, "TestApp", A<CancellationToken>._)).Returns(userDto);
     A.CallTo(() => _roleRepository.GetUserRoleNamesAsync(existingIdentityUser.Id, A<CancellationToken>._)).Returns(["otherapp:admin", "testapp:user"]);
-    A.CallTo(() => _roleRepository.GetScopesAsync(A<IReadOnlyCollection<string>>.That.IsSameSequenceAs(new[] { "testapp:user" }), A<CancellationToken>._)).Returns(["useridentity-user:read"]);
+    A.CallTo(() => _roleRepository.GetScopesAsync(A<IReadOnlyCollection<string>>.That.IsSameSequenceAs(TestAppUserRoles), A<CancellationToken>._)).Returns(["useridentity-user:read"]);
     A.CallTo(() => _tokenFactory.GenerateToken(32)).Returns("refresh-token");
     A.CallTo(() => _tokenFactory.HashToken("refresh-token")).Returns("refresh-token-hash");
     A.CallTo(() => _jwtTokenHandler.CreateToken(existingIdentityUser.Id, existingIdentityUser.UserName!, "TestApp",
-        A<HashSet<string>>.That.IsSameSequenceAs(new[] { "testapp:user" }), A<HashSet<string>>.That.IsSameSequenceAs(new[] { "useridentity-user:read" }), A<HashSet<Claim>?>._))
+        A<HashSet<string>>.That.IsSameSequenceAs(TestAppUserRoles), A<HashSet<string>>.That.IsSameSequenceAs(UserReadScopes), A<HashSet<Claim>?>._))
         .Returns(("access-token", 180));
 
     var handler = GetLoginUserCommandHandler();
@@ -205,7 +203,7 @@ public class LoginUserCommandHandlerTests
     _userRepository,
     _roleRepository,
     _refreshTokenRepository,
-    _machineDateTime
+    _timeProvider
   );
 
   private static IdentityUser GetIdentityUser() => new()

@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/Solution Items/">
+    <File Path=".editorconfig" />
+    <File Path="Directory.Build.props" />
+    <File Path="Directory.Packages.props" />
+  </Folder>
+  <Project Path="UserIdentity.IntegrationTests/UserIdentity.IntegrationTests.csproj" />
+  <Project Path="UserIdentity.UnitTests/UserIdentity.UnitTests.csproj" />
+  <Project Path="UserIdentity/UserIdentity.csproj" />
+</Solution>

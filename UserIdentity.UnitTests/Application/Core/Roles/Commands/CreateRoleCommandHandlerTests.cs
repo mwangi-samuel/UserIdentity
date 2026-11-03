@@ -1,7 +1,4 @@
-﻿using System.IO;
-using System.Threading.Tasks;
-
-using FakeItEasy;
+﻿using FakeItEasy;
 
 using Microsoft.AspNetCore.Identity;
 

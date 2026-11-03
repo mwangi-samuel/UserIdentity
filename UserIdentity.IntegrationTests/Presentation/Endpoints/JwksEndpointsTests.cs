@@ -1,7 +1,4 @@
-﻿using System.Collections.Generic;
-using System.Net;
-using System.Net.Http;
-using System.Threading.Tasks;
+﻿using System.Net;
 
 using Newtonsoft.Json.Linq;
 
@@ -9,9 +6,9 @@ using UserIdentity.IntegrationTests.TestUtils;
 
 using Xunit;
 
-namespace UserIdentity.IntegrationTests.Presentation.Controllers;
+namespace UserIdentity.IntegrationTests.Presentation.Endpoints;
 
-public class JwksControllerTests(
+public class JwksEndpointsTests(
     TestingWebAppFactory testingWebAppFactory,
     ITestOutputHelper outputHelper
     ) : BaseIntegrationTests(testingWebAppFactory, outputHelper)
@@ -23,7 +20,7 @@ public class JwksControllerTests(
   public async Task Get_KeySets_Returns_KeySets()
   {
     // Arrange & Act
-    var response = await _httpClient.SendNoAuthRequestAsync(HttpMethod.Get, _baseUri);
+    var response = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Get, _baseUri);
 
     // Assert
     var responseString = await response.ValidateRequestResponseAsync();
@@ -60,7 +57,7 @@ public class JwksControllerTests(
     using var request = new HttpRequestMessage(HttpMethod.Get, _baseUri);
 
     // Act
-    var response = await _httpClient.SendAsync(request, TestContext.Current.CancellationToken);
+    var response = await HttpClient.SendAsync(request, TestContext.Current.CancellationToken);
 
     // Assert
     Assert.Equal(HttpStatusCode.OK, response.StatusCode);

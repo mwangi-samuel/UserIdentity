@@ -1,10 +1,6 @@
 ﻿using System.Net;
-using System.Threading;
-using System.Threading.Tasks;
 
 using FakeItEasy;
-
-using Microsoft.AspNetCore.Mvc;
 
 using PolyzenKit.Application.Core.Interfaces;
 using PolyzenKit.Application.Core.RegisteredApps.Shared;
@@ -15,22 +11,20 @@ using UserIdentity.Application.Core.WaitLists.Commands;
 using UserIdentity.Application.Core.WaitLists.Queries;
 using UserIdentity.Application.Core.WaitLists.ViewModels;
 using UserIdentity.Domain.WaitLists;
-using UserIdentity.Presentation.Controllers;
+using UserIdentity.Presentation.Endpoints;
 using UserIdentity.UnitTests.TestUtils;
 
 using Xunit;
 
-namespace UserIdentity.UnitTests.Presentation.Controllers;
+namespace UserIdentity.UnitTests.Presentation.Endpoints;
 
-public class WaitListControllerTests
+public class WaitListEndpointsTests
 {
-  private static readonly string ControllerName = "WaitList";
-
   private readonly ICreateItemCommandHandler<CreateWaitListCommand, WaitListViewModel> _createWaitListCommandHandler;
   private readonly IGetItemQueryHandler<GetWaitListQuery, WaitListViewModel> _getWaitListQueryHandler;
   private readonly IRegisteredAppResolver _registeredAppResolver;
 
-  public WaitListControllerTests()
+  public WaitListEndpointsTests()
   {
     _createWaitListCommandHandler = A.Fake<ICreateItemCommandHandler<CreateWaitListCommand, WaitListViewModel>>();
     _getWaitListQueryHandler = A.Fake<IGetItemQueryHandler<GetWaitListQuery, WaitListViewModel>>();
@@ -53,25 +47,30 @@ public class WaitListControllerTests
       }
     };
 
-    A.CallTo(() => _getWaitListQueryHandler.GetItemAsync(A<GetWaitListQuery>.That.Matches(q => q.WaitListId == waitListId)))
+    A.CallTo(() => _getWaitListQueryHandler.GetItemAsync(
+      A<GetWaitListQuery>.That.Matches(q => q.WaitListId == waitListId),
+      A<CancellationToken>._))
         .Returns(waitListVM);
 
-    var controller = GetWaitListController();
-    controller.UpdateContext(ControllerName);
+    var request = ApiRequestFactory.Create("wait-list");
 
     // Act
-    var actionResult = await controller.GetWaitList(waitListId);
-    var result = actionResult?.Result as ObjectResult;
-    var vm = result?.Value as WaitListViewModel;
+    var result = await WaitListEndpoints.GetWaitList(
+      waitListId,
+      request,
+      _registeredAppResolver,
+      _getWaitListQueryHandler,
+      TestContext.Current.CancellationToken);
+    var vm = result.Value;
 
     // Assert
-    Assert.Equal((int)HttpStatusCode.OK, result?.StatusCode);
+    Assert.Equal((int)HttpStatusCode.OK, result.StatusCode);
     Assert.NotNull(vm);
     Assert.Equal(waitListVM.WaitList.Id, vm?.WaitList.Id);
     Assert.Equal(waitListVM.WaitList.UserEmail, vm?.WaitList.UserEmail);
 
-    Assert.Contains(RequestStatus.SUCCESSFUL.Description(), vm?.RequestStatus);
-    Assert.Contains(ItemStatusMessage.FETCH_ITEM_SUCCESSFUL.Description(), vm?.StatusMessage);
+    Assert.Contains(RequestStatus.Successful.ToText(), vm?.RequestStatus);
+    Assert.Contains(ItemStatusMessage.FetchItemSuccessful.ToText(), vm?.StatusMessage);
   }
 
   [Fact]
@@ -90,24 +89,29 @@ public class WaitListControllerTests
       }
     };
 
-    A.CallTo(() => _getWaitListQueryHandler.GetItemAsync(A<GetWaitListQuery>.That.Matches(q => q.UserEmail == userEmail)))
+    A.CallTo(() => _getWaitListQueryHandler.GetItemAsync(
+      A<GetWaitListQuery>.That.Matches(q => q.UserEmail == userEmail),
+      A<CancellationToken>._))
         .Returns(waitListVM);
 
-    var controller = GetWaitListController();
-    controller.UpdateContext(ControllerName);
+    var request = ApiRequestFactory.Create("wait-list");
 
     // Act
-    var actionResult = await controller.GetWaitListByEmail(userEmail);
-    var result = actionResult?.Result as ObjectResult;
-    var vm = result?.Value as WaitListViewModel;
+    var result = await WaitListEndpoints.GetWaitListByEmail(
+      userEmail,
+      request,
+      _registeredAppResolver,
+      _getWaitListQueryHandler,
+      TestContext.Current.CancellationToken);
+    var vm = result.Value;
 
     // Assert
-    Assert.Equal((int)HttpStatusCode.OK, result?.StatusCode);
+    Assert.Equal((int)HttpStatusCode.OK, result.StatusCode);
     Assert.NotNull(vm);
     Assert.Equal(waitListVM.WaitList.UserEmail, vm?.WaitList.UserEmail);
 
-    Assert.Contains(RequestStatus.SUCCESSFUL.Description(), vm?.RequestStatus);
-    Assert.Contains(ItemStatusMessage.FETCH_ITEM_SUCCESSFUL.Description(), vm?.StatusMessage);
+    Assert.Contains(RequestStatus.Successful.ToText(), vm?.RequestStatus);
+    Assert.Contains(ItemStatusMessage.FetchItemSuccessful.ToText(), vm?.StatusMessage);
   }
 
   [Fact]
@@ -141,28 +145,39 @@ public class WaitListControllerTests
 
     A.CallTo(() => _registeredAppResolver.GetActiveAppAsync(A<string>._, A<CancellationToken>._))
         .Returns(registeredApp);
-    A.CallTo(() => _createWaitListCommandHandler.CreateItemAsync(A<CreateWaitListCommand>._, TestStringHelper.UserId))
+    A.CallTo(() => _createWaitListCommandHandler.CreateItemAsync(
+      A<CreateWaitListCommand>._,
+      TestStringHelper.UserId,
+      A<CancellationToken>._))
         .Returns(waitListVM);
 
-    var controller = GetWaitListController();
-    controller.UpdateContext(ControllerName, addUserId: true, userId: TestStringHelper.UserId, appName: appName);
+    var request = ApiRequestFactory.Create("wait-list", userId: TestStringHelper.UserId, appName: appName);
 
     // Act
-    var actionResult = await controller.CreateWaitList(command);
-    var result = actionResult?.Result as ObjectResult;
-    var vm = result?.Value as WaitListViewModel;
+    var result = await WaitListEndpoints.CreateWaitList(
+      command,
+      request,
+      _registeredAppResolver,
+      _createWaitListCommandHandler,
+      TestContext.Current.CancellationToken);
+    var vm = result.Value;
 
     // Assert
-    Assert.Equal((int)HttpStatusCode.Created, result?.StatusCode);
+    Assert.Equal((int)HttpStatusCode.Created, result.StatusCode);
     Assert.NotNull(vm);
     Assert.Equal(waitListVM.WaitList.UserEmail, vm?.WaitList.UserEmail);
     Assert.Equal(appId, vm?.WaitList.AppId);
 
-    Assert.Contains(RequestStatus.SUCCESSFUL.Description(), vm?.RequestStatus);
-    Assert.Contains(ItemStatusMessage.CREATE_ITEM_SUCCESSFUL.Description(), vm?.StatusMessage);
+    Assert.Contains(RequestStatus.Successful.ToText(), vm?.RequestStatus);
+    Assert.Contains(ItemStatusMessage.CreateItemSuccessful.ToText(), vm?.StatusMessage);
 
-    A.CallTo(() => _registeredAppResolver.GetActiveAppAsync(A<string>._, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
-    A.CallTo(() => _createWaitListCommandHandler.CreateItemAsync(A<CreateWaitListCommand>._, TestStringHelper.UserId)).MustHaveHappenedOnceExactly();
+    A.CallTo(() => _registeredAppResolver.GetActiveAppAsync(A<string>._, A<CancellationToken>._))
+      .MustHaveHappenedOnceExactly();
+    A.CallTo(() => _createWaitListCommandHandler.CreateItemAsync(
+      A<CreateWaitListCommand>._,
+      TestStringHelper.UserId,
+      A<CancellationToken>._))
+      .MustHaveHappenedOnceExactly();
   }
 
   [Fact]
@@ -196,29 +211,31 @@ public class WaitListControllerTests
 
     A.CallTo(() => _registeredAppResolver.GetActiveAppAsync(A<string>._, A<CancellationToken>._))
         .Returns(registeredApp);
-    A.CallTo(() => _createWaitListCommandHandler.CreateItemAsync(A<CreateWaitListCommand>._, A<string>._))
+    A.CallTo(() => _createWaitListCommandHandler.CreateItemAsync(
+      A<CreateWaitListCommand>._,
+      A<string>._,
+      A<CancellationToken>._))
         .Returns(waitListVM);
 
-    var controller = GetWaitListController();
-    controller.UpdateContext(ControllerName, appName: appName);
+    var request = ApiRequestFactory.Create("wait-list", appName: appName);
 
     // Act
-    var actionResult = await controller.CreateWaitList(command);
-    var result = actionResult?.Result as ObjectResult;
-    var vm = result?.Value as WaitListViewModel;
+    var result = await WaitListEndpoints.CreateWaitList(
+      command,
+      request,
+      _registeredAppResolver,
+      _createWaitListCommandHandler,
+      TestContext.Current.CancellationToken);
+    var vm = result.Value;
 
     // Assert
-    Assert.Equal((int)HttpStatusCode.Created, result?.StatusCode);
+    Assert.Equal((int)HttpStatusCode.Created, result.StatusCode);
     Assert.NotNull(vm);
 
-    A.CallTo(() => _createWaitListCommandHandler.CreateItemAsync(A<CreateWaitListCommand>._, A<string>._)).MustHaveHappenedOnceExactly();
-  }
-
-  private WaitListController GetWaitListController()
-  {
-    return new WaitListController(
-        _createWaitListCommandHandler,
-        _getWaitListQueryHandler,
-        _registeredAppResolver);
+    A.CallTo(() => _createWaitListCommandHandler.CreateItemAsync(
+      A<CreateWaitListCommand>._,
+      A<string>._,
+      A<CancellationToken>._))
+      .MustHaveHappenedOnceExactly();
   }
 }

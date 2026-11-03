@@ -1,6 +1,5 @@
-﻿using System;
+﻿using System.Globalization;
 using System.Security.Cryptography;
-using System.Threading.Tasks;
 
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -99,7 +98,7 @@ public class TestingWebAppFactory : WebApplicationFactory<Program>, IAsyncLifeti
       services.ConfigureDbContext<AppDbContext>((_, options) => options.AddInterceptors(SqlCommandCounter)));
 
     // Override MYSQL Settings
-    builder.UseSetting($"{nameof(MysqlSettings)}:{nameof(MysqlSettings.Port)}", _mysqlContainer.GetMappedPublicPort().ToString());
+    builder.UseSetting($"{nameof(MysqlSettings)}:{nameof(MysqlSettings.Port)}", _mysqlContainer.GetMappedPublicPort().ToString(CultureInfo.InvariantCulture));
     builder.UseSetting($"{nameof(MysqlSettings)}:{nameof(MysqlSettings.UserName)}", _dbUserName);
     builder.UseSetting($"{nameof(MysqlSettings)}:{nameof(MysqlSettings.Password)}", _dbUserPassword);
     builder.UseSetting($"{nameof(MysqlSettings)}:{nameof(MysqlSettings.Database)}", _dbName);
@@ -112,7 +111,7 @@ public class TestingWebAppFactory : WebApplicationFactory<Program>, IAsyncLifeti
 
     // Override pub/private key Settings 
     var keyPair = EdDsaHelper.GenerateEd25519KeyPair();
-    var privateKeyPassPhrase = StringUtil.GenerateRandomString(32, true, true);
+    var privateKeyPassPhrase = RandomStrings.Generate(32, true, true);
     builder.UseSetting("EDDSA_PRIVATE_KEY", EdDsaHelper.ConvertToPem(keyPair.Private, privateKeyPassPhrase));
     builder.UseSetting("EDDSA_PUBLIC_KEY", EdDsaHelper.ConvertToPem(keyPair.Public));
     builder.UseSetting($"{nameof(KeySetOptions)}:{nameof(KeySetOptions.PrivateKeyPassPhrase)}", privateKeyPassPhrase);

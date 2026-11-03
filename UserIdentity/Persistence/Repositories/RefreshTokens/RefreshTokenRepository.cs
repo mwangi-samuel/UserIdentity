@@ -1,6 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 
-using PolyzenKit.Common.Utilities;
+using PolyzenKit.Common.Extensions;
 using PolyzenKit.Persistence.Repositories;
 
 using UserIdentity.Domain.RefreshTokens;
@@ -15,8 +15,8 @@ public class RefreshTokenRepository(
 
   public async Task<RefreshTokenEntity?> GetEntityByAlternateIdAsync(RefreshTokenEntity entity, QueryCondition queryCondition, CancellationToken cancellationToken = default)
   {
-    var userId = ObjectUtil.RequireNonNullValue(entity.UserId, nameof(entity.UserId));
-    var token = ObjectUtil.RequireNonNullValue(entity.Token, nameof(entity.Token));
+    var userId = ObjectExtensions.RequireNonNullValue(entity.UserId, nameof(entity.UserId));
+    var token = ObjectExtensions.RequireNonNullValue(entity.Token, nameof(entity.Token));
 
     var existingEntity = await _appDbContext.RefreshToken
         .SingleOrDefaultAsync(e => e.UserId == userId && e.Token == token, cancellationToken);

@@ -1,8 +1,4 @@
-﻿using System;
-using System.Linq;
-using System.Threading.Tasks;
-
-using Microsoft.AspNetCore.Identity;
+﻿using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
 using PolyzenKit.Common.Utilities;
@@ -199,8 +195,8 @@ public class UserRepositoryTests
     return new UserEntity
     {
       Id = Guid.NewGuid().ToString(),
-      FirstName = StringUtil.GenerateRandomString(12),
-      LastName = StringUtil.GenerateRandomString(8)
+      FirstName = RandomStrings.Generate(12),
+      LastName = RandomStrings.Generate(8)
     };
   }
 }

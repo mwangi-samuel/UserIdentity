@@ -1,7 +1,4 @@
-﻿using System.Linq;
-using System.Threading.Tasks;
-
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
 using UserIdentity.IntegrationTests.TestUtils;
@@ -22,8 +19,8 @@ public class UserConfigurationTests(
   public async Task Deleting_An_Identity_User_Removes_Its_Details_App_Links_Refresh_Tokens_And_Reset_Requests()
   {
     // Arrange
-    _testDbHelper.SeedDatabase();
-    _testDbHelper.CreatePasswordResetEntity("reset-request-id");
+    TestDbHelper.SeedDatabase();
+    TestDbHelper.CreatePasswordResetEntity("reset-request-id");
 
     using var scope = _testingWebAppFactory.Services.CreateScope();
     var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();

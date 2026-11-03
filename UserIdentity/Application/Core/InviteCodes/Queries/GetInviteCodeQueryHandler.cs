@@ -30,7 +30,7 @@ public class GetInviteCodeQueryHandler(
 
     var dto = query.InviteCodeId.HasValue
       ? await _inviteCodeRepository.GetEntityDtoByIdAsync(query.InviteCodeId!.Value, cancellationToken)
-      : InviteCodeDto.FromEntityDetailed((await _inviteCodeRepository.GetEntityByAlternateIdAsync(new() { AppId = query.AppId, UserEmail = query.UserEmail! }, QueryCondition.MUST_EXIST, cancellationToken))!);
+      : InviteCodeDto.FromEntityDetailed((await _inviteCodeRepository.GetEntityByAlternateIdAsync(new() { AppId = query.AppId, UserEmail = query.UserEmail! }, QueryCondition.MustExist, cancellationToken))!);
 
     if (dto.AppId != query.AppId)
       throw NoRecordException.ForIdentifier($"{query.InviteCodeId}");

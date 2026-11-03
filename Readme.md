@@ -29,6 +29,8 @@ NATS monitoring is on http://localhost:8222, and NUI, a web UI for browsing stre
 
 The app applies database migrations on startup.
 
+`GET /health` checks MySQL and NATS. It answers `Healthy`, or 503 with `Unhealthy` while either can't be reached.
+
 ## Apps, Accounts and Admins
 Each account belongs to the app it registered with. Logging in, refreshing a token or resetting a password through any other app fails as if the account didn't exist. A token carries only its app's roles (`<app>:*`, where `<app>` is the app's name in lower case), plus the global admin role.
 
@@ -47,7 +49,7 @@ Get-Content .sql\add_admin_user_role.sql | docker compose exec -T db mysql -uroo
 Roles are read into the token at login, so the user has to log in again to get an admin token.
 
 ### Role Scopes
-A role can carry scopes, which give its users access to specific actions in other services without making them admins. A scope is `<resource>:<action>`, where a service's resources are `<service>-<controller name in kebab-case>`, such as `catalog-option-definition:create` for a `catalog` service. The actions are `create`, `read`, `edit`, `delete`, `download` and `all`.
+A role can carry scopes, which give its users access to specific actions in other services without making them admins. A scope is `<resource>:<action>`, where a service's resources are `<service>-<entity>` and the entity is its route segment, such as `catalog-option-definition:create` for `/api/v1/option-definition` in a `catalog` service. The actions are `create`, `read`, `edit`, `delete`, `download` and `all`.
 
 - `POST /api/v1/role/claim` with `{ "roleId": "...", "resource": "catalog-product", "action": "create" }` adds a scope. Resources and actions are stored in lower case.
 - `GET /api/v1/role/claim/{roleId}` lists a role's scopes.
@@ -76,7 +78,7 @@ Each callback is signed with the app's `AppSecretKey`:
 - `X-Timestamp`: Unix time in seconds.
 - `X-Signature`: `sha256=` followed by the hex HMAC-SHA256 of `{timestamp}.{body}`.
 
-Apps should recompute the signature over the raw request body, compare it in constant time and reject stale timestamps. .NET apps can use `HmacSignatureUtil.IsValidSignature` from PolyzenKit.
+Apps should recompute the signature over the raw request body, compare it in constant time and reject stale timestamps. .NET apps can use `HmacSignature.IsValid(...)` from PolyzenKit.
 
 ## Sessions
 - Login and registration return a short-lived access token and a refresh token. A session lasts `RefreshTokenSettings:ValidForSeconds` (default 30 days) and each refresh extends it. Only hashes of refresh tokens are stored.
@@ -87,7 +89,7 @@ Apps should recompute the signature over the raw request body, compare it in con
 ## Password Reset
 Users reset their password with a code, the same way they confirm their account:
 
-1. `POST /api/v1/user/reset-password` with the `X-App-Name` header and `{ "userName": "<user name or email>" }`. The response is always 200 with a `resetRequestId`, whether or not the account exists. For an existing user, a `PASSWORD_RESET` message with the reset request id as its correlation id is stored with the request and sent to NATS JetStream. Another request for the same user within `PasswordResetSettings:RequestCooldownSeconds`, or after `PasswordResetSettings:MaxRequestsPerDay` requests (default 5) in the last 24 hours, sends nothing. Each request gets its own code and attempts, so the daily cap limits how many codes can be guessed.
+1. `POST /api/v1/user/reset-password` with the `X-App-Name` header and `{ "userName": "<user name or email>" }`. The response is always 200 with a `resetRequestId`, whether or not the account exists. For an existing user, a `PasswordReset` message with the reset request id as its correlation id is stored with the request and sent to NATS JetStream. Another request for the same user within `PasswordResetSettings:RequestCooldownSeconds`, or after `PasswordResetSettings:MaxRequestsPerDay` requests (default 5) in the last 24 hours, sends nothing. Each request gets its own code and attempts, so the daily cap limits how many codes can be guessed.
 2. Once a message saying the code for that correlation id was verified is received from NATS JetStream, the reset request is marked verified.
 3. `POST /api/v1/user/update-password` with `{ "resetRequestId": "...", "newPassword": "..." }`. It returns 406 if the request is unknown, not verified yet, expired (`PasswordResetSettings:ValidForSeconds`, default 15 minutes) or already used, and 400 if the new password breaks the password rules. A successful reset ends all of the user's sessions and lifts any lockout.
 
@@ -112,6 +114,10 @@ Every setting has a default in `appsettings.json` that works locally. In product
 | `MessagingSettings__NatsUser`, `MessagingSettings__NatsPassword` | UserIdentity's own NATS user. Keep the password in a secret store |
 | `ForwardedHeadersSettings__KnownNetworks` | The reverse proxy's networks (see [Rate Limiting](#rate-limiting)) |
 
+`Serilog__MinimumLevel` (default `Warning`) is the only logging setting. Logs go to the console as plain text in Development and as one JSON object per line everywhere else.
+
+Settings are checked at startup. An invalid setting stops the app with every failure listed, such as `ValidForSeconds: The field ValidForSeconds must be between 1 and 2147483647.`
+
 ## API Collections
 The `bruno` folder is a [Bruno](https://www.usebruno.com/) collection covering registration, admin login and token refresh, users, roles and scopes, invite codes, the wait list, registered apps, password reset requests and logout. Open it in Bruno or its VS Code extension (**Open Collection**).
 
@@ -128,7 +134,7 @@ The `bruno` folder is a [Bruno](https://www.usebruno.com/) collection covering r
   ```
 
 ## Running the Tests
-The tests use xUnit v3 on Microsoft Testing Platform (selected in `global.json`). The integration tests start MySQL and NATS with Testcontainers, so Docker must be running.
+The tests use xUnit v3 on Microsoft Testing Platform (selected in `global.json`). The unit tests call each endpoint method directly with faked handlers. The integration tests send requests to the whole app and start MySQL and NATS with Testcontainers, so Docker must be running.
 
 ```
 dotnet test --project UserIdentity.UnitTests/UserIdentity.UnitTests.csproj
@@ -138,7 +144,7 @@ dotnet test --project UserIdentity.IntegrationTests/UserIdentity.IntegrationTest
 Add `--coverlet` for a Cobertura coverage report.
 
 ## Adding Migrations
-Migrations need the global `dotnet-ef` tool, version 10 (`dotnet tool install --global dotnet-ef`, or `update` if an older one is installed). MySQL must be running, since the server version is auto-detected. The app's startup also loads the Ed25519 keys, so set `EDDSA_PRIVATE_KEY` and `EDDSA_PUBLIC_KEY` as for running the app.
+Migrations need the global `dotnet-ef` tool, version 10 (`dotnet tool install --global dotnet-ef`, or `update` if an older one is installed). MySQL must be running, since the server version is auto-detected. The tool builds the database context from `MysqlSettings` in `appsettings.json`, which `MysqlSettings__*` environment variables override, so it doesn't need the Ed25519 keys.
 
 ```
 dotnet ef migrations add <MigrationName> --project UserIdentity

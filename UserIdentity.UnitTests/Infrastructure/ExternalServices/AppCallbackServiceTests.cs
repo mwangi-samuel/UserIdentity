@@ -1,10 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Globalization;
-using System.Net.Http;
+﻿using System.Globalization;
 using System.Security.Claims;
 using System.Text.Json;
-using System.Threading.Tasks;
 
 using FakeItEasy;
 
@@ -25,13 +21,13 @@ using Xunit;
 
 namespace UserIdentity.UnitTests.Infrastructure.ExternalServices;
 
-public class AppCallbackServiceTests
+public sealed class AppCallbackServiceTests : IDisposable
 {
   private const string AppSecretKey = "S3TAG00dSeC8E7";
 
   private static readonly DateTimeOffset Now = new(2026, 10, 17, 8, 0, 0, TimeSpan.Zero);
 
-  private readonly IHttpClientHelper _httpClientHelper;
+  private readonly IHttpRequestSender _httpRequestSender;
   private readonly IJwtTokenHandler _jwtTokenHandler;
   private readonly IHttpContextAccessor _httpContextAccessor;
   private readonly IOptions<RoleSettings> _roleSettingsOptions;
@@ -40,7 +36,7 @@ public class AppCallbackServiceTests
 
   public AppCallbackServiceTests()
   {
-    _httpClientHelper = A.Fake<IHttpClientHelper>();
+    _httpRequestSender = A.Fake<IHttpRequestSender>();
     _jwtTokenHandler = A.Fake<IJwtTokenHandler>();
     _httpContextAccessor = A.Fake<IHttpContextAccessor>();
     _httpContextAccessor.HttpContext = new DefaultHttpContext();
@@ -53,29 +49,31 @@ public class AppCallbackServiceTests
     _timeProvider = new FakeTimeProvider(Now);
 
     _requestMessage = new HttpRequestMessage();
-    A.CallTo(_httpClientHelper)
-      .Where(call => call.Method.Name == nameof(IHttpClientHelper.CreateHttpRequestMessage))
+    A.CallTo(_httpRequestSender)
+      .Where(call => call.Method.Name == nameof(IHttpRequestSender.CreateHttpRequestMessage))
       .WithReturnType<HttpRequestMessage>()
       .Returns(_requestMessage);
 
-    A.CallTo(_httpClientHelper)
-      .Where(call => call.Method.Name == nameof(IHttpClientHelper.SendRequestAsync))
+    A.CallTo(_httpRequestSender)
+      .Where(call => call.Method.Name == nameof(IHttpRequestSender.SendRequestAsync))
       .WithReturnType<Task>()
       .Returns(Task.CompletedTask);
   }
 
+  public void Dispose() => _requestMessage.Dispose();
+
   [Fact]
-  public async Task SendCallbackRequestAsync_ForwardsRequestToHttpClientHelper()
+  public async Task SendCallbackRequestAsync_ForwardsRequestToHttpRequestSender()
   {
     var service = GetAppCallbackService();
 
     await service.SendCallbackRequestAsync(GetApp(), GetUser(), TestContext.Current.CancellationToken);
 
-    A.CallTo(_httpClientHelper)
-      .Where(call => call.Method.Name == nameof(IHttpClientHelper.CreateHttpRequestMessage))
+    A.CallTo(_httpRequestSender)
+      .Where(call => call.Method.Name == nameof(IHttpRequestSender.CreateHttpRequestMessage))
       .MustHaveHappenedOnceExactly();
-    A.CallTo(_httpClientHelper)
-      .Where(call => call.Method.Name == nameof(IHttpClientHelper.SendRequestAsync)
+    A.CallTo(_httpRequestSender)
+      .Where(call => call.Method.Name == nameof(IHttpRequestSender.SendRequestAsync)
         && call.GetArgument<string>(0) == "AppCallback")
       .MustHaveHappenedOnceExactly();
     Assert.NotNull(_requestMessage.Content);
@@ -89,8 +87,8 @@ public class AppCallbackServiceTests
     await service.SendCallbackRequestAsync(GetApp(new() { { "X-Test-Header", "value" } }), GetUser(), TestContext.Current.CancellationToken);
 
     Assert.True(_requestMessage.Headers.Contains("X-Test-Header"));
-    A.CallTo(_httpClientHelper)
-      .Where(call => call.Method.Name == nameof(IHttpClientHelper.SendRequestAsync)
+    A.CallTo(_httpRequestSender)
+      .Where(call => call.Method.Name == nameof(IHttpRequestSender.SendRequestAsync)
         && call.GetArgument<string>(0) == "AppCallback")
       .MustHaveHappenedOnceExactly();
   }
@@ -101,19 +99,19 @@ public class AppCallbackServiceTests
     var service = GetAppCallbackService();
 
     // An app-defined header must not be able to replace the signature
-    await service.SendCallbackRequestAsync(GetApp(new() { { ZenConstants.X_SIGNATURE, "sha256=spoofed" } }), GetUser(), TestContext.Current.CancellationToken);
+    await service.SendCallbackRequestAsync(GetApp(new() { { CustomHeaderNames.Signature, "sha256=spoofed" } }), GetUser(), TestContext.Current.CancellationToken);
 
-    var timestamp = Assert.Single(_requestMessage.Headers.GetValues(ZenConstants.X_TIMESTAMP));
-    var signature = Assert.Single(_requestMessage.Headers.GetValues(ZenConstants.X_SIGNATURE));
+    var timestamp = Assert.Single(_requestMessage.Headers.GetValues(CustomHeaderNames.Timestamp));
+    var signature = Assert.Single(_requestMessage.Headers.GetValues(CustomHeaderNames.Signature));
     var body = await _requestMessage.Content!.ReadAsByteArrayAsync(TestContext.Current.CancellationToken);
 
     Assert.Equal(Now.ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture), timestamp);
-    Assert.StartsWith(HmacSignatureUtil.SignaturePrefix, signature);
-    Assert.True(HmacSignatureUtil.IsValidSignature(AppSecretKey, timestamp, body, signature, Now, TimeSpan.FromMinutes(5)));
+    Assert.StartsWith(HmacSignature.SignaturePrefix, signature);
+    Assert.True(HmacSignature.IsValid(AppSecretKey, timestamp, body, signature, Now, TimeSpan.FromMinutes(5)));
   }
 
   private AppCallbackService GetAppCallbackService() =>
-    new(_httpClientHelper, _jwtTokenHandler, _httpContextAccessor, _roleSettingsOptions, _timeProvider);
+    new(_httpRequestSender, _jwtTokenHandler, _httpContextAccessor, _roleSettingsOptions, _timeProvider);
 
   [Fact]
   public async Task SendCallbackRequestAsync_Sends_The_New_Users_Details_As_An_Unconfirmed_Create()
@@ -139,9 +137,9 @@ public class AppCallbackServiceTests
   [Fact]
   public async Task SendCallbackRequestAsync_With_ForwardServiceToken_Sends_A_Service_Token_Scoped_To_The_Apps_Users()
   {
-    A.CallTo(() => _jwtTokenHandler.GenerateScopeClaim("testapp-user", ZenConstants.SCOPE_ACTION_CREATE)).Returns(new Claim("scope", "testapp-user:create"));
+    A.CallTo(() => _jwtTokenHandler.GenerateScopeClaim("testapp-user", ScopeActions.Create)).Returns(new Claim("scope", "testapp-user:create"));
     A.CallTo(() => _jwtTokenHandler.CreateToken("useridentity", "useridentity", "TestApp",
-        A<HashSet<string>>.That.Contains(ZenConstants.INTERNAL_SERVICE_ROLE), A<HashSet<string>>.That.Contains("testapp-user:create"), A<HashSet<Claim>?>._))
+        A<HashSet<string>>.That.Contains(KnownRoles.InternalService), A<HashSet<string>>.That.Contains("testapp-user:create"), A<HashSet<Claim>?>._))
       .Returns(("service-token", 60));
 
     var service = GetAppCallbackService();
@@ -173,7 +171,7 @@ public class AppCallbackServiceTests
 
     await service.SendCallbackRequestAsync(GetApp(), GetUser(), TestContext.Current.CancellationToken);
 
-    Assert.False(string.IsNullOrWhiteSpace(Assert.Single(_requestMessage.Headers.GetValues(ZenConstants.X_REQUEST_ID))));
+    Assert.False(string.IsNullOrWhiteSpace(Assert.Single(_requestMessage.Headers.GetValues(CustomHeaderNames.RequestId))));
   }
 
   private static RegisteredAppEntity GetApp(Dictionary<string, string>? callbackHeaders = null) => new()

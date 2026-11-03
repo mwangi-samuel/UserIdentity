@@ -8,6 +8,7 @@ using PolyzenKit.Application.Core;
 using PolyzenKit.Application.Core.Interfaces;
 using PolyzenKit.Application.Interfaces;
 using PolyzenKit.Common.Exceptions;
+using PolyzenKit.Common.Extensions;
 using PolyzenKit.Common.Settings;
 using PolyzenKit.Common.Utilities;
 
@@ -20,7 +21,7 @@ namespace UserIdentity.Application.Core.Roles.Commands;
 
 public record CreateRoleClaimCommand : IBaseCommand
 {
-  public const string ActionPattern = $"(?i)^({ZenConstants.SCOPE_ACTION_CREATE}|{ZenConstants.SCOPE_ACTION_READ}|{ZenConstants.SCOPE_ACTION_EDIT}|{ZenConstants.SCOPE_ACTION_DELETE}|{ZenConstants.SCOPE_ACTION_DOWNLOAD}|{ZenConstants.SCOPE_ACTION_ALL})$";
+  public const string ActionPattern = $"(?i)^({ScopeActions.Create}|{ScopeActions.Read}|{ScopeActions.Edit}|{ScopeActions.Delete}|{ScopeActions.Download}|{ScopeActions.All})$";
 
   [Required]
   public string RoleId { get; init; } = null!;

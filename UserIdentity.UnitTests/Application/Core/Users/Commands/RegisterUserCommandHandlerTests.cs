@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Security.Claims;
-using System.Threading;
-using System.Threading.Tasks;
+﻿using System.Security.Claims;
 
 using FakeItEasy;
 
@@ -18,7 +13,6 @@ using PolyzenKit.Common.Exceptions;
 using PolyzenKit.Common.Settings;
 using PolyzenKit.Common.Utilities;
 using PolyzenKit.Domain.Entities.RegisteredApps;
-using PolyzenKit.Infrastructure.Utilities;
 using PolyzenKit.Persistence.Repositories;
 
 using UserIdentity.Application.Core.Tokens.Shared;
@@ -54,7 +48,7 @@ public class RegisterUserCommandHandlerTests
   private readonly IInviteCodeRepository _inviteCodeRepository;
   private readonly IJwtTokenHandler _jwtTokenHandler;
   private readonly ITokenFactory _tokenFactory;
-  private readonly IMachineDateTime _machineDateTime;
+  private readonly TimeProvider _timeProvider;
   private readonly IMessageOutbox _messageOutbox;
   private readonly IGoogleRecaptchaService _googleRecaptchaService;
   private readonly IRoleRepository _roleRepository;
@@ -73,7 +67,7 @@ public class RegisterUserCommandHandlerTests
     _inviteCodeRepository = A.Fake<IInviteCodeRepository>();
     _jwtTokenHandler = A.Fake<IJwtTokenHandler>();
     _tokenFactory = A.Fake<ITokenFactory>();
-    _machineDateTime = new MachineDateTime();
+    _timeProvider = TimeProvider.System;
     _messageOutbox = A.Fake<IMessageOutbox>();
     _googleRecaptchaService = A.Fake<IGoogleRecaptchaService>();
     _roleRepository = A.Fake<IRoleRepository>();
@@ -267,15 +261,15 @@ public class RegisterUserCommandHandlerTests
 
     // Assert
     A.CallTo(() => _messageOutbox.Add(UserMessages.UserUpdated, A<MessageEvent>.That.Matches(m =>
-        m.Action == MessageAction.WELCOME_USER
+        m.Action == MessageAction.WelcomeUser
         && m.CorrelationId == userId
         && m.RegisteredApp == command.RegisteredApp!.AppName
-        && m.Attributes[MessageAttribute.RECIPIENT_EMAIL] == command.UserEmail
-        && m.Attributes[MessageAttribute.RECIPIENT_PHONE] == command.PhoneNumber
-        && m.Attributes[MessageAttribute.FIRST_NAME] == command.FirstName
-        && m.Attributes[MessageAttribute.LAST_NAME] == command.LastName
-        && m.Attributes[MessageAttribute.USER_NAME] == command.UserName
-        && m.Attributes[MessageAttribute.USER_ID] == userId)))
+        && m.Attributes[MessageAttributeKey.RecipientEmail] == command.UserEmail
+        && m.Attributes[MessageAttributeKey.RecipientPhone] == command.PhoneNumber
+        && m.Attributes[MessageAttributeKey.FirstName] == command.FirstName
+        && m.Attributes[MessageAttributeKey.LastName] == command.LastName
+        && m.Attributes[MessageAttributeKey.UserName] == command.UserName
+        && m.Attributes[MessageAttributeKey.UserId] == userId)))
         .MustHaveHappenedOnceExactly()
         .Then(A.CallTo(() => _unitOfWork.CommitTransactionAsync(A<CancellationToken>._)).MustHaveHappenedOnceExactly());
     A.CallTo(() => _messageOutbox.Add(A<string>._, A<MessageEvent>._)).MustHaveHappenedOnceExactly();
@@ -299,13 +293,13 @@ public class RegisterUserCommandHandlerTests
 
     // Assert
     A.CallTo(() => _messageOutbox.Add(UserMessages.CallbackRequested, A<MessageEvent>.That.Matches(m =>
-        m.Action == MessageAction.WELCOME_USER && m.CorrelationId == vm.User.Id && m.RegisteredApp == command.RegisteredApp.AppName)))
+        m.Action == MessageAction.WelcomeUser && m.CorrelationId == vm.User.Id && m.RegisteredApp == command.RegisteredApp.AppName)))
         .MustHaveHappenedOnceExactly()
         .Then(A.CallTo(() => _unitOfWork.CommitTransactionAsync(A<CancellationToken>._)).MustHaveHappenedOnceExactly());
   }
 
   [Theory]
-  [InlineData(RequestSource.API, "https://callback.test")]
+  [InlineData(RequestSource.Api, "https://callback.test")]
   [InlineData(RequestSource.UI, null)]
   public async Task Create_User_For_A_Service_Or_An_App_Without_A_Callback_Url_Adds_No_Callback_Message(RequestSource requestSource, string? callbackUrl)
   {
@@ -340,7 +334,7 @@ public class RegisterUserCommandHandlerTests
     string? userId = null;
 
     A.CallTo(() => _inviteCodeRepository.GetEntityByAlternateIdAsync(
-        A<InviteCodeEntity>.That.Matches(e => e.UserEmail == command.UserEmail), QueryCondition.MAY_OR_MAY_NOT_EXIST, A<CancellationToken>._))
+        A<InviteCodeEntity>.That.Matches(e => e.UserEmail == command.UserEmail), QueryCondition.MayOrMayNotExist, A<CancellationToken>._))
         .Returns(inviteCodeEntity);
     A.CallTo(() => _roleManager.FindByNameAsync(defaultRole.Name!)).Returns(defaultRole);
     A.CallTo(() => _userManager.FindByNameAsync(command.UserName)).Returns((IdentityUser?)null);
@@ -373,7 +367,7 @@ public class RegisterUserCommandHandlerTests
 
     var inviteCodeEntity = new InviteCodeEntity { Id = 7, InviteCode = inviteCode, UserEmail = command.UserEmail!, Applied = true };
 
-    A.CallTo(() => _inviteCodeRepository.GetEntityByAlternateIdAsync(A<InviteCodeEntity>._, QueryCondition.MAY_OR_MAY_NOT_EXIST, A<CancellationToken>._))
+    A.CallTo(() => _inviteCodeRepository.GetEntityByAlternateIdAsync(A<InviteCodeEntity>._, QueryCondition.MayOrMayNotExist, A<CancellationToken>._))
         .Returns(inviteCodeEntity);
 
     var handler = GetRegisterUserCommandHandler();
@@ -391,13 +385,13 @@ public class RegisterUserCommandHandlerTests
     var command = GetRegisterUserCommand();
     const string inviteCode = "INVITE01";
     const string inviteRole = "testapp:owner";
-    command.InviteCode = inviteCode.ToLower();
+    command.InviteCode = inviteCode.ToLowerInvariant();
 
     var defaultRole = new IdentityRole(GetDefaultRoleName());
     var inviteCodeEntity = new InviteCodeEntity { Id = 7, InviteCode = inviteCode, UserEmail = command.UserEmail!, Applied = false, Role = inviteRole };
 
     A.CallTo(() => _inviteCodeRepository.GetEntityByAlternateIdAsync(
-        A<InviteCodeEntity>.That.Matches(e => e.UserEmail == command.UserEmail && e.AppId == command.RegisteredApp!.Id), QueryCondition.MAY_OR_MAY_NOT_EXIST, A<CancellationToken>._))
+        A<InviteCodeEntity>.That.Matches(e => e.UserEmail == command.UserEmail && e.AppId == command.RegisteredApp!.Id), QueryCondition.MayOrMayNotExist, A<CancellationToken>._))
         .Returns(inviteCodeEntity);
     A.CallTo(() => _roleManager.FindByNameAsync(defaultRole.Name!)).Returns(defaultRole);
     A.CallTo(() => _roleManager.FindByNameAsync(inviteRole)).Returns(new IdentityRole(inviteRole));
@@ -430,7 +424,7 @@ public class RegisterUserCommandHandlerTests
 
     var inviteCodeEntity = new InviteCodeEntity { Id = 7, InviteCode = "INVITE01", UserEmail = command.UserEmail!, Applied = false, Role = "testapp:owner" };
 
-    A.CallTo(() => _inviteCodeRepository.GetEntityByAlternateIdAsync(A<InviteCodeEntity>._, QueryCondition.MAY_OR_MAY_NOT_EXIST, A<CancellationToken>._))
+    A.CallTo(() => _inviteCodeRepository.GetEntityByAlternateIdAsync(A<InviteCodeEntity>._, QueryCondition.MayOrMayNotExist, A<CancellationToken>._))
         .Returns(inviteCodeEntity);
 
     var handler = GetRegisterUserCommandHandler();
@@ -459,7 +453,7 @@ public class RegisterUserCommandHandlerTests
       _ => new InviteCodeEntity { InviteCode = "ABCDEFGHJK", UserEmail = command.UserEmail!, Applied = true }
     };
 
-    A.CallTo(() => _inviteCodeRepository.GetEntityByAlternateIdAsync(A<InviteCodeEntity>._, QueryCondition.MAY_OR_MAY_NOT_EXIST, A<CancellationToken>._))
+    A.CallTo(() => _inviteCodeRepository.GetEntityByAlternateIdAsync(A<InviteCodeEntity>._, QueryCondition.MayOrMayNotExist, A<CancellationToken>._))
         .Returns(inviteCodeEntity);
 
     var handler = GetRegisterUserCommandHandler();
@@ -482,7 +476,7 @@ public class RegisterUserCommandHandlerTests
     var defaultRole = new IdentityRole(GetDefaultRoleName());
     var inviteCodeEntity = new InviteCodeEntity { Id = 7, InviteCode = "INVITE01", UserEmail = command.UserEmail!, Applied = false, Role = inviteRole };
 
-    A.CallTo(() => _inviteCodeRepository.GetEntityByAlternateIdAsync(A<InviteCodeEntity>._, QueryCondition.MAY_OR_MAY_NOT_EXIST, A<CancellationToken>._))
+    A.CallTo(() => _inviteCodeRepository.GetEntityByAlternateIdAsync(A<InviteCodeEntity>._, QueryCondition.MayOrMayNotExist, A<CancellationToken>._))
         .Returns(inviteCodeEntity);
     A.CallTo(() => _roleManager.FindByNameAsync(defaultRole.Name!)).Returns(defaultRole);
     A.CallTo(() => _roleManager.FindByNameAsync(inviteRole)).Returns((IdentityRole?)null);
@@ -581,7 +575,7 @@ public class RegisterUserCommandHandlerTests
         _roleRepository,
         _jwtTokenHandler,
         _tokenFactory,
-        _machineDateTime,
+        _timeProvider,
         _messageOutbox,
         _googleRecaptchaService
     );
@@ -602,10 +596,10 @@ public class RegisterUserCommandHandlerTests
   {
     var settings = _roleSettings.Value;
     var command = GetRegisterUserCommand();
-    return $"{command.RegisteredApp!.AppName.Trim().ToLower()}{ZenConstants.SERVICE_ROLE_SEPARATOR}{settings.DefaultRole.Trim().ToLower()}";
+    return $"{command.RegisteredApp!.AppName.Trim().ToLowerInvariant()}{Separators.ServiceRole}{settings.DefaultRole.Trim().ToLowerInvariant()}";
   }
 
-  private RegisterUserCommand GetRegisterUserCommand()
+  private static RegisterUserCommand GetRegisterUserCommand()
   {
     return new RegisterUserCommand
     {
@@ -616,7 +610,7 @@ public class RegisterUserCommandHandlerTests
       UserEmail = "test.user@domain.com",
       UserPassword = "Password123",
       RegisteredApp = new RegisteredAppEntity { Id = 1, AppName = "TestApp" },
-      RequestSource = RequestSource.API
+      RequestSource = RequestSource.Api
     };
   }
 }

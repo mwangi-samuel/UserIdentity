@@ -1,7 +1,4 @@
-﻿using System.Threading;
-using System.Threading.Tasks;
-
-using FakeItEasy;
+﻿using FakeItEasy;
 
 using PolyzenKit.Common.Exceptions;
 

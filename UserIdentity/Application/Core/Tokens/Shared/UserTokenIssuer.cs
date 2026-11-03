@@ -15,7 +15,7 @@ public class UserTokenIssuer(
   IRefreshTokenRepository refreshTokenRepository,
   IJwtTokenHandler jwtTokenHandler,
   ITokenFactory tokenFactory,
-  IMachineDateTime machineDateTime,
+  TimeProvider timeProvider,
   RoleSettings roleSettings,
   RefreshTokenSettings refreshTokenSettings
   )
@@ -24,7 +24,7 @@ public class UserTokenIssuer(
   private readonly IRefreshTokenRepository _refreshTokenRepository = refreshTokenRepository;
   private readonly IJwtTokenHandler _jwtTokenHandler = jwtTokenHandler;
   private readonly ITokenFactory _tokenFactory = tokenFactory;
-  private readonly IMachineDateTime _machineDateTime = machineDateTime;
+  private readonly TimeProvider _timeProvider = timeProvider;
   private readonly RoleSettings _roleSettings = roleSettings;
   private readonly RefreshTokenSettings _refreshTokenSettings = refreshTokenSettings;
 
@@ -48,11 +48,11 @@ public class UserTokenIssuer(
     {
       UserId = userId,
       Token = _tokenFactory.HashToken(refreshToken),
-      Expires = _machineDateTime.Now.AddSeconds(_refreshTokenSettings.ValidForSeconds),
+      Expires = _timeProvider.GetUtcNow().UtcDateTime.AddSeconds(_refreshTokenSettings.ValidForSeconds),
       Version = Guid.NewGuid()
     };
 
-    refreshTokenEntity.SetEntityAuditFields(userId, _machineDateTime.Now);
+    refreshTokenEntity.SetEntityAuditFields(userId, _timeProvider.GetUtcNow().UtcDateTime);
 
     _refreshTokenRepository.CreateEntityItem(refreshTokenEntity);
 

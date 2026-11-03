@@ -1,10 +1,9 @@
 ﻿using Microsoft.EntityFrameworkCore;
 
 using PolyzenKit.Common.Exceptions;
+using PolyzenKit.Common.Extensions;
 using PolyzenKit.Common.Paging;
-using PolyzenKit.Common.Utilities;
 using PolyzenKit.Persistence.Repositories;
-using PolyzenKit.Persistence.Utilities;
 
 using UserIdentity.Domain.InviteCodes;
 
@@ -17,7 +16,7 @@ public class InviteCodeRepository(
   private readonly AppDbContext _dbContext = dbContext;
   public async Task<InviteCodeEntity?> GetEntityByAlternateIdAsync(InviteCodeEntity entity, QueryCondition queryCondition, CancellationToken cancellationToken = default)
   {
-    var userEmail = ObjectUtil.RequireNonNullValue(entity.UserEmail, nameof(entity.UserEmail));
+    var userEmail = ObjectExtensions.RequireNonNullValue(entity.UserEmail, nameof(entity.UserEmail));
 
     var existingEntity = await _dbContext.InviteCode
       .Include(e => e.App)

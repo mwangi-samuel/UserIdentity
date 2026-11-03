@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Security.Claims;
-using System.Threading;
-using System.Threading.Tasks;
+﻿using System.Security.Claims;
 
 using FakeItEasy;
 
@@ -13,7 +8,6 @@ using Microsoft.IdentityModel.Tokens;
 
 using PolyzenKit.Application.Interfaces;
 using PolyzenKit.Common.Settings;
-using PolyzenKit.Infrastructure.Utilities;
 using PolyzenKit.Persistence.Repositories;
 
 using UserIdentity.Application.Core.Tokens.Commands;
@@ -35,12 +29,14 @@ public class ExchangeRefreshTokenCommandHandlerTests
   private const string RefreshToken = "SamplevalidRefreshToken";
   private const string RefreshTokenHash = "SamplevalidRefreshTokenHash";
 
+  private static readonly string[] TestAppAdminRoles = ["testapp:admin"];
+
   private readonly IOptions<RefreshTokenSettings> _refreshTokenSettings;
   private readonly IJwtTokenHandler _jwtTokenHandler;
   private readonly ITokenFactory _tokenFactory;
   private readonly IUnitOfWork _unitOfWork;
   private readonly IRefreshTokenRepository _refreshTokenRepository;
-  private readonly IMachineDateTime _machineDateTime;
+  private readonly TimeProvider _timeProvider;
 
   private readonly IRoleRepository _roleRepository = A.Fake<IRoleRepository>();
   private readonly IUserRegisteredAppRepository _userRegisteredAppRepository = A.Fake<IUserRegisteredAppRepository>();
@@ -54,7 +50,7 @@ public class ExchangeRefreshTokenCommandHandlerTests
     _tokenFactory = A.Fake<ITokenFactory>();
     _unitOfWork = A.Fake<IUnitOfWork>();
     _refreshTokenRepository = A.Fake<IRefreshTokenRepository>();
-    _machineDateTime = new MachineDateTime();
+    _timeProvider = TimeProvider.System;
 
     A.CallTo(() => _tokenFactory.HashToken(RefreshToken)).Returns(RefreshTokenHash);
   }
@@ -97,7 +93,7 @@ public class ExchangeRefreshTokenCommandHandlerTests
 
     A.CallTo(() => _refreshTokenRepository.GetEntityByAlternateIdAsync(
         A<RefreshTokenEntity>.That.Matches(e => e.UserId == TestStringHelper.UserId && e.Token == RefreshTokenHash),
-        QueryCondition.MAY_OR_MAY_NOT_EXIST, A<CancellationToken>._)).Returns((RefreshTokenEntity?)null);
+        QueryCondition.MayOrMayNotExist, A<CancellationToken>._)).Returns((RefreshTokenEntity?)null);
     A.CallTo(() => _refreshTokenRepository.GetEntityByPreviousTokenAsync(TestStringHelper.UserId, RefreshTokenHash, A<CancellationToken>._))
         .Returns((RefreshTokenEntity?)null);
 
@@ -122,12 +118,12 @@ public class ExchangeRefreshTokenCommandHandlerTests
       UserId = TestStringHelper.UserId,
       Token = "CurrentRefreshTokenHash",
       PreviousToken = RefreshTokenHash,
-      Expires = _machineDateTime.Now.AddDays(10),
+      Expires = _timeProvider.GetUtcNow().UtcDateTime.AddDays(10),
     };
 
     SetUpValidAccessToken(command);
 
-    A.CallTo(() => _refreshTokenRepository.GetEntityByAlternateIdAsync(A<RefreshTokenEntity>._, QueryCondition.MAY_OR_MAY_NOT_EXIST, A<CancellationToken>._))
+    A.CallTo(() => _refreshTokenRepository.GetEntityByAlternateIdAsync(A<RefreshTokenEntity>._, QueryCondition.MayOrMayNotExist, A<CancellationToken>._))
         .Returns((RefreshTokenEntity?)null);
     A.CallTo(() => _refreshTokenRepository.GetEntityByPreviousTokenAsync(TestStringHelper.UserId, RefreshTokenHash, A<CancellationToken>._))
         .Returns(sessionEntity);
@@ -154,14 +150,14 @@ public class ExchangeRefreshTokenCommandHandlerTests
       Id = Guid.NewGuid(),
       UserId = TestStringHelper.UserId,
       Token = RefreshTokenHash,
-      Expires = _machineDateTime.Now.AddMinutes(-1),
+      Expires = _timeProvider.GetUtcNow().UtcDateTime.AddMinutes(-1),
     };
 
     SetUpValidAccessToken(command);
 
     A.CallTo(() => _refreshTokenRepository.GetEntityByAlternateIdAsync(
         A<RefreshTokenEntity>.That.Matches(e => e.UserId == TestStringHelper.UserId && e.Token == RefreshTokenHash),
-        QueryCondition.MAY_OR_MAY_NOT_EXIST, A<CancellationToken>._)).Returns(dbRefreshToken);
+        QueryCondition.MayOrMayNotExist, A<CancellationToken>._)).Returns(dbRefreshToken);
 
     var hanndler = GetExchangeRefreshTokenCommandHandler();
 
@@ -171,7 +167,7 @@ public class ExchangeRefreshTokenCommandHandlerTests
     Assert.Equal("Expired refresh token provided", exception.Message);
     A.CallTo(() => _refreshTokenRepository.RemoveEntityItem(dbRefreshToken)).MustHaveHappenedOnceExactly();
     A.CallTo(() => _unitOfWork.SaveChangesAsync(A<CancellationToken>._)).MustHaveHappenedOnceExactly();
-    A.CallTo(() => _tokenFactory.GenerateToken(A<short>._)).MustNotHaveHappened();
+    A.CallTo(() => _tokenFactory.GenerateToken(A<int>._)).MustNotHaveHappened();
   }
 
   [Fact]
@@ -186,7 +182,7 @@ public class ExchangeRefreshTokenCommandHandlerTests
       Id = Guid.NewGuid(),
       UserId = TestStringHelper.UserId,
       Token = RefreshTokenHash,
-      Expires = _machineDateTime.Now.AddMinutes(5),
+      Expires = _timeProvider.GetUtcNow().UtcDateTime.AddMinutes(5),
     };
 
     var originalVersion = Guid.NewGuid();
@@ -202,16 +198,16 @@ public class ExchangeRefreshTokenCommandHandlerTests
 
     A.CallTo(() => _refreshTokenRepository.GetEntityByAlternateIdAsync(
         A<RefreshTokenEntity>.That.Matches(e => e.UserId == TestStringHelper.UserId && e.Token == RefreshTokenHash),
-        QueryCondition.MAY_OR_MAY_NOT_EXIST, A<CancellationToken>._)).Returns(dbRefreshToken);
+        QueryCondition.MayOrMayNotExist, A<CancellationToken>._)).Returns(dbRefreshToken);
 
     A.CallTo(() => _roleRepository.GetUserRoleNamesAsync(TestStringHelper.UserId, A<CancellationToken>._)).Returns(["otherapp:admin", "testapp:admin"]);
 
     // Only the token's app's roles go into the new token
-    A.CallTo(() => _roleRepository.GetScopesAsync(A<IReadOnlyCollection<string>>.That.Matches(roles => roles.SequenceEqual(new[] { "testapp:admin" })), A<CancellationToken>._)).Returns(scopes);
+    A.CallTo(() => _roleRepository.GetScopesAsync(A<IReadOnlyCollection<string>>.That.Matches(roles => roles.SequenceEqual(TestAppAdminRoles)), A<CancellationToken>._)).Returns(scopes);
     A.CallTo(() => _tokenFactory.GenerateToken(32)).Returns(updatedRefreshToken);
     A.CallTo(() => _tokenFactory.HashToken(updatedRefreshToken)).Returns(updatedRefreshTokenHash);
 
-    A.CallTo(() => _jwtTokenHandler.CreateToken(TestStringHelper.UserId, TestStringHelper.UserName, "TestApp", A<HashSet<string>>.That.Matches(r => r.SetEquals(new[] { "testapp:admin" })), scopes, A<HashSet<Claim>?>._)).Returns((newAccesToken, newAccesstokenExpiresIn));
+    A.CallTo(() => _jwtTokenHandler.CreateToken(TestStringHelper.UserId, TestStringHelper.UserName, "TestApp", A<HashSet<string>>.That.Matches(r => r.SetEquals(TestAppAdminRoles)), scopes, A<HashSet<Claim>?>._)).Returns((newAccesToken, newAccesstokenExpiresIn));
 
     var hanndler = GetExchangeRefreshTokenCommandHandler();
 
@@ -246,14 +242,14 @@ public class ExchangeRefreshTokenCommandHandlerTests
       Id = Guid.NewGuid(),
       UserId = TestStringHelper.UserId,
       Token = RefreshTokenHash,
-      Expires = _machineDateTime.Now.AddMinutes(5),
+      Expires = _timeProvider.GetUtcNow().UtcDateTime.AddMinutes(5),
     };
 
     SetUpValidAccessToken(command);
 
     A.CallTo(() => _refreshTokenRepository.GetEntityByAlternateIdAsync(
         A<RefreshTokenEntity>.That.Matches(e => e.UserId == TestStringHelper.UserId && e.Token == RefreshTokenHash),
-        QueryCondition.MAY_OR_MAY_NOT_EXIST, A<CancellationToken>._)).Returns(dbRefreshToken);
+        QueryCondition.MayOrMayNotExist, A<CancellationToken>._)).Returns(dbRefreshToken);
 
     A.CallTo(() => _userRegisteredAppRepository.IsUserRegisteredForAppAsync(TestStringHelper.UserId, "TestApp", A<CancellationToken>._)).Returns(false);
 
@@ -263,7 +259,7 @@ public class ExchangeRefreshTokenCommandHandlerTests
     await Assert.ThrowsAsync<SecurityTokenException>(() => hanndler.UpdateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken));
 
     A.CallTo(() => _refreshTokenRepository.RemoveEntityItem(dbRefreshToken)).MustHaveHappenedOnceExactly();
-    A.CallTo(() => _tokenFactory.GenerateToken(A<short>._)).MustNotHaveHappened();
+    A.CallTo(() => _tokenFactory.GenerateToken(A<int>._)).MustNotHaveHappened();
   }
 
   private static ExchangeRefreshTokenCommand GetExchangeRefreshTokenCommand()
@@ -296,7 +292,7 @@ public class ExchangeRefreshTokenCommandHandlerTests
         _unitOfWork,
         _refreshTokenRepository,
         _roleRepository,
-        _machineDateTime,
+        _timeProvider,
         _userRegisteredAppRepository,
         Options.Create(new RoleSettings { ServiceName = "UserIdentity", AdminRoles = "admin", DefaultRole = "user" })
     );

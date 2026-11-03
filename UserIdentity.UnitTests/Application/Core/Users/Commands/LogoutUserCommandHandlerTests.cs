@@ -1,8 +1,4 @@
-﻿using System;
-using System.Threading;
-using System.Threading.Tasks;
-
-using FakeItEasy;
+﻿using FakeItEasy;
 
 using PolyzenKit.Application.Interfaces;
 using PolyzenKit.Persistence.Repositories;
@@ -43,7 +39,7 @@ public class LogoutUserCommandHandlerTests
 
     A.CallTo(() => _refreshTokenRepository.GetEntityByAlternateIdAsync(
         A<RefreshTokenEntity>.That.Matches(e => e.UserId == TestStringHelper.UserId && e.Token == RefreshTokenHash),
-        QueryCondition.MAY_OR_MAY_NOT_EXIST, A<CancellationToken>._)).Returns(existingEntity);
+        QueryCondition.MayOrMayNotExist, A<CancellationToken>._)).Returns(existingEntity);
 
     var handler = new LogoutUserCommandHandler(_tokenFactory, _unitOfWork, _refreshTokenRepository);
 
@@ -61,7 +57,7 @@ public class LogoutUserCommandHandlerTests
     // Arrange
     var command = new LogoutUserCommand { RefreshToken = RefreshToken };
 
-    A.CallTo(() => _refreshTokenRepository.GetEntityByAlternateIdAsync(A<RefreshTokenEntity>._, QueryCondition.MAY_OR_MAY_NOT_EXIST, A<CancellationToken>._))
+    A.CallTo(() => _refreshTokenRepository.GetEntityByAlternateIdAsync(A<RefreshTokenEntity>._, QueryCondition.MayOrMayNotExist, A<CancellationToken>._))
         .Returns((RefreshTokenEntity?)null);
 
     var handler = new LogoutUserCommandHandler(_tokenFactory, _unitOfWork, _refreshTokenRepository);

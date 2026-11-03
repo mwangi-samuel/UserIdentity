@@ -1,10 +1,7 @@
-using System;
-using System.Threading;
-using System.Threading.Tasks;
-
 using FakeItEasy;
 
-using PolyzenKit.Application.Interfaces;
+using Microsoft.Extensions.Time.Testing;
+
 using PolyzenKit.Persistence.Repositories;
 
 using UserIdentity.Application.Core.WaitLists.Commands;
@@ -20,15 +17,15 @@ public class CreateWaitListCommandHandlerTests
 {
   private readonly IUnitOfWork _unitOfWork;
   private readonly IWaitListRepository _waitListRepository;
-  private readonly IMachineDateTime _machineDateTime;
+  private readonly FakeTimeProvider _timeProvider;
 
   public CreateWaitListCommandHandlerTests()
   {
     _unitOfWork = A.Fake<IUnitOfWork>();
     _waitListRepository = A.Fake<IWaitListRepository>();
-    _machineDateTime = A.Fake<IMachineDateTime>();
+    _timeProvider = new FakeTimeProvider();
 
-    A.CallTo(() => _machineDateTime.Now).Returns(DateTime.UtcNow);
+    _timeProvider.SetUtcNow(DateTime.UtcNow);
   }
 
   [Fact]
@@ -51,7 +48,7 @@ public class CreateWaitListCommandHandlerTests
 
     A.CallTo(() => _waitListRepository.GetEntityDtoByIdAsync(A<long>._, A<CancellationToken>._)).Returns(expectedDto);
 
-    var handler = new CreateWaitListCommandHandler(_unitOfWork, _waitListRepository, _machineDateTime);
+    var handler = new CreateWaitListCommandHandler(_unitOfWork, _waitListRepository, _timeProvider);
 
     // Act
     var result = await handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken);
@@ -73,7 +70,7 @@ public class CreateWaitListCommandHandlerTests
   {
     // Arrange
     var now = DateTime.UtcNow;
-    A.CallTo(() => _machineDateTime.Now).Returns(now);
+    _timeProvider.SetUtcNow(now);
 
     var command = new CreateWaitListCommand
     {
@@ -92,7 +89,7 @@ public class CreateWaitListCommandHandlerTests
       AppId = command.AppId
     });
 
-    var handler = new CreateWaitListCommandHandler(_unitOfWork, _waitListRepository, _machineDateTime);
+    var handler = new CreateWaitListCommandHandler(_unitOfWork, _waitListRepository, _timeProvider);
 
     // Act
     await handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken);

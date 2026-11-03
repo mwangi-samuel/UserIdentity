@@ -9,12 +9,12 @@ using UserIdentity.Application.Interfaces;
 namespace UserIdentity.Infrastructure.ExternalServices;
 
 public class GoogleRecaptchaService(
-    IHttpClientHelper httpClientHelper,
+    IHttpRequestSender httpRequestSender,
     IOptions<GoogleRecaptchaSettings> googleRecaptchaSettingsOptions
     ) : IGoogleRecaptchaService
 {
 
-  private readonly IHttpClientHelper _httpClientHelper = httpClientHelper;
+  private readonly IHttpRequestSender _httpRequestSender = httpRequestSender;
   private readonly GoogleRecaptchaSettings _googleRecaptchaSettings = googleRecaptchaSettingsOptions.Value;
 
   private const string targetServiceName = "GoogleRecaptcha";
@@ -32,10 +32,10 @@ public class GoogleRecaptchaService(
             { "response", token }
         };
 
-    var requestMessage = _httpClientHelper.CreateHttpRequestMessage(HttpMethod.Post, "siteverify")
+    var requestMessage = _httpRequestSender.CreateHttpRequestMessage(HttpMethod.Post, "siteverify")
         .WithRequestParams(requestParams);
 
-    var response = await _httpClientHelper.SendRequestAsync<GoogleRecaptchaResponseDto>(targetServiceName, requestMessage, HttpStatusCode.OK, cancellationToken);
+    var response = await _httpRequestSender.SendRequestAsync<GoogleRecaptchaResponseDto>(targetServiceName, requestMessage, HttpStatusCode.OK, cancellationToken);
 
     return response != null && response.Success && response.Score >= 0.5;
   }

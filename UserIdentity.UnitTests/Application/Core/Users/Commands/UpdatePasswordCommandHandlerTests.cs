@@ -1,11 +1,7 @@
-﻿using System;
-using System.IO;
-using System.Threading;
-using System.Threading.Tasks;
-
-using FakeItEasy;
+﻿using FakeItEasy;
 
 using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.Time.Testing;
 
 using PolyzenKit.Application.Interfaces;
 using PolyzenKit.Persistence.Repositories;
@@ -32,7 +28,7 @@ public class UpdatePasswordCommandHandlerTests
   private readonly IUnitOfWork _unitOfWork;
   private readonly IPasswordResetRepository _passwordResetRepository;
   private readonly IRefreshTokenRepository _refreshTokenRepository;
-  private readonly IMachineDateTime _machineDateTime;
+  private readonly FakeTimeProvider _timeProvider;
 
   private readonly DateTime _fixedNow = new(2024, 01, 01, 10, 0, 0, DateTimeKind.Utc);
   private readonly IdentityUser _identityUser = new() { Id = Guid.NewGuid().ToString(), Email = "test@ml.clm" };
@@ -44,9 +40,9 @@ public class UpdatePasswordCommandHandlerTests
     _unitOfWork = A.Fake<IUnitOfWork>();
     _passwordResetRepository = A.Fake<IPasswordResetRepository>();
     _refreshTokenRepository = A.Fake<IRefreshTokenRepository>();
-    _machineDateTime = A.Fake<IMachineDateTime>();
+    _timeProvider = new FakeTimeProvider();
 
-    A.CallTo(() => _machineDateTime.Now).Returns(_fixedNow);
+    _timeProvider.SetUtcNow(_fixedNow);
     A.CallTo(() => _tokenFactory.HashToken(ResetRequestId)).Returns(ResetRequestIdHash);
     A.CallTo(() => _userManager.FindByIdAsync(_identityUser.Id)).Returns(_identityUser);
   }
@@ -55,7 +51,7 @@ public class UpdatePasswordCommandHandlerTests
   public async Task UpdatePassword_When_No_Existing_Request_Returns_False()
   {
     // Arrange
-    A.CallTo(() => _passwordResetRepository.GetEntityByAlternateIdAsync(A<PasswordResetEntity>._, QueryCondition.MAY_OR_MAY_NOT_EXIST, A<CancellationToken>._))
+    A.CallTo(() => _passwordResetRepository.GetEntityByAlternateIdAsync(A<PasswordResetEntity>._, QueryCondition.MayOrMayNotExist, A<CancellationToken>._))
         .Returns((PasswordResetEntity?)null);
 
     var handler = GetUpdatePasswordCommandHandler();
@@ -169,7 +165,7 @@ public class UpdatePasswordCommandHandlerTests
     };
 
     A.CallTo(() => _passwordResetRepository.GetEntityByAlternateIdAsync(
-        A<PasswordResetEntity>.That.Matches(e => e.RequestId == ResetRequestIdHash), QueryCondition.MAY_OR_MAY_NOT_EXIST, A<CancellationToken>._))
+        A<PasswordResetEntity>.That.Matches(e => e.RequestId == ResetRequestIdHash), QueryCondition.MayOrMayNotExist, A<CancellationToken>._))
         .Returns(existingEntity);
 
     return existingEntity;
@@ -192,7 +188,7 @@ public class UpdatePasswordCommandHandlerTests
       _unitOfWork,
       _passwordResetRepository,
       _refreshTokenRepository,
-      _machineDateTime
+      _timeProvider
     );
   }
 }

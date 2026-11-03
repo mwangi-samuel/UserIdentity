@@ -1,6 +1,4 @@
-﻿using System.Collections.Generic;
-
-using Microsoft.AspNetCore.Identity;
+﻿using Microsoft.AspNetCore.Identity;
 
 using PolyzenKit.Common.Enums;
 
@@ -30,7 +28,7 @@ public class UserMessagesTests
     var message = UserMessages.Welcome(_user, _userDetails, "TestApp");
 
     // Assert
-    Assert.Equal(MessageAction.WELCOME_USER, message.Action);
+    Assert.Equal(MessageAction.WelcomeUser, message.Action);
     Assert.Equal("user-id", message.CorrelationId);
     Assert.Equal("TestApp", message.RegisteredApp);
     AssertAttributes(message.Attributes);
@@ -43,7 +41,7 @@ public class UserMessagesTests
     var message = UserMessages.PasswordReset("reset-request-id", _user, _userDetails, "TestApp");
 
     // Assert
-    Assert.Equal(MessageAction.PASSWORD_RESET, message.Action);
+    Assert.Equal(MessageAction.PasswordReset, message.Action);
     Assert.Equal("reset-request-id", message.CorrelationId);
     Assert.Equal("TestApp", message.RegisteredApp);
     AssertAttributes(message.Attributes);
@@ -60,18 +58,18 @@ public class UserMessagesTests
     var message = UserMessages.Welcome(user, userDetails, "TestApp");
 
     // Assert
-    Assert.Equal(string.Empty, message.Attributes[MessageAttribute.RECIPIENT_EMAIL]);
-    Assert.Equal(string.Empty, message.Attributes[MessageAttribute.RECIPIENT_PHONE]);
-    Assert.Equal(string.Empty, message.Attributes[MessageAttribute.LAST_NAME]);
+    Assert.Equal(string.Empty, message.Attributes[MessageAttributeKey.RecipientEmail]);
+    Assert.Equal(string.Empty, message.Attributes[MessageAttributeKey.RecipientPhone]);
+    Assert.Equal(string.Empty, message.Attributes[MessageAttributeKey.LastName]);
   }
 
-  private static void AssertAttributes(IReadOnlyDictionary<MessageAttribute, string> attributes)
+  private static void AssertAttributes(IReadOnlyDictionary<MessageAttributeKey, string> attributes)
   {
-    Assert.Equal("test.user@domain.com", attributes[MessageAttribute.RECIPIENT_EMAIL]);
-    Assert.Equal("0712345678", attributes[MessageAttribute.RECIPIENT_PHONE]);
-    Assert.Equal("Test", attributes[MessageAttribute.FIRST_NAME]);
-    Assert.Equal("User", attributes[MessageAttribute.LAST_NAME]);
-    Assert.Equal("test.user", attributes[MessageAttribute.USER_NAME]);
-    Assert.Equal("user-id", attributes[MessageAttribute.USER_ID]);
+    Assert.Equal("test.user@domain.com", attributes[MessageAttributeKey.RecipientEmail]);
+    Assert.Equal("0712345678", attributes[MessageAttributeKey.RecipientPhone]);
+    Assert.Equal("Test", attributes[MessageAttributeKey.FirstName]);
+    Assert.Equal("User", attributes[MessageAttributeKey.LastName]);
+    Assert.Equal("test.user", attributes[MessageAttributeKey.UserName]);
+    Assert.Equal("user-id", attributes[MessageAttributeKey.UserId]);
   }
 }

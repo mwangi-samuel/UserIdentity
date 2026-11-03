@@ -1,7 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 
 using PolyzenKit.Common.Exceptions;
-using PolyzenKit.Common.Utilities;
+using PolyzenKit.Common.Extensions;
 using PolyzenKit.Persistence.Repositories;
 
 using UserIdentity.Domain.WaitLists;
@@ -17,7 +17,7 @@ public class WaitListRepository(
 
   public async Task<WaitListEntity?> GetEntityByAlternateIdAsync(WaitListEntity entity, QueryCondition queryCondition, CancellationToken cancellationToken = default)
   {
-    var userEmail = ObjectUtil.RequireNonNullValue(entity.UserEmail, nameof(entity.UserEmail));
+    var userEmail = ObjectExtensions.RequireNonNullValue(entity.UserEmail, nameof(entity.UserEmail));
 
     var existingEntity = await _dbContext.WaitList
       .Include(e => e.App)
