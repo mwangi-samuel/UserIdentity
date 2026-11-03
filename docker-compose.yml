@@ -50,15 +50,26 @@ services:
       MysqlSettings__Host: db
       MessagingSettings__NatsUrl: nats://nats:4222
       KeySetOptions__PrivateKeyPassPhrase: ${EDDSA_PRIVATE_KEY_PASSPHRASE:-S3T@G00dPa22Phr@S3}
-      Serilog__MinimumLevel: Information
       EDDSA_PRIVATE_KEY:
       EDDSA_PUBLIC_KEY:
+      DOTNET_gcServer: "0"
+      DOTNET_gcConcurrent: "1"
+      DOTNET_TieredPGO: "0"
     depends_on:
       db:
         condition: service_healthy
       nats:
         condition: service_healthy
     restart: on-failure:5
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    deploy:
+      resources:
+        limits:
+          memory: 256M
 
 volumes:
   mysql_data:

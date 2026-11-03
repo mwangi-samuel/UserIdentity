@@ -13,6 +13,7 @@ RUN dotnet restore "UserIdentity/UserIdentity.csproj" \
     /p:Configuration=Release \
     /p:SelfContained=true \
     /p:PublishSingleFile=true \
+    /p:PublishReadyToRun=true \
     /p:ExcludeEfDesign=true
 
 COPY ["UserIdentity/", "UserIdentity/"]
@@ -25,7 +26,7 @@ RUN dotnet publish "UserIdentity.csproj" \
     /p:ExcludeEfDesign=true \
     /p:SelfContained=true \
     /p:PublishSingleFile=true \
-    /p:EnableCompressionInSingleFile=true \
+    /p:PublishReadyToRun=true \
     /p:DebugType=none \
     /p:SatelliteResourceLanguages=en \
     /p:PublishDocumentationFiles=false \
