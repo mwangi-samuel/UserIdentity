@@ -41,7 +41,10 @@ public class ResetPasswordCommandHandler(
     IPasswordResetRepository passwordResetRepository,
     IMessageOutbox messageOutbox,
     IUserRegisteredAppRepository userRegisteredAppRepository
-    ) : BaseAuditableItemCommandHandler<Guid, PasswordResetEntity, IPasswordResetRepository>(unitOfWork, passwordResetRepository, timeProvider),
+    ) : BaseAuditableItemCommandHandler<Guid, PasswordResetEntity, IPasswordResetRepository>(
+      unitOfWork,
+      passwordResetRepository,
+      timeProvider),
       ICreateItemCommandHandler<ResetPasswordCommand, ResetPasswordViewModel>
 {
   private readonly PasswordResetSettings _passwordResetSettings = passwordResetSettingsOptions.Value;
@@ -51,9 +54,13 @@ public class ResetPasswordCommandHandler(
   private readonly IUserRegisteredAppRepository _userRegisteredAppRepository = userRegisteredAppRepository;
   private readonly IMessageOutbox _messageOutbox = messageOutbox;
 
-  public const string DefaultResetPasswordMessage = "If an account matches the details provided, you will receive a code to reset your password.";
+  public const string DefaultResetPasswordMessage =
+    "If an account matches the details provided, you will receive a code to reset your password.";
 
-  public async Task<ResetPasswordViewModel> CreateItemAsync(ResetPasswordCommand command, string userId, CancellationToken cancellationToken = default)
+  public async Task<ResetPasswordViewModel> CreateItemAsync(
+    ResetPasswordCommand command,
+    string userId,
+    CancellationToken cancellationToken = default)
   {
     // Same response whether or not the user exists
     var resetRequestId = _tokenFactory.GenerateToken();
@@ -67,18 +74,27 @@ public class ResetPasswordCommandHandler(
       }
     };
 
-    var existingUser = await _userManager.FindByNameAsync(command.UserName) ?? await _userManager.FindByEmailAsync(command.UserName);
+    var existingUser = await _userManager.FindByNameAsync(command.UserName)
+      ?? await _userManager.FindByEmailAsync(command.UserName);
 
-    if (existingUser is null || !await _userRegisteredAppRepository.IsUserRegisteredForAppAsync(existingUser.Id, command.RegisteredApp!.AppName, cancellationToken))
+    if (existingUser is null
+      || !await _userRegisteredAppRepository.IsUserRegisteredForAppAsync(
+        existingUser.Id,
+        command.RegisteredApp!.AppName,
+        cancellationToken))
       return vm;
 
     var latestEntity = await Repository.GetLatestEntityItemAsync(existingUser.Id, cancellationToken);
 
-    if (latestEntity?.CreatedAt > TimeProvider.GetUtcNow().UtcDateTime.AddSeconds(-_passwordResetSettings.RequestCooldownSeconds))
+    if (latestEntity?.CreatedAt > TimeProvider.GetUtcNow().UtcDateTime.AddSeconds(
+      -_passwordResetSettings.RequestCooldownSeconds))
       return vm;
 
     // Each request gets its own code and attempts, so the requests per day cap the guesses per day
-    var requestsInWindow = await Repository.CountEntityItemsCreatedAfterAsync(existingUser.Id, TimeProvider.GetUtcNow().UtcDateTime - PasswordResetSettings.RequestCountWindow, cancellationToken);
+    var requestsInWindow = await Repository.CountEntityItemsCreatedAfterAsync(
+      existingUser.Id,
+      TimeProvider.GetUtcNow().UtcDateTime - PasswordResetSettings.RequestCountWindow,
+      cancellationToken);
 
     if (requestsInWindow >= _passwordResetSettings.MaxRequestsPerDay)
       return vm;
@@ -101,7 +117,9 @@ public class ResetPasswordCommandHandler(
       Expires = TimeProvider.GetUtcNow().UtcDateTime.AddSeconds(_passwordResetSettings.ValidForSeconds)
     };
 
-    _messageOutbox.Add(UserMessages.UserUpdated, UserMessages.PasswordReset(resetRequestId, existingUser, userEntity, command.RegisteredApp!.AppName));
+    _messageOutbox.Add(
+      UserMessages.UserUpdated,
+      UserMessages.PasswordReset(resetRequestId, existingUser, userEntity, command.RegisteredApp!.AppName));
 
     await CreateEntityItemAsync(passwordResetEntity, existingUser.Id, cancellationToken);
 

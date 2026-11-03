@@ -85,13 +85,18 @@ public class RegisterUserCommandHandlerTests
     var defaultRole = GetDefaultRoleName();
 
     A.CallTo(() => _roleManager.FindByNameAsync(defaultRole)).Returns((IdentityRole?)null);
-    A.CallTo(() => _roleManager.CreateAsync(A<IdentityRole>.That.Matches(r => r.Name == defaultRole))).Returns(IdentityResult.Failed());
+    A.CallTo(() => _roleManager.CreateAsync(A<IdentityRole>.That.Matches(r => r.Name == defaultRole)))
+      .Returns(IdentityResult.Failed());
 
     var handler = GetRegisterUserCommandHandler();
 
-    await Assert.ThrowsAsync<RecordCreationException>(() => handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken));
+    await Assert.ThrowsAsync<RecordCreationException>(() => handler.CreateItemAsync(
+      command,
+      TestStringHelper.UserId,
+      TestContext.Current.CancellationToken));
     A.CallTo(() => _roleManager.FindByNameAsync(defaultRole)).MustHaveHappenedOnceExactly();
-    A.CallTo(() => _roleManager.CreateAsync(A<IdentityRole>.That.Matches(r => r.Name == defaultRole))).MustHaveHappenedOnceExactly();
+    A.CallTo(() => _roleManager.CreateAsync(A<IdentityRole>.That.Matches(r => r.Name == defaultRole)))
+      .MustHaveHappenedOnceExactly();
   }
 
   [Fact]
@@ -105,7 +110,10 @@ public class RegisterUserCommandHandlerTests
 
     var handler = GetRegisterUserCommandHandler();
 
-    await Assert.ThrowsAsync<RecordExistsException>(() => handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken));
+    await Assert.ThrowsAsync<RecordExistsException>(() => handler.CreateItemAsync(
+      command,
+      TestStringHelper.UserId,
+      TestContext.Current.CancellationToken));
 
     A.CallTo(() => _roleManager.FindByNameAsync(defaultRole.Name!)).MustHaveHappenedOnceExactly();
     A.CallTo(() => _userManager.FindByNameAsync(command.UserName)).MustHaveHappenedOnceExactly();
@@ -123,7 +131,10 @@ public class RegisterUserCommandHandlerTests
 
     var handler = GetRegisterUserCommandHandler();
 
-    await Assert.ThrowsAsync<RecordExistsException>(() => handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken));
+    await Assert.ThrowsAsync<RecordExistsException>(() => handler.CreateItemAsync(
+      command,
+      TestStringHelper.UserId,
+      TestContext.Current.CancellationToken));
 
     A.CallTo(() => _roleManager.FindByNameAsync(defaultRole.Name!)).MustHaveHappenedOnceExactly();
     A.CallTo(() => _userManager.FindByNameAsync(command.UserName)).MustHaveHappenedOnceExactly();
@@ -143,7 +154,10 @@ public class RegisterUserCommandHandlerTests
 
     var handler = GetRegisterUserCommandHandler();
 
-    await Assert.ThrowsAsync<InvalidDataException>(() => handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken));
+    await Assert.ThrowsAsync<InvalidDataException>(() => handler.CreateItemAsync(
+      command,
+      TestStringHelper.UserId,
+      TestContext.Current.CancellationToken));
 
     A.CallTo(() => _roleManager.FindByNameAsync(defaultRole.Name!)).MustHaveHappenedOnceExactly();
     A.CallTo(() => _userManager.FindByNameAsync(command.UserName)).MustHaveHappenedOnceExactly();
@@ -166,7 +180,10 @@ public class RegisterUserCommandHandlerTests
 
     var handler = GetRegisterUserCommandHandler();
 
-    await Assert.ThrowsAsync<RecordCreationException>(() => handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken));
+    await Assert.ThrowsAsync<RecordCreationException>(() => handler.CreateItemAsync(
+      command,
+      TestStringHelper.UserId,
+      TestContext.Current.CancellationToken));
 
     A.CallTo(() => _roleManager.FindByNameAsync(defaultRole.Name!)).MustHaveHappenedOnceExactly();
     A.CallTo(() => _userManager.FindByNameAsync(command.UserName)).MustHaveHappenedOnceExactly();
@@ -200,10 +217,20 @@ public class RegisterUserCommandHandlerTests
         })
         .Returns(IdentityResult.Success);
     A.CallTo(() => _userManager.AddToRoleAsync(A<IdentityUser>._, defaultRole.Name!)).Returns(IdentityResult.Success);
-    A.CallTo(() => _userRepository.CreateEntityItem(A<UserEntity>.That.Matches(u => u.FirstName == command.FirstName))).DoesNothing();
-    A.CallTo(() => _roleRepository.GetUserRoleNamesAsync(A<string>._, A<CancellationToken>._)).Returns([defaultRole.Name!]);
-    A.CallTo(() => _roleRepository.GetScopesAsync(A<IReadOnlyCollection<string>>._, A<CancellationToken>._)).Returns(scopes);
-    A.CallTo(() => _jwtTokenHandler.CreateToken(A<string>._, A<string>._, A<string>._, A<HashSet<string>>._, A<HashSet<string>>._, A<HashSet<Claim>?>._)).Returns((accessToken, expiresIn));
+    A.CallTo(() => _userRepository.CreateEntityItem(A<UserEntity>.That.Matches(u => u.FirstName == command.FirstName)))
+      .DoesNothing();
+    A.CallTo(() => _roleRepository.GetUserRoleNamesAsync(A<string>._, A<CancellationToken>._))
+      .Returns([defaultRole.Name!]);
+    A.CallTo(() => _roleRepository.GetScopesAsync(A<IReadOnlyCollection<string>>._, A<CancellationToken>._))
+      .Returns(scopes);
+    A.CallTo(() => _jwtTokenHandler.CreateToken(
+      A<string>._,
+      A<string>._,
+      A<string>._,
+      A<HashSet<string>>._,
+      A<HashSet<string>>._,
+      A<HashSet<Claim>?>._))
+      .Returns((accessToken, expiresIn));
     A.CallTo(() => _tokenFactory.GenerateToken(32)).Returns(refreshToken);
     A.CallTo(() => _tokenFactory.HashToken(refreshToken)).Returns(refreshTokenHash);
     A.CallTo(() => _refreshTokenRepository.CreateEntityItem(A<RefreshTokenEntity>._)).DoesNothing();
@@ -228,9 +255,18 @@ public class RegisterUserCommandHandlerTests
     A.CallTo(() => _userManager.FindByEmailAsync(command.UserEmail!)).MustHaveHappenedOnceExactly();
     A.CallTo(() => _userManager.CreateAsync(A<IdentityUser>._, command.UserPassword)).MustHaveHappenedOnceExactly();
     A.CallTo(() => _userManager.AddToRoleAsync(A<IdentityUser>._, defaultRole.Name!)).MustHaveHappenedOnceExactly();
-    A.CallTo(() => _userRepository.CreateEntityItem(A<UserEntity>.That.Matches(u => u.FirstName == command.FirstName))).MustHaveHappenedOnceExactly();
-    A.CallTo(() => _roleRepository.GetUserRoleNamesAsync(userId!, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
-    A.CallTo(() => _jwtTokenHandler.CreateToken(userId!, command.UserName, command.RegisteredApp!.AppName, A<HashSet<string>>.That.IsSameSequenceAs(new[] { defaultRole.Name! }), scopes, A<HashSet<Claim>?>._)).MustHaveHappenedOnceExactly();
+    A.CallTo(() => _userRepository.CreateEntityItem(A<UserEntity>.That.Matches(u => u.FirstName == command.FirstName)))
+      .MustHaveHappenedOnceExactly();
+    A.CallTo(() => _roleRepository.GetUserRoleNamesAsync(userId!, A<CancellationToken>._))
+      .MustHaveHappenedOnceExactly();
+    A.CallTo(() => _jwtTokenHandler.CreateToken(
+      userId!,
+      command.UserName,
+      command.RegisteredApp!.AppName,
+      A<HashSet<string>>.That.IsSameSequenceAs(new[] { defaultRole.Name! }),
+      scopes,
+      A<HashSet<Claim>?>._))
+      .MustHaveHappenedOnceExactly();
     A.CallTo(() => _tokenFactory.GenerateToken(32)).MustHaveHappenedOnceExactly();
     A.CallTo(() => _refreshTokenRepository.CreateEntityItem(A<RefreshTokenEntity>._)).MustHaveHappenedOnceExactly();
     A.CallTo(() => _refreshTokenRepository.CreateEntityItem(A<RefreshTokenEntity>.That.Matches(rt =>
@@ -293,7 +329,9 @@ public class RegisterUserCommandHandlerTests
 
     // Assert
     A.CallTo(() => _messageOutbox.Add(UserMessages.CallbackRequested, A<MessageEvent>.That.Matches(m =>
-        m.Action == MessageAction.WelcomeUser && m.CorrelationId == vm.User.Id && m.RegisteredApp == command.RegisteredApp.AppName)))
+        m.Action == MessageAction.WelcomeUser
+          && m.CorrelationId == vm.User.Id
+          && m.RegisteredApp == command.RegisteredApp.AppName)))
         .MustHaveHappenedOnceExactly()
         .Then(A.CallTo(() => _unitOfWork.CommitTransactionAsync(A<CancellationToken>._)).MustHaveHappenedOnceExactly());
   }
@@ -301,7 +339,9 @@ public class RegisterUserCommandHandlerTests
   [Theory]
   [InlineData(RequestSource.Api, "https://callback.test")]
   [InlineData(RequestSource.UI, null)]
-  public async Task Create_User_For_A_Service_Or_An_App_Without_A_Callback_Url_Adds_No_Callback_Message(RequestSource requestSource, string? callbackUrl)
+  public async Task Create_User_For_A_Service_Or_An_App_Without_A_Callback_Url_Adds_No_Callback_Message(
+    RequestSource requestSource,
+    string? callbackUrl)
   {
     // Arrange
     var command = GetRegisterUserCommand();
@@ -330,11 +370,19 @@ public class RegisterUserCommandHandlerTests
     command.InviteCode = inviteCode;
 
     var defaultRole = new IdentityRole(GetDefaultRoleName());
-    var inviteCodeEntity = new InviteCodeEntity { Id = 7, InviteCode = inviteCode, UserEmail = command.UserEmail!, Applied = false };
+    var inviteCodeEntity = new InviteCodeEntity
+    {
+      Id = 7,
+      InviteCode = inviteCode,
+      UserEmail = command.UserEmail!,
+      Applied = false
+    };
     string? userId = null;
 
     A.CallTo(() => _inviteCodeRepository.GetEntityByAlternateIdAsync(
-        A<InviteCodeEntity>.That.Matches(e => e.UserEmail == command.UserEmail), QueryCondition.MayOrMayNotExist, A<CancellationToken>._))
+      A<InviteCodeEntity>.That.Matches(e => e.UserEmail == command.UserEmail),
+      QueryCondition.MayOrMayNotExist,
+      A<CancellationToken>._))
         .Returns(inviteCodeEntity);
     A.CallTo(() => _roleManager.FindByNameAsync(defaultRole.Name!)).Returns(defaultRole);
     A.CallTo(() => _userManager.FindByNameAsync(command.UserName)).Returns((IdentityUser?)null);
@@ -365,14 +413,26 @@ public class RegisterUserCommandHandlerTests
     const string inviteCode = "INVITE01";
     command.InviteCode = inviteCode;
 
-    var inviteCodeEntity = new InviteCodeEntity { Id = 7, InviteCode = inviteCode, UserEmail = command.UserEmail!, Applied = true };
+    var inviteCodeEntity = new InviteCodeEntity
+    {
+      Id = 7,
+      InviteCode = inviteCode,
+      UserEmail = command.UserEmail!,
+      Applied = true
+    };
 
-    A.CallTo(() => _inviteCodeRepository.GetEntityByAlternateIdAsync(A<InviteCodeEntity>._, QueryCondition.MayOrMayNotExist, A<CancellationToken>._))
+    A.CallTo(() => _inviteCodeRepository.GetEntityByAlternateIdAsync(
+      A<InviteCodeEntity>._,
+      QueryCondition.MayOrMayNotExist,
+      A<CancellationToken>._))
         .Returns(inviteCodeEntity);
 
     var handler = GetRegisterUserCommandHandler();
 
-    await Assert.ThrowsAsync<InvalidDataException>(() => handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken));
+    await Assert.ThrowsAsync<InvalidDataException>(() => handler.CreateItemAsync(
+      command,
+      TestStringHelper.UserId,
+      TestContext.Current.CancellationToken));
 
     A.CallTo(() => _inviteCodeRepository.UpdateEntityItem(A<InviteCodeEntity>._)).MustNotHaveHappened();
     A.CallTo(() => _userManager.CreateAsync(A<IdentityUser>._, A<string>._)).MustNotHaveHappened();
@@ -388,10 +448,19 @@ public class RegisterUserCommandHandlerTests
     command.InviteCode = inviteCode.ToLowerInvariant();
 
     var defaultRole = new IdentityRole(GetDefaultRoleName());
-    var inviteCodeEntity = new InviteCodeEntity { Id = 7, InviteCode = inviteCode, UserEmail = command.UserEmail!, Applied = false, Role = inviteRole };
+    var inviteCodeEntity = new InviteCodeEntity
+    {
+      Id = 7,
+      InviteCode = inviteCode,
+      UserEmail = command.UserEmail!,
+      Applied = false,
+      Role = inviteRole
+    };
 
     A.CallTo(() => _inviteCodeRepository.GetEntityByAlternateIdAsync(
-        A<InviteCodeEntity>.That.Matches(e => e.UserEmail == command.UserEmail && e.AppId == command.RegisteredApp!.Id), QueryCondition.MayOrMayNotExist, A<CancellationToken>._))
+      A<InviteCodeEntity>.That.Matches(e => e.UserEmail == command.UserEmail && e.AppId == command.RegisteredApp!.Id),
+      QueryCondition.MayOrMayNotExist,
+      A<CancellationToken>._))
         .Returns(inviteCodeEntity);
     A.CallTo(() => _roleManager.FindByNameAsync(defaultRole.Name!)).Returns(defaultRole);
     A.CallTo(() => _roleManager.FindByNameAsync(inviteRole)).Returns(new IdentityRole(inviteRole));
@@ -422,15 +491,28 @@ public class RegisterUserCommandHandlerTests
     var command = GetRegisterUserCommand();
     command.InviteCode = "WRONGCODE";
 
-    var inviteCodeEntity = new InviteCodeEntity { Id = 7, InviteCode = "INVITE01", UserEmail = command.UserEmail!, Applied = false, Role = "testapp:owner" };
+    var inviteCodeEntity = new InviteCodeEntity
+    {
+      Id = 7,
+      InviteCode = "INVITE01",
+      UserEmail = command.UserEmail!,
+      Applied = false,
+      Role = "testapp:owner"
+    };
 
-    A.CallTo(() => _inviteCodeRepository.GetEntityByAlternateIdAsync(A<InviteCodeEntity>._, QueryCondition.MayOrMayNotExist, A<CancellationToken>._))
+    A.CallTo(() => _inviteCodeRepository.GetEntityByAlternateIdAsync(
+      A<InviteCodeEntity>._,
+      QueryCondition.MayOrMayNotExist,
+      A<CancellationToken>._))
         .Returns(inviteCodeEntity);
 
     var handler = GetRegisterUserCommandHandler();
 
     // Act & Assert
-    await Assert.ThrowsAsync<InvalidDataException>(() => handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken));
+    await Assert.ThrowsAsync<InvalidDataException>(() => handler.CreateItemAsync(
+      command,
+      TestStringHelper.UserId,
+      TestContext.Current.CancellationToken));
 
     A.CallTo(() => _userManager.CreateAsync(A<IdentityUser>._, A<string>._)).MustNotHaveHappened();
     A.CallTo(() => _inviteCodeRepository.UpdateEntityItem(A<InviteCodeEntity>._)).MustNotHaveHappened();
@@ -453,13 +535,19 @@ public class RegisterUserCommandHandlerTests
       _ => new InviteCodeEntity { InviteCode = "ABCDEFGHJK", UserEmail = command.UserEmail!, Applied = true }
     };
 
-    A.CallTo(() => _inviteCodeRepository.GetEntityByAlternateIdAsync(A<InviteCodeEntity>._, QueryCondition.MayOrMayNotExist, A<CancellationToken>._))
+    A.CallTo(() => _inviteCodeRepository.GetEntityByAlternateIdAsync(
+      A<InviteCodeEntity>._,
+      QueryCondition.MayOrMayNotExist,
+      A<CancellationToken>._))
         .Returns(inviteCodeEntity);
 
     var handler = GetRegisterUserCommandHandler();
 
     // Act & Assert
-    var exception = await Assert.ThrowsAsync<InvalidDataException>(() => handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken));
+    var exception = await Assert.ThrowsAsync<InvalidDataException>(() => handler.CreateItemAsync(
+      command,
+      TestStringHelper.UserId,
+      TestContext.Current.CancellationToken));
 
     Assert.Equal("A valid invite code is required when signing up.", exception.Message);
     A.CallTo(() => _userManager.CreateAsync(A<IdentityUser>._, A<string>._)).MustNotHaveHappened();
@@ -474,9 +562,19 @@ public class RegisterUserCommandHandlerTests
     command.InviteCode = "INVITE01";
 
     var defaultRole = new IdentityRole(GetDefaultRoleName());
-    var inviteCodeEntity = new InviteCodeEntity { Id = 7, InviteCode = "INVITE01", UserEmail = command.UserEmail!, Applied = false, Role = inviteRole };
+    var inviteCodeEntity = new InviteCodeEntity
+    {
+      Id = 7,
+      InviteCode = "INVITE01",
+      UserEmail = command.UserEmail!,
+      Applied = false,
+      Role = inviteRole
+    };
 
-    A.CallTo(() => _inviteCodeRepository.GetEntityByAlternateIdAsync(A<InviteCodeEntity>._, QueryCondition.MayOrMayNotExist, A<CancellationToken>._))
+    A.CallTo(() => _inviteCodeRepository.GetEntityByAlternateIdAsync(
+      A<InviteCodeEntity>._,
+      QueryCondition.MayOrMayNotExist,
+      A<CancellationToken>._))
         .Returns(inviteCodeEntity);
     A.CallTo(() => _roleManager.FindByNameAsync(defaultRole.Name!)).Returns(defaultRole);
     A.CallTo(() => _roleManager.FindByNameAsync(inviteRole)).Returns((IdentityRole?)null);
@@ -488,7 +586,10 @@ public class RegisterUserCommandHandlerTests
     var handler = GetRegisterUserCommandHandler();
 
     // Act & Assert
-    await Assert.ThrowsAsync<InvalidDataException>(() => handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken));
+    await Assert.ThrowsAsync<InvalidDataException>(() => handler.CreateItemAsync(
+      command,
+      TestStringHelper.UserId,
+      TestContext.Current.CancellationToken));
 
     A.CallTo(() => _userManager.AddToRoleAsync(A<IdentityUser>._, inviteRole)).MustNotHaveHappened();
     A.CallTo(() => _unitOfWork.RollbackTransactionAsync(A<CancellationToken>._)).MustHaveHappenedOnceExactly();
@@ -520,7 +621,11 @@ public class RegisterUserCommandHandlerTests
     // Assert
     Assert.Equal(command.UserName, vm.User.UserName);
 
-    A.CallTo(() => _inviteCodeRepository.GetEntityByAlternateIdAsync(A<InviteCodeEntity>._, A<QueryCondition>._, A<CancellationToken>._)).MustNotHaveHappened();
+    A.CallTo(() => _inviteCodeRepository.GetEntityByAlternateIdAsync(
+      A<InviteCodeEntity>._,
+      A<QueryCondition>._,
+      A<CancellationToken>._))
+      .MustNotHaveHappened();
     A.CallTo(() => _inviteCodeRepository.UpdateEntityItem(A<InviteCodeEntity>._)).MustNotHaveHappened();
     A.CallTo(() => _userManager.AddToRoleAsync(A<IdentityUser>._, A<string>._)).MustHaveHappenedOnceExactly();
   }
@@ -538,7 +643,10 @@ public class RegisterUserCommandHandlerTests
     var handler = GetRegisterUserCommandHandler();
 
     // Act & Assert
-    await Assert.ThrowsAsync<InvalidDataException>(() => handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken));
+    await Assert.ThrowsAsync<InvalidDataException>(() => handler.CreateItemAsync(
+      command,
+      TestStringHelper.UserId,
+      TestContext.Current.CancellationToken));
     A.CallTo(() => _unitOfWork.BeginTransactionAsync(A<CancellationToken>._)).MustNotHaveHappened();
   }
 
@@ -555,8 +663,12 @@ public class RegisterUserCommandHandlerTests
     var handler = GetRegisterUserCommandHandler();
 
     // Act & Assert
-    await Assert.ThrowsAsync<RecordExistsException>(() => handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken));
-    A.CallTo(() => _googleRecaptchaService.VerifyTokenAsync(A<string?>._, A<CancellationToken>._)).MustNotHaveHappened();
+    await Assert.ThrowsAsync<RecordExistsException>(() => handler.CreateItemAsync(
+      command,
+      TestStringHelper.UserId,
+      TestContext.Current.CancellationToken));
+    A.CallTo(() => _googleRecaptchaService.VerifyTokenAsync(A<string?>._, A<CancellationToken>._))
+      .MustNotHaveHappened();
   }
 
   private RegisterUserCommandHandler GetRegisterUserCommandHandler()

@@ -31,14 +31,6 @@ public class GetRoleQueryHandler(
     if (query.AppName is not null && !AppRoleNames.IsAppRole(role.Name, query.AppName))
       throw NoRecordException.ForIdentifier(query.RoleId);
 
-    return new RoleViewModel
-    {
-
-      Role = new RoleDto
-      {
-        Id = query.RoleId,
-        Name = role.Name!
-      }
-    };
+    return new RoleViewModel { Role = new RoleDto { Id = query.RoleId, Name = role.Name! } };
   }
 }

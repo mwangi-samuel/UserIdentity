@@ -8,5 +8,7 @@ public interface IRoleRepository
 
   Task<List<string>> GetUserRoleNamesAsync(string userId, CancellationToken cancellationToken = default);
 
-  Task<HashSet<string>> GetScopesAsync(IReadOnlyCollection<string> roleNames, CancellationToken cancellationToken = default);
+  Task<HashSet<string>> GetScopesAsync(
+    IReadOnlyCollection<string> roleNames,
+    CancellationToken cancellationToken = default);
 }

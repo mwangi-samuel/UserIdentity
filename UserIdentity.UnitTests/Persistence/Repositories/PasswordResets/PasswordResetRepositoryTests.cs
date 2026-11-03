@@ -22,7 +22,9 @@ public class PasswordResetRepositoryTests
     repository.CreateEntityItem(passwordReset);
     await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
-    var saved = await context.PasswordReset.SingleOrDefaultAsync(x => x.Id == passwordReset.Id, cancellationToken: TestContext.Current.CancellationToken);
+    var saved = await context.PasswordReset.SingleOrDefaultAsync(
+      x => x.Id == passwordReset.Id,
+      cancellationToken: TestContext.Current.CancellationToken);
     Assert.NotNull(saved);
     Assert.Equal(passwordReset.RequestId, saved!.RequestId);
   }
@@ -97,7 +99,9 @@ public class PasswordResetRepositoryTests
   {
     var repository = new PasswordResetRepository(AppDbContextTestFactory.GetAppDbContext());
 
-    var result = await repository.GetLatestEntityItemAsync(Guid.NewGuid().ToString(), TestContext.Current.CancellationToken);
+    var result = await repository.GetLatestEntityItemAsync(
+      Guid.NewGuid().ToString(),
+      TestContext.Current.CancellationToken);
 
     Assert.Null(result);
   }
@@ -122,7 +126,8 @@ public class PasswordResetRepositoryTests
     await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
     // Act
-    var count = await new PasswordResetRepository(context).CountEntityItemsCreatedAfterAsync(recent.UserId, now.AddDays(-1), TestContext.Current.CancellationToken);
+    var count = await new PasswordResetRepository(context)
+      .CountEntityItemsCreatedAfterAsync(recent.UserId, now.AddDays(-1), TestContext.Current.CancellationToken);
 
     // Assert
     Assert.Equal(2, count);

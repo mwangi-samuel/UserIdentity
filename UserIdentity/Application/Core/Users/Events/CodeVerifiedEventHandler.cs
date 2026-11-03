@@ -15,19 +15,27 @@ public class CodeVerifiedEventHandler(
   IUpdateItemCommandHandler<VerifyPasswordResetCommand, VerifyPasswordResetViewModel> verifyPasswordResetCommandHandler
   ) : IEventHandler<CodeVerifiedEvent>
 {
-  private readonly IUpdateItemCommandHandler<ConfirmUserCommand, ConfirmUserViewModel> _confirmUserCommandHandler = confirmUserCommandHandler;
-  private readonly IUpdateItemCommandHandler<VerifyPasswordResetCommand, VerifyPasswordResetViewModel> _verifyPasswordResetCommandHandler = verifyPasswordResetCommandHandler;
+  private readonly IUpdateItemCommandHandler<ConfirmUserCommand, ConfirmUserViewModel> _confirmUserCommandHandler =
+    confirmUserCommandHandler;
+  private readonly IUpdateItemCommandHandler<VerifyPasswordResetCommand, VerifyPasswordResetViewModel> _verifyPasswordResetCommandHandler =
+    verifyPasswordResetCommandHandler;
 
   public async Task HandleEventAsync(CodeVerifiedEvent eventItem, CancellationToken cancellationToken = default)
   {
     switch (eventItem.Action)
     {
       case MessageAction.WelcomeUser:
-        await _confirmUserCommandHandler.UpdateItemAsync(new ConfirmUserCommand { UserId = eventItem.CorrelationId }, KnownUsers.SystemId, cancellationToken);
+        await _confirmUserCommandHandler.UpdateItemAsync(
+          new ConfirmUserCommand { UserId = eventItem.CorrelationId },
+          KnownUsers.SystemId,
+          cancellationToken);
         break;
 
       case MessageAction.PasswordReset:
-        await _verifyPasswordResetCommandHandler.UpdateItemAsync(new VerifyPasswordResetCommand { ResetRequestId = eventItem.CorrelationId }, KnownUsers.SystemId, cancellationToken);
+        await _verifyPasswordResetCommandHandler.UpdateItemAsync(
+          new VerifyPasswordResetCommand { ResetRequestId = eventItem.CorrelationId },
+          KnownUsers.SystemId,
+          cancellationToken);
         break;
     }
   }

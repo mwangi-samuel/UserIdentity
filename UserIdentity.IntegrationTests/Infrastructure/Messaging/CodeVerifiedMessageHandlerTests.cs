@@ -22,7 +22,12 @@ public class CodeVerifiedMessageHandlerTests(
 
     Assert.False(TestDbHelper.GetIdentityUserWithNoTracking(user.Id)?.EmailConfirmed);
 
-    var messageEvent = MessageEventFactory.Create(user.Id, RegisteredApp.AppName, new Dictionary<MessageAttributeKey, string>(), MessageAction.WelcomeUser, CrudEvent.Update);
+    var messageEvent = MessageEventFactory.Create(
+      user.Id,
+      RegisteredApp.AppName,
+      new Dictionary<MessageAttributeKey, string>(),
+      MessageAction.WelcomeUser,
+      CrudEvent.Update);
 
     // Act
     await NatsTestHelper.PublishCodeVerifiedAsync(messageEvent);
@@ -44,7 +49,12 @@ public class CodeVerifiedMessageHandlerTests(
     TestDbHelper.CreateIdentityUser();
     TestDbHelper.CreatePasswordResetEntity(resetRequestId, verified: false);
 
-    var messageEvent = MessageEventFactory.Create(resetRequestId, RegisteredApp.AppName, new Dictionary<MessageAttributeKey, string>(), MessageAction.PasswordReset, CrudEvent.Update);
+    var messageEvent = MessageEventFactory.Create(
+      resetRequestId,
+      RegisteredApp.AppName,
+      new Dictionary<MessageAttributeKey, string>(),
+      MessageAction.PasswordReset,
+      CrudEvent.Update);
 
     // Act
     await NatsTestHelper.PublishCodeVerifiedAsync(messageEvent);

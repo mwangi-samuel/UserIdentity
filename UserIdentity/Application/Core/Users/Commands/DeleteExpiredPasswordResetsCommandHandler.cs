@@ -18,14 +18,20 @@ public class DeleteExpiredPasswordResetsCommandHandler(
   private readonly IPasswordResetRepository _passwordResetRepository = passwordResetRepository;
   private readonly TimeProvider _timeProvider = timeProvider;
 
-  public async Task<DeleteRecordViewModel> DeleteItemAsync(DeleteExpiredPasswordResetsCommand command, string userId, CancellationToken cancellationToken = default)
+  public async Task<DeleteRecordViewModel> DeleteItemAsync(
+    DeleteExpiredPasswordResetsCommand command,
+    string userId,
+    CancellationToken cancellationToken = default)
   {
     var expiredBefore = _timeProvider.GetUtcNow().UtcDateTime - PasswordResetSettings.RequestCountWindow;
     int deleted;
 
     do
     {
-      deleted = await _passwordResetRepository.DeleteEntityItemsExpiredBeforeAsync(expiredBefore, BatchSize, cancellationToken);
+      deleted = await _passwordResetRepository.DeleteEntityItemsExpiredBeforeAsync(
+        expiredBefore,
+        BatchSize,
+        cancellationToken);
     } while (deleted == BatchSize);
 
     return new DeleteRecordViewModel();

@@ -46,7 +46,11 @@ public class ResetPasswordCommandHandlerTests
 
   public ResetPasswordCommandHandlerTests()
   {
-    _passwordResetSettings = Options.Create(new PasswordResetSettings { ValidForSeconds = 900, RequestCooldownSeconds = 60 });
+    _passwordResetSettings = Options.Create(new PasswordResetSettings
+    {
+      ValidForSeconds = 900,
+      RequestCooldownSeconds = 60
+    });
     _userManager = IdentityFakes.UserManager();
     _timeProvider = new FakeTimeProvider();
     _tokenFactory = A.Fake<ITokenFactory>();
@@ -58,7 +62,11 @@ public class ResetPasswordCommandHandlerTests
     _timeProvider.SetUtcNow(_fixedNow);
     A.CallTo(() => _tokenFactory.GenerateToken(32)).Returns(ResetRequestId);
     A.CallTo(() => _tokenFactory.HashToken(ResetRequestId)).Returns(ResetRequestIdHash);
-    A.CallTo(() => _userRegisteredAppRepository.IsUserRegisteredForAppAsync(A<string>._, A<string>._, A<CancellationToken>._)).Returns(true);
+    A.CallTo(() => _userRegisteredAppRepository.IsUserRegisteredForAppAsync(
+      A<string>._,
+      A<string>._,
+      A<CancellationToken>._))
+      .Returns(true);
   }
 
   [Fact]
@@ -94,8 +102,10 @@ public class ResetPasswordCommandHandlerTests
 
     A.CallTo(() => _userManager.FindByNameAsync(command.UserName)).Returns(default(IdentityUser));
     A.CallTo(() => _userManager.FindByEmailAsync(command.UserName)).Returns(existingIdentityUser);
-    A.CallTo(() => _passwordResetRepository.GetLatestEntityItemAsync(existingIdentityUser.Id, A<CancellationToken>._)).Returns((PasswordResetEntity?)null);
-    A.CallTo(() => _userRepository.GetEntityItemAsync(existingIdentityUser.Id, A<CancellationToken>._)).Returns(existingEntity);
+    A.CallTo(() => _passwordResetRepository.GetLatestEntityItemAsync(existingIdentityUser.Id, A<CancellationToken>._))
+      .Returns((PasswordResetEntity?)null);
+    A.CallTo(() => _userRepository.GetEntityItemAsync(existingIdentityUser.Id, A<CancellationToken>._))
+      .Returns(existingEntity);
 
     var handler = GetResetPasswordCommandHandler();
 
@@ -106,8 +116,13 @@ public class ResetPasswordCommandHandlerTests
     Assert.Equal(ResetRequestId, vm.ResetPasswordDetails.ResetRequestId);
 
     A.CallTo(() => _passwordResetRepository.CreateEntityItem(A<PasswordResetEntity>.That.Matches(e =>
-        e.RequestId == ResetRequestIdHash && e.UserId == existingIdentityUser.Id && e.Expires == _fixedNow.AddSeconds(900) &&
-        !e.Verified && !e.Applied && e.CreatedBy == existingIdentityUser.Id))).MustHaveHappenedOnceExactly();
+        e.RequestId == ResetRequestIdHash
+          && e.UserId == existingIdentityUser.Id
+          && e.Expires == _fixedNow.AddSeconds(900)
+          &&
+        !e.Verified
+          && !e.Applied
+          && e.CreatedBy == existingIdentityUser.Id))).MustHaveHappenedOnceExactly();
     A.CallTo(() => _unitOfWork.SaveChangesAsync(A<CancellationToken>._)).MustHaveHappenedOnceExactly();
 
     A.CallTo(() => _messageOutbox.Add(UserMessages.UserUpdated, A<MessageEvent>.That.Matches(m =>
@@ -130,7 +145,11 @@ public class ResetPasswordCommandHandlerTests
     var command = GetResetPasswordCommand(existingIdentityUser.UserName!);
 
     A.CallTo(() => _userManager.FindByNameAsync(command.UserName)).Returns(existingIdentityUser);
-    A.CallTo(() => _userRegisteredAppRepository.IsUserRegisteredForAppAsync(existingIdentityUser.Id, _registeredApp.AppName, A<CancellationToken>._)).Returns(false);
+    A.CallTo(() => _userRegisteredAppRepository.IsUserRegisteredForAppAsync(
+      existingIdentityUser.Id,
+      _registeredApp.AppName,
+      A<CancellationToken>._))
+      .Returns(false);
 
     var handler = GetResetPasswordCommandHandler();
 
@@ -151,8 +170,13 @@ public class ResetPasswordCommandHandlerTests
     var command = GetResetPasswordCommand(existingIdentityUser.UserName!);
 
     A.CallTo(() => _userManager.FindByNameAsync(command.UserName)).Returns(existingIdentityUser);
-    A.CallTo(() => _passwordResetRepository.GetLatestEntityItemAsync(existingIdentityUser.Id, A<CancellationToken>._)).Returns((PasswordResetEntity?)null);
-    A.CallTo(() => _passwordResetRepository.CountEntityItemsCreatedAfterAsync(existingIdentityUser.Id, _fixedNow.AddDays(-1), A<CancellationToken>._)).Returns(5);
+    A.CallTo(() => _passwordResetRepository.GetLatestEntityItemAsync(existingIdentityUser.Id, A<CancellationToken>._))
+      .Returns((PasswordResetEntity?)null);
+    A.CallTo(() => _passwordResetRepository.CountEntityItemsCreatedAfterAsync(
+      existingIdentityUser.Id,
+      _fixedNow.AddDays(-1),
+      A<CancellationToken>._))
+      .Returns(5);
 
     var handler = GetResetPasswordCommandHandler();
 
@@ -171,10 +195,15 @@ public class ResetPasswordCommandHandlerTests
     // Arrange
     var existingIdentityUser = GetIdentityUser();
     var command = GetResetPasswordCommand(existingIdentityUser.UserName!);
-    var latestEntity = new PasswordResetEntity { UserId = existingIdentityUser.Id, CreatedAt = _fixedNow.AddSeconds(-30) };
+    var latestEntity = new PasswordResetEntity
+    {
+      UserId = existingIdentityUser.Id,
+      CreatedAt = _fixedNow.AddSeconds(-30)
+    };
 
     A.CallTo(() => _userManager.FindByNameAsync(command.UserName)).Returns(existingIdentityUser);
-    A.CallTo(() => _passwordResetRepository.GetLatestEntityItemAsync(existingIdentityUser.Id, A<CancellationToken>._)).Returns(latestEntity);
+    A.CallTo(() => _passwordResetRepository.GetLatestEntityItemAsync(existingIdentityUser.Id, A<CancellationToken>._))
+      .Returns(latestEntity);
 
     var handler = GetResetPasswordCommandHandler();
 
@@ -195,8 +224,10 @@ public class ResetPasswordCommandHandlerTests
     var command = GetResetPasswordCommand(existingIdentityUser.UserName!);
 
     A.CallTo(() => _userManager.FindByNameAsync(command.UserName)).Returns(existingIdentityUser);
-    A.CallTo(() => _passwordResetRepository.GetLatestEntityItemAsync(existingIdentityUser.Id, A<CancellationToken>._)).Returns((PasswordResetEntity?)null);
-    A.CallTo(() => _userRepository.GetEntityItemAsync(existingIdentityUser.Id, A<CancellationToken>._)).Throws(NoRecordException.ForIdentifier(existingIdentityUser.Id));
+    A.CallTo(() => _passwordResetRepository.GetLatestEntityItemAsync(existingIdentityUser.Id, A<CancellationToken>._))
+      .Returns((PasswordResetEntity?)null);
+    A.CallTo(() => _userRepository.GetEntityItemAsync(existingIdentityUser.Id, A<CancellationToken>._))
+      .Throws(NoRecordException.ForIdentifier(existingIdentityUser.Id));
 
     var handler = GetResetPasswordCommandHandler();
 
@@ -211,11 +242,7 @@ public class ResetPasswordCommandHandlerTests
 
   private ResetPasswordCommand GetResetPasswordCommand(string userName)
   {
-    return new ResetPasswordCommand
-    {
-      UserName = userName,
-      RegisteredApp = _registeredApp
-    };
+    return new ResetPasswordCommand { UserName = userName, RegisteredApp = _registeredApp };
   }
 
   private static IdentityUser GetIdentityUser()

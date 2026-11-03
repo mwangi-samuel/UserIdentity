@@ -38,13 +38,7 @@ public class WaitListEndpointsTests
     var waitListId = 1L;
     var waitListVM = new WaitListViewModel
     {
-      WaitList = new WaitListDto
-      {
-        Id = waitListId,
-        UserEmail = "test@example.com",
-        AppId = 1,
-        AppName = "TestApp"
-      }
+      WaitList = new WaitListDto { Id = waitListId, UserEmail = "test@example.com", AppId = 1, AppName = "TestApp" }
     };
 
     A.CallTo(() => _getWaitListQueryHandler.GetItemAsync(
@@ -80,13 +74,7 @@ public class WaitListEndpointsTests
     var userEmail = "test@example.com";
     var waitListVM = new WaitListViewModel
     {
-      WaitList = new WaitListDto
-      {
-        Id = 1,
-        UserEmail = userEmail,
-        AppId = 1,
-        AppName = "TestApp"
-      }
+      WaitList = new WaitListDto { Id = 1, UserEmail = userEmail, AppId = 1, AppName = "TestApp" }
     };
 
     A.CallTo(() => _getWaitListQueryHandler.GetItemAsync(
@@ -121,26 +109,13 @@ public class WaitListEndpointsTests
     var appId = 1;
     var appName = "TestApp";
 
-    var command = new CreateWaitListCommand
-    {
-      UserEmail = "new@example.com"
-    };
+    var command = new CreateWaitListCommand { UserEmail = "new@example.com" };
 
-    var registeredApp = new RegisteredAppEntity
-    {
-      Id = appId,
-      AppName = appName
-    };
+    var registeredApp = new RegisteredAppEntity { Id = appId, AppName = appName };
 
     var waitListVM = new WaitListViewModel
     {
-      WaitList = new WaitListDto
-      {
-        Id = 1,
-        UserEmail = command.UserEmail,
-        AppId = appId,
-        AppName = appName
-      }
+      WaitList = new WaitListDto { Id = 1, UserEmail = command.UserEmail, AppId = appId, AppName = appName }
     };
 
     A.CallTo(() => _registeredAppResolver.GetActiveAppAsync(A<string>._, A<CancellationToken>._))
@@ -187,26 +162,13 @@ public class WaitListEndpointsTests
     var appId = 1;
     var appName = "TestApp";
 
-    var command = new CreateWaitListCommand
-    {
-      UserEmail = "anonymous@example.com"
-    };
+    var command = new CreateWaitListCommand { UserEmail = "anonymous@example.com" };
 
-    var registeredApp = new RegisteredAppEntity
-    {
-      Id = appId,
-      AppName = appName
-    };
+    var registeredApp = new RegisteredAppEntity { Id = appId, AppName = appName };
 
     var waitListVM = new WaitListViewModel
     {
-      WaitList = new WaitListDto
-      {
-        Id = 1,
-        UserEmail = command.UserEmail,
-        AppId = appId,
-        AppName = appName
-      }
+      WaitList = new WaitListDto { Id = 1, UserEmail = command.UserEmail, AppId = appId, AppName = appName }
     };
 
     A.CallTo(() => _registeredAppResolver.GetActiveAppAsync(A<string>._, A<CancellationToken>._))

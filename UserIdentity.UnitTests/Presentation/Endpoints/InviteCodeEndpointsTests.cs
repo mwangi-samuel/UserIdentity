@@ -32,7 +32,8 @@ public class InviteCodeEndpointsTests
     _createInviteCodeCommandHandler = A.Fake<ICreateItemCommandHandler<CreateInviteCodeCommand, InviteCodeViewModel>>();
     _getInviteCodeQueryHandler = A.Fake<IGetItemQueryHandler<GetInviteCodeQuery, InviteCodeViewModel>>();
     _getInviteCodesQueryHandler = A.Fake<IGetItemsQueryHandler<GetInviteCodesQuery, InviteCodesViewModel>>();
-    _deleteInviteCodeCommandHandler = A.Fake<IDeleteItemCommandHandler<DeleteInviteCodeCommand, DeleteRecordViewModel>>();
+    _deleteInviteCodeCommandHandler =
+      A.Fake<IDeleteItemCommandHandler<DeleteInviteCodeCommand, DeleteRecordViewModel>>();
     _registeredAppResolver = A.Fake<IRegisteredAppResolver>();
   }
 
@@ -130,17 +131,9 @@ public class InviteCodeEndpointsTests
     var appId = 1;
     var appName = "TestApp";
 
-    var command = new CreateInviteCodeCommand
-    {
-      InviteCode = "NEWINVITE",
-      UserEmail = "new@example.com"
-    };
+    var command = new CreateInviteCodeCommand { InviteCode = "NEWINVITE", UserEmail = "new@example.com" };
 
-    var registeredApp = new RegisteredAppEntity
-    {
-      Id = appId,
-      AppName = appName
-    };
+    var registeredApp = new RegisteredAppEntity { Id = appId, AppName = appName };
 
     var inviteCodeVM = new InviteCodeViewModel
     {
@@ -209,7 +202,16 @@ public class InviteCodeEndpointsTests
       A<CreateInviteCodeCommand>._,
       TestStringHelper.UserId,
       A<CancellationToken>._))
-        .Returns(new InviteCodeViewModel { InviteCode = new InviteCodeDto { Id = 1, InviteCode = command.InviteCode, UserEmail = command.UserEmail, Role = command.Role } });
+        .Returns(new InviteCodeViewModel
+        {
+          InviteCode = new InviteCodeDto
+          {
+            Id = 1,
+            InviteCode = command.InviteCode,
+            UserEmail = command.UserEmail,
+            Role = command.Role
+          }
+        });
 
     var request = ApiRequestFactory.Create("invite-code", userId: TestStringHelper.UserId, appName: "TestApp");
 
@@ -223,7 +225,9 @@ public class InviteCodeEndpointsTests
 
     // Assert
     A.CallTo(() => _createInviteCodeCommandHandler.CreateItemAsync(
-        A<CreateInviteCodeCommand>.That.Matches(c => c.AppId == 4 && c.AppName == "TestApp" && c.Role == "testapp:owner"), TestStringHelper.UserId, A<CancellationToken>._))
+      A<CreateInviteCodeCommand>.That.Matches(c => c.AppId == 4 && c.AppName == "TestApp" && c.Role == "testapp:owner"),
+      TestStringHelper.UserId,
+      A<CancellationToken>._))
         .MustHaveHappenedOnceExactly();
   }
 
@@ -288,7 +292,9 @@ public class InviteCodeEndpointsTests
     // Assert
     Assert.Equal((int)HttpStatusCode.OK, result.StatusCode);
     A.CallTo(() => _deleteInviteCodeCommandHandler.DeleteItemAsync(
-        A<DeleteInviteCodeCommand>.That.Matches(c => c.InviteCodeId == 7 && c.AppId == 4), TestStringHelper.UserId, A<CancellationToken>._))
+      A<DeleteInviteCodeCommand>.That.Matches(c => c.InviteCodeId == 7 && c.AppId == 4),
+      TestStringHelper.UserId,
+      A<CancellationToken>._))
         .MustHaveHappenedOnceExactly();
   }
 }

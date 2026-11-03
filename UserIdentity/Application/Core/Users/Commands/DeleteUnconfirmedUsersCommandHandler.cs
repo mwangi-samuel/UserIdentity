@@ -34,7 +34,10 @@ public class DeleteUnconfirmedUsersCommandHandler(
   private readonly IInviteCodeRepository _inviteCodeRepository = inviteCodeRepository;
   private readonly TimeProvider _timeProvider = timeProvider;
 
-  public async Task<DeleteRecordViewModel> DeleteItemAsync(DeleteUnconfirmedUsersCommand command, string userId, CancellationToken cancellationToken = default)
+  public async Task<DeleteRecordViewModel> DeleteItemAsync(
+    DeleteUnconfirmedUsersCommand command,
+    string userId,
+    CancellationToken cancellationToken = default)
   {
     // Without required confirmation, unconfirmed accounts can log in and must stay
     if (!_identityOptions.SignIn.RequireConfirmedAccount)
@@ -45,7 +48,10 @@ public class DeleteUnconfirmedUsersCommandHandler(
 
     do
     {
-      entities = await _userRepository.GetUnconfirmedEntityItemsCreatedBeforeAsync(createdBefore, BatchSize, cancellationToken);
+      entities = await _userRepository.GetUnconfirmedEntityItemsCreatedBeforeAsync(
+        createdBefore,
+        BatchSize,
+        cancellationToken);
 
       foreach (var entity in entities)
         await DeleteUserAsync(entity, cancellationToken);
@@ -61,7 +67,9 @@ public class DeleteUnconfirmedUsersCommandHandler(
 
     try
     {
-      foreach (var inviteCode in await _inviteCodeRepository.GetAppliedEntityItemsForUserAsync(entity.Id, cancellationToken))
+      foreach (var inviteCode in await _inviteCodeRepository.GetAppliedEntityItemsForUserAsync(
+        entity.Id,
+        cancellationToken))
       {
         inviteCode.Applied = false;
         _inviteCodeRepository.UpdateEntityItem(inviteCode);

@@ -84,7 +84,10 @@ public sealed class AppCallbackServiceTests : IDisposable
   {
     var service = GetAppCallbackService();
 
-    await service.SendCallbackRequestAsync(GetApp(new() { { "X-Test-Header", "value" } }), GetUser(), TestContext.Current.CancellationToken);
+    await service.SendCallbackRequestAsync(
+      GetApp(new() { { "X-Test-Header", "value" } }),
+      GetUser(),
+      TestContext.Current.CancellationToken);
 
     Assert.True(_requestMessage.Headers.Contains("X-Test-Header"));
     A.CallTo(_httpRequestSender)
@@ -99,7 +102,10 @@ public sealed class AppCallbackServiceTests : IDisposable
     var service = GetAppCallbackService();
 
     // An app-defined header must not be able to replace the signature
-    await service.SendCallbackRequestAsync(GetApp(new() { { CustomHeaderNames.Signature, "sha256=spoofed" } }), GetUser(), TestContext.Current.CancellationToken);
+    await service.SendCallbackRequestAsync(
+      GetApp(new() { { CustomHeaderNames.Signature, "sha256=spoofed" } }),
+      GetUser(),
+      TestContext.Current.CancellationToken);
 
     var timestamp = Assert.Single(_requestMessage.Headers.GetValues(CustomHeaderNames.Timestamp));
     var signature = Assert.Single(_requestMessage.Headers.GetValues(CustomHeaderNames.Signature));
@@ -120,10 +126,11 @@ public sealed class AppCallbackServiceTests : IDisposable
 
     await service.SendCallbackRequestAsync(GetApp(), GetUser(), TestContext.Current.CancellationToken);
 
-    using var body = JsonDocument.Parse(await _requestMessage.Content!.ReadAsStringAsync(TestContext.Current.CancellationToken));
+    using var body = JsonDocument.Parse(
+      await _requestMessage.Content!.ReadAsStringAsync(TestContext.Current.CancellationToken));
     var userContent = body.RootElement.GetProperty("userContent");
 
-    Assert.Equal("CREATE", body.RootElement.GetProperty("eventType").GetString());
+    Assert.Equal("Create", body.RootElement.GetProperty("eventType").GetString());
     Assert.Equal("user-id", userContent.GetProperty("userIdentityId").GetString());
     Assert.Equal("Test", userContent.GetProperty("firstName").GetString());
     Assert.Equal("User", userContent.GetProperty("lastName").GetString());
@@ -137,9 +144,15 @@ public sealed class AppCallbackServiceTests : IDisposable
   [Fact]
   public async Task SendCallbackRequestAsync_With_ForwardServiceToken_Sends_A_Service_Token_Scoped_To_The_Apps_Users()
   {
-    A.CallTo(() => _jwtTokenHandler.GenerateScopeClaim("testapp-user", ScopeActions.Create)).Returns(new Claim("scope", "testapp-user:create"));
-    A.CallTo(() => _jwtTokenHandler.CreateToken("useridentity", "useridentity", "TestApp",
-        A<HashSet<string>>.That.Contains(KnownRoles.InternalService), A<HashSet<string>>.That.Contains("testapp-user:create"), A<HashSet<Claim>?>._))
+    A.CallTo(() => _jwtTokenHandler.GenerateScopeClaim("testapp-user", ScopeActions.Create))
+      .Returns(new Claim("scope", "testapp-user:create"));
+    A.CallTo(() => _jwtTokenHandler.CreateToken(
+      "useridentity",
+      "useridentity",
+      "TestApp",
+      A<HashSet<string>>.That.Contains(KnownRoles.InternalService),
+      A<HashSet<string>>.That.Contains("testapp-user:create"),
+      A<HashSet<Claim>?>._))
       .Returns(("service-token", 60));
 
     var service = GetAppCallbackService();
@@ -160,7 +173,14 @@ public sealed class AppCallbackServiceTests : IDisposable
     await service.SendCallbackRequestAsync(GetApp(), GetUser(), TestContext.Current.CancellationToken);
 
     Assert.Null(_requestMessage.Headers.Authorization);
-    A.CallTo(() => _jwtTokenHandler.CreateToken(A<string>._, A<string>._, A<string>._, A<HashSet<string>>._, A<HashSet<string>>._, A<HashSet<Claim>?>._)).MustNotHaveHappened();
+    A.CallTo(() => _jwtTokenHandler.CreateToken(
+      A<string>._,
+      A<string>._,
+      A<string>._,
+      A<HashSet<string>>._,
+      A<HashSet<string>>._,
+      A<HashSet<Claim>?>._))
+      .MustNotHaveHappened();
   }
 
   [Fact]
@@ -171,7 +191,8 @@ public sealed class AppCallbackServiceTests : IDisposable
 
     await service.SendCallbackRequestAsync(GetApp(), GetUser(), TestContext.Current.CancellationToken);
 
-    Assert.False(string.IsNullOrWhiteSpace(Assert.Single(_requestMessage.Headers.GetValues(CustomHeaderNames.RequestId))));
+    Assert.False(
+      string.IsNullOrWhiteSpace(Assert.Single(_requestMessage.Headers.GetValues(CustomHeaderNames.RequestId))));
   }
 
   private static RegisteredAppEntity GetApp(Dictionary<string, string>? callbackHeaders = null) => new()

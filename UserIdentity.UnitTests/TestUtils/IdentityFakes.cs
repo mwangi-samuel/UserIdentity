@@ -10,5 +10,14 @@ internal static class IdentityFakes
   // FakeItEasy's dummy provider returns an object that fails that cast, so pass the arguments explicitly.
   internal static UserManager<IdentityUser> UserManager() =>
     A.Fake<UserManager<IdentityUser>>(options => options.WithArgumentsForConstructor(
-      () => new UserManager<IdentityUser>(A.Fake<IUserStore<IdentityUser>>(), null!, null!, null!, null!, null!, null!, null!, null!)));
+      () => new UserManager<IdentityUser>(
+        A.Fake<IUserStore<IdentityUser>>(),
+        null!,
+        null!,
+        null!,
+        null!,
+        null!,
+        null!,
+        null!,
+        null!)));
 }

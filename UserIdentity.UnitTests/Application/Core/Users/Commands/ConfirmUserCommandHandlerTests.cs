@@ -30,7 +30,10 @@ public class ConfirmUserCommandHandlerTests
 
     var handler = new ConfirmUserCommandHandler(_userManager);
 
-    await Assert.ThrowsAsync<NoRecordException>(() => handler.UpdateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken));
+    await Assert.ThrowsAsync<NoRecordException>(() => handler.UpdateItemAsync(
+      command,
+      TestStringHelper.UserId,
+      TestContext.Current.CancellationToken));
   }
 
   [Fact]
@@ -40,11 +43,15 @@ public class ConfirmUserCommandHandlerTests
     var existingUser = new IdentityUser { Id = command.UserId, EmailConfirmed = false };
 
     A.CallTo(() => _userManager.FindByIdAsync(command.UserId)).Returns(existingUser);
-    A.CallTo(() => _userManager.UpdateAsync(existingUser)).Returns(IdentityResult.Failed(new IdentityError { Description = "Failed" }));
+    A.CallTo(() => _userManager.UpdateAsync(existingUser))
+      .Returns(IdentityResult.Failed(new IdentityError { Description = "Failed" }));
 
     var handler = new ConfirmUserCommandHandler(_userManager);
 
-    await Assert.ThrowsAsync<RecordUpdateException>(() => handler.UpdateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken));
+    await Assert.ThrowsAsync<RecordUpdateException>(() => handler.UpdateItemAsync(
+      command,
+      TestStringHelper.UserId,
+      TestContext.Current.CancellationToken));
   }
 
   [Fact]

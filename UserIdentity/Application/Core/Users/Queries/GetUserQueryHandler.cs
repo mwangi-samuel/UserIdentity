@@ -14,9 +14,7 @@ public record GetUserQuery : IBaseQuery
   public string? AppName { get; init; }
 }
 
-public class GetUserQueryHandler(
-    IUserRepository userRepository
-    ) : IGetItemQueryHandler<GetUserQuery, UserViewModel>
+public class GetUserQueryHandler(IUserRepository userRepository) : IGetItemQueryHandler<GetUserQuery, UserViewModel>
 {
   private readonly IUserRepository _userRepository = userRepository;
 
@@ -25,9 +23,6 @@ public class GetUserQueryHandler(
     var user = await _userRepository.GetUserDtoAsync(query.UserId, query.AppName, cancellationToken)
       ?? throw NoRecordException.ForIdentifier(query.UserId);
 
-    return new UserViewModel
-    {
-      User = user
-    };
+    return new UserViewModel { User = user };
   }
 }

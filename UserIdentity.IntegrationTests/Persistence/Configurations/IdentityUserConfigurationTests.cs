@@ -24,10 +24,16 @@ public class IdentityUserConfigurationTests(
 
     using var scope = _testingWebAppFactory.Services.CreateScope();
     var userManager = scope.ServiceProvider.GetRequiredService<UserManager<IdentityUser>>();
-    var secondUser = new IdentityUser { UserName = "second.user", Email = UserSettingHelper.UserEmail.ToUpperInvariant() };
+    var secondUser = new IdentityUser
+    {
+      UserName = "second.user",
+      Email = UserSettingHelper.UserEmail.ToUpperInvariant()
+    };
 
     // Act & Assert
-    await Assert.ThrowsAsync<RecordExistsException>(() => userManager.CreateAsync(secondUser, UserSettingHelper.UserPassword));
+    await Assert.ThrowsAsync<RecordExistsException>(() => userManager.CreateAsync(
+      secondUser,
+      UserSettingHelper.UserPassword));
   }
 
   [Fact]
@@ -38,8 +44,12 @@ public class IdentityUserConfigurationTests(
     var userManager = scope.ServiceProvider.GetRequiredService<UserManager<IdentityUser>>();
 
     // Act
-    var first = await userManager.CreateAsync(new IdentityUser { UserName = "phone.only.one", PhoneNumber = "0711111111" }, UserSettingHelper.UserPassword);
-    var second = await userManager.CreateAsync(new IdentityUser { UserName = "phone.only.two", PhoneNumber = "0722222222" }, UserSettingHelper.UserPassword);
+    var first = await userManager.CreateAsync(
+      new IdentityUser { UserName = "phone.only.one", PhoneNumber = "0711111111" },
+      UserSettingHelper.UserPassword);
+    var second = await userManager.CreateAsync(
+      new IdentityUser { UserName = "phone.only.two", PhoneNumber = "0722222222" },
+      UserSettingHelper.UserPassword);
 
     // Assert
     Assert.True(first.Succeeded);

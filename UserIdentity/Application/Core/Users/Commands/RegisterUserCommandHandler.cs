@@ -68,7 +68,9 @@ public record RegisterUserCommand : IBaseCommand, IValidatableObject
   public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
   {
     if (string.IsNullOrWhiteSpace(PhoneNumber) && string.IsNullOrWhiteSpace(UserEmail))
-      yield return new ValidationResult(ErrorMessages.Users.PhoneNumberOrEmailRequired, [nameof(PhoneNumber), nameof(UserEmail)]);
+      yield return new ValidationResult(
+        ErrorMessages.Users.PhoneNumberOrEmailRequired,
+        [nameof(PhoneNumber), nameof(UserEmail)]);
   }
 }
 
@@ -107,13 +109,24 @@ public class RegisterUserCommandHandler(
 
   private readonly IGoogleRecaptchaService _googleRecaptchaService = googleRecaptchaService;
 
-  private readonly UserTokenIssuer _userTokenIssuer = new(roleRepository, refreshTokenRepository, jwtTokenHandler, tokenFactory, timeProvider, roleSettingsOptions.Value, refreshTokenSettingsOptions.Value);
+  private readonly UserTokenIssuer _userTokenIssuer = new(
+    roleRepository,
+    refreshTokenRepository,
+    jwtTokenHandler,
+    tokenFactory,
+    timeProvider,
+    roleSettingsOptions.Value,
+    refreshTokenSettingsOptions.Value);
 
-  public async Task<AuthUserViewModel> CreateItemAsync(RegisterUserCommand command, string userId, CancellationToken cancellationToken = default)
+  public async Task<AuthUserViewModel> CreateItemAsync(
+    RegisterUserCommand command,
+    string userId,
+    CancellationToken cancellationToken = default)
   {
 
     // Confirm Google Recaptcha Token is valid before processing
-    if (command.RequestSource == RequestSource.UI && !await _googleRecaptchaService.VerifyTokenAsync(command.GoogleRecaptchaToken, cancellationToken))
+    if (command.RequestSource == RequestSource.UI
+      && !await _googleRecaptchaService.VerifyTokenAsync(command.GoogleRecaptchaToken, cancellationToken))
       throw new InvalidDataException(ErrorMessages.Users.InvalidRecaptchaToken);
 
     var registeredAppName = command.RegisteredApp!.AppName;
@@ -137,10 +150,15 @@ public class RegisterUserCommandHandler(
       if (!hasInviteCode)
         throw new InvalidDataException(ErrorMessages.Users.InviteCodeRequired);
 
-      inviteCodeEntity = await _inviteCodeRepository.GetEntityByAlternateIdAsync(new() { AppId = command.RegisteredApp!.Id, UserEmail = command.UserEmail! }, QueryCondition.MayOrMayNotExist, cancellationToken);
+      inviteCodeEntity = await _inviteCodeRepository.GetEntityByAlternateIdAsync(
+        new() { AppId = command.RegisteredApp!.Id, UserEmail = command.UserEmail! },
+        QueryCondition.MayOrMayNotExist,
+        cancellationToken);
 
       // A missing, wrong or used code gets the same answer, so sign-up never says whether an email has an invite
-      if (inviteCodeEntity is null || inviteCodeEntity.Applied || !string.Equals(command.InviteCode, inviteCodeEntity.InviteCode, StringComparison.OrdinalIgnoreCase))
+      if (inviteCodeEntity is null
+        || inviteCodeEntity.Applied
+        || !string.Equals(command.InviteCode, inviteCodeEntity.InviteCode, StringComparison.OrdinalIgnoreCase))
         throw new InvalidDataException(ErrorMessages.Users.InviteCodeRequired);
     }
 
@@ -182,7 +200,8 @@ public class RegisterUserCommandHandler(
       if (!resultUserRole.Succeeded)
         throw new RecordCreationException($"Role {userDefaultRole} wasn't added to user {newUser.Id}");
 
-      if (inviteCodeEntity?.Role is { } inviteRole && !string.Equals(inviteRole, userDefaultRole, StringComparison.OrdinalIgnoreCase))
+      if (inviteCodeEntity?.Role is { } inviteRole
+        && !string.Equals(inviteRole, userDefaultRole, StringComparison.OrdinalIgnoreCase))
       {
         var role = await _roleManager.FindByNameAsync(inviteRole)
           ?? throw new InvalidDataException(ErrorMessages.Users.InviteRoleMissing(inviteRole));
@@ -226,9 +245,13 @@ public class RegisterUserCommandHandler(
       _userRegisteredAppRepository.CreateEntityItem(userRegisteredApp);
 
       // We only include the accessToken in the payload, when user is confirmed.
-      var isConfirmed = !_identityOptions.SignIn.RequireConfirmedAccount || newUser.EmailConfirmed || newUser.PhoneNumberConfirmed;
+      var isConfirmed = !_identityOptions.SignIn.RequireConfirmedAccount
+        || newUser.EmailConfirmed
+        || newUser.PhoneNumberConfirmed;
 
-      var userToken = isConfirmed ? await _userTokenIssuer.StartSessionAsync(newUser.Id, command.UserName, registeredAppName, cancellationToken) : null;
+      var userToken = isConfirmed
+        ? await _userTokenIssuer.StartSessionAsync(newUser.Id, command.UserName, registeredAppName, cancellationToken)
+        : null;
 
       var welcomeMessage = UserMessages.Welcome(newUser, userDetails, registeredAppName);
 
@@ -253,12 +276,7 @@ public class RegisterUserCommandHandler(
 
       userDto.SetDtoAuditFields(userDetails);
 
-      return new AuthUserViewModel
-      {
-        User = userDto,
-        IsConfirmed = isConfirmed,
-        UserToken = userToken
-      };
+      return new AuthUserViewModel { User = userDto, IsConfirmed = isConfirmed, UserToken = userToken };
     }
     catch
     {

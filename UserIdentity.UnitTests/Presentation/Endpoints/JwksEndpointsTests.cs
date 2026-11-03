@@ -27,14 +27,7 @@ public class JwksEndpointsTests
     {
       KeySetList = new Dictionary<string, IList<Dictionary<string, string>>>
       {
-        ["keys"] =
-        [
-          new Dictionary<string, string>
-          {
-            ["alg"] = "EdDSA",
-            ["kty"] = "OKP"
-          }
-        ]
+        ["keys"] = [new Dictionary<string, string> { ["alg"] = "EdDSA", ["kty"] = "OKP" }]
       }
     };
 

@@ -36,16 +36,26 @@ public class CreateUserRoleCommandHandler(
   private readonly RoleManager<IdentityRole> _roleManager = roleManager;
   private readonly UserManager<IdentityUser> _userManager = userManager;
   private readonly IUserRegisteredAppRepository _userRegisteredAppRepository = userRegisteredAppRepository;
-  private readonly IGetItemsQueryHandler<GetUserRolesQuery, UserRolesViewModel> _getUserRolesQueryHandler = getUserRolesQueryHandler;
+  private readonly IGetItemsQueryHandler<GetUserRolesQuery, UserRolesViewModel> _getUserRolesQueryHandler =
+    getUserRolesQueryHandler;
 
-  public async Task<UserRolesViewModel> CreateItemAsync(CreateUserRoleCommand command, string userId, CancellationToken cancellationToken = default)
+  public async Task<UserRolesViewModel> CreateItemAsync(
+    CreateUserRoleCommand command,
+    string userId,
+    CancellationToken cancellationToken = default)
   {
-    var user = await _userManager.FindByIdAsync(command.UserId) ?? throw NoRecordException.ForIdentifier(command.UserId);
+    var user = await _userManager.FindByIdAsync(command.UserId)
+      ?? throw NoRecordException.ForIdentifier(command.UserId);
 
-    if (command.AppName is not null && !await _userRegisteredAppRepository.IsUserRegisteredForAppAsync(command.UserId, command.AppName, cancellationToken))
+    if (command.AppName is not null
+      && !await _userRegisteredAppRepository.IsUserRegisteredForAppAsync(
+        command.UserId,
+        command.AppName,
+        cancellationToken))
       throw NoRecordException.ForIdentifier(command.UserId);
 
-    var role = await _roleManager.FindByIdAsync(command.RoleId) ?? throw NoRecordException.ForIdentifier(command.RoleId);
+    var role = await _roleManager.FindByIdAsync(command.RoleId)
+      ?? throw NoRecordException.ForIdentifier(command.RoleId);
 
     if (command.AppName is not null && !AppRoleNames.IsAppRole(role.Name, command.AppName))
       throw NoRecordException.ForIdentifier(command.RoleId);
@@ -62,7 +72,9 @@ public class CreateUserRoleCommandHandler(
 
     // remove roles from cache
 
-    var resolvedRoles = await _getUserRolesQueryHandler.GetItemsAsync(new GetUserRolesQuery { UserId = command.UserId, AppName = command.AppName }, cancellationToken);
+    var resolvedRoles = await _getUserRolesQueryHandler.GetItemsAsync(
+      new GetUserRolesQuery { UserId = command.UserId, AppName = command.AppName },
+      cancellationToken);
 
     return resolvedRoles;
   }

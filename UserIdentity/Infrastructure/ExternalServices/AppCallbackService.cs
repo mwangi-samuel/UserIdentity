@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.Options;
 
 using PolyzenKit.Application.Interfaces;
+using PolyzenKit.Common.Enums;
 using PolyzenKit.Common.Settings;
 using PolyzenKit.Common.Utilities;
 using PolyzenKit.Domain.Entities.RegisteredApps;
@@ -25,10 +26,10 @@ public class AppCallbackService(
 
   private const string targetServiceName = "AppCallback";
 
-  // Apps read the event type in upper case
-  private const string CreateEventType = "CREATE";
-
-  public async Task SendCallbackRequestAsync(RegisteredAppEntity registeredApp, UserRegisteredEvent user, CancellationToken cancellationToken = default)
+  public async Task SendCallbackRequestAsync(
+    RegisteredAppEntity registeredApp,
+    UserRegisteredEvent user,
+    CancellationToken cancellationToken = default)
   {
     var content = new
     {
@@ -43,7 +44,7 @@ public class AppCallbackService(
         user.UserEmail,
         EmailConfirmed = false
       },
-      EventType = CreateEventType
+      EventType = CrudEvent.Create
     };
 
     var requestMessage = _httpRequestSender.CreateHttpRequestMessage(HttpMethod.Post, registeredApp.CallbackUrl!)

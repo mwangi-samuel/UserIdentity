@@ -36,7 +36,11 @@ public sealed class TestDbHelper(
   private readonly TokenFactory _tokenFactory = new();
 
   public string DefaultRole => $"{_currentAppNameNormalized}{Separators.ServiceRole}{_roleSettings.DefaultRole}";
-  public HashSet<string> AdminRoles => [.. _roleSettings.AdminRoles.Split(',').Select(r => $"{_currentAppNameNormalized}{Separators.ServiceRole}{r.Trim()}")];
+  public HashSet<string> AdminRoles =>
+    [
+      .. _roleSettings.AdminRoles.Split(',')
+        .Select(r => $"{_currentAppNameNormalized}{Separators.ServiceRole}{r.Trim()}")
+    ];
 
   #region IdentityUser Related
   public IdentityUser CreateIdentityUser()
@@ -97,11 +101,7 @@ public sealed class TestDbHelper(
   public IdentityRole CreateIdentityRole(string roleName)
   {
     DeleteIdnetityRole(roleName);
-    var role = new IdentityRole
-    {
-      Name = roleName,
-      NormalizedName = roleName.ToUpperInvariant()
-    };
+    var role = new IdentityRole { Name = roleName, NormalizedName = roleName.ToUpperInvariant() };
 
     _appDbContext.Roles.Add(role);
     _appDbContext.SaveChanges();
@@ -139,11 +139,7 @@ public sealed class TestDbHelper(
     var existingRole = GetIdentityRole(roleName) ?? throw new ArgumentNullException(nameof(roleName));
     var existingUser = GetIdentityUser(userId) ?? throw new ArgumentNullException(nameof(userId));
 
-    var userRole = new IdentityUserRole<string>
-    {
-      RoleId = existingRole.Id,
-      UserId = existingUser.Id
-    };
+    var userRole = new IdentityUserRole<string> { RoleId = existingRole.Id, UserId = existingUser.Id };
 
     _appDbContext.UserRoles.Add(userRole);
     _appDbContext.SaveChanges();
@@ -312,7 +308,11 @@ public sealed class TestDbHelper(
   #endregion
 
   #region PasswordResetEntity Related
-  public PasswordResetEntity CreatePasswordResetEntity(string resetRequestId, bool verified = true, bool applied = false, DateTime? expires = null)
+  public PasswordResetEntity CreatePasswordResetEntity(
+    string resetRequestId,
+    bool verified = true,
+    bool applied = false,
+    DateTime? expires = null)
   {
     var entity = new PasswordResetEntity
     {
@@ -357,7 +357,13 @@ public sealed class TestDbHelper(
   #endregion
 
   #region InviteCodeEntity Related
-  public InviteCodeEntity CreateInviteCodeEntity(string userEmail, string appName, string? inviteCode = null, bool applied = false, string? role = null, DateTime? createdAt = null)
+  public InviteCodeEntity CreateInviteCodeEntity(
+    string userEmail,
+    string appName,
+    string? inviteCode = null,
+    bool applied = false,
+    string? role = null,
+    DateTime? createdAt = null)
   {
     DeleteInviteCodeEntityByEmail(userEmail);
 

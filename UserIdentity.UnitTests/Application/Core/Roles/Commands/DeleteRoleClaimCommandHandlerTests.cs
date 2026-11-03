@@ -41,7 +41,10 @@ public class DeleteRoleClaimCommandHandlerTests
     DeleteRoleClaimCommandHandler handler = new(_roleManager, _jwtTokenHandler);
 
     // Act & Assert
-    await Assert.ThrowsAsync<NoRecordException>(() => handler.DeleteItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken));
+    await Assert.ThrowsAsync<NoRecordException>(() => handler.DeleteItemAsync(
+      command,
+      TestStringHelper.UserId,
+      TestContext.Current.CancellationToken));
   }
 
   [Fact]
@@ -56,12 +59,16 @@ public class DeleteRoleClaimCommandHandlerTests
       AppName = "testapp"
     };
 
-    A.CallTo(() => _roleManager.FindByIdAsync(command.RoleId)).Returns(new IdentityRole { Id = command.RoleId, Name = "otherapp:owner" });
+    A.CallTo(() => _roleManager.FindByIdAsync(command.RoleId))
+      .Returns(new IdentityRole { Id = command.RoleId, Name = "otherapp:owner" });
 
     DeleteRoleClaimCommandHandler handler = new(_roleManager, _jwtTokenHandler);
 
     // Act & Assert
-    await Assert.ThrowsAsync<NoRecordException>(() => handler.DeleteItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken));
+    await Assert.ThrowsAsync<NoRecordException>(() => handler.DeleteItemAsync(
+      command,
+      TestStringHelper.UserId,
+      TestContext.Current.CancellationToken));
     A.CallTo(() => _roleManager.RemoveClaimAsync(A<IdentityRole>._, A<Claim>._)).MustNotHaveHappened();
   }
 
@@ -76,18 +83,11 @@ public class DeleteRoleClaimCommandHandlerTests
       Action = "sampleaction"
     };
 
-    IdentityRole role = new()
-    {
-      Id = command.RoleId,
-      Name = "SampleRole"
-    };
+    IdentityRole role = new() { Id = command.RoleId, Name = "SampleRole" };
 
     Claim scopeClaim = new("scope", $"{command.Resource}:{command.Action}");
     List<Claim> roleClaims =
-    [
-                        new("scope", "SampleResource:SampleAction1"),
-                            new("scope", "sampleresource:sampleaction2")
-                ];
+    [new("scope", "SampleResource:SampleAction1"), new("scope", "sampleresource:sampleaction2")];
 
     A.CallTo(() => _roleManager.FindByIdAsync(command.RoleId)).Returns(role);
     A.CallTo(() => _jwtTokenHandler.GenerateScopeClaim(command.Resource, command.Action)).Returns(scopeClaim);
@@ -97,7 +97,10 @@ public class DeleteRoleClaimCommandHandlerTests
     DeleteRoleClaimCommandHandler handler = new(_roleManager, _jwtTokenHandler);
 
     // Act & Assert
-    await Assert.ThrowsAsync<NoRecordException>(() => handler.DeleteItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken));
+    await Assert.ThrowsAsync<NoRecordException>(() => handler.DeleteItemAsync(
+      command,
+      TestStringHelper.UserId,
+      TestContext.Current.CancellationToken));
   }
 
   [Fact]
@@ -111,18 +114,10 @@ public class DeleteRoleClaimCommandHandlerTests
       Action = "sampleaction"
     };
 
-    IdentityRole role = new()
-    {
-      Id = command.RoleId,
-      Name = "SampleRole"
-    };
+    IdentityRole role = new() { Id = command.RoleId, Name = "SampleRole" };
 
     Claim scopeClaim = new("scope", $"{command.Resource}:{command.Action}");
-    List<Claim> roleClaims =
-    [
-                        scopeClaim,
-                            new("scope", "sampleresource:sampleaction2")
-                ];
+    List<Claim> roleClaims = [scopeClaim, new("scope", "sampleresource:sampleaction2")];
 
     A.CallTo(() => _roleManager.FindByIdAsync(command.RoleId)).Returns(role);
     A.CallTo(() => _jwtTokenHandler.GenerateScopeClaim(command.Resource, command.Action)).Returns(scopeClaim);
@@ -134,7 +129,10 @@ public class DeleteRoleClaimCommandHandlerTests
     DeleteRoleClaimCommandHandler handler = new(_roleManager, _jwtTokenHandler);
 
     // Act & Assert
-    await Assert.ThrowsAsync<RecordDeletionException>(() => handler.DeleteItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken));
+    await Assert.ThrowsAsync<RecordDeletionException>(() => handler.DeleteItemAsync(
+      command,
+      TestStringHelper.UserId,
+      TestContext.Current.CancellationToken));
   }
 
   [Fact]
@@ -148,18 +146,10 @@ public class DeleteRoleClaimCommandHandlerTests
       Action = "sampleaction"
     };
 
-    IdentityRole role = new()
-    {
-      Id = command.RoleId,
-      Name = "SampleRole"
-    };
+    IdentityRole role = new() { Id = command.RoleId, Name = "SampleRole" };
 
     Claim scopeClaim = new("scope", $"{command.Resource}:{command.Action}");
-    List<Claim> roleClaims =
-    [
-                        scopeClaim,
-                            new Claim("scope", "sampleresource:sampleaction2")
-                ];
+    List<Claim> roleClaims = [scopeClaim, new Claim("scope", "sampleresource:sampleaction2")];
 
     A.CallTo(() => _roleManager.FindByIdAsync(command.RoleId)).Returns(role);
     A.CallTo(() => _jwtTokenHandler.GenerateScopeClaim(command.Resource, command.Action)).Returns(scopeClaim);
@@ -198,6 +188,7 @@ public class DeleteRoleClaimCommandHandlerTests
     await handler.DeleteItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken);
 
     // Assert
-    A.CallTo(() => _roleManager.RemoveClaimAsync(role, A<Claim>.That.Matches(c => c.Value == "owner:read"))).MustHaveHappenedOnceExactly();
+    A.CallTo(() => _roleManager.RemoveClaimAsync(role, A<Claim>.That.Matches(c => c.Value == "owner:read")))
+      .MustHaveHappenedOnceExactly();
   }
 }

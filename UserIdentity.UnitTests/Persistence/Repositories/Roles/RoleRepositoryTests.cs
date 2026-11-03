@@ -52,7 +52,8 @@ public class RoleRepositoryTests
     await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
     // Act
-    var roleNames = await new RoleRepository(context).GetUserRoleNamesAsync("user-id", TestContext.Current.CancellationToken);
+    var roleNames = await new RoleRepository(context)
+      .GetUserRoleNamesAsync("user-id", TestContext.Current.CancellationToken);
 
     // Assert
     Assert.Equal(["testapp:owner", "testapp:user"], roleNames);
@@ -65,14 +66,25 @@ public class RoleRepositoryTests
     var context = AppDbContextTestFactory.GetAppDbContext();
     var roles = AddRoles(context, "testapp:user", "testapp:owner", "otherapp:user");
     context.RoleClaims.AddRange(
-      new IdentityRoleClaim<string> { RoleId = roles[0].Id, ClaimType = "scope", ClaimValue = "useridentity-user:read" },
-      new IdentityRoleClaim<string> { RoleId = roles[1].Id, ClaimType = "scope", ClaimValue = "useridentity-user:read" },
+      new IdentityRoleClaim<string>
+      {
+        RoleId = roles[0].Id,
+        ClaimType = "scope",
+        ClaimValue = "useridentity-user:read"
+      },
+      new IdentityRoleClaim<string>
+      {
+        RoleId = roles[1].Id,
+        ClaimType = "scope",
+        ClaimValue = "useridentity-user:read"
+      },
       new IdentityRoleClaim<string> { RoleId = roles[1].Id, ClaimType = "scope", ClaimValue = "catalog-product:all" },
       new IdentityRoleClaim<string> { RoleId = roles[2].Id, ClaimType = "scope", ClaimValue = "files-file:create" });
     await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
     // Act
-    var scopes = await new RoleRepository(context).GetScopesAsync(["TestApp:User", "testapp:owner"], TestContext.Current.CancellationToken);
+    var scopes = await new RoleRepository(context)
+      .GetScopesAsync(["TestApp:User", "testapp:owner"], TestContext.Current.CancellationToken);
 
     // Assert
     Assert.Equal(["catalog-product:all", "useridentity-user:read"], scopes.Order());
@@ -93,7 +105,13 @@ public class RoleRepositoryTests
 
   private static IdentityRole[] AddRoles(AppDbContext context, params string[] names)
   {
-    var roles = names.Select(name => new IdentityRole { Id = Guid.NewGuid().ToString(), Name = name, NormalizedName = name.ToUpperInvariant() }).ToArray();
+    var roles = names.Select(name => new IdentityRole
+    {
+      Id = Guid.NewGuid().ToString(),
+      Name = name,
+      NormalizedName = name.ToUpperInvariant()
+    })
+      .ToArray();
 
     context.Roles.AddRange(roles);
 

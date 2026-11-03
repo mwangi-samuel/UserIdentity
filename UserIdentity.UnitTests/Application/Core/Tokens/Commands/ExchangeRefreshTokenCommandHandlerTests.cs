@@ -25,7 +25,8 @@ namespace UserIdentity.UnitTests.Application.Core.Tokens.Commands;
 
 public class ExchangeRefreshTokenCommandHandlerTests
 {
-  private const string AccessToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiSm9obiBEb2UiLCJpYXQiOjE1MTYyMzkwMjJ9.hqWGSaFpvbrXkOWc6lrnffhNWR19W_S1YKFBx2arWBk";
+  private const string AccessToken =
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiSm9obiBEb2UiLCJpYXQiOjE1MTYyMzkwMjJ9.hqWGSaFpvbrXkOWc6lrnffhNWR19W_S1YKFBx2arWBk";
   private const string RefreshToken = "SamplevalidRefreshToken";
   private const string RefreshTokenHash = "SamplevalidRefreshTokenHash";
 
@@ -43,7 +44,11 @@ public class ExchangeRefreshTokenCommandHandlerTests
 
   public ExchangeRefreshTokenCommandHandlerTests()
   {
-    A.CallTo(() => _userRegisteredAppRepository.IsUserRegisteredForAppAsync(A<string>._, A<string>._, A<CancellationToken>._)).Returns(true);
+    A.CallTo(() => _userRegisteredAppRepository.IsUserRegisteredForAppAsync(
+      A<string>._,
+      A<string>._,
+      A<CancellationToken>._))
+      .Returns(true);
 
     _refreshTokenSettings = Options.Create(new RefreshTokenSettings { ValidForSeconds = 2592000 });
     _jwtTokenHandler = A.Fake<IJwtTokenHandler>();
@@ -59,12 +64,12 @@ public class ExchangeRefreshTokenCommandHandlerTests
   [InlineData(null, "valid-user-name")]
   [InlineData("valid-user-id", null)]
   [InlineData(null, null)]
-  public async Task ExchangeRefreshToken_With_Refresh_Token_With_No_Id_Or_Subject_Throws_SecurityTokenException(string? userId, string? userName)
+  public async Task ExchangeRefreshToken_With_Refresh_Token_With_No_Id_Or_Subject_Throws_SecurityTokenException(
+    string? userId,
+    string? userName)
   {
     // Arrange
-    var tokenValidationResult = new TokenValidationResult
-    {
-    };
+    var tokenValidationResult = new TokenValidationResult { };
 
     var command = new ExchangeRefreshTokenCommand
     {
@@ -72,15 +77,22 @@ public class ExchangeRefreshTokenCommandHandlerTests
       RefreshToken = "SampleInvalidRefreshToken"
     };
 
-    A.CallTo(() => _jwtTokenHandler.ValidateTokenAsync(command.AccessToken!, false)).Returns(Task.FromResult(tokenValidationResult));
-    A.CallTo(() => _jwtTokenHandler.ResolveTokenValue<string?>(tokenValidationResult, JwtRegisteredClaimNames.Sub)).Returns(userId);
-    A.CallTo(() => _jwtTokenHandler.ResolveTokenValue<string?>(tokenValidationResult, JwtRegisteredClaimNames.Name)).Returns(userName);
-    A.CallTo(() => _jwtTokenHandler.ResolveTokenValue<string?>(tokenValidationResult, JwtRegisteredClaimNames.Azp)).Returns((string?)null);
+    A.CallTo(() => _jwtTokenHandler.ValidateTokenAsync(command.AccessToken!, false))
+      .Returns(Task.FromResult(tokenValidationResult));
+    A.CallTo(() => _jwtTokenHandler.ResolveTokenValue<string?>(tokenValidationResult, JwtRegisteredClaimNames.Sub))
+      .Returns(userId);
+    A.CallTo(() => _jwtTokenHandler.ResolveTokenValue<string?>(tokenValidationResult, JwtRegisteredClaimNames.Name))
+      .Returns(userName);
+    A.CallTo(() => _jwtTokenHandler.ResolveTokenValue<string?>(tokenValidationResult, JwtRegisteredClaimNames.Azp))
+      .Returns((string?)null);
 
     var hanndler = GetExchangeRefreshTokenCommandHandler();
 
     // Act & Assert
-    await Assert.ThrowsAsync<SecurityTokenException>(() => hanndler.UpdateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken));
+    await Assert.ThrowsAsync<SecurityTokenException>(() => hanndler.UpdateItemAsync(
+      command,
+      TestStringHelper.UserId,
+      TestContext.Current.CancellationToken));
   }
 
   [Fact]
@@ -94,13 +106,19 @@ public class ExchangeRefreshTokenCommandHandlerTests
     A.CallTo(() => _refreshTokenRepository.GetEntityByAlternateIdAsync(
         A<RefreshTokenEntity>.That.Matches(e => e.UserId == TestStringHelper.UserId && e.Token == RefreshTokenHash),
         QueryCondition.MayOrMayNotExist, A<CancellationToken>._)).Returns((RefreshTokenEntity?)null);
-    A.CallTo(() => _refreshTokenRepository.GetEntityByPreviousTokenAsync(TestStringHelper.UserId, RefreshTokenHash, A<CancellationToken>._))
+    A.CallTo(() => _refreshTokenRepository.GetEntityByPreviousTokenAsync(
+      TestStringHelper.UserId,
+      RefreshTokenHash,
+      A<CancellationToken>._))
         .Returns((RefreshTokenEntity?)null);
 
     var hanndler = GetExchangeRefreshTokenCommandHandler();
 
     // Act & Assert
-    var exception = await Assert.ThrowsAsync<SecurityTokenException>(() => hanndler.UpdateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken));
+    var exception = await Assert.ThrowsAsync<SecurityTokenException>(() => hanndler.UpdateItemAsync(
+      command,
+      TestStringHelper.UserId,
+      TestContext.Current.CancellationToken));
 
     Assert.Equal("Invalid refresh token provided", exception.Message);
     A.CallTo(() => _refreshTokenRepository.RemoveEntityItem(A<RefreshTokenEntity>._)).MustNotHaveHappened();
@@ -123,15 +141,24 @@ public class ExchangeRefreshTokenCommandHandlerTests
 
     SetUpValidAccessToken(command);
 
-    A.CallTo(() => _refreshTokenRepository.GetEntityByAlternateIdAsync(A<RefreshTokenEntity>._, QueryCondition.MayOrMayNotExist, A<CancellationToken>._))
+    A.CallTo(() => _refreshTokenRepository.GetEntityByAlternateIdAsync(
+      A<RefreshTokenEntity>._,
+      QueryCondition.MayOrMayNotExist,
+      A<CancellationToken>._))
         .Returns((RefreshTokenEntity?)null);
-    A.CallTo(() => _refreshTokenRepository.GetEntityByPreviousTokenAsync(TestStringHelper.UserId, RefreshTokenHash, A<CancellationToken>._))
+    A.CallTo(() => _refreshTokenRepository.GetEntityByPreviousTokenAsync(
+      TestStringHelper.UserId,
+      RefreshTokenHash,
+      A<CancellationToken>._))
         .Returns(sessionEntity);
 
     var hanndler = GetExchangeRefreshTokenCommandHandler();
 
     // Act & Assert
-    var exception = await Assert.ThrowsAsync<SecurityTokenException>(() => hanndler.UpdateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken));
+    var exception = await Assert.ThrowsAsync<SecurityTokenException>(() => hanndler.UpdateItemAsync(
+      command,
+      TestStringHelper.UserId,
+      TestContext.Current.CancellationToken));
 
     Assert.Equal("Invalid refresh token provided", exception.Message);
     A.CallTo(() => _refreshTokenRepository.RemoveEntityItem(sessionEntity)).MustHaveHappenedOnceExactly();
@@ -162,7 +189,10 @@ public class ExchangeRefreshTokenCommandHandlerTests
     var hanndler = GetExchangeRefreshTokenCommandHandler();
 
     // Act & Assert
-    var exception = await Assert.ThrowsAsync<SecurityTokenException>(() => hanndler.UpdateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken));
+    var exception = await Assert.ThrowsAsync<SecurityTokenException>(() => hanndler.UpdateItemAsync(
+      command,
+      TestStringHelper.UserId,
+      TestContext.Current.CancellationToken));
 
     Assert.Equal("Expired refresh token provided", exception.Message);
     A.CallTo(() => _refreshTokenRepository.RemoveEntityItem(dbRefreshToken)).MustHaveHappenedOnceExactly();
@@ -191,7 +221,8 @@ public class ExchangeRefreshTokenCommandHandlerTests
     var updatedRefreshToken = RefreshToken + "updated";
     var updatedRefreshTokenHash = RefreshTokenHash + "updated";
 
-    var newAccesToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiSm9obiBEb2UiLCJpYXQiOjE1MTYyMzkwMjJ9.tL95SMCv9-I_ApoP8DKhhCHd2YcbscFNWo5feRsOwnQ";
+    var newAccesToken =
+      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiSm9obiBEb2UiLCJpYXQiOjE1MTYyMzkwMjJ9.tL95SMCv9-I_ApoP8DKhhCHd2YcbscFNWo5feRsOwnQ";
     var newAccesstokenExpiresIn = 90000;
 
     SetUpValidAccessToken(command);
@@ -200,14 +231,25 @@ public class ExchangeRefreshTokenCommandHandlerTests
         A<RefreshTokenEntity>.That.Matches(e => e.UserId == TestStringHelper.UserId && e.Token == RefreshTokenHash),
         QueryCondition.MayOrMayNotExist, A<CancellationToken>._)).Returns(dbRefreshToken);
 
-    A.CallTo(() => _roleRepository.GetUserRoleNamesAsync(TestStringHelper.UserId, A<CancellationToken>._)).Returns(["otherapp:admin", "testapp:admin"]);
+    A.CallTo(() => _roleRepository.GetUserRoleNamesAsync(TestStringHelper.UserId, A<CancellationToken>._))
+      .Returns(["otherapp:admin", "testapp:admin"]);
 
     // Only the token's app's roles go into the new token
-    A.CallTo(() => _roleRepository.GetScopesAsync(A<IReadOnlyCollection<string>>.That.Matches(roles => roles.SequenceEqual(TestAppAdminRoles)), A<CancellationToken>._)).Returns(scopes);
+    A.CallTo(() => _roleRepository.GetScopesAsync(
+      A<IReadOnlyCollection<string>>.That.Matches(roles => roles.SequenceEqual(TestAppAdminRoles)),
+      A<CancellationToken>._))
+      .Returns(scopes);
     A.CallTo(() => _tokenFactory.GenerateToken(32)).Returns(updatedRefreshToken);
     A.CallTo(() => _tokenFactory.HashToken(updatedRefreshToken)).Returns(updatedRefreshTokenHash);
 
-    A.CallTo(() => _jwtTokenHandler.CreateToken(TestStringHelper.UserId, TestStringHelper.UserName, "TestApp", A<HashSet<string>>.That.Matches(r => r.SetEquals(TestAppAdminRoles)), scopes, A<HashSet<Claim>?>._)).Returns((newAccesToken, newAccesstokenExpiresIn));
+    A.CallTo(() => _jwtTokenHandler.CreateToken(
+      TestStringHelper.UserId,
+      TestStringHelper.UserName,
+      "TestApp",
+      A<HashSet<string>>.That.Matches(r => r.SetEquals(TestAppAdminRoles)),
+      scopes,
+      A<HashSet<Claim>?>._))
+      .Returns((newAccesToken, newAccesstokenExpiresIn));
 
     var hanndler = GetExchangeRefreshTokenCommandHandler();
 
@@ -224,9 +266,16 @@ public class ExchangeRefreshTokenCommandHandlerTests
     Assert.Equal(updatedRefreshToken, vm.UserToken.RefreshToken);
 
     A.CallTo(() => _refreshTokenRepository.UpdateEntityItem(A<RefreshTokenEntity>.That.Matches(e =>
-        e.Token == updatedRefreshTokenHash && e.PreviousToken == RefreshTokenHash && e.Expires > DateTime.UtcNow.AddDays(29) &&
-        e.UserId == TestStringHelper.UserId && e.UpdatedBy == TestStringHelper.UserId && e.UpdatedAt != null &&
-        e.Version != originalVersion && e.Version != Guid.Empty)))
+        e.Token == updatedRefreshTokenHash
+          && e.PreviousToken == RefreshTokenHash
+          && e.Expires > DateTime.UtcNow.AddDays(29)
+          &&
+        e.UserId == TestStringHelper.UserId
+          && e.UpdatedBy == TestStringHelper.UserId
+          && e.UpdatedAt != null
+          &&
+        e.Version != originalVersion
+          && e.Version != Guid.Empty)))
         .MustHaveHappenedOnceExactly();
     A.CallTo(() => _unitOfWork.SaveChangesAsync(A<CancellationToken>._)).MustHaveHappenedOnceExactly();
   }
@@ -251,12 +300,19 @@ public class ExchangeRefreshTokenCommandHandlerTests
         A<RefreshTokenEntity>.That.Matches(e => e.UserId == TestStringHelper.UserId && e.Token == RefreshTokenHash),
         QueryCondition.MayOrMayNotExist, A<CancellationToken>._)).Returns(dbRefreshToken);
 
-    A.CallTo(() => _userRegisteredAppRepository.IsUserRegisteredForAppAsync(TestStringHelper.UserId, "TestApp", A<CancellationToken>._)).Returns(false);
+    A.CallTo(() => _userRegisteredAppRepository.IsUserRegisteredForAppAsync(
+      TestStringHelper.UserId,
+      "TestApp",
+      A<CancellationToken>._))
+      .Returns(false);
 
     var hanndler = GetExchangeRefreshTokenCommandHandler();
 
     // Act & Assert
-    await Assert.ThrowsAsync<SecurityTokenException>(() => hanndler.UpdateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken));
+    await Assert.ThrowsAsync<SecurityTokenException>(() => hanndler.UpdateItemAsync(
+      command,
+      TestStringHelper.UserId,
+      TestContext.Current.CancellationToken));
 
     A.CallTo(() => _refreshTokenRepository.RemoveEntityItem(dbRefreshToken)).MustHaveHappenedOnceExactly();
     A.CallTo(() => _tokenFactory.GenerateToken(A<int>._)).MustNotHaveHappened();
@@ -264,23 +320,21 @@ public class ExchangeRefreshTokenCommandHandlerTests
 
   private static ExchangeRefreshTokenCommand GetExchangeRefreshTokenCommand()
   {
-    return new ExchangeRefreshTokenCommand
-    {
-      AccessToken = AccessToken,
-      RefreshToken = RefreshToken
-    };
+    return new ExchangeRefreshTokenCommand { AccessToken = AccessToken, RefreshToken = RefreshToken };
   }
 
   private void SetUpValidAccessToken(ExchangeRefreshTokenCommand command)
   {
-    var tokenValidationResult = new TokenValidationResult
-    {
-    };
+    var tokenValidationResult = new TokenValidationResult { };
 
-    A.CallTo(() => _jwtTokenHandler.ValidateTokenAsync(command.AccessToken!, false)).Returns(Task.FromResult(tokenValidationResult));
-    A.CallTo(() => _jwtTokenHandler.ResolveTokenValue<string?>(tokenValidationResult, JwtRegisteredClaimNames.Sub)).Returns(TestStringHelper.UserId);
-    A.CallTo(() => _jwtTokenHandler.ResolveTokenValue<string?>(tokenValidationResult, JwtRegisteredClaimNames.Name)).Returns(TestStringHelper.UserName);
-    A.CallTo(() => _jwtTokenHandler.ResolveTokenValue<string?>(tokenValidationResult, JwtRegisteredClaimNames.Azp)).Returns("TestApp");
+    A.CallTo(() => _jwtTokenHandler.ValidateTokenAsync(command.AccessToken!, false))
+      .Returns(Task.FromResult(tokenValidationResult));
+    A.CallTo(() => _jwtTokenHandler.ResolveTokenValue<string?>(tokenValidationResult, JwtRegisteredClaimNames.Sub))
+      .Returns(TestStringHelper.UserId);
+    A.CallTo(() => _jwtTokenHandler.ResolveTokenValue<string?>(tokenValidationResult, JwtRegisteredClaimNames.Name))
+      .Returns(TestStringHelper.UserName);
+    A.CallTo(() => _jwtTokenHandler.ResolveTokenValue<string?>(tokenValidationResult, JwtRegisteredClaimNames.Azp))
+      .Returns("TestApp");
   }
 
   private ExchangeRefreshTokenCommandHandler GetExchangeRefreshTokenCommandHandler()

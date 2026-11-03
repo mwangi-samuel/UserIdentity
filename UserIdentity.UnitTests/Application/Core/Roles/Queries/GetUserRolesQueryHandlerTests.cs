@@ -20,7 +20,12 @@ public class GetUserRolesQueryHandlerTests
   private readonly RoleManager<IdentityRole> _roleManager;
   private readonly UserManager<IdentityUser> _userManager;
   private readonly IUserRegisteredAppRepository _userRegisteredAppRepository;
-  private readonly IOptions<RoleSettings> _roleSettings = Options.Create(new RoleSettings { ServiceName = "UserIdentity", AdminRoles = "admin", DefaultRole = "user" });
+  private readonly IOptions<RoleSettings> _roleSettings = Options.Create(new RoleSettings
+  {
+    ServiceName = "UserIdentity",
+    AdminRoles = "admin",
+    DefaultRole = "user"
+  });
 
   public GetUserRolesQueryHandlerTests()
   {
@@ -88,7 +93,9 @@ public class GetUserRolesQueryHandlerTests
     GetUserRolesQueryHandler handler = new(_roleManager, _userManager, _userRegisteredAppRepository, _roleSettings);
 
     // Act &  Assert
-    await Assert.ThrowsAsync<NoRecordException>(() => handler.GetItemsAsync(query, TestContext.Current.CancellationToken));
+    await Assert.ThrowsAsync<NoRecordException>(() => handler.GetItemsAsync(
+      query,
+      TestContext.Current.CancellationToken));
   }
 
   [Fact]
@@ -99,8 +106,10 @@ public class GetUserRolesQueryHandlerTests
     IdentityUser user = new() { Id = "1", UserName = "test" };
 
     A.CallTo(() => _userManager.FindByIdAsync(query.UserId)).Returns(user);
-    A.CallTo(() => _userManager.GetRolesAsync(user)).Returns(["testapp:user", "otherapp:admin", "global:admin", "Administrator"]);
-    A.CallTo(() => _userRegisteredAppRepository.IsUserRegisteredForAppAsync("1", "TestApp", A<CancellationToken>._)).Returns(true);
+    A.CallTo(() => _userManager.GetRolesAsync(user))
+      .Returns(["testapp:user", "otherapp:admin", "global:admin", "Administrator"]);
+    A.CallTo(() => _userRegisteredAppRepository.IsUserRegisteredForAppAsync("1", "TestApp", A<CancellationToken>._))
+      .Returns(true);
 
     GetUserRolesQueryHandler handler = new(_roleManager, _userManager, _userRegisteredAppRepository, _roleSettings);
 
@@ -118,11 +127,14 @@ public class GetUserRolesQueryHandlerTests
     GetUserRolesQuery query = new() { UserId = "1", AppName = "TestApp" };
 
     A.CallTo(() => _userManager.FindByIdAsync(query.UserId)).Returns(new IdentityUser { Id = "1", UserName = "test" });
-    A.CallTo(() => _userRegisteredAppRepository.IsUserRegisteredForAppAsync("1", "TestApp", A<CancellationToken>._)).Returns(false);
+    A.CallTo(() => _userRegisteredAppRepository.IsUserRegisteredForAppAsync("1", "TestApp", A<CancellationToken>._))
+      .Returns(false);
 
     GetUserRolesQueryHandler handler = new(_roleManager, _userManager, _userRegisteredAppRepository, _roleSettings);
 
     // Act & Assert
-    await Assert.ThrowsAsync<NoRecordException>(() => handler.GetItemsAsync(query, TestContext.Current.CancellationToken));
+    await Assert.ThrowsAsync<NoRecordException>(() => handler.GetItemsAsync(
+      query,
+      TestContext.Current.CancellationToken));
   }
 }

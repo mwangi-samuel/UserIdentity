@@ -25,7 +25,10 @@ public class InviteOpenApiContractTests
   {
     // Arrange
     await using var factory = new MemoryFactory();
-    using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { BaseAddress = new Uri("https://localhost") });
+    using var client = factory.CreateClient(new WebApplicationFactoryClientOptions
+    {
+      BaseAddress = new Uri("https://localhost")
+    });
 
     // Act
     var response = await client.GetAsync("/openapi/v1.json", TestContext.Current.CancellationToken);
@@ -34,9 +37,19 @@ public class InviteOpenApiContractTests
     // Assert
     Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     using var document = System.Text.Json.JsonDocument.Parse(json);
-    var parameters = document.RootElement.GetProperty("paths").GetProperty("/api/v1/invite-code").GetProperty("get").GetProperty("parameters").EnumerateArray();
+    var parameters = document.RootElement.GetProperty("paths")
+      .GetProperty("/api/v1/invite-code")
+      .GetProperty("get")
+      .GetProperty("parameters")
+      .EnumerateArray();
     Assert.Contains(parameters, parameter => parameter.GetProperty("name").GetString() == "search");
-    Assert.Contains(document.RootElement.GetProperty("paths").GetProperty("/api/v1/invite-code").GetProperty("get").GetProperty("parameters").EnumerateArray(), parameter => parameter.GetProperty("name").GetString() == "applied");
+    Assert.Contains(
+      document.RootElement.GetProperty("paths")
+        .GetProperty("/api/v1/invite-code")
+        .GetProperty("get")
+        .GetProperty("parameters")
+        .EnumerateArray(),
+      parameter => parameter.GetProperty("name").GetString() == "applied");
     if (Environment.GetEnvironmentVariable("IDENTITY_OPENAPI_PATH") is { } target)
     {
       await File.WriteAllTextAsync(target, json, TestContext.Current.CancellationToken);
@@ -48,14 +61,20 @@ public class InviteOpenApiContractTests
   {
     // Arrange
     await using var factory = new MemoryFactory();
-    using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { BaseAddress = new Uri("https://localhost") });
+    using var client = factory.CreateClient(new WebApplicationFactoryClientOptions
+    {
+      BaseAddress = new Uri("https://localhost")
+    });
 
     // Act
     var json = await client.GetStringAsync("/openapi/v1.json", TestContext.Current.CancellationToken);
 
     // Assert
     using var document = System.Text.Json.JsonDocument.Parse(json);
-    var properties = document.RootElement.GetProperty("components").GetProperty("schemas").GetProperty("UpdateRegisteredAppCommand").GetProperty("properties");
+    var properties = document.RootElement.GetProperty("components")
+      .GetProperty("schemas")
+      .GetProperty("UpdateRegisteredAppCommand")
+      .GetProperty("properties");
     Assert.True(properties.TryGetProperty("appName", out _));
     Assert.False(properties.TryGetProperty("id", out _));
   }

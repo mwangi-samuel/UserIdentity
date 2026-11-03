@@ -23,7 +23,10 @@ public class DeleteInviteCodeCommandHandler(
   private readonly IUnitOfWork _unitOfWork = unitOfWork;
   private readonly IInviteCodeRepository _inviteCodeRepository = inviteCodeRepository;
 
-  public async Task<DeleteRecordViewModel> DeleteItemAsync(DeleteInviteCodeCommand command, string userId, CancellationToken cancellationToken = default)
+  public async Task<DeleteRecordViewModel> DeleteItemAsync(
+    DeleteInviteCodeCommand command,
+    string userId,
+    CancellationToken cancellationToken = default)
   {
     var entity = await _inviteCodeRepository.GetEntityItemAsync(command.InviteCodeId, cancellationToken);
 

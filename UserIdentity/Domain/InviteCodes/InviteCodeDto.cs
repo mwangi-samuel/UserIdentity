@@ -19,11 +19,9 @@ public class InviteCodeDto : InviteCodeEntity, IBaseAuditableEntityDto<long>
       AppId = entity.AppId
     };
 
-  private static readonly Func<InviteCodeEntity, InviteCodeDto> _compiledBasic
-       = Basic.Compile();
+  private static readonly Func<InviteCodeEntity, InviteCodeDto> _compiledBasic = Basic.Compile();
 
-  public static InviteCodeDto FromEntityBasic(InviteCodeEntity entity)
-        => _compiledBasic(entity);
+  public static InviteCodeDto FromEntityBasic(InviteCodeEntity entity) => _compiledBasic(entity);
 
   public static Expression<Func<InviteCodeEntity, InviteCodeDto>> Detailed
     => entity => new InviteCodeDto
@@ -41,9 +39,7 @@ public class InviteCodeDto : InviteCodeEntity, IBaseAuditableEntityDto<long>
       UpdatedAt = entity.UpdatedAt
     };
 
-  private static readonly Func<InviteCodeEntity, InviteCodeDto> _compiledDetailed
-        = Detailed.Compile();
+  private static readonly Func<InviteCodeEntity, InviteCodeDto> _compiledDetailed = Detailed.Compile();
 
-  public static InviteCodeDto FromEntityDetailed(InviteCodeEntity entity)
-        => _compiledDetailed(entity);
+  public static InviteCodeDto FromEntityDetailed(InviteCodeEntity entity) => _compiledDetailed(entity);
 }

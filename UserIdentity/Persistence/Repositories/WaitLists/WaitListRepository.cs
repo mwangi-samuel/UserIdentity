@@ -15,7 +15,10 @@ public class WaitListRepository(
 
   private readonly AppDbContext _dbContext = dbContext;
 
-  public async Task<WaitListEntity?> GetEntityByAlternateIdAsync(WaitListEntity entity, QueryCondition queryCondition, CancellationToken cancellationToken = default)
+  public async Task<WaitListEntity?> GetEntityByAlternateIdAsync(
+    WaitListEntity entity,
+    QueryCondition queryCondition,
+    CancellationToken cancellationToken = default)
   {
     var userEmail = ObjectExtensions.RequireNonNullValue(entity.UserEmail, nameof(entity.UserEmail));
 

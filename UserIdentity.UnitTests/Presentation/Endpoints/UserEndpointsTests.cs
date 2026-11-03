@@ -39,7 +39,8 @@ public class UserEndpointsTests
     _getUserQueryHandler = A.Fake<IGetItemQueryHandler<GetUserQuery, UserViewModel>>();
     _registerUserCommandHandler = A.Fake<ICreateItemCommandHandler<RegisterUserCommand, AuthUserViewModel>>();
     _loginUserCommandHandler = A.Fake<ICreateItemCommandHandler<LoginUserCommand, AuthUserViewModel>>();
-    _exchangeRefreshTokenCommandHandler = A.Fake<IUpdateItemCommandHandler<ExchangeRefreshTokenCommand, ExchangeRefreshTokenViewModel>>();
+    _exchangeRefreshTokenCommandHandler =
+      A.Fake<IUpdateItemCommandHandler<ExchangeRefreshTokenCommand, ExchangeRefreshTokenViewModel>>();
     _logoutUserCommandHandler = A.Fake<IDeleteItemCommandHandler<LogoutUserCommand, DeleteRecordViewModel>>();
     _resetPasswordCommandHandler = A.Fake<ICreateItemCommandHandler<ResetPasswordCommand, ResetPasswordViewModel>>();
     _updatePasswordCommandHandler = A.Fake<IUpdateItemCommandHandler<UpdatePasswordCommand, UpdatePasswordViewModel>>();
@@ -56,7 +57,17 @@ public class UserEndpointsTests
     var userName = "test.user";
     var userEmail = userName + "@test.com";
     GetUserQuery getUserQuery = new() { UserId = userId, AppName = "testapp" };
-    UserViewModel userVM = new() { User = new UserDto { Id = userId, FirstName = userFName, LastName = userLName, UserName = userName, Email = userEmail } };
+    UserViewModel userVM = new()
+    {
+      User = new UserDto
+      {
+        Id = userId,
+        FirstName = userFName,
+        LastName = userLName,
+        UserName = userName,
+        Email = userEmail
+      }
+    };
 
     // Act
     A.CallTo(() => _getUserQueryHandler.GetItemAsync(getUserQuery, A<CancellationToken>._)).Returns(userVM);
@@ -99,9 +110,27 @@ public class UserEndpointsTests
 
     var refreshToken = "abmsmmsrefreshToken";
 
-    RegisterUserCommand command = new() { FirstName = userFName, LastName = userLName, UserName = userName, UserEmail = userEmail, UserPassword = userPassword };
+    RegisterUserCommand command = new()
+    {
+      FirstName = userFName,
+      LastName = userLName,
+      UserName = userName,
+      UserEmail = userEmail,
+      UserPassword = userPassword
+    };
 
-    AuthUserViewModel authVM = new() { User = new UserDto { Id = userId, FirstName = userFName, LastName = userLName, UserName = userName, Email = userEmail }, UserToken = new AccessTokenViewModel { RefreshToken = refreshToken } };
+    AuthUserViewModel authVM = new()
+    {
+      User = new UserDto
+      {
+        Id = userId,
+        FirstName = userFName,
+        LastName = userLName,
+        UserName = userName,
+        Email = userEmail
+      },
+      UserToken = new AccessTokenViewModel { RefreshToken = refreshToken }
+    };
 
     // Act
     A.CallTo(() => _registerUserCommandHandler.CreateItemAsync(
@@ -142,7 +171,13 @@ public class UserEndpointsTests
   public async Task Create_User_For_Service_Registers_The_User_As_An_Api_Sign_Up()
   {
     // Arrange
-    RegisterUserCommand command = new() { FirstName = "Test", UserName = "test.user", UserEmail = "test.user@test.com", UserPassword = "testPassword" };
+    RegisterUserCommand command = new()
+    {
+      FirstName = "Test",
+      UserName = "test.user",
+      UserEmail = "test.user@test.com",
+      UserPassword = "testPassword"
+    };
     var registeredApp = new RegisteredAppEntity { Id = 1, AppName = "test-app" };
 
     A.CallTo(() => _registeredAppResolver.GetActiveAppAsync(A<string>._, A<CancellationToken>._))
@@ -183,7 +218,18 @@ public class UserEndpointsTests
     var loginMessage = "Login successful";
 
     LoginUserCommand command = new() { UserName = userName, Password = userPassword };
-    AuthUserViewModel authVM = new() { User = new UserDto { Id = userId, FirstName = userFName, LastName = userLName, UserName = userName, Email = userEmail }, UserToken = new AccessTokenViewModel { RefreshToken = refreshToken } };
+    AuthUserViewModel authVM = new()
+    {
+      User = new UserDto
+      {
+        Id = userId,
+        FirstName = userFName,
+        LastName = userLName,
+        UserName = userName,
+        Email = userEmail
+      },
+      UserToken = new AccessTokenViewModel { RefreshToken = refreshToken }
+    };
 
     // Act
     A.CallTo(() => _loginUserCommandHandler.CreateItemAsync(command, TestStringHelper.UserId, A<CancellationToken>._))
@@ -228,7 +274,14 @@ public class UserEndpointsTests
 
     var sucessStatusMessage = "Refresh token generated successfully";
 
-    ExchangeRefreshTokenViewModel exchangeRefreshTokenVM = new() { UserToken = new AccessTokenViewModel { AccessToken = new AccessTokenDto { Token = newAccesstoken }, RefreshToken = newRefreshToken } };
+    ExchangeRefreshTokenViewModel exchangeRefreshTokenVM = new()
+    {
+      UserToken = new AccessTokenViewModel
+      {
+        AccessToken = new AccessTokenDto { Token = newAccesstoken },
+        RefreshToken = newRefreshToken
+      }
+    };
 
     ExchangeRefreshTokenCommand command = new() { AccessToken = accessToken, RefreshToken = refreshToken };
 
@@ -300,7 +353,10 @@ public class UserEndpointsTests
     var resetMessage = "Password reset request successful";
 
     ResetPasswordCommand command = new() { UserName = userName };
-    ResetPasswordViewModel resetPasswordVM = new() { ResetPasswordDetails = new ResetPasswordDto { EmailMessage = emailMessage, ResetRequestId = resetRequestId } };
+    ResetPasswordViewModel resetPasswordVM = new()
+    {
+      ResetPasswordDetails = new ResetPasswordDto { EmailMessage = emailMessage, ResetRequestId = resetRequestId }
+    };
 
     // Act
     A.CallTo(() => _resetPasswordCommandHandler.CreateItemAsync(
@@ -339,7 +395,10 @@ public class UserEndpointsTests
     var resetRequestId = "ResetRequestId123";
 
     UpdatePasswordCommand command = new() { ResetRequestId = resetRequestId, NewPassword = newPassword };
-    UpdatePasswordViewModel updatePasswordViewModel = new() { UpdatePasswordResult = new UpdatePasswordDto { PassWordUpdated = true } };
+    UpdatePasswordViewModel updatePasswordViewModel = new()
+    {
+      UpdatePasswordResult = new UpdatePasswordDto { PassWordUpdated = true }
+    };
 
     // Act
     A.CallTo(() => _updatePasswordCommandHandler.UpdateItemAsync(

@@ -42,11 +42,18 @@ public class CallbackRequestedMessageHandlerTests(
 
     using var body = JsonDocument.Parse(callback.Body!);
     Assert.Equal(userId, body.RootElement.GetProperty("userContent").GetProperty("userIdentityId").GetString());
-    Assert.Equal("CREATE", body.RootElement.GetProperty("eventType").GetString());
+    Assert.Equal("Create", body.RootElement.GetProperty("eventType").GetString());
 
     var timestamp = callback.Headers![CustomHeaderNames.Timestamp].Single();
     var signature = callback.Headers[CustomHeaderNames.Signature].Single();
-    Assert.True(HmacSignature.IsValid(TestingWebAppFactory.CallbackAppSecretKey, timestamp, Encoding.UTF8.GetBytes(callback.Body!), signature, DateTimeOffset.UtcNow, TimeSpan.FromMinutes(5)));
+    Assert.True(
+      HmacSignature.IsValid(
+        TestingWebAppFactory.CallbackAppSecretKey,
+        timestamp,
+        Encoding.UTF8.GetBytes(callback.Body!),
+        signature,
+        DateTimeOffset.UtcNow,
+        TimeSpan.FromMinutes(5)));
     Assert.Equal("TestApiKey", callback.Headers["X-Api-Key"].Single());
   }
 
@@ -88,7 +95,8 @@ public class CallbackRequestedMessageHandlerTests(
       return ValueTask.CompletedTask;
     }, TestContext.Current.CancellationToken);
 
-    Assert.Null(await NatsTestHelper.FindMessageAsync(NatsTestHelper.CallbackRequestedSubject, userId, TimeSpan.FromSeconds(2)));
+    Assert.Null(
+      await NatsTestHelper.FindMessageAsync(NatsTestHelper.CallbackRequestedSubject, userId, TimeSpan.FromSeconds(2)));
     Assert.Empty(CallbackLogEntries());
   }
 
@@ -97,7 +105,8 @@ public class CallbackRequestedMessageHandlerTests(
     _wireMock.Reset();
 
     _wireMock.Given(Request.Create().WithPath("/siteverify").UsingPost())
-      .RespondWith(Response.Create().WithStatusCode(HttpStatusCode.OK).WithBody("""{ "success": true, "score": 0.9 }"""));
+      .RespondWith(
+        Response.Create().WithStatusCode(HttpStatusCode.OK).WithBody("""{ "success": true, "score": 0.9 }"""));
 
     if (!failFirstCallback)
     {
@@ -142,7 +151,10 @@ public class CallbackRequestedMessageHandlerTests(
   }
 
   private List<ILogEntry> CallbackLogEntries() =>
-    [.. _wireMock.LogEntries.Where(entry => entry.RequestMessage?.Path == TestingWebAppFactory.CallbackPath).OrderBy(entry => entry.RequestMessage?.DateTime)];
+    [
+      .. _wireMock.LogEntries.Where(entry => entry.RequestMessage?.Path == TestingWebAppFactory.CallbackPath)
+        .OrderBy(entry => entry.RequestMessage?.DateTime)
+    ];
 
   private async Task<List<ILogEntry>> WaitForCallbacksAsync(int count)
   {

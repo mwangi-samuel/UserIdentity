@@ -30,23 +30,32 @@ public class UpdatePasswordCommandHandler(
     IPasswordResetRepository passwordResetRepository,
     IRefreshTokenRepository refreshTokenRepository,
     TimeProvider timeProvider
-    ) : BaseAuditableItemCommandHandler<Guid, PasswordResetEntity, IPasswordResetRepository>(unitOfWork, passwordResetRepository, timeProvider),
+    ) : BaseAuditableItemCommandHandler<Guid, PasswordResetEntity, IPasswordResetRepository>(
+      unitOfWork,
+      passwordResetRepository,
+      timeProvider),
       IUpdateItemCommandHandler<UpdatePasswordCommand, UpdatePasswordViewModel>
 {
   private readonly UserManager<IdentityUser> _userManager = userManager;
   private readonly ITokenFactory _tokenFactory = tokenFactory;
   private readonly IRefreshTokenRepository _refreshTokenRepository = refreshTokenRepository;
 
-  public async Task<UpdatePasswordViewModel> UpdateItemAsync(UpdatePasswordCommand command, string userId, CancellationToken cancellationToken = default)
+  public async Task<UpdatePasswordViewModel> UpdateItemAsync(
+    UpdatePasswordCommand command,
+    string userId,
+    CancellationToken cancellationToken = default)
   {
-    var passwordResetEntity = new PasswordResetEntity
-    {
-      RequestId = _tokenFactory.HashToken(command.ResetRequestId)
-    };
+    var passwordResetEntity = new PasswordResetEntity { RequestId = _tokenFactory.HashToken(command.ResetRequestId) };
 
-    var existingEntity = await Repository.GetEntityByAlternateIdAsync(passwordResetEntity, QueryCondition.MayOrMayNotExist, cancellationToken);
+    var existingEntity = await Repository.GetEntityByAlternateIdAsync(
+      passwordResetEntity,
+      QueryCondition.MayOrMayNotExist,
+      cancellationToken);
 
-    if (existingEntity is null || !existingEntity.Verified || existingEntity.Applied || existingEntity.Expires <= TimeProvider.GetUtcNow().UtcDateTime)
+    if (existingEntity is null
+      || !existingEntity.Verified
+      || existingEntity.Applied
+      || existingEntity.Expires <= TimeProvider.GetUtcNow().UtcDateTime)
       return GetUpdatePasswordViewModel(false);
 
     var userDetails = await _userManager.FindByIdAsync(existingEntity.UserId);
@@ -61,7 +70,10 @@ public class UpdatePasswordCommandHandler(
     {
       var resetPasswordToken = await _userManager.GeneratePasswordResetTokenAsync(userDetails);
 
-      var resetPasswordResult = await _userManager.ResetPasswordAsync(userDetails, resetPasswordToken, command.NewPassword);
+      var resetPasswordResult = await _userManager.ResetPasswordAsync(
+        userDetails,
+        resetPasswordToken,
+        command.NewPassword);
 
       if (!resetPasswordResult.Succeeded)
         throw new InvalidDataException(string.Join(" ", resetPasswordResult.Errors.Select(e => e.Description)));
@@ -91,10 +103,7 @@ public class UpdatePasswordCommandHandler(
   {
     return new UpdatePasswordViewModel
     {
-      UpdatePasswordResult = new UpdatePasswordDto
-      {
-        PassWordUpdated = passwordUpdated
-      }
+      UpdatePasswordResult = new UpdatePasswordDto { PassWordUpdated = passwordUpdated }
     };
   }
 }

@@ -156,10 +156,7 @@ public class WaitListEndpointsTests(
 
     var newEmail = "new-waitlist@example.com";
 
-    var requestPayload = new
-    {
-      UserEmail = newEmail
-    };
+    var requestPayload = new { UserEmail = newEmail };
 
     // Clean up any existing record
     TestDbHelper.DeleteWaitListEntityByEmail(newEmail);
@@ -198,10 +195,7 @@ public class WaitListEndpointsTests(
 
     var newEmail = "authenticated-waitlist@example.com";
 
-    var requestPayload = new
-    {
-      UserEmail = newEmail
-    };
+    var requestPayload = new { UserEmail = newEmail };
 
     // Clean up any existing record
     TestDbHelper.DeleteWaitListEntityByEmail(newEmail);
@@ -233,10 +227,7 @@ public class WaitListEndpointsTests(
     // Arrange
     TestDbHelper.SeedDatabase();
 
-    var requestPayload = new
-    {
-      UserEmail = (string?)null
-    };
+    var requestPayload = new { UserEmail = (string?)null };
 
     // Act
     var response = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri, requestPayload);
@@ -291,10 +282,7 @@ public class WaitListEndpointsTests(
     // Arrange
     TestDbHelper.SeedDatabase();
 
-    var requestPayload = new
-    {
-      UserEmail = "not-an-email"
-    };
+    var requestPayload = new { UserEmail = "not-an-email" };
 
     // Act
     var response = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri, requestPayload);
@@ -304,7 +292,8 @@ public class WaitListEndpointsTests(
 
     Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
 
-    var errorList = SerDeHelper.Deserialize<JObject>(responseString)?["error"]?["errorList"]?.ToObject<List<ValidationError>>();
+    var errorList = SerDeHelper.Deserialize<JObject>(
+      responseString)?["error"]?["errorList"]?.ToObject<List<ValidationError>>();
 
     Assert.NotNull(errorList);
     Assert.Contains(errorList, error => error.Field == "UserEmail");

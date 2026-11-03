@@ -27,12 +27,16 @@ public class CreateRoleCommandHandlerTests
     // Arrange
     CreateRoleCommand command = new() { RoleName = "admin" };
 
-    A.CallTo(() => _roleManager.FindByNameAsync(command.RoleName)).Returns(new IdentityRole { Id = "1", Name = command.RoleName });
+    A.CallTo(() => _roleManager.FindByNameAsync(command.RoleName))
+      .Returns(new IdentityRole { Id = "1", Name = command.RoleName });
 
     CreateRoleCommandHandler handler = new(_roleManager);
 
     // Act & Assert
-    await Assert.ThrowsAsync<RecordExistsException>(() => handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken));
+    await Assert.ThrowsAsync<RecordExistsException>(() => handler.CreateItemAsync(
+      command,
+      TestStringHelper.UserId,
+      TestContext.Current.CancellationToken));
   }
 
   [Theory]
@@ -47,7 +51,10 @@ public class CreateRoleCommandHandlerTests
     CreateRoleCommandHandler handler = new(_roleManager);
 
     // Act & Assert
-    await Assert.ThrowsAsync<InvalidDataException>(() => handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken));
+    await Assert.ThrowsAsync<InvalidDataException>(() => handler.CreateItemAsync(
+      command,
+      TestStringHelper.UserId,
+      TestContext.Current.CancellationToken));
 
     A.CallTo(() => _roleManager.CreateAsync(A<IdentityRole>._)).MustNotHaveHappened();
   }
@@ -86,7 +93,8 @@ public class CreateRoleCommandHandlerTests
 
     // Assert
     Assert.Equal("testapp:editor", vm.Role.Name);
-    A.CallTo(() => _roleManager.CreateAsync(A<IdentityRole>.That.Matches(r => r.Name == "testapp:editor"))).MustHaveHappenedOnceExactly();
+    A.CallTo(() => _roleManager.CreateAsync(A<IdentityRole>.That.Matches(r => r.Name == "testapp:editor")))
+      .MustHaveHappenedOnceExactly();
   }
 
   [Fact]
@@ -96,12 +104,16 @@ public class CreateRoleCommandHandlerTests
     CreateRoleCommand command = new() { RoleName = "admin" };
 
     A.CallTo(() => _roleManager.FindByNameAsync(command.RoleName)).Returns(default(IdentityRole));
-    A.CallTo(() => _roleManager.CreateAsync(A<IdentityRole>.That.Matches(r => r.Name == command.RoleName))).Returns(Task.FromResult(IdentityResult.Failed()));
+    A.CallTo(() => _roleManager.CreateAsync(A<IdentityRole>.That.Matches(r => r.Name == command.RoleName)))
+      .Returns(Task.FromResult(IdentityResult.Failed()));
 
     CreateRoleCommandHandler handler = new(_roleManager);
 
     // Act & Assert
-    await Assert.ThrowsAsync<RecordCreationException>(() => handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken));
+    await Assert.ThrowsAsync<RecordCreationException>(() => handler.CreateItemAsync(
+      command,
+      TestStringHelper.UserId,
+      TestContext.Current.CancellationToken));
   }
 
   [Fact]
@@ -111,7 +123,8 @@ public class CreateRoleCommandHandlerTests
     CreateRoleCommand command = new() { RoleName = "admin" };
 
     A.CallTo(() => _roleManager.FindByNameAsync(command.RoleName)).Returns(default(IdentityRole));
-    A.CallTo(() => _roleManager.CreateAsync(A<IdentityRole>.That.Matches(r => r.Name == command.RoleName))).Returns(Task.FromResult(IdentityResult.Success));
+    A.CallTo(() => _roleManager.CreateAsync(A<IdentityRole>.That.Matches(r => r.Name == command.RoleName)))
+      .Returns(Task.FromResult(IdentityResult.Success));
 
     CreateRoleCommandHandler handler = new(_roleManager);
 

@@ -4,9 +4,7 @@ using UserIdentity.Domain.Roles;
 
 namespace UserIdentity.Persistence.Repositories.Roles;
 
-public class RoleRepository(
-  AppDbContext appDbContext
-  ) : IRoleRepository
+public class RoleRepository(AppDbContext appDbContext) : IRoleRepository
 {
   private readonly AppDbContext _appDbContext = appDbContext;
 
@@ -30,7 +28,9 @@ public class RoleRepository(
       .ToListAsync(cancellationToken);
   }
 
-  public async Task<HashSet<string>> GetScopesAsync(IReadOnlyCollection<string> roleNames, CancellationToken cancellationToken = default)
+  public async Task<HashSet<string>> GetScopesAsync(
+    IReadOnlyCollection<string> roleNames,
+    CancellationToken cancellationToken = default)
   {
     if (roleNames.Count == 0)
       return [];
@@ -38,7 +38,11 @@ public class RoleRepository(
     var normalizedNames = roleNames.Select(roleName => roleName.ToUpperInvariant()).ToList();
 
     var scopes = await _appDbContext.RoleClaims
-      .Join(_appDbContext.Roles.Where(role => normalizedNames.Contains(role.NormalizedName!)), roleClaim => roleClaim.RoleId, role => role.Id, (roleClaim, _) => roleClaim.ClaimValue!)
+      .Join(
+        _appDbContext.Roles.Where(role => normalizedNames.Contains(role.NormalizedName!)),
+        roleClaim => roleClaim.RoleId,
+        role => role.Id,
+        (roleClaim, _) => roleClaim.ClaimValue!)
       .Distinct()
       .ToListAsync(cancellationToken);
 

@@ -26,15 +26,19 @@ public class GetInviteCodesQueryHandler(
 {
   private readonly IInviteCodeRepository _inviteCodeRepository = inviteCodeRepository;
 
-  public async Task<InviteCodesViewModel> GetItemsAsync(GetInviteCodesQuery query, CancellationToken cancellationToken = default)
+  public async Task<InviteCodesViewModel> GetItemsAsync(
+    GetInviteCodesQuery query,
+    CancellationToken cancellationToken = default)
   {
     var search = string.IsNullOrWhiteSpace(query.Search) ? null : query.Search.Trim();
-    var page = await _inviteCodeRepository.SearchEntityDtosByAppIdAsync(query.AppId, search, query.Applied, query.Page, query.PageSize, cancellationToken);
+    var page = await _inviteCodeRepository.SearchEntityDtosByAppIdAsync(
+      query.AppId,
+      search,
+      query.Applied,
+      query.Page,
+      query.PageSize,
+      cancellationToken);
 
-    return new InviteCodesViewModel
-    {
-      InviteCodes = page.Items,
-      TotalCount = page.TotalCount
-    };
+    return new InviteCodesViewModel { InviteCodes = page.Items, TotalCount = page.TotalCount };
   }
 }

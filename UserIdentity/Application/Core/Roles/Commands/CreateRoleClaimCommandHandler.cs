@@ -21,7 +21,8 @@ namespace UserIdentity.Application.Core.Roles.Commands;
 
 public record CreateRoleClaimCommand : IBaseCommand
 {
-  public const string ActionPattern = $"(?i)^({ScopeActions.Create}|{ScopeActions.Read}|{ScopeActions.Edit}|{ScopeActions.Delete}|{ScopeActions.Download}|{ScopeActions.All})$";
+  public const string ActionPattern =
+    $"(?i)^({ScopeActions.Create}|{ScopeActions.Read}|{ScopeActions.Edit}|{ScopeActions.Delete}|{ScopeActions.Download}|{ScopeActions.All})$";
 
   [Required]
   public string RoleId { get; init; } = null!;
@@ -47,10 +48,14 @@ public class CreateRoleClaimCommandHandler(
   private readonly IJwtTokenHandler _jwtTokenHandler = jwtTokenHandler;
   private readonly RoleSettings _roleSettings = roleSettingsOptions.Value;
 
-  public async Task<RoleClaimViewModel> CreateItemAsync(CreateRoleClaimCommand command, string userId, CancellationToken cancellationToken = default)
+  public async Task<RoleClaimViewModel> CreateItemAsync(
+    CreateRoleClaimCommand command,
+    string userId,
+    CancellationToken cancellationToken = default)
   {
     // Confirm role exists
-    var role = await _roleManager.FindByIdAsync(command.RoleId) ?? throw NoRecordException.ForIdentifier(command.RoleId);
+    var role = await _roleManager.FindByIdAsync(command.RoleId)
+      ?? throw NoRecordException.ForIdentifier(command.RoleId);
 
     if (command.AppName is not null && !AppRoleNames.IsAppRole(role.Name, command.AppName))
       throw NoRecordException.ForIdentifier(command.RoleId);
@@ -79,12 +84,7 @@ public class CreateRoleClaimCommandHandler(
 
     return new RoleClaimViewModel
     {
-      RoleClaim = new RoleClaimDto
-      {
-        Resource = resource,
-        Action = action,
-        Scope = scopeClaim.Value,
-      }
+      RoleClaim = new RoleClaimDto { Resource = resource, Action = action, Scope = scopeClaim.Value }
     };
   }
 }

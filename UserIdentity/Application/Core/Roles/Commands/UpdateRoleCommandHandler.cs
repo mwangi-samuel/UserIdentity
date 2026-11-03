@@ -31,9 +31,13 @@ public class UpdateRoleCommandHandler(
 {
   private readonly RoleManager<IdentityRole> _roleManager = roleManager;
 
-  public async Task<RoleViewModel> UpdateItemAsync(UpdateRoleCommand command, string userId, CancellationToken cancellationToken = default)
+  public async Task<RoleViewModel> UpdateItemAsync(
+    UpdateRoleCommand command,
+    string userId,
+    CancellationToken cancellationToken = default)
   {
-    var role = await _roleManager.FindByIdAsync(command.RoleId!) ?? throw NoRecordException.ForIdentifier(command.RoleId);
+    var role = await _roleManager.FindByIdAsync(command.RoleId!)
+      ?? throw NoRecordException.ForIdentifier(command.RoleId);
 
     var roleName = command.RoleName.TrimAndLowerInvariant();
 
@@ -53,14 +57,7 @@ public class UpdateRoleCommandHandler(
     if (!updateRoleResult.Succeeded)
       throw new RecordUpdateException($"Role {command.RoleId} wasn't updated");
 
-    return new RoleViewModel
-    {
-      Role = new RoleDto
-      {
-        Id = role.Id,
-        Name = role.Name
-      }
-    };
+    return new RoleViewModel { Role = new RoleDto { Id = role.Id, Name = role.Name } };
 
   }
 }

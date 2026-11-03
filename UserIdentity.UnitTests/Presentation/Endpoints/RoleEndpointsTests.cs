@@ -55,16 +55,8 @@ public class RoleEndpointsTests
     {
       Roles =
                         [
-                                new RoleDto
-                                    {
-                                            Id = Guid.NewGuid().ToString(),
-                                            Name = "Admin"
-                                    },
-                                    new RoleDto
-                                    {
-                                            Id = Guid.NewGuid().ToString(),
-                                            Name = "User"
-                                    }
+                                new RoleDto { Id = Guid.NewGuid().ToString(), Name = "Admin" },
+                                    new RoleDto { Id = Guid.NewGuid().ToString(), Name = "User" }
                         ]
 
     };
@@ -109,14 +101,7 @@ public class RoleEndpointsTests
     var roleId = Guid.NewGuid().ToString();
     var query = new GetRoleQuery { RoleId = roleId, AppName = "testapp" };
 
-    var roleVM = new RoleViewModel
-    {
-      Role = new RoleDto
-      {
-        Id = roleId,
-        Name = "Admin"
-      }
-    };
+    var roleVM = new RoleViewModel { Role = new RoleDto { Id = roleId, Name = "Admin" } };
 
     // Act
     A.CallTo(() => _getRoleQueryHandler.GetItemAsync(query, A<CancellationToken>._)).Returns(roleVM);
@@ -149,19 +134,9 @@ public class RoleEndpointsTests
   {
     // Arrange
 
-    var command = new CreateRoleCommand
-    {
-      RoleName = "Admin"
-    };
+    var command = new CreateRoleCommand { RoleName = "Admin" };
 
-    var roleVM = new RoleViewModel
-    {
-      Role = new RoleDto
-      {
-        Id = Guid.NewGuid().ToString(),
-        Name = "Admin"
-      }
-    };
+    var roleVM = new RoleViewModel { Role = new RoleDto { Id = Guid.NewGuid().ToString(), Name = "Admin" } };
 
     // Act
     A.CallTo(() => _createRoleCommandHandler.CreateItemAsync(command, TestStringHelper.UserId, A<CancellationToken>._))
@@ -197,20 +172,9 @@ public class RoleEndpointsTests
 
     var roleId = Guid.NewGuid().ToString();
 
-    var command = new UpdateRoleCommand
-    {
-      RoleId = roleId,
-      RoleName = "Admin"
-    };
+    var command = new UpdateRoleCommand { RoleId = roleId, RoleName = "Admin" };
 
-    var roleVM = new RoleViewModel
-    {
-      Role = new RoleDto
-      {
-        Id = roleId,
-        Name = "Admin"
-      }
-    };
+    var roleVM = new RoleViewModel { Role = new RoleDto { Id = roleId, Name = "Admin" } };
 
     // Act
     A.CallTo(() => _updateRoleCommandHandler.UpdateItemAsync(command, TestStringHelper.UserId, A<CancellationToken>._))
@@ -279,10 +243,7 @@ public class RoleEndpointsTests
     var userId = Guid.NewGuid().ToString();
     var query = new GetUserRolesQuery { UserId = userId, AppName = "testapp" };
 
-    var userRolesVM = new UserRolesViewModel
-    {
-      UserRoles = ["Admin", "User"],
-    };
+    var userRolesVM = new UserRolesViewModel { UserRoles = ["Admin", "User"] };
 
     // Act
     A.CallTo(() => _getUserRolesQueryHandler.GetItemsAsync(query, A<CancellationToken>._)).Returns(userRolesVM);
@@ -331,16 +292,9 @@ public class RoleEndpointsTests
     var userId = Guid.NewGuid().ToString();
     var roleId = Guid.NewGuid().ToString();
 
-    var command = new CreateUserRoleCommand
-    {
-      UserId = userId,
-      RoleId = roleId
-    };
+    var command = new CreateUserRoleCommand { UserId = userId, RoleId = roleId };
 
-    var userRolesVM = new UserRolesViewModel
-    {
-      UserRoles = ["Admin", "User"],
-    };
+    var userRolesVM = new UserRolesViewModel { UserRoles = ["Admin", "User"] };
 
     // Act
     A.CallTo(() => _createUserRoleCommandHandler.CreateItemAsync(
@@ -394,21 +348,11 @@ public class RoleEndpointsTests
     var resource = "Resource";
     var action = "Action";
 
-    var command = new CreateRoleClaimCommand
-    {
-      RoleId = roleId,
-      Resource = resource,
-      Action = action
-    };
+    var command = new CreateRoleClaimCommand { RoleId = roleId, Resource = resource, Action = action };
 
     var roleClaimVM = new RoleClaimViewModel
     {
-      RoleClaim = new RoleClaimDto
-      {
-        Resource = resource,
-        Action = action,
-        Scope = resource + ":" + action
-      }
+      RoleClaim = new RoleClaimDto { Resource = resource, Action = action, Scope = resource + ":" + action }
     };
 
     // Act
@@ -447,15 +391,7 @@ public class RoleEndpointsTests
 
     var roleClaimsVM = new RoleClaimsViewModel
     {
-      RoleClaims =
-        [
-            new RoleClaimDto
-                {
-                    Resource = "Resource",
-                    Action = "Action",
-                    Scope = "Resource:Action"
-                }
-        ]
+      RoleClaims = [new RoleClaimDto { Resource = "Resource", Action = "Action", Scope = "Resource:Action" }]
     };
 
     // Act
@@ -507,12 +443,7 @@ public class RoleEndpointsTests
     var action = "Action";
     var deleteMessage = "Item deleted successfully";
 
-    var command = new DeleteRoleClaimCommand
-    {
-      RoleId = roleId,
-      Resource = resource,
-      Action = action
-    };
+    var command = new DeleteRoleClaimCommand { RoleId = roleId, Resource = resource, Action = action };
 
     var deleteRoleClaimVM = new DeleteRecordViewModel { };
 

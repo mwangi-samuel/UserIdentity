@@ -28,9 +28,16 @@ public class UserTokenIssuer(
   private readonly RoleSettings _roleSettings = roleSettings;
   private readonly RefreshTokenSettings _refreshTokenSettings = refreshTokenSettings;
 
-  public async Task<AccessTokenDto> CreateAccessTokenAsync(string userId, string userName, string appName, CancellationToken cancellationToken = default)
+  public async Task<AccessTokenDto> CreateAccessTokenAsync(
+    string userId,
+    string userName,
+    string appName,
+    CancellationToken cancellationToken = default)
   {
-    var roles = AppRoleNames.ForApp(await _roleRepository.GetUserRoleNamesAsync(userId, cancellationToken), appName, _roleSettings.GlobalAdminRole);
+    var roles = AppRoleNames.ForApp(
+      await _roleRepository.GetUserRoleNamesAsync(userId, cancellationToken),
+      appName,
+      _roleSettings.GlobalAdminRole);
     var scopes = await _roleRepository.GetScopesAsync(roles, cancellationToken);
 
     (var token, var expiresIn) = _jwtTokenHandler.CreateToken(userId, userName, appName, [.. roles], scopes);
@@ -39,7 +46,11 @@ public class UserTokenIssuer(
   }
 
   // Adds the refresh token to the repository; the caller saves it
-  public async Task<AccessTokenViewModel> StartSessionAsync(string userId, string userName, string appName, CancellationToken cancellationToken = default)
+  public async Task<AccessTokenViewModel> StartSessionAsync(
+    string userId,
+    string userName,
+    string appName,
+    CancellationToken cancellationToken = default)
   {
     var accessToken = await CreateAccessTokenAsync(userId, userName, appName, cancellationToken);
     var refreshToken = _tokenFactory.GenerateToken();
@@ -56,10 +67,6 @@ public class UserTokenIssuer(
 
     _refreshTokenRepository.CreateEntityItem(refreshTokenEntity);
 
-    return new AccessTokenViewModel
-    {
-      AccessToken = accessToken,
-      RefreshToken = refreshToken
-    };
+    return new AccessTokenViewModel { AccessToken = accessToken, RefreshToken = refreshToken };
   }
 }

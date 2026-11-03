@@ -20,16 +20,28 @@ public class DeleteExpiredRefreshTokensCommandHandlerTests
     var timeProvider = new FakeTimeProvider();
     timeProvider.SetUtcNow(now);
 
-    A.CallTo(() => repository.DeleteEntityItemsExpiredBeforeAsync(now, DeleteExpiredRefreshTokensCommandHandler.BatchSize, A<CancellationToken>._))
-      .ReturnsNextFromSequence(DeleteExpiredRefreshTokensCommandHandler.BatchSize, DeleteExpiredRefreshTokensCommandHandler.BatchSize, 3);
+    A.CallTo(() => repository.DeleteEntityItemsExpiredBeforeAsync(
+      now,
+      DeleteExpiredRefreshTokensCommandHandler.BatchSize,
+      A<CancellationToken>._))
+      .ReturnsNextFromSequence(
+        DeleteExpiredRefreshTokensCommandHandler.BatchSize,
+        DeleteExpiredRefreshTokensCommandHandler.BatchSize,
+        3);
 
     var handler = new DeleteExpiredRefreshTokensCommandHandler(repository, timeProvider);
 
     // Act
-    await handler.DeleteItemAsync(new DeleteExpiredRefreshTokensCommand(), "system", TestContext.Current.CancellationToken);
+    await handler.DeleteItemAsync(
+      new DeleteExpiredRefreshTokensCommand(),
+      "system",
+      TestContext.Current.CancellationToken);
 
     // Assert
-    A.CallTo(() => repository.DeleteEntityItemsExpiredBeforeAsync(now, DeleteExpiredRefreshTokensCommandHandler.BatchSize, A<CancellationToken>._))
+    A.CallTo(() => repository.DeleteEntityItemsExpiredBeforeAsync(
+      now,
+      DeleteExpiredRefreshTokensCommandHandler.BatchSize,
+      A<CancellationToken>._))
       .MustHaveHappened(3, Times.Exactly);
   }
 }

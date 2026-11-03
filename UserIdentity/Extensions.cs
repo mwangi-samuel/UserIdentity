@@ -17,7 +17,9 @@ namespace UserIdentity;
 
 public static class Extensions
 {
-  public static void AddAppMysql<TContext>(this IServiceCollection services, IConfiguration configuration) where TContext : DbContext
+  public static void AddAppMysql<TContext>(
+    this IServiceCollection services,
+    IConfiguration configuration) where TContext : DbContext
   {
     var mysqlSettings = configuration.GetRequiredSetting<MysqlSettings>();
 

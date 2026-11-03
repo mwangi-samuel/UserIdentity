@@ -24,22 +24,21 @@ public class CreateWaitListCommandHandler(
    IUnitOfWork unitOfWork,
    IWaitListRepository waitListRepository,
    TimeProvider timeProvider
-  ) : BaseAuditableItemCommandHandler<long, WaitListEntity, IWaitListRepository>(unitOfWork, waitListRepository, timeProvider),
+  ) : BaseAuditableItemCommandHandler<long, WaitListEntity, IWaitListRepository>(
+    unitOfWork,
+    waitListRepository,
+    timeProvider),
       ICreateItemCommandHandler<CreateWaitListCommand, WaitListViewModel>
 {
-  public async Task<WaitListViewModel> CreateItemAsync(CreateWaitListCommand command, string userId, CancellationToken cancellationToken = default)
+  public async Task<WaitListViewModel> CreateItemAsync(
+    CreateWaitListCommand command,
+    string userId,
+    CancellationToken cancellationToken = default)
   {
-    var entity = new WaitListEntity
-    {
-      UserEmail = command.UserEmail,
-      AppId = command.AppId
-    };
+    var entity = new WaitListEntity { UserEmail = command.UserEmail, AppId = command.AppId };
 
     await CreateEntityItemAsync(entity, userId, cancellationToken);
 
-    return new WaitListViewModel
-    {
-      WaitList = await Repository.GetEntityDtoByIdAsync(entity.Id, cancellationToken)
-    };
+    return new WaitListViewModel { WaitList = await Repository.GetEntityDtoByIdAsync(entity.Id, cancellationToken) };
   }
 }

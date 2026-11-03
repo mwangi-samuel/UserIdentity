@@ -7,12 +7,12 @@ using UserIdentity.Application.Core.Users.Events;
 namespace UserIdentity.Infrastructure.Messaging;
 
 [MessageSubject("messagemanager.user.updated")]
-public class CodeVerifiedMessageHandler(
-  IEventHandler<CodeVerifiedEvent> codeVerifiedEventHandler
-  ) : IMessageHandler
+public class CodeVerifiedMessageHandler(IEventHandler<CodeVerifiedEvent> codeVerifiedEventHandler) : IMessageHandler
 {
   private readonly IEventHandler<CodeVerifiedEvent> _codeVerifiedEventHandler = codeVerifiedEventHandler;
 
   public Task HandleAsync(MessageEvent message, CancellationToken cancellationToken = default) =>
-    _codeVerifiedEventHandler.HandleEventAsync(new CodeVerifiedEvent(message.Action, message.CorrelationId), cancellationToken);
+    _codeVerifiedEventHandler.HandleEventAsync(
+      new CodeVerifiedEvent(message.Action, message.CorrelationId),
+      cancellationToken);
 }

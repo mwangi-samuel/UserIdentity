@@ -41,13 +41,19 @@ public class CreateInviteCodeCommandHandler(
    IUnitOfWork unitOfWork,
    IInviteCodeRepository inviteCodeRepository,
    TimeProvider timeProvider
-  ) : BaseAuditableItemCommandHandler<long, InviteCodeEntity, IInviteCodeRepository>(unitOfWork, inviteCodeRepository, timeProvider),
+  ) : BaseAuditableItemCommandHandler<long, InviteCodeEntity, IInviteCodeRepository>(
+    unitOfWork,
+    inviteCodeRepository,
+    timeProvider),
       ICreateItemCommandHandler<CreateInviteCodeCommand, InviteCodeViewModel>
 {
   private readonly RoleSettings _roleSettings = roleSettingsOptions.Value;
   private readonly RoleManager<IdentityRole> _roleManager = roleManager;
 
-  public async Task<InviteCodeViewModel> CreateItemAsync(CreateInviteCodeCommand command, string userId, CancellationToken cancellationToken = default)
+  public async Task<InviteCodeViewModel> CreateItemAsync(
+    CreateInviteCodeCommand command,
+    string userId,
+    CancellationToken cancellationToken = default)
   {
     var entity = new InviteCodeEntity
     {

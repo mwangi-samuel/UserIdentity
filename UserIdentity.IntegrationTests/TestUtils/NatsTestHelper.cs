@@ -19,7 +19,8 @@ public sealed class NatsTestHelper(INatsJSContext jetStream)
   public const string UserIdentityStream = "USERIDENTITY";
   public const string UserUpdatedSubject = "useridentity.user.updated";
   public const string CallbackRequestedSubject = "useridentity.callback.requested";
-  public static readonly string CodeVerifiedSubject = typeof(CodeVerifiedMessageHandler).GetCustomAttribute<MessageSubjectAttribute>()!.Subject;
+  public static readonly string CodeVerifiedSubject =
+    typeof(CodeVerifiedMessageHandler).GetCustomAttribute<MessageSubjectAttribute>()!.Subject;
 
   private static readonly string _codeVerifiedSender = CodeVerifiedSubject.Split('.')[0];
 
@@ -29,8 +30,12 @@ public sealed class NatsTestHelper(INatsJSContext jetStream)
 
   public static async Task CreateStreamsAsync(INatsJSContext jetStream, CancellationToken cancellationToken)
   {
-    await jetStream.CreateOrUpdateStreamAsync(new StreamConfig(_codeVerifiedSender.ToUpperInvariant(), [$"{_codeVerifiedSender}.>"]), cancellationToken);
-    await jetStream.CreateOrUpdateStreamAsync(new StreamConfig(UserIdentityStream, ["useridentity.>"]), cancellationToken);
+    await jetStream.CreateOrUpdateStreamAsync(
+      new StreamConfig(_codeVerifiedSender.ToUpperInvariant(), [$"{_codeVerifiedSender}.>"]),
+      cancellationToken);
+    await jetStream.CreateOrUpdateStreamAsync(
+      new StreamConfig(UserIdentityStream, ["useridentity.>"]),
+      cancellationToken);
   }
 
   // Other tests' messages share the stream, so the message is found by its correlation id
@@ -62,7 +67,10 @@ public sealed class NatsTestHelper(INatsJSContext jetStream)
   {
     var payload = JsonSerializer.SerializeToUtf8Bytes(message, JsonOptionsCache.Get());
 
-    var ack = await _jetStream.PublishAsync(CodeVerifiedSubject, payload, cancellationToken: TestContext.Current.CancellationToken);
+    var ack = await _jetStream.PublishAsync(
+      CodeVerifiedSubject,
+      payload,
+      cancellationToken: TestContext.Current.CancellationToken);
 
     ack.EnsureSuccess();
   }
@@ -74,7 +82,10 @@ public sealed class NatsTestHelper(INatsJSContext jetStream)
     {
       try
       {
-        return await _jetStream.CreateOrderedConsumerAsync(UserIdentityStream, new NatsJSOrderedConsumerOpts { FilterSubjects = [subject] }, cancellationToken);
+        return await _jetStream.CreateOrderedConsumerAsync(
+          UserIdentityStream,
+          new NatsJSOrderedConsumerOpts { FilterSubjects = [subject] },
+          cancellationToken);
       }
       catch (NatsJSApiException ex) when (ex.Error.Code == 404)
       {

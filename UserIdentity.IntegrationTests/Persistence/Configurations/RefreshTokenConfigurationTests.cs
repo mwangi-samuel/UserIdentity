@@ -27,8 +27,12 @@ public class RefreshTokenConfigurationTests(
     var firstContext = firstScope.ServiceProvider.GetRequiredService<AppDbContext>();
     var secondContext = secondScope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-    var first = await firstContext.RefreshToken.SingleAsync(token => token.Id == refreshTokenId, TestContext.Current.CancellationToken);
-    var second = await secondContext.RefreshToken.SingleAsync(token => token.Id == refreshTokenId, TestContext.Current.CancellationToken);
+    var first = await firstContext.RefreshToken.SingleAsync(
+      token => token.Id == refreshTokenId,
+      TestContext.Current.CancellationToken);
+    var second = await secondContext.RefreshToken.SingleAsync(
+      token => token.Id == refreshTokenId,
+      TestContext.Current.CancellationToken);
 
     first.Token = "first-exchange";
     first.Version = Guid.NewGuid();
@@ -38,6 +42,7 @@ public class RefreshTokenConfigurationTests(
     await firstContext.SaveChangesAsync(TestContext.Current.CancellationToken);
 
     // Act & Assert
-    await Assert.ThrowsAsync<DbUpdateConcurrencyException>(() => secondContext.SaveChangesAsync(TestContext.Current.CancellationToken));
+    await Assert.ThrowsAsync<DbUpdateConcurrencyException>(() => secondContext.SaveChangesAsync(
+      TestContext.Current.CancellationToken));
   }
 }

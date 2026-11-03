@@ -26,7 +26,11 @@ public class AppScopingTests(
 
     var httpRequest = new HttpRequestMessage(HttpMethod.Post, ApiRequestHelper.loginUrl)
     {
-      Content = SerDeHelper.ConvertToHttpContent(new { UserName = UserSettingHelper.UserName, Password = UserSettingHelper.UserPassword })
+      Content = SerDeHelper.ConvertToHttpContent(new
+      {
+        UserName = UserSettingHelper.UserName,
+        Password = UserSettingHelper.UserPassword
+      })
     };
     httpRequest.AddXApiKey();
     httpRequest.Headers.Add("X-App-Name", TestingWebAppFactory.OtherAppName);
@@ -52,7 +56,9 @@ public class AppScopingTests(
     (var token, _) = await HttpClient.LoginUserAsync(UserSettingHelper.UserName, UserSettingHelper.UserPassword);
 
     // Assert
-    var roles = new JsonWebToken(token).Claims.Where(c => c.Type == JwtCustomClaimNames.Roles).Select(c => c.Value).ToList();
+    var roles = new JsonWebToken(token).Claims.Where(c => c.Type == JwtCustomClaimNames.Roles)
+      .Select(c => c.Value)
+      .ToList();
 
     Assert.Contains(TestDbHelper.DefaultRole, roles);
     Assert.DoesNotContain(OtherAppRole, roles);
@@ -74,7 +80,9 @@ public class AppScopingTests(
     (var token, _) = await HttpClient.LoginUserAsync(UserSettingHelper.UserName, UserSettingHelper.UserPassword);
 
     // Assert
-    var scopes = new JsonWebToken(token).Claims.Where(c => c.Type == JwtCustomClaimNames.Scope).Select(c => c.Value).ToList();
+    var scopes = new JsonWebToken(token).Claims.Where(c => c.Type == JwtCustomClaimNames.Scope)
+      .Select(c => c.Value)
+      .ToList();
 
     Assert.Equal("filemanager-file:create", Assert.Single(scopes));
   }
@@ -89,7 +97,10 @@ public class AppScopingTests(
     var role = TestDbHelper.CreateIdentityRole(OwnerRole);
 
     // Act
-    var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Post, "/api/v1/role/claim", new { RoleId = role.Id, Resource = "FileManager-File", Action = "Create" });
+    var response = await HttpClient.SendValidAuthRequestAsync(
+      HttpMethod.Post,
+      "/api/v1/role/claim",
+      new { RoleId = role.Id, Resource = "FileManager-File", Action = "Create" });
 
     // Assert
     await response.ValidateRequestResponseAsync();
@@ -108,7 +119,10 @@ public class AppScopingTests(
     var role = TestDbHelper.CreateIdentityRole(OtherAppRole);
 
     // Act
-    var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Post, "/api/v1/role/claim", new { RoleId = role.Id, Resource = "filemanager-file", Action = "create" });
+    var response = await HttpClient.SendValidAuthRequestAsync(
+      HttpMethod.Post,
+      "/api/v1/role/claim",
+      new { RoleId = role.Id, Resource = "filemanager-file", Action = "create" });
 
     // Assert
     await response.ValidateRequestResponseAsync();
@@ -145,7 +159,10 @@ public class AppScopingTests(
     var globalAdminRole = TestDbHelper.GetIdentityRole(KnownRoles.GlobalAdmin)!;
 
     // Act
-    var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Post, "/api/v1/role/claim", new { RoleId = globalAdminRole.Id, Resource = "filemanager-file", Action = "create" });
+    var response = await HttpClient.SendValidAuthRequestAsync(
+      HttpMethod.Post,
+      "/api/v1/role/claim",
+      new { RoleId = globalAdminRole.Id, Resource = "filemanager-file", Action = "create" });
 
     // Assert
     await response.ValidateRequestResponseAsync();
@@ -198,7 +215,10 @@ public class AppScopingTests(
     TestDbHelper.DeleteIdnetityRole(OtherAppRole);
 
     // Act
-    var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Post, "/api/v1/role", new { RoleName = OtherAppRole });
+    var response = await HttpClient.SendValidAuthRequestAsync(
+      HttpMethod.Post,
+      "/api/v1/role",
+      new { RoleName = OtherAppRole });
 
     // Assert
     await response.ValidateRequestResponseAsync();

@@ -26,15 +26,17 @@ public class LogoutUserCommandHandler(
   private readonly IUnitOfWork _unitOfWork = unitOfWork;
   private readonly IRefreshTokenRepository _refreshTokenRepository = refreshTokenRepository;
 
-  public async Task<DeleteRecordViewModel> DeleteItemAsync(LogoutUserCommand command, string userId, CancellationToken cancellationToken = default)
+  public async Task<DeleteRecordViewModel> DeleteItemAsync(
+    LogoutUserCommand command,
+    string userId,
+    CancellationToken cancellationToken = default)
   {
-    var tokenEntity = new RefreshTokenEntity
-    {
-      UserId = userId,
-      Token = _tokenFactory.HashToken(command.RefreshToken)
-    };
+    var tokenEntity = new RefreshTokenEntity { UserId = userId, Token = _tokenFactory.HashToken(command.RefreshToken) };
 
-    var existingEntity = await _refreshTokenRepository.GetEntityByAlternateIdAsync(tokenEntity, QueryCondition.MayOrMayNotExist, cancellationToken);
+    var existingEntity = await _refreshTokenRepository.GetEntityByAlternateIdAsync(
+      tokenEntity,
+      QueryCondition.MayOrMayNotExist,
+      cancellationToken);
 
     if (existingEntity is not null)
     {

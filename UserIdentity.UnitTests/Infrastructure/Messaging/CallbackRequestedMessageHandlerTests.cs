@@ -43,7 +43,8 @@ public class CallbackRequestedMessageHandlerTests
     });
 
     // Act
-    await new CallbackRequestedMessageHandler(_eventHandler).HandleAsync(message, TestContext.Current.CancellationToken);
+    await new CallbackRequestedMessageHandler(_eventHandler)
+      .HandleAsync(message, TestContext.Current.CancellationToken);
 
     // Assert
     A.CallTo(() => _eventHandler.HandleEventAsync(new UserRegisteredEvent
@@ -62,12 +63,17 @@ public class CallbackRequestedMessageHandlerTests
   public async Task HandleAsync_Without_A_User_Id_Throws_InvalidDataException_So_The_Message_Is_Dropped()
   {
     // Arrange
-    var message = CreateMessage(new Dictionary<MessageAttributeKey, string> { [MessageAttributeKey.FirstName] = "Test" });
+    var message = CreateMessage(new Dictionary<MessageAttributeKey, string>
+    {
+      [MessageAttributeKey.FirstName] = "Test"
+    });
 
     // Act & Assert
-    await Assert.ThrowsAsync<InvalidDataException>(() => new CallbackRequestedMessageHandler(_eventHandler).HandleAsync(message, TestContext.Current.CancellationToken));
+    await Assert.ThrowsAsync<InvalidDataException>(() => new CallbackRequestedMessageHandler(_eventHandler)
+      .HandleAsync(message, TestContext.Current.CancellationToken));
 
-    A.CallTo(() => _eventHandler.HandleEventAsync(A<UserRegisteredEvent>._, A<CancellationToken>._)).MustNotHaveHappened();
+    A.CallTo(() => _eventHandler.HandleEventAsync(A<UserRegisteredEvent>._, A<CancellationToken>._))
+      .MustNotHaveHappened();
   }
 
   private static MessageEvent CreateMessage(Dictionary<MessageAttributeKey, string> attributes) => new()

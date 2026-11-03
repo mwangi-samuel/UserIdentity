@@ -40,7 +40,9 @@ public class UserTokenIssuerTests
     // Arrange
     HashSet<string> scopes = ["useridentity-user:read", "catalog-product:all"];
 
-    A.CallTo(() => _roleRepository.GetScopesAsync(A<IReadOnlyCollection<string>>.That.IsSameSequenceAs(AppRoles), A<CancellationToken>._))
+    A.CallTo(() => _roleRepository.GetScopesAsync(
+      A<IReadOnlyCollection<string>>.That.IsSameSequenceAs(AppRoles),
+      A<CancellationToken>._))
       .Returns(scopes);
     A.CallTo(() => _jwtTokenHandler.CreateToken("user-id", "test.user", "TestApp",
         A<HashSet<string>>.That.Matches(roles => roles.SetEquals(AppRoles)), scopes, A<HashSet<Claim>?>._))
@@ -49,7 +51,11 @@ public class UserTokenIssuerTests
     var issuer = CreateIssuer();
 
     // Act
-    var accessToken = await issuer.CreateAccessTokenAsync("user-id", "test.user", "TestApp", TestContext.Current.CancellationToken);
+    var accessToken = await issuer.CreateAccessTokenAsync(
+      "user-id",
+      "test.user",
+      "TestApp",
+      TestContext.Current.CancellationToken);
 
     // Assert
     Assert.Equal("access-token", accessToken.Token);
@@ -60,18 +66,29 @@ public class UserTokenIssuerTests
   public async Task StartSessionAsync_Adds_A_Hashed_Refresh_Token_That_Expires_After_The_Configured_Time()
   {
     // Arrange
-    A.CallTo(() => _jwtTokenHandler.CreateToken(A<string>._, A<string>._, A<string>._, A<HashSet<string>>._, A<HashSet<string>>._, A<HashSet<Claim>?>._))
+    A.CallTo(() => _jwtTokenHandler.CreateToken(
+      A<string>._,
+      A<string>._,
+      A<string>._,
+      A<HashSet<string>>._,
+      A<HashSet<string>>._,
+      A<HashSet<Claim>?>._))
       .Returns(("access-token", 180));
     A.CallTo(() => _tokenFactory.GenerateToken(32)).Returns("refresh-token");
     A.CallTo(() => _tokenFactory.HashToken("refresh-token")).Returns("refresh-token-hash");
 
     RefreshTokenEntity? stored = null;
-    A.CallTo(() => _refreshTokenRepository.CreateEntityItem(A<RefreshTokenEntity>._)).Invokes((RefreshTokenEntity entity) => stored = entity);
+    A.CallTo(() => _refreshTokenRepository.CreateEntityItem(A<RefreshTokenEntity>._))
+      .Invokes((RefreshTokenEntity entity) => stored = entity);
 
     var issuer = CreateIssuer();
 
     // Act
-    var session = await issuer.StartSessionAsync("user-id", "test.user", "TestApp", TestContext.Current.CancellationToken);
+    var session = await issuer.StartSessionAsync(
+      "user-id",
+      "test.user",
+      "TestApp",
+      TestContext.Current.CancellationToken);
 
     // Assert
     Assert.Equal("access-token", session.AccessToken?.Token);

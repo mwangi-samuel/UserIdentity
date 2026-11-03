@@ -31,12 +31,18 @@ public class GetUserRolesQueryHandler(
   private readonly IUserRegisteredAppRepository _userRegisteredAppRepository = userRegisteredAppRepository;
   private readonly RoleSettings _roleSettings = roleSettingsOptions.Value;
 
-  public async Task<UserRolesViewModel> GetItemsAsync(GetUserRolesQuery query, CancellationToken cancellationToken = default)
+  public async Task<UserRolesViewModel> GetItemsAsync(
+    GetUserRolesQuery query,
+    CancellationToken cancellationToken = default)
   {
 
     var user = await _userManager.FindByIdAsync(query.UserId) ?? throw NoRecordException.ForIdentifier(query.UserId);
 
-    if (query.AppName is not null && !await _userRegisteredAppRepository.IsUserRegisteredForAppAsync(query.UserId, query.AppName, cancellationToken))
+    if (query.AppName is not null
+      && !await _userRegisteredAppRepository.IsUserRegisteredForAppAsync(
+        query.UserId,
+        query.AppName,
+        cancellationToken))
       throw NoRecordException.ForIdentifier(query.UserId);
 
     var userRoles = await _userManager.GetRolesAsync(user) ?? [];
@@ -44,9 +50,6 @@ public class GetUserRolesQueryHandler(
     if (query.AppName is not null)
       userRoles = AppRoleNames.ForApp(userRoles, query.AppName, _roleSettings.GlobalAdminRole);
 
-    return new UserRolesViewModel
-    {
-      UserRoles = userRoles
-    };
+    return new UserRolesViewModel { UserRoles = userRoles };
   }
 }
