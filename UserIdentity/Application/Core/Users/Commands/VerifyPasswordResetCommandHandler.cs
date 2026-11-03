@@ -21,8 +21,8 @@ public class VerifyPasswordResetCommandHandler(
   ITokenFactory tokenFactory,
   IUnitOfWork unitOfWork,
   IPasswordResetRepository passwordResetRepository,
-  IMachineDateTime machineDateTime
-  ) : BaseAuditableItemCommandHandler<Guid, PasswordResetEntity, IPasswordResetRepository>(unitOfWork, passwordResetRepository, machineDateTime),
+  TimeProvider timeProvider
+  ) : BaseAuditableItemCommandHandler<Guid, PasswordResetEntity, IPasswordResetRepository>(unitOfWork, passwordResetRepository, timeProvider),
     IUpdateItemCommandHandler<VerifyPasswordResetCommand, VerifyPasswordResetViewModel>
 {
   private readonly ITokenFactory _tokenFactory = tokenFactory;
@@ -34,7 +34,7 @@ public class VerifyPasswordResetCommandHandler(
       RequestId = _tokenFactory.HashToken(command.ResetRequestId)
     };
 
-    var existingEntity = (await _repository.GetEntityByAlternateIdAsync(passwordResetEntity, QueryCondition.MUST_EXIST, cancellationToken))!;
+    var existingEntity = (await Repository.GetEntityByAlternateIdAsync(passwordResetEntity, QueryCondition.MustExist, cancellationToken))!;
 
     existingEntity.Verified = true;
 

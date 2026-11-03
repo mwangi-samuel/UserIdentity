@@ -1,7 +1,4 @@
-﻿using System;
-using System.Threading.Tasks;
-
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
 using UserIdentity.IntegrationTests.TestUtils;
@@ -22,8 +19,8 @@ public class RefreshTokenConfigurationTests(
   public async Task Two_Exchanges_Of_One_Refresh_Token_Let_Only_The_First_Save()
   {
     // Arrange
-    _testDbHelper.SeedDatabase();
-    var refreshTokenId = _testDbHelper.GetRefreshTokenEntity(UserSettingHelper.UserId)!.Id;
+    TestDbHelper.SeedDatabase();
+    var refreshTokenId = TestDbHelper.GetRefreshTokenEntity(UserSettingHelper.UserId)!.Id;
 
     using var firstScope = _testingWebAppFactory.Services.CreateScope();
     using var secondScope = _testingWebAppFactory.Services.CreateScope();

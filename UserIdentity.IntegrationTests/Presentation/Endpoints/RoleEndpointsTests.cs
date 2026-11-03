@@ -1,14 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Net;
-using System.Net.Http;
-using System.Threading.Tasks;
+﻿using System.Net;
 
 using Newtonsoft.Json.Linq;
 
 using PolyzenKit.Common.Utilities;
-using PolyzenKit.Presentation.ValidationHelpers;
+using PolyzenKit.Presentation.Validation;
 
 using UserIdentity.Domain.RoleClaims;
 using UserIdentity.Domain.Roles;
@@ -16,9 +11,9 @@ using UserIdentity.IntegrationTests.TestUtils;
 
 using Xunit;
 
-namespace UserIdentity.IntegrationTests.Presentation.Controllers;
+namespace UserIdentity.IntegrationTests.Presentation.Endpoints;
 
-public class RoleControllerTests(
+public class RoleEndpointsTests(
     TestingWebAppFactory testingWebAppFactory,
     ITestOutputHelper outputHelper
     ) : BaseIntegrationTests(testingWebAppFactory, outputHelper)
@@ -29,16 +24,16 @@ public class RoleControllerTests(
   public async Task Get_Roles_Returns_Roles()
   {
     // Arrange
-    _testDbHelper.SeedDatabase();
-    _testDbHelper.CreateIdentityRole(_testDbHelper.AdminRoles.First());
-    _testDbHelper.ConfigureIdentityUserAsAdmin();
+    TestDbHelper.SeedDatabase();
+    TestDbHelper.CreateIdentityRole(TestDbHelper.AdminRoles.First());
+    TestDbHelper.ConfigureIdentityUserAsAdmin();
 
     var additionalRolename = "testapp:additionalrole";
-    var role = _testDbHelper.CreateIdentityRole(additionalRolename);
+    var role = TestDbHelper.CreateIdentityRole(additionalRolename);
     var additionalRoleId = role.Id;
 
     // Act
-    var response = await _httpClient.SendValidAuthRequestAsync(HttpMethod.Get, _baseUri);
+    var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Get, _baseUri);
 
     // Assert
     var responseString = await response.ValidateRequestResponseAsync();
@@ -57,8 +52,8 @@ public class RoleControllerTests(
     Assert.NotNull(roles);
     Assert.True(roles.Count >= 3);
 
-    Assert.Contains(roles, r => r.Name == _testDbHelper.DefaultRole);
-    Assert.Contains(roles, r => r.Name == _testDbHelper.AdminRoles.First());
+    Assert.Contains(roles, r => r.Name == TestDbHelper.DefaultRole);
+    Assert.Contains(roles, r => r.Name == TestDbHelper.AdminRoles.First());
     Assert.Contains(roles, r => r.Id == additionalRoleId && r.Name == additionalRolename);
   }
 
@@ -66,13 +61,13 @@ public class RoleControllerTests(
   public async Task Get_Roles_With_No_Auth_Returns_Auth_Error()
   {
     // Arrange
-    _testDbHelper.SeedDatabase();
+    TestDbHelper.SeedDatabase();
 
     var additionalRolename = "testapp:additionalrole";
-    var role = _testDbHelper.CreateIdentityRole(additionalRolename);
+    var role = TestDbHelper.CreateIdentityRole(additionalRolename);
 
     // Act
-    var response = await _httpClient.SendNoAuthRequestAsync(HttpMethod.Get, _baseUri);
+    var response = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Get, _baseUri);
 
     // Assert
     await response.ValidateRequestResponseAsync();
@@ -84,13 +79,13 @@ public class RoleControllerTests(
   public async Task Get_Roles_With_Invalid_Auth_Returns_Auth_Error()
   {
     // Arrange
-    _testDbHelper.SeedDatabase();
+    TestDbHelper.SeedDatabase();
 
     var additionalRolename = "testapp:additionalrole";
-    var role = _testDbHelper.CreateIdentityRole(additionalRolename);
+    var role = TestDbHelper.CreateIdentityRole(additionalRolename);
 
     // Act
-    var response = await _httpClient.SendInvalidAuthRequestAsync(HttpMethod.Get, _baseUri);
+    var response = await HttpClient.SendInvalidAuthRequestAsync(HttpMethod.Get, _baseUri);
 
     // Assert
     await response.ValidateRequestResponseAsync();
@@ -102,15 +97,15 @@ public class RoleControllerTests(
   public async Task Get_Roles_With_Invalid_Permissions_Returns_Auth_Error()
   {
     // Arrange
-    var user = _testDbHelper.CreateIdentityUser();
+    var user = TestDbHelper.CreateIdentityUser();
     var roleName = "testapp:additionalrole";
-    _testDbHelper.CreateIdentityRole(roleName);
-    _testDbHelper.CreateIdentityUserRole(roleName, user.Id);
-    _testDbHelper.CreateUserEntity();
-    _testDbHelper.CreateRefreshTokenEntity();
+    TestDbHelper.CreateIdentityRole(roleName);
+    TestDbHelper.CreateIdentityUserRole(roleName, user.Id);
+    TestDbHelper.CreateUserEntity();
+    TestDbHelper.CreateRefreshTokenEntity();
 
     // Act
-    var response = await _httpClient.SendValidAuthRequestAsync(HttpMethod.Get, _baseUri);
+    var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Get, _baseUri);
 
     // Assert
     await response.ValidateRequestResponseAsync();
@@ -122,16 +117,16 @@ public class RoleControllerTests(
   public async Task Get_Role_Returns_Role_Details()
   {
     // Arrange
-    _testDbHelper.SeedDatabase();
-    _testDbHelper.CreateIdentityRole(_testDbHelper.AdminRoles.First());
-    _testDbHelper.ConfigureIdentityUserAsAdmin();
+    TestDbHelper.SeedDatabase();
+    TestDbHelper.CreateIdentityRole(TestDbHelper.AdminRoles.First());
+    TestDbHelper.ConfigureIdentityUserAsAdmin();
 
     var additionalRolename = "testapp:additionalrole";
-    var role = _testDbHelper.CreateIdentityRole(additionalRolename);
+    var role = TestDbHelper.CreateIdentityRole(additionalRolename);
     var additionalRoleId = role.Id;
 
     // Act
-    var response = await _httpClient.SendValidAuthRequestAsync(HttpMethod.Get, _baseUri + "/" + additionalRoleId);
+    var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Get, _baseUri + "/" + additionalRoleId);
 
     // Assert
     var responseString = await response.ValidateRequestResponseAsync();
@@ -156,13 +151,13 @@ public class RoleControllerTests(
   public async Task Get_Role_With_No_Auth_Returns_Auth_Error()
   {
     // Arrange
-    _testDbHelper.SeedDatabase();
+    TestDbHelper.SeedDatabase();
 
     var additionalRolename = "testapp:additionalrole";
-    var role = _testDbHelper.CreateIdentityRole(additionalRolename);
+    var role = TestDbHelper.CreateIdentityRole(additionalRolename);
 
     // Act
-    var response = await _httpClient.SendNoAuthRequestAsync(HttpMethod.Get, _baseUri + "/" + role.Id);
+    var response = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Get, _baseUri + "/" + role.Id);
 
     // Assert
     await response.ValidateRequestResponseAsync();
@@ -174,13 +169,13 @@ public class RoleControllerTests(
   public async Task Get_Role_With_Invalid_Auth_Returns_Auth_Error()
   {
     // Arrange
-    _testDbHelper.SeedDatabase();
+    TestDbHelper.SeedDatabase();
 
     var additionalRolename = "testapp:additionalrole";
-    var role = _testDbHelper.CreateIdentityRole(additionalRolename);
+    var role = TestDbHelper.CreateIdentityRole(additionalRolename);
 
     // Act
-    var response = await _httpClient.SendInvalidAuthRequestAsync(HttpMethod.Get, _baseUri + "/" + role.Id);
+    var response = await HttpClient.SendInvalidAuthRequestAsync(HttpMethod.Get, _baseUri + "/" + role.Id);
 
     // Assert
     await response.ValidateRequestResponseAsync();
@@ -192,15 +187,15 @@ public class RoleControllerTests(
   public async Task Get_Role_With_Invalid_Permissions_Returns_Auth_Error()
   {
     // Arrange
-    var user = _testDbHelper.CreateIdentityUser();
+    var user = TestDbHelper.CreateIdentityUser();
     var roleName = "testapp:additionalrole";
-    var role = _testDbHelper.CreateIdentityRole(roleName);
-    _testDbHelper.CreateIdentityUserRole(roleName, user.Id);
-    _testDbHelper.CreateUserEntity();
-    _testDbHelper.CreateRefreshTokenEntity();
+    var role = TestDbHelper.CreateIdentityRole(roleName);
+    TestDbHelper.CreateIdentityUserRole(roleName, user.Id);
+    TestDbHelper.CreateUserEntity();
+    TestDbHelper.CreateRefreshTokenEntity();
 
     // Act
-    var response = await _httpClient.SendValidAuthRequestAsync(HttpMethod.Get, _baseUri + "/" + role.Id);
+    var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Get, _baseUri + "/" + role.Id);
 
     // Assert
     await response.ValidateRequestResponseAsync();
@@ -212,14 +207,14 @@ public class RoleControllerTests(
   public async Task Create_Valid_Role_Returns_Role_Details()
   {
     // Arrange
-    _testDbHelper.SeedDatabase();
-    _testDbHelper.CreateIdentityRole(_testDbHelper.AdminRoles.First());
-    _testDbHelper.ConfigureIdentityUserAsAdmin();
+    TestDbHelper.SeedDatabase();
+    TestDbHelper.CreateIdentityRole(TestDbHelper.AdminRoles.First());
+    TestDbHelper.ConfigureIdentityUserAsAdmin();
 
     var additionalRolename = "testapp:additionalrole";
-    _testDbHelper.CreateIdentityRole(additionalRolename);
+    TestDbHelper.CreateIdentityRole(additionalRolename);
 
-    (_, _) = await _httpClient.LoginUserAsync(UserSettingHelper.UserName, UserSettingHelper.UserPassword);
+    (_, _) = await HttpClient.LoginUserAsync(UserSettingHelper.UserName, UserSettingHelper.UserPassword);
 
     var requestPayload = new
     {
@@ -227,7 +222,7 @@ public class RoleControllerTests(
     };
 
     // Act
-    var response = await _httpClient.SendValidAuthRequestAsync(HttpMethod.Post, _baseUri, requestPayload);
+    var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Post, _baseUri, requestPayload);
 
     // Assert
     var responseString = await response.ValidateRequestResponseAsync();
@@ -252,12 +247,12 @@ public class RoleControllerTests(
   public async Task Create_Existing_Role_Does_Not_Create_Role()
   {
     // Arrange
-    _testDbHelper.SeedDatabase();
-    _testDbHelper.CreateIdentityRole(_testDbHelper.AdminRoles.First());
-    _testDbHelper.ConfigureIdentityUserAsAdmin();
+    TestDbHelper.SeedDatabase();
+    TestDbHelper.CreateIdentityRole(TestDbHelper.AdminRoles.First());
+    TestDbHelper.ConfigureIdentityUserAsAdmin();
 
     var additionalRolename = "testapp:additionalrole";
-    _testDbHelper.CreateIdentityRole(additionalRolename);
+    TestDbHelper.CreateIdentityRole(additionalRolename);
 
     var requestPayload = new
     {
@@ -265,7 +260,7 @@ public class RoleControllerTests(
     };
 
     // Act
-    var response = await _httpClient.SendValidAuthRequestAsync(HttpMethod.Post, _baseUri, requestPayload);
+    var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Post, _baseUri, requestPayload);
 
     // Assert
     var responseString = await response.ValidateRequestResponseAsync();
@@ -292,20 +287,20 @@ public class RoleControllerTests(
   public async Task Create_Role_With_Invalid_Payload_Returns_Validation_Result()
   {
     // Arrange
-    _testDbHelper.SeedDatabase();
-    _testDbHelper.CreateIdentityRole(_testDbHelper.AdminRoles.First());
-    _testDbHelper.ConfigureIdentityUserAsAdmin();
+    TestDbHelper.SeedDatabase();
+    TestDbHelper.CreateIdentityRole(TestDbHelper.AdminRoles.First());
+    TestDbHelper.ConfigureIdentityUserAsAdmin();
 
     var additionalRolename = "testapp:additionalrole";
 
-    _testDbHelper.CreateIdentityRole(additionalRolename);
+    TestDbHelper.CreateIdentityRole(additionalRolename);
 
     var requestPayload = new
     {
     };
 
     // Act
-    var response = await _httpClient.SendValidAuthRequestAsync(HttpMethod.Post, _baseUri, requestPayload);
+    var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Post, _baseUri, requestPayload);
 
     // Assert
     var responseString = await response.ValidateRequestResponseAsync();
@@ -338,11 +333,11 @@ public class RoleControllerTests(
   public async Task Create_Role_With_No_Auth_Returns_Auth_Error()
   {
     // Arrange
-    _testDbHelper.SeedDatabase();
+    TestDbHelper.SeedDatabase();
 
     var additionalRolename = "testapp:additionalrole";
 
-    _testDbHelper.CreateIdentityRole(additionalRolename);
+    TestDbHelper.CreateIdentityRole(additionalRolename);
 
     var requestPayload = new
     {
@@ -350,7 +345,7 @@ public class RoleControllerTests(
     };
 
     // Act
-    var response = await _httpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri, requestPayload);
+    var response = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri, requestPayload);
 
     // Assert
     await response.ValidateRequestResponseAsync();
@@ -362,10 +357,10 @@ public class RoleControllerTests(
   public async Task Create_Role_With_Invalid_Auth_Returns_Auth_Error()
   {
     // Arrange
-    _testDbHelper.SeedDatabase();
+    TestDbHelper.SeedDatabase();
 
     var additionalRolename = "testapp:additionalrole";
-    _testDbHelper.CreateIdentityRole(additionalRolename);
+    TestDbHelper.CreateIdentityRole(additionalRolename);
 
     var requestPayload = new
     {
@@ -373,7 +368,7 @@ public class RoleControllerTests(
     };
 
     // Act
-    var response = await _httpClient.SendInvalidAuthRequestAsync(HttpMethod.Post, _baseUri, requestPayload);
+    var response = await HttpClient.SendInvalidAuthRequestAsync(HttpMethod.Post, _baseUri, requestPayload);
 
     // Assert
     await response.ValidateRequestResponseAsync();
@@ -385,12 +380,12 @@ public class RoleControllerTests(
   public async Task Create_Role_With_Invalid_Permissions_Returns_Auth_Error()
   {
     // Arrange
-    var user = _testDbHelper.CreateIdentityUser();
+    var user = TestDbHelper.CreateIdentityUser();
     var roleName = "testapp:additionalrole";
-    _testDbHelper.CreateIdentityRole(roleName);
-    _testDbHelper.CreateIdentityUserRole(roleName, user.Id);
-    _testDbHelper.CreateUserEntity();
-    _testDbHelper.CreateRefreshTokenEntity();
+    TestDbHelper.CreateIdentityRole(roleName);
+    TestDbHelper.CreateIdentityUserRole(roleName, user.Id);
+    TestDbHelper.CreateUserEntity();
+    TestDbHelper.CreateRefreshTokenEntity();
 
     var requestPayload = new
     {
@@ -398,7 +393,7 @@ public class RoleControllerTests(
     };
 
     // Act
-    var response = await _httpClient.SendValidAuthRequestAsync(HttpMethod.Post, _baseUri, requestPayload);
+    var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Post, _baseUri, requestPayload);
 
     // Assert
     await response.ValidateRequestResponseAsync();
@@ -410,12 +405,12 @@ public class RoleControllerTests(
   public async Task Update_Existing_Role_Updates_Role()
   {
     // Arrange
-    _testDbHelper.SeedDatabase();
-    _testDbHelper.CreateIdentityRole(_testDbHelper.AdminRoles.First());
-    _testDbHelper.ConfigureIdentityUserAsAdmin();
+    TestDbHelper.SeedDatabase();
+    TestDbHelper.CreateIdentityRole(TestDbHelper.AdminRoles.First());
+    TestDbHelper.ConfigureIdentityUserAsAdmin();
 
     var additionalRolename = "testapp:additionalrole";
-    var newRole = _testDbHelper.CreateIdentityRole(additionalRolename);
+    var newRole = TestDbHelper.CreateIdentityRole(additionalRolename);
 
     var requestPayload = new
     {
@@ -424,7 +419,7 @@ public class RoleControllerTests(
     };
 
     // Act
-    var response = await _httpClient.SendValidAuthRequestAsync(HttpMethod.Put, _baseUri + "/" + requestPayload.RoleId, requestPayload);
+    var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Put, _baseUri + "/" + requestPayload.RoleId, requestPayload);
 
     // Assert
     var responseString = await response.ValidateRequestResponseAsync();
@@ -449,12 +444,12 @@ public class RoleControllerTests(
   public async Task Update_Non_Existing_Role_Does_Not_Update_Role()
   {
     // Arrange
-    _testDbHelper.SeedDatabase();
-    _testDbHelper.CreateIdentityRole(_testDbHelper.AdminRoles.First());
-    _testDbHelper.ConfigureIdentityUserAsAdmin();
+    TestDbHelper.SeedDatabase();
+    TestDbHelper.CreateIdentityRole(TestDbHelper.AdminRoles.First());
+    TestDbHelper.ConfigureIdentityUserAsAdmin();
 
     var additionalRolename = "testapp:additionalrole";
-    _testDbHelper.CreateIdentityRole(additionalRolename);
+    TestDbHelper.CreateIdentityRole(additionalRolename);
 
     var requestPayload = new
     {
@@ -463,7 +458,7 @@ public class RoleControllerTests(
     };
 
     // Act
-    var response = await _httpClient.SendValidAuthRequestAsync(HttpMethod.Put, _baseUri + "/" + requestPayload.RoleId, requestPayload);
+    var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Put, _baseUri + "/" + requestPayload.RoleId, requestPayload);
 
     // Assert
     var responseString = await response.ValidateRequestResponseAsync();
@@ -490,19 +485,19 @@ public class RoleControllerTests(
   public async Task Update_Role_With_Invalid_Payload_Returns_Validation_Result()
   {
     // Arrange
-    _testDbHelper.SeedDatabase();
-    _testDbHelper.CreateIdentityRole(_testDbHelper.AdminRoles.First());
-    _testDbHelper.ConfigureIdentityUserAsAdmin();
+    TestDbHelper.SeedDatabase();
+    TestDbHelper.CreateIdentityRole(TestDbHelper.AdminRoles.First());
+    TestDbHelper.ConfigureIdentityUserAsAdmin();
 
     var additionalRolename = "testapp:additionalrole";
-    var role = _testDbHelper.CreateIdentityRole(additionalRolename);
+    var role = TestDbHelper.CreateIdentityRole(additionalRolename);
 
     var requestPayload = new
     {
     };
 
     // Act
-    var response = await _httpClient.SendValidAuthRequestAsync(HttpMethod.Put, _baseUri + "/" + role.Id, requestPayload);
+    var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Put, _baseUri + "/" + role.Id, requestPayload);
 
     // Assert
     var responseString = await response.ValidateRequestResponseAsync();
@@ -534,10 +529,10 @@ public class RoleControllerTests(
   public async Task Update_Role_With_No_Auth_Returns_Auth_Error()
   {
     // Arrange
-    _testDbHelper.SeedDatabase();
+    TestDbHelper.SeedDatabase();
 
     var additionalRolename = "testapp:additionalrole";
-    var role = _testDbHelper.CreateIdentityRole(additionalRolename);
+    var role = TestDbHelper.CreateIdentityRole(additionalRolename);
 
     var requestPayload = new
     {
@@ -545,7 +540,7 @@ public class RoleControllerTests(
     };
 
     // Act
-    var response = await _httpClient.SendNoAuthRequestAsync(HttpMethod.Put, _baseUri + "/" + role.Id, requestPayload);
+    var response = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Put, _baseUri + "/" + role.Id, requestPayload);
 
     // Assert
     await response.ValidateRequestResponseAsync();
@@ -557,10 +552,10 @@ public class RoleControllerTests(
   public async Task Update_Role_With_Invalid_Auth_Returns_Auth_Error()
   {
     // Arrange
-    _testDbHelper.SeedDatabase();
+    TestDbHelper.SeedDatabase();
 
     var additionalRolename = "testapp:additionalrole";
-    var role = _testDbHelper.CreateIdentityRole(additionalRolename);
+    var role = TestDbHelper.CreateIdentityRole(additionalRolename);
 
     var requestPayload = new
     {
@@ -568,7 +563,7 @@ public class RoleControllerTests(
     };
 
     // Act
-    var response = await _httpClient.SendInvalidAuthRequestAsync(HttpMethod.Put, _baseUri + "/" + role.Id, requestPayload);
+    var response = await HttpClient.SendInvalidAuthRequestAsync(HttpMethod.Put, _baseUri + "/" + role.Id, requestPayload);
 
     // Assert
     await response.ValidateRequestResponseAsync();
@@ -581,12 +576,12 @@ public class RoleControllerTests(
   {
     // Arrange
     // Arrange
-    var user = _testDbHelper.CreateIdentityUser();
+    var user = TestDbHelper.CreateIdentityUser();
     var roleName = "testapp:additionalrole";
-    var role = _testDbHelper.CreateIdentityRole(roleName);
-    _testDbHelper.CreateIdentityUserRole(roleName, user.Id);
-    _testDbHelper.CreateUserEntity();
-    _testDbHelper.CreateRefreshTokenEntity();
+    var role = TestDbHelper.CreateIdentityRole(roleName);
+    TestDbHelper.CreateIdentityUserRole(roleName, user.Id);
+    TestDbHelper.CreateUserEntity();
+    TestDbHelper.CreateRefreshTokenEntity();
 
     var requestPayload = new
     {
@@ -594,7 +589,7 @@ public class RoleControllerTests(
     };
 
     // Act
-    var response = await _httpClient.SendValidAuthRequestAsync(HttpMethod.Put, _baseUri + "/" + role.Id, requestPayload);
+    var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Put, _baseUri + "/" + role.Id, requestPayload);
 
     // Assert
     await response.ValidateRequestResponseAsync();
@@ -606,15 +601,15 @@ public class RoleControllerTests(
   public async Task Delete_Role_Returns_Role_Details()
   {
     // Arrange
-    _testDbHelper.SeedDatabase();
-    _testDbHelper.CreateIdentityRole(_testDbHelper.AdminRoles.First());
-    _testDbHelper.ConfigureIdentityUserAsAdmin();
+    TestDbHelper.SeedDatabase();
+    TestDbHelper.CreateIdentityRole(TestDbHelper.AdminRoles.First());
+    TestDbHelper.ConfigureIdentityUserAsAdmin();
 
     var additionalRolename = "testapp:additionalrole";
-    var role = _testDbHelper.CreateIdentityRole(additionalRolename);
+    var role = TestDbHelper.CreateIdentityRole(additionalRolename);
 
     // Act
-    var response = await _httpClient.SendValidAuthRequestAsync(HttpMethod.Delete, _baseUri + "/" + role.Id);
+    var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Delete, _baseUri + "/" + role.Id);
 
     // Assert
     var responseString = await response.ValidateRequestResponseAsync();
@@ -634,14 +629,14 @@ public class RoleControllerTests(
   public async Task Delete_Non_Existent_Role_Does_Not_Delete_Role()
   {
     // Arrange
-    _testDbHelper.SeedDatabase();
-    _testDbHelper.CreateIdentityRole(_testDbHelper.AdminRoles.First());
-    _testDbHelper.ConfigureIdentityUserAsAdmin();
+    TestDbHelper.SeedDatabase();
+    TestDbHelper.CreateIdentityRole(TestDbHelper.AdminRoles.First());
+    TestDbHelper.ConfigureIdentityUserAsAdmin();
 
     var nonExistentRuleId = Guid.NewGuid().ToString();
 
     // Act
-    var response = await _httpClient.SendValidAuthRequestAsync(HttpMethod.Delete, _baseUri + "/" + nonExistentRuleId);
+    var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Delete, _baseUri + "/" + nonExistentRuleId);
 
     // Assert
     var responseString = await response.ValidateRequestResponseAsync();
@@ -669,13 +664,13 @@ public class RoleControllerTests(
   public async Task Delete_Role_With_No_Auth_Returns_Auth_Error()
   {
     // Arrange
-    _testDbHelper.SeedDatabase();
+    TestDbHelper.SeedDatabase();
 
     var additionalRolename = "testapp:additionalrole";
-    var role = _testDbHelper.CreateIdentityRole(additionalRolename);
+    var role = TestDbHelper.CreateIdentityRole(additionalRolename);
 
     // Act
-    var response = await _httpClient.SendNoAuthRequestAsync(HttpMethod.Delete, _baseUri + "/" + role.Id);
+    var response = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Delete, _baseUri + "/" + role.Id);
 
     // Assert
     await response.ValidateRequestResponseAsync();
@@ -687,13 +682,13 @@ public class RoleControllerTests(
   public async Task Delete_Role_With_Invalid_Auth_Returns_Auth_Error()
   {
     // Arrange
-    _testDbHelper.SeedDatabase();
+    TestDbHelper.SeedDatabase();
 
     var additionalRolename = "testapp:additionalrole";
-    var role = _testDbHelper.CreateIdentityRole(additionalRolename);
+    var role = TestDbHelper.CreateIdentityRole(additionalRolename);
 
     // Act
-    var response = await _httpClient.SendInvalidAuthRequestAsync(HttpMethod.Delete, _baseUri + "/" + role.Id);
+    var response = await HttpClient.SendInvalidAuthRequestAsync(HttpMethod.Delete, _baseUri + "/" + role.Id);
 
     // Assert
     await response.ValidateRequestResponseAsync();
@@ -706,15 +701,15 @@ public class RoleControllerTests(
   {
     // Arrange
     // Arrange
-    var user = _testDbHelper.CreateIdentityUser();
+    var user = TestDbHelper.CreateIdentityUser();
     var roleName = "testapp:additionalrole";
-    var role = _testDbHelper.CreateIdentityRole(roleName);
-    _testDbHelper.CreateIdentityUserRole(roleName, user.Id);
-    _testDbHelper.CreateUserEntity();
-    _testDbHelper.CreateRefreshTokenEntity();
+    var role = TestDbHelper.CreateIdentityRole(roleName);
+    TestDbHelper.CreateIdentityUserRole(roleName, user.Id);
+    TestDbHelper.CreateUserEntity();
+    TestDbHelper.CreateRefreshTokenEntity();
 
     // Act
-    var response = await _httpClient.SendValidAuthRequestAsync(HttpMethod.Delete, _baseUri + "/" + role.Id);
+    var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Delete, _baseUri + "/" + role.Id);
 
     // Assert
     await response.ValidateRequestResponseAsync();
@@ -726,10 +721,10 @@ public class RoleControllerTests(
   public async Task Get_User_Roles_Returns_User_Roles()
   {
     // Arrange
-    _testDbHelper.SeedDatabase();
+    TestDbHelper.SeedDatabase();
 
     // Act
-    var response = await _httpClient.SendValidAuthRequestAsync(HttpMethod.Get, _baseUri + "/user/" + UserSettingHelper.UserId);
+    var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Get, _baseUri + "/user/" + UserSettingHelper.UserId);
 
     // Assert
     var responseString = await response.ValidateRequestResponseAsync();
@@ -748,21 +743,21 @@ public class RoleControllerTests(
     Assert.NotNull(roles);
     Assert.Equal(1, roles?.Count);
 
-    Assert.Contains(_testDbHelper.DefaultRole, roles?[0]);
+    Assert.Contains(TestDbHelper.DefaultRole, roles?[0]);
   }
 
   [Fact]
   public async Task Get_User_Non_Existent_User_Id_Does_Not_Delete_Role()
   {
     // Arrange
-    _testDbHelper.SeedDatabase();
-    _testDbHelper.CreateIdentityRole(_testDbHelper.AdminRoles.First());
-    _testDbHelper.ConfigureIdentityUserAsAdmin();
+    TestDbHelper.SeedDatabase();
+    TestDbHelper.CreateIdentityRole(TestDbHelper.AdminRoles.First());
+    TestDbHelper.ConfigureIdentityUserAsAdmin();
 
     var nonExistentUserId = Guid.NewGuid().ToString();
 
     // Act
-    var response = await _httpClient.SendValidAuthRequestAsync(HttpMethod.Get, _baseUri + "/user/" + nonExistentUserId);
+    var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Get, _baseUri + "/user/" + nonExistentUserId);
 
     // Assert
     var responseString = await response.ValidateRequestResponseAsync();
@@ -790,14 +785,14 @@ public class RoleControllerTests(
   public async Task Get_User_Roles_With_No_Auth_Returns_Auth_Error()
   {
     // Arrange
-    _testDbHelper.SeedDatabase();
+    TestDbHelper.SeedDatabase();
 
     var additionalRolename = "testapp:additionalrole";
 
-    _testDbHelper.CreateIdentityRole(additionalRolename);
+    TestDbHelper.CreateIdentityRole(additionalRolename);
 
     // Act
-    var response = await _httpClient.SendNoAuthRequestAsync(HttpMethod.Get, _baseUri + "/user/" + UserSettingHelper.UserId);
+    var response = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Get, _baseUri + "/user/" + UserSettingHelper.UserId);
 
     // Assert
     await response.ValidateRequestResponseAsync();
@@ -809,13 +804,13 @@ public class RoleControllerTests(
   public async Task Get_User_Roles_With_Invalid_Auth_Returns_Auth_Error()
   {
     // Arrange
-    _testDbHelper.SeedDatabase();
+    TestDbHelper.SeedDatabase();
 
     var additionalRolename = "testapp:additionalrole";
-    _testDbHelper.CreateIdentityRole(additionalRolename);
+    TestDbHelper.CreateIdentityRole(additionalRolename);
 
     // Act
-    var response = await _httpClient.SendInvalidAuthRequestAsync(HttpMethod.Get, _baseUri + "/user/" + UserSettingHelper.UserId);
+    var response = await HttpClient.SendInvalidAuthRequestAsync(HttpMethod.Get, _baseUri + "/user/" + UserSettingHelper.UserId);
 
     // Assert
     await response.ValidateRequestResponseAsync();
@@ -828,15 +823,15 @@ public class RoleControllerTests(
   {
     // Arrange
     // Arrange
-    var user = _testDbHelper.CreateIdentityUser();
+    var user = TestDbHelper.CreateIdentityUser();
     var roleName = "testapp:additionalrole";
-    _testDbHelper.CreateIdentityRole(roleName);
-    _testDbHelper.CreateIdentityUserRole(roleName, user.Id);
-    _testDbHelper.CreateUserEntity();
-    _testDbHelper.CreateRefreshTokenEntity();
+    TestDbHelper.CreateIdentityRole(roleName);
+    TestDbHelper.CreateIdentityUserRole(roleName, user.Id);
+    TestDbHelper.CreateUserEntity();
+    TestDbHelper.CreateRefreshTokenEntity();
 
     // Act
-    var response = await _httpClient.SendValidAuthRequestAsync(HttpMethod.Get, _baseUri + "/user/" + UserSettingHelper.UserId);
+    var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Get, _baseUri + "/user/" + UserSettingHelper.UserId);
 
     // Assert
     var responseString = await response.ValidateRequestResponseAsync();
@@ -862,13 +857,13 @@ public class RoleControllerTests(
   public async Task Create_Valid_User_Role_Returns_Role_Details()
   {
     // Arrange
-    _testDbHelper.SeedDatabase();
-    _testDbHelper.CreateIdentityRole(_testDbHelper.AdminRoles.First());
-    _testDbHelper.ConfigureIdentityUserAsAdmin();
+    TestDbHelper.SeedDatabase();
+    TestDbHelper.CreateIdentityRole(TestDbHelper.AdminRoles.First());
+    TestDbHelper.ConfigureIdentityUserAsAdmin();
 
     var additionalRolename = "testapp:additionalrole";
 
-    var role = _testDbHelper.CreateIdentityRole(additionalRolename);
+    var role = TestDbHelper.CreateIdentityRole(additionalRolename);
 
     var requestPayload = new
     {
@@ -877,7 +872,7 @@ public class RoleControllerTests(
     };
 
     // Act
-    var response = await _httpClient.SendValidAuthRequestAsync(HttpMethod.Post, _baseUri + "/user", requestPayload);
+    var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Post, _baseUri + "/user", requestPayload);
 
     // Assert
     var responseString = await response.ValidateRequestResponseAsync();
@@ -896,8 +891,8 @@ public class RoleControllerTests(
     Assert.NotNull(roles);
     Assert.Equal(3, roles?.Count);
 
-    Assert.Contains(roles!, r => r == _testDbHelper.DefaultRole);
-    Assert.Contains(roles!, r => r == _testDbHelper.AdminRoles.First());
+    Assert.Contains(roles!, r => r == TestDbHelper.DefaultRole);
+    Assert.Contains(roles!, r => r == TestDbHelper.AdminRoles.First());
     Assert.Contains(roles!, r => r == additionalRolename);
   }
 
@@ -905,13 +900,13 @@ public class RoleControllerTests(
   public async Task Create_Existing_User_Role_Does_Not_Create_Role()
   {
     // Arrange
-    _testDbHelper.SeedDatabase();
-    _testDbHelper.CreateIdentityRole(_testDbHelper.AdminRoles.First());
-    _testDbHelper.ConfigureIdentityUserAsAdmin();
+    TestDbHelper.SeedDatabase();
+    TestDbHelper.CreateIdentityRole(TestDbHelper.AdminRoles.First());
+    TestDbHelper.ConfigureIdentityUserAsAdmin();
 
     var additionalRolename = "testapp:additionalrole";
-    var role = _testDbHelper.CreateIdentityRole(additionalRolename);
-    _testDbHelper.CreateIdentityUserRole(additionalRolename, UserSettingHelper.UserId);
+    var role = TestDbHelper.CreateIdentityRole(additionalRolename);
+    TestDbHelper.CreateIdentityUserRole(additionalRolename, UserSettingHelper.UserId);
 
     var requestPayload = new
     {
@@ -920,7 +915,7 @@ public class RoleControllerTests(
     };
 
     // Act
-    var response = await _httpClient.SendValidAuthRequestAsync(HttpMethod.Post, _baseUri + "/user", requestPayload);
+    var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Post, _baseUri + "/user", requestPayload);
 
     // Assert
     var responseString = await response.ValidateRequestResponseAsync();
@@ -947,20 +942,20 @@ public class RoleControllerTests(
   public async Task Create_User_Role_With_Invalid_Payload_Returns_Validation_Result()
   {
     // Arrange
-    _testDbHelper.SeedDatabase();
-    _testDbHelper.CreateIdentityRole(_testDbHelper.AdminRoles.First());
-    _testDbHelper.ConfigureIdentityUserAsAdmin();
+    TestDbHelper.SeedDatabase();
+    TestDbHelper.CreateIdentityRole(TestDbHelper.AdminRoles.First());
+    TestDbHelper.ConfigureIdentityUserAsAdmin();
 
     var additionalRolename = "testapp:additionalrole";
 
-    _testDbHelper.CreateIdentityRole(additionalRolename);
+    TestDbHelper.CreateIdentityRole(additionalRolename);
 
     var requestPayload = new
     {
     };
 
     // Act
-    var response = await _httpClient.SendValidAuthRequestAsync(HttpMethod.Post, _baseUri + "/user", requestPayload);
+    var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Post, _baseUri + "/user", requestPayload);
     await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
 
     // Assert
@@ -995,11 +990,11 @@ public class RoleControllerTests(
   public async Task Create_User_Role_With_No_Auth_Returns_Auth_Error()
   {
     // Arrange
-    _testDbHelper.SeedDatabase();
+    TestDbHelper.SeedDatabase();
 
     var additionalRolename = "testapp:additionalrole";
 
-    var role = _testDbHelper.CreateIdentityRole(additionalRolename);
+    var role = TestDbHelper.CreateIdentityRole(additionalRolename);
 
     var requestPayload = new
     {
@@ -1008,7 +1003,7 @@ public class RoleControllerTests(
     };
 
     // Act
-    var response = await _httpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/user", requestPayload);
+    var response = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/user", requestPayload);
 
     // Assert
     await response.ValidateRequestResponseAsync();
@@ -1020,11 +1015,11 @@ public class RoleControllerTests(
   public async Task Create_User_Role_With_Invalid_Auth_Returns_Auth_Error()
   {
     // Arrange
-    _testDbHelper.SeedDatabase();
+    TestDbHelper.SeedDatabase();
 
     var additionalRolename = "testapp:additionalrole";
 
-    var role = _testDbHelper.CreateIdentityRole(additionalRolename);
+    var role = TestDbHelper.CreateIdentityRole(additionalRolename);
 
     var requestPayload = new
     {
@@ -1033,7 +1028,7 @@ public class RoleControllerTests(
     };
 
     // Act
-    var response = await _httpClient.SendInvalidAuthRequestAsync(HttpMethod.Post, _baseUri + "/user", requestPayload);
+    var response = await HttpClient.SendInvalidAuthRequestAsync(HttpMethod.Post, _baseUri + "/user", requestPayload);
 
     // Assert
     await response.ValidateRequestResponseAsync();
@@ -1046,12 +1041,12 @@ public class RoleControllerTests(
   {
     // Arrange
     // Arrange
-    var user = _testDbHelper.CreateIdentityUser();
+    var user = TestDbHelper.CreateIdentityUser();
     var roleName = "testapp:additionalrole";
-    var role = _testDbHelper.CreateIdentityRole(roleName);
-    _testDbHelper.CreateIdentityUserRole(roleName, user.Id);
-    _testDbHelper.CreateUserEntity();
-    _testDbHelper.CreateRefreshTokenEntity();
+    var role = TestDbHelper.CreateIdentityRole(roleName);
+    TestDbHelper.CreateIdentityUserRole(roleName, user.Id);
+    TestDbHelper.CreateUserEntity();
+    TestDbHelper.CreateRefreshTokenEntity();
 
     var requestPayload = new
     {
@@ -1060,7 +1055,7 @@ public class RoleControllerTests(
     };
 
     // Act
-    var response = await _httpClient.SendValidAuthRequestAsync(HttpMethod.Post, _baseUri + "/user", requestPayload);
+    var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Post, _baseUri + "/user", requestPayload);
 
     // Assert
     await response.ValidateRequestResponseAsync();
@@ -1072,12 +1067,12 @@ public class RoleControllerTests(
   public async Task Create_Valid_Role_Claim_Returns_Role_Details()
   {
     // Arrange
-    _testDbHelper.SeedDatabase();
-    _testDbHelper.CreateIdentityRole(_testDbHelper.AdminRoles.First());
-    _testDbHelper.ConfigureIdentityUserAsGlobalAdmin();
+    TestDbHelper.SeedDatabase();
+    TestDbHelper.CreateIdentityRole(TestDbHelper.AdminRoles.First());
+    TestDbHelper.ConfigureIdentityUserAsGlobalAdmin();
 
     var additionalRolename = "testapp:additionalrole";
-    var role = _testDbHelper.CreateIdentityRole(additionalRolename);
+    var role = TestDbHelper.CreateIdentityRole(additionalRolename);
 
     var requestPayload = new
     {
@@ -1087,7 +1082,7 @@ public class RoleControllerTests(
     };
 
     // Act
-    var response = await _httpClient.SendValidAuthRequestAsync(HttpMethod.Post, _baseUri + "/claim", requestPayload);
+    var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Post, _baseUri + "/claim", requestPayload);
 
     // Assert
     var responseString = await response.ValidateRequestResponseAsync();
@@ -1106,21 +1101,21 @@ public class RoleControllerTests(
     Assert.NotNull(roleClaim);
     Assert.Equal(requestPayload.Resource, roleClaim.Resource);
     Assert.Equal(requestPayload.Action, roleClaim.Action);
-    Assert.Equal($"{requestPayload.Resource}{ZenConstants.SERVICE_ROLE_SEPARATOR}{requestPayload.Action}", roleClaim.Scope);
+    Assert.Equal($"{requestPayload.Resource}{Separators.ServiceRole}{requestPayload.Action}", roleClaim.Scope);
   }
 
   [Fact]
   public async Task Create_Existing_User_Role_Claim_Does_Not_Create_Role_Claim()
   {
     // Arrange
-    _testDbHelper.SeedDatabase();
-    _testDbHelper.CreateIdentityRole(_testDbHelper.AdminRoles.First());
-    _testDbHelper.ConfigureIdentityUserAsGlobalAdmin();
+    TestDbHelper.SeedDatabase();
+    TestDbHelper.CreateIdentityRole(TestDbHelper.AdminRoles.First());
+    TestDbHelper.ConfigureIdentityUserAsGlobalAdmin();
 
     var additionalRolename = "testapp:additionalrole";
-    var role = _testDbHelper.CreateIdentityRole(additionalRolename);
+    var role = TestDbHelper.CreateIdentityRole(additionalRolename);
 
-    var createRoleClaimResult = _testDbHelper.UpdateRoleClaim(additionalRolename, $"user{ZenConstants.SCOPE_CLAIM_SEPARATOR}edit");
+    var createRoleClaimResult = TestDbHelper.UpdateRoleClaim(additionalRolename, $"user{Separators.ScopeClaim}edit");
 
     Assert.True(createRoleClaimResult);
 
@@ -1132,7 +1127,7 @@ public class RoleControllerTests(
     };
 
     // Act
-    var response = await _httpClient.SendValidAuthRequestAsync(HttpMethod.Post, _baseUri + "/claim", requestPayload);
+    var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Post, _baseUri + "/claim", requestPayload);
 
     // Assert
     var responseString = await response.ValidateRequestResponseAsync();
@@ -1145,7 +1140,7 @@ public class RoleControllerTests(
     Assert.Equal("Request Failed", $"{jsonObject["requestStatus"]}");
     Assert.Equal("400 - BAD REQUEST", $"{jsonObject["statusMessage"]}");
 
-    Assert.Equal($"A record identified with - {$"user{ZenConstants.SCOPE_CLAIM_SEPARATOR}edit"} - exists", $"{jsonObject["error"]?["message"]}");
+    Assert.Equal($"A record identified with - {$"user{Separators.ScopeClaim}edit"} - exists", $"{jsonObject["error"]?["message"]}");
 
     var dateTime = (DateTime?)jsonObject["error"]?["timestamp"];
 
@@ -1159,21 +1154,21 @@ public class RoleControllerTests(
   public async Task Create_Role_Claim_With_Invalid_Payload_Returns_Validation_Result()
   {
     // Arrange
-    _testDbHelper.SeedDatabase();
-    _testDbHelper.CreateIdentityRole(_testDbHelper.AdminRoles.First());
-    _testDbHelper.ConfigureIdentityUserAsGlobalAdmin();
+    TestDbHelper.SeedDatabase();
+    TestDbHelper.CreateIdentityRole(TestDbHelper.AdminRoles.First());
+    TestDbHelper.ConfigureIdentityUserAsGlobalAdmin();
 
     var additionalRoleId = Guid.NewGuid().ToString();
     var additionalRolename = "testapp:additionalrole";
 
-    var role = _testDbHelper.CreateIdentityRole(additionalRolename);
+    var role = TestDbHelper.CreateIdentityRole(additionalRolename);
 
     var requestPayload = new
     {
     };
 
     // Act
-    var response = await _httpClient.SendValidAuthRequestAsync(HttpMethod.Post, _baseUri + "/claim", requestPayload);
+    var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Post, _baseUri + "/claim", requestPayload);
 
     // Assert
     var responseString = await response.ValidateRequestResponseAsync();
@@ -1208,11 +1203,11 @@ public class RoleControllerTests(
   public async Task Create_Role_Claim_With_Unknown_Action_Returns_Validation_Result()
   {
     // Arrange
-    _testDbHelper.SeedDatabase();
-    _testDbHelper.ConfigureIdentityUserAsGlobalAdmin();
+    TestDbHelper.SeedDatabase();
+    TestDbHelper.ConfigureIdentityUserAsGlobalAdmin();
 
     var additionalRolename = "testapp:additionalrole";
-    var role = _testDbHelper.CreateIdentityRole(additionalRolename);
+    var role = TestDbHelper.CreateIdentityRole(additionalRolename);
 
     var requestPayload = new
     {
@@ -1222,7 +1217,7 @@ public class RoleControllerTests(
     };
 
     // Act
-    var response = await _httpClient.SendValidAuthRequestAsync(HttpMethod.Post, _baseUri + "/claim", requestPayload);
+    var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Post, _baseUri + "/claim", requestPayload);
 
     // Assert
     var responseString = await response.ValidateRequestResponseAsync();
@@ -1232,17 +1227,17 @@ public class RoleControllerTests(
     var errorList = SerDeHelper.Deserialize<JObject>(responseString)?["error"]?["errorList"]?.ToObject<List<ValidationError>>();
 
     Assert.True(errorList?.Any(x => x.Field == "Action") ?? false);
-    Assert.Empty(_testDbHelper.GetRoleClaims(additionalRolename));
+    Assert.Empty(TestDbHelper.GetRoleClaims(additionalRolename));
   }
 
   [Fact]
   public async Task Create_Role_Claim_With_No_Auth_Returns_Auth_Error()
   {
     // Arrange
-    _testDbHelper.SeedDatabase();
+    TestDbHelper.SeedDatabase();
 
     var additionalRolename = "testapp:additionalrole";
-    var role = _testDbHelper.CreateIdentityRole(additionalRolename);
+    var role = TestDbHelper.CreateIdentityRole(additionalRolename);
 
     var requestPayload = new
     {
@@ -1252,7 +1247,7 @@ public class RoleControllerTests(
     };
 
     // Act
-    var response = await _httpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/claim", requestPayload);
+    var response = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/claim", requestPayload);
 
     // Assert
     await response.ValidateRequestResponseAsync();
@@ -1264,11 +1259,11 @@ public class RoleControllerTests(
   public async Task Create_Role_Claim_With_Invalid_Auth_Returns_Auth_Error()
   {
     // Arrange
-    _testDbHelper.SeedDatabase();
+    TestDbHelper.SeedDatabase();
 
     var additionalRolename = "testapp:additionalrole";
 
-    var role = _testDbHelper.CreateIdentityRole(additionalRolename);
+    var role = TestDbHelper.CreateIdentityRole(additionalRolename);
 
     var requestPayload = new
     {
@@ -1278,7 +1273,7 @@ public class RoleControllerTests(
     };
 
     // Act
-    var response = await _httpClient.SendInvalidAuthRequestAsync(HttpMethod.Post, _baseUri + "/claim", requestPayload);
+    var response = await HttpClient.SendInvalidAuthRequestAsync(HttpMethod.Post, _baseUri + "/claim", requestPayload);
 
     // Assert
     await response.ValidateRequestResponseAsync();
@@ -1291,12 +1286,12 @@ public class RoleControllerTests(
   {
     // Arrange
     // Arrange
-    var user = _testDbHelper.CreateIdentityUser();
+    var user = TestDbHelper.CreateIdentityUser();
     var roleName = "testapp:additionalrole";
-    var role = _testDbHelper.CreateIdentityRole(roleName);
-    _testDbHelper.CreateIdentityUserRole(roleName, user.Id);
-    _testDbHelper.CreateUserEntity();
-    _testDbHelper.CreateRefreshTokenEntity();
+    var role = TestDbHelper.CreateIdentityRole(roleName);
+    TestDbHelper.CreateIdentityUserRole(roleName, user.Id);
+    TestDbHelper.CreateUserEntity();
+    TestDbHelper.CreateRefreshTokenEntity();
 
     var requestPayload = new
     {
@@ -1306,7 +1301,7 @@ public class RoleControllerTests(
     };
 
     // Act
-    var response = await _httpClient.SendValidAuthRequestAsync(HttpMethod.Post, _baseUri + "/claim", requestPayload);
+    var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Post, _baseUri + "/claim", requestPayload);
 
     // Assert
     await response.ValidateRequestResponseAsync();
@@ -1318,19 +1313,19 @@ public class RoleControllerTests(
   public async Task Get_Role_Claims_Returns_Role_Claims()
   {
     // Arrange
-    _testDbHelper.SeedDatabase();
-    _testDbHelper.CreateIdentityRole(_testDbHelper.AdminRoles.First());
-    _testDbHelper.ConfigureIdentityUserAsGlobalAdmin();
+    TestDbHelper.SeedDatabase();
+    TestDbHelper.CreateIdentityRole(TestDbHelper.AdminRoles.First());
+    TestDbHelper.ConfigureIdentityUserAsGlobalAdmin();
 
     var additionalRolename = "testapp:additionalrole";
 
-    var role = _testDbHelper.CreateIdentityRole(additionalRolename);
-    var createRoleClaimResult = _testDbHelper.UpdateRoleClaim(additionalRolename, $"user{ZenConstants.SCOPE_CLAIM_SEPARATOR}edit");
+    var role = TestDbHelper.CreateIdentityRole(additionalRolename);
+    var createRoleClaimResult = TestDbHelper.UpdateRoleClaim(additionalRolename, $"user{Separators.ScopeClaim}edit");
 
     Assert.True(createRoleClaimResult);
 
     // Act
-    var response = await _httpClient.SendValidAuthRequestAsync(HttpMethod.Get, _baseUri + "/claim/" + role.Id);
+    var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Get, _baseUri + "/claim/" + role.Id);
 
     // Assert
     var responseString = await response.ValidateRequestResponseAsync();
@@ -1350,21 +1345,21 @@ public class RoleControllerTests(
     Assert.Equal(1, roleClaims?.Count);
     Assert.Equal("user", roleClaims?[0].Resource);
     Assert.Equal("edit", roleClaims?[0].Action);
-    Assert.Equal($"user{ZenConstants.SCOPE_CLAIM_SEPARATOR}edit", roleClaims?[0].Scope);
+    Assert.Equal($"user{Separators.ScopeClaim}edit", roleClaims?[0].Scope);
   }
 
   [Fact]
   public async Task Get_Non_Existent_Role_Claim_Does_Not_Return_Role_Claim()
   {
     // Arrange
-    _testDbHelper.SeedDatabase();
-    _testDbHelper.CreateIdentityRole(_testDbHelper.AdminRoles.First());
-    _testDbHelper.ConfigureIdentityUserAsGlobalAdmin();
+    TestDbHelper.SeedDatabase();
+    TestDbHelper.CreateIdentityRole(TestDbHelper.AdminRoles.First());
+    TestDbHelper.ConfigureIdentityUserAsGlobalAdmin();
 
     var nonExistentRoleId = Guid.NewGuid().ToString();
 
     // Act
-    var response = await _httpClient.SendValidAuthRequestAsync(HttpMethod.Get, _baseUri + "/claim/" + nonExistentRoleId);
+    var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Get, _baseUri + "/claim/" + nonExistentRoleId);
 
     // Assert
     var responseString = await response.ValidateRequestResponseAsync();
@@ -1392,14 +1387,14 @@ public class RoleControllerTests(
   public async Task Get_Role_Claims_With_No_Auth_Returns_Auth_Error()
   {
     // Arrange
-    _testDbHelper.SeedDatabase();
+    TestDbHelper.SeedDatabase();
 
     var additionalRolename = "testapp:additionalrole";
 
-    var role = _testDbHelper.CreateIdentityRole(additionalRolename);
+    var role = TestDbHelper.CreateIdentityRole(additionalRolename);
 
     // Act
-    var response = await _httpClient.SendNoAuthRequestAsync(HttpMethod.Get, _baseUri + "/claim/" + role.Id);
+    var response = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Get, _baseUri + "/claim/" + role.Id);
 
     // Assert
     await response.ValidateRequestResponseAsync();
@@ -1411,13 +1406,13 @@ public class RoleControllerTests(
   public async Task Get_Role_Claims_With_Invalid_Auth_Returns_Auth_Error()
   {
     // Arrange
-    _testDbHelper.SeedDatabase();
+    TestDbHelper.SeedDatabase();
 
     var additionalRolename = "testapp:additionalrole";
-    var role = _testDbHelper.CreateIdentityRole(additionalRolename);
+    var role = TestDbHelper.CreateIdentityRole(additionalRolename);
 
     // Act
-    var response = await _httpClient.SendInvalidAuthRequestAsync(HttpMethod.Get, _baseUri + "/claim/" + role.Id);
+    var response = await HttpClient.SendInvalidAuthRequestAsync(HttpMethod.Get, _baseUri + "/claim/" + role.Id);
 
     // Assert
     await response.ValidateRequestResponseAsync();
@@ -1430,15 +1425,15 @@ public class RoleControllerTests(
   {
     // Arrange
     // Arrange
-    var user = _testDbHelper.CreateIdentityUser();
+    var user = TestDbHelper.CreateIdentityUser();
     var roleName = "testapp:additionalrole";
-    var role = _testDbHelper.CreateIdentityRole(roleName);
-    _testDbHelper.CreateIdentityUserRole(roleName, user.Id);
-    _testDbHelper.CreateUserEntity();
-    _testDbHelper.CreateRefreshTokenEntity();
+    var role = TestDbHelper.CreateIdentityRole(roleName);
+    TestDbHelper.CreateIdentityUserRole(roleName, user.Id);
+    TestDbHelper.CreateUserEntity();
+    TestDbHelper.CreateRefreshTokenEntity();
 
     // Act
-    var response = await _httpClient.SendValidAuthRequestAsync(HttpMethod.Get, _baseUri + "/claim/" + role.Id);
+    var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Get, _baseUri + "/claim/" + role.Id);
 
     // Assert
     await response.ValidateRequestResponseAsync();
@@ -1450,15 +1445,15 @@ public class RoleControllerTests(
   public async Task Delete_Existing_User_Role_Claim_Deletes_Role_Claim()
   {
     // Arrange
-    _testDbHelper.SeedDatabase();
-    _testDbHelper.CreateIdentityRole(_testDbHelper.AdminRoles.First());
-    _testDbHelper.ConfigureIdentityUserAsGlobalAdmin();
+    TestDbHelper.SeedDatabase();
+    TestDbHelper.CreateIdentityRole(TestDbHelper.AdminRoles.First());
+    TestDbHelper.ConfigureIdentityUserAsGlobalAdmin();
 
     var additionalRolename = "testapp:additionalrole";
 
-    var role = _testDbHelper.CreateIdentityRole(additionalRolename);
+    var role = TestDbHelper.CreateIdentityRole(additionalRolename);
 
-    var createRoleClaimResult = _testDbHelper.UpdateRoleClaim(additionalRolename, $"user{ZenConstants.SCOPE_CLAIM_SEPARATOR}edit");
+    var createRoleClaimResult = TestDbHelper.UpdateRoleClaim(additionalRolename, $"user{Separators.ScopeClaim}edit");
 
     Assert.True(createRoleClaimResult);
 
@@ -1470,7 +1465,7 @@ public class RoleControllerTests(
     };
 
     // Act
-    var response = await _httpClient.SendValidAuthRequestAsync(HttpMethod.Delete, _baseUri + "/claim", requestPayload);
+    var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Delete, _baseUri + "/claim", requestPayload);
 
     // Assert
     var responseString = await response.ValidateRequestResponseAsync();
@@ -1488,13 +1483,13 @@ public class RoleControllerTests(
   public async Task Delete_Non_Existing_Role_Claim_Does_Not_Delete_Role_Claim()
   {
     // Arrange
-    _testDbHelper.SeedDatabase();
-    _testDbHelper.CreateIdentityRole(_testDbHelper.AdminRoles.First());
-    _testDbHelper.ConfigureIdentityUserAsGlobalAdmin();
+    TestDbHelper.SeedDatabase();
+    TestDbHelper.CreateIdentityRole(TestDbHelper.AdminRoles.First());
+    TestDbHelper.ConfigureIdentityUserAsGlobalAdmin();
 
     var additionalRolename = "testapp:additionalrole";
 
-    var role = _testDbHelper.CreateIdentityRole(additionalRolename);
+    var role = TestDbHelper.CreateIdentityRole(additionalRolename);
 
     var requestPayload = new
     {
@@ -1504,7 +1499,7 @@ public class RoleControllerTests(
     };
 
     // Act
-    var response = await _httpClient.SendValidAuthRequestAsync(HttpMethod.Delete, _baseUri + "/claim", requestPayload);
+    var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Delete, _baseUri + "/claim", requestPayload);
 
     // Assert
     var responseString = await response.ValidateRequestResponseAsync();
@@ -1532,19 +1527,19 @@ public class RoleControllerTests(
   public async Task Delete_Role_Claim_With_Invalid_Payload_Returns_Validation_Result()
   {
     // Arrange
-    _testDbHelper.SeedDatabase();
-    _testDbHelper.CreateIdentityRole(_testDbHelper.AdminRoles.First());
-    _testDbHelper.ConfigureIdentityUserAsGlobalAdmin();
+    TestDbHelper.SeedDatabase();
+    TestDbHelper.CreateIdentityRole(TestDbHelper.AdminRoles.First());
+    TestDbHelper.ConfigureIdentityUserAsGlobalAdmin();
 
     var additionalRolename = "testapp:additionalrole";
-    var role = _testDbHelper.CreateIdentityRole(additionalRolename);
+    var role = TestDbHelper.CreateIdentityRole(additionalRolename);
 
     var requestPayload = new
     {
     };
 
     // Act
-    var response = await _httpClient.SendValidAuthRequestAsync(HttpMethod.Delete, _baseUri + "/claim", requestPayload);
+    var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Delete, _baseUri + "/claim", requestPayload);
 
     // Assert
     var responseString = await response.ValidateRequestResponseAsync();
@@ -1579,10 +1574,10 @@ public class RoleControllerTests(
   public async Task Delete_Role_Claim_With_No_Auth_Returns_Auth_Error()
   {
     // Arrange
-    _testDbHelper.SeedDatabase();
+    TestDbHelper.SeedDatabase();
 
     var additionalRolename = "testapp:additionalrole";
-    var role = _testDbHelper.CreateIdentityRole(additionalRolename);
+    var role = TestDbHelper.CreateIdentityRole(additionalRolename);
 
     var requestPayload = new
     {
@@ -1592,7 +1587,7 @@ public class RoleControllerTests(
     };
 
     // Act
-    var response = await _httpClient.SendNoAuthRequestAsync(HttpMethod.Delete, _baseUri + "/claim", requestPayload);
+    var response = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Delete, _baseUri + "/claim", requestPayload);
 
     // Assert
     await response.ValidateRequestResponseAsync();
@@ -1604,10 +1599,10 @@ public class RoleControllerTests(
   public async Task Delete_Role_Claim_With_Invalid_Auth_Returns_Auth_Error()
   {
     // Arrange
-    _testDbHelper.SeedDatabase();
+    TestDbHelper.SeedDatabase();
 
     var additionalRolename = "testapp:additionalrole";
-    var role = _testDbHelper.CreateIdentityRole(additionalRolename);
+    var role = TestDbHelper.CreateIdentityRole(additionalRolename);
 
     var requestPayload = new
     {
@@ -1617,7 +1612,7 @@ public class RoleControllerTests(
     };
 
     // Act
-    var response = await _httpClient.SendInvalidAuthRequestAsync(HttpMethod.Delete, _baseUri + "/claim", requestPayload);
+    var response = await HttpClient.SendInvalidAuthRequestAsync(HttpMethod.Delete, _baseUri + "/claim", requestPayload);
 
     // Assert
     await response.ValidateRequestResponseAsync();
@@ -1630,12 +1625,12 @@ public class RoleControllerTests(
   {
     // Arrange
     // Arrange
-    var user = _testDbHelper.CreateIdentityUser();
+    var user = TestDbHelper.CreateIdentityUser();
     var roleName = "testapp:additionalrole";
-    var role = _testDbHelper.CreateIdentityRole(roleName);
-    _testDbHelper.CreateIdentityUserRole(roleName, user.Id);
-    _testDbHelper.CreateUserEntity();
-    _testDbHelper.CreateRefreshTokenEntity();
+    var role = TestDbHelper.CreateIdentityRole(roleName);
+    TestDbHelper.CreateIdentityUserRole(roleName, user.Id);
+    TestDbHelper.CreateUserEntity();
+    TestDbHelper.CreateRefreshTokenEntity();
 
     var requestPayload = new
     {
@@ -1645,7 +1640,7 @@ public class RoleControllerTests(
     };
 
     // Act
-    var response = await _httpClient.SendValidAuthRequestAsync(HttpMethod.Delete, _baseUri + "/claim", requestPayload);
+    var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Delete, _baseUri + "/claim", requestPayload);
 
     // Assert
     await response.ValidateRequestResponseAsync();

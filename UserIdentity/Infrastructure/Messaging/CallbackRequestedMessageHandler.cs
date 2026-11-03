@@ -19,18 +19,18 @@ public class CallbackRequestedMessageHandler(
     var userRegisteredEvent = new UserRegisteredEvent
     {
       AppName = message.RegisteredApp,
-      UserId = Attribute(message, MessageAttribute.USER_ID) ?? throw new InvalidDataException($"Callback message {message.CorrelationId} has no user id"),
-      FirstName = Attribute(message, MessageAttribute.FIRST_NAME),
-      LastName = Attribute(message, MessageAttribute.LAST_NAME),
-      UserName = Attribute(message, MessageAttribute.USER_NAME),
-      PhoneNumber = Attribute(message, MessageAttribute.RECIPIENT_PHONE),
-      UserEmail = Attribute(message, MessageAttribute.RECIPIENT_EMAIL)
+      UserId = Attribute(message, MessageAttributeKey.UserId) ?? throw new InvalidDataException($"Callback message {message.CorrelationId} has no user id"),
+      FirstName = Attribute(message, MessageAttributeKey.FirstName),
+      LastName = Attribute(message, MessageAttributeKey.LastName),
+      UserName = Attribute(message, MessageAttributeKey.UserName),
+      PhoneNumber = Attribute(message, MessageAttributeKey.RecipientPhone),
+      UserEmail = Attribute(message, MessageAttributeKey.RecipientEmail)
     };
 
     return _userRegisteredEventHandler.HandleEventAsync(userRegisteredEvent, cancellationToken);
   }
 
   // Missing values are sent as empty strings
-  private static string? Attribute(MessageEvent message, MessageAttribute key) =>
+  private static string? Attribute(MessageEvent message, MessageAttributeKey key) =>
     message.Attributes.TryGetValue(key, out var value) && value.Length > 0 ? value : null;
 }

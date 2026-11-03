@@ -1,15 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
-
-using FakeItEasy;
+﻿using FakeItEasy;
 
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Time.Testing;
 
-using PolyzenKit.Application.Interfaces;
 using PolyzenKit.Persistence.Repositories;
 
 using UserIdentity.Application.Core.Users.Commands;
@@ -31,11 +25,11 @@ public class DeleteUnconfirmedUsersCommandHandlerTests
   private readonly IUnitOfWork _unitOfWork = A.Fake<IUnitOfWork>();
   private readonly IUserRepository _userRepository = A.Fake<IUserRepository>();
   private readonly IInviteCodeRepository _inviteCodeRepository = A.Fake<IInviteCodeRepository>();
-  private readonly IMachineDateTime _machineDateTime = A.Fake<IMachineDateTime>();
+  private readonly FakeTimeProvider _timeProvider = new();
 
   public DeleteUnconfirmedUsersCommandHandlerTests()
   {
-    A.CallTo(() => _machineDateTime.Now).Returns(_fixedNow);
+    _timeProvider.SetUtcNow(_fixedNow);
   }
 
   private DeleteUnconfirmedUsersCommandHandler CreateHandler(bool requireConfirmedAccount = true)
@@ -44,7 +38,7 @@ public class DeleteUnconfirmedUsersCommandHandlerTests
     identityOptions.SignIn.RequireConfirmedAccount = requireConfirmedAccount;
 
     return new(_userManager, Options.Create(identityOptions), Options.Create(new CleanupSettings { UnconfirmedUserLifetimeInDays = 30 }),
-      _unitOfWork, _userRepository, _inviteCodeRepository, _machineDateTime);
+      _unitOfWork, _userRepository, _inviteCodeRepository, _timeProvider);
   }
 
   [Fact]

@@ -38,7 +38,7 @@ public class CreateUserRoleCommandHandler(
   private readonly IUserRegisteredAppRepository _userRegisteredAppRepository = userRegisteredAppRepository;
   private readonly IGetItemsQueryHandler<GetUserRolesQuery, UserRolesViewModel> _getUserRolesQueryHandler = getUserRolesQueryHandler;
 
-  public async Task<UserRolesViewModel> CreateItemAsync(CreateUserRoleCommand command, string userid, CancellationToken cancellationToken = default)
+  public async Task<UserRolesViewModel> CreateItemAsync(CreateUserRoleCommand command, string userId, CancellationToken cancellationToken = default)
   {
     var user = await _userManager.FindByIdAsync(command.UserId) ?? throw NoRecordException.ForIdentifier(command.UserId);
 

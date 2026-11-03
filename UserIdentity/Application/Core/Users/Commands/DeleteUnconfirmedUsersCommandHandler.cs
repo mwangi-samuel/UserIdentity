@@ -3,7 +3,6 @@ using Microsoft.Extensions.Options;
 
 using PolyzenKit.Application.Core;
 using PolyzenKit.Application.Core.Interfaces;
-using PolyzenKit.Application.Interfaces;
 using PolyzenKit.Persistence.Repositories;
 
 using UserIdentity.Application.Core.Users.Shared;
@@ -22,7 +21,7 @@ public class DeleteUnconfirmedUsersCommandHandler(
   IUnitOfWork unitOfWork,
   IUserRepository userRepository,
   IInviteCodeRepository inviteCodeRepository,
-  IMachineDateTime machineDateTime
+  TimeProvider timeProvider
   ) : IDeleteItemCommandHandler<DeleteUnconfirmedUsersCommand, DeleteRecordViewModel>
 {
   public const int BatchSize = 100;
@@ -33,7 +32,7 @@ public class DeleteUnconfirmedUsersCommandHandler(
   private readonly IUnitOfWork _unitOfWork = unitOfWork;
   private readonly IUserRepository _userRepository = userRepository;
   private readonly IInviteCodeRepository _inviteCodeRepository = inviteCodeRepository;
-  private readonly IMachineDateTime _machineDateTime = machineDateTime;
+  private readonly TimeProvider _timeProvider = timeProvider;
 
   public async Task<DeleteRecordViewModel> DeleteItemAsync(DeleteUnconfirmedUsersCommand command, string userId, CancellationToken cancellationToken = default)
   {
@@ -41,7 +40,7 @@ public class DeleteUnconfirmedUsersCommandHandler(
     if (!_identityOptions.SignIn.RequireConfirmedAccount)
       return new DeleteRecordViewModel();
 
-    var createdBefore = _machineDateTime.Now.AddDays(-_cleanupSettings.UnconfirmedUserLifetimeInDays);
+    var createdBefore = _timeProvider.GetUtcNow().UtcDateTime.AddDays(-_cleanupSettings.UnconfirmedUserLifetimeInDays);
     List<UserEntity> entities;
 
     do

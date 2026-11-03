@@ -7,8 +7,8 @@ using Microsoft.IdentityModel.Tokens;
 using PolyzenKit.Application.Core;
 using PolyzenKit.Application.Core.Interfaces;
 using PolyzenKit.Application.Interfaces;
+using PolyzenKit.Common.Extensions;
 using PolyzenKit.Common.Settings;
-using PolyzenKit.Common.Utilities;
 using PolyzenKit.Domain.Entities;
 using PolyzenKit.Persistence.Repositories;
 
@@ -37,7 +37,7 @@ public class ExchangeRefreshTokenCommandHandler(
     IUnitOfWork unitOfWork,
     IRefreshTokenRepository refreshTokenRepository,
     IRoleRepository roleRepository,
-    IMachineDateTime machineDateTime,
+    TimeProvider timeProvider,
     IUserRegisteredAppRepository userRegisteredAppRepository,
     IOptions<RoleSettings> roleSettingsOptions
     ) : IUpdateItemCommandHandler<ExchangeRefreshTokenCommand, ExchangeRefreshTokenViewModel>
@@ -48,15 +48,15 @@ public class ExchangeRefreshTokenCommandHandler(
 
   private readonly IUnitOfWork _unitOfWork = unitOfWork;
   private readonly IRefreshTokenRepository _refreshTokenRepository = refreshTokenRepository;
-  private readonly IMachineDateTime _machineDateTime = machineDateTime;
+  private readonly TimeProvider _timeProvider = timeProvider;
 
   private readonly IUserRegisteredAppRepository _userRegisteredAppRepository = userRegisteredAppRepository;
-  private readonly UserTokenIssuer _userTokenIssuer = new(roleRepository, refreshTokenRepository, jwtTokenHandler, tokenFactory, machineDateTime, roleSettingsOptions.Value, refreshTokenSettingsOptions.Value);
+  private readonly UserTokenIssuer _userTokenIssuer = new(roleRepository, refreshTokenRepository, jwtTokenHandler, tokenFactory, timeProvider, roleSettingsOptions.Value, refreshTokenSettingsOptions.Value);
 
   public async Task<ExchangeRefreshTokenViewModel> UpdateItemAsync(ExchangeRefreshTokenCommand command, string userId, CancellationToken cancellationToken = default)
   {
-    var requestAccessToken = ObjectUtil.RequireNonNullValue(command.AccessToken, nameof(command.AccessToken));
-    var requestRefreshToken = ObjectUtil.RequireNonNullValue(command.RefreshToken, nameof(command.RefreshToken));
+    var requestAccessToken = ObjectExtensions.RequireNonNullValue(command.AccessToken, nameof(command.AccessToken));
+    var requestRefreshToken = ObjectExtensions.RequireNonNullValue(command.RefreshToken, nameof(command.RefreshToken));
 
     // The access token being exchanged is expected to have expired, so only its signature and claims are validated
     var tokenValidationResult = await _jwtTokenHandler.ValidateTokenAsync(requestAccessToken, validateLifetime: false);
@@ -76,7 +76,7 @@ public class ExchangeRefreshTokenCommandHandler(
       Token = requestRefreshTokenHash
     };
 
-    var existingEntity = await _refreshTokenRepository.GetEntityByAlternateIdAsync(tokenEntity, QueryCondition.MAY_OR_MAY_NOT_EXIST, cancellationToken);
+    var existingEntity = await _refreshTokenRepository.GetEntityByAlternateIdAsync(tokenEntity, QueryCondition.MayOrMayNotExist, cancellationToken);
 
     if (existingEntity is null)
     {
@@ -89,7 +89,7 @@ public class ExchangeRefreshTokenCommandHandler(
       throw new SecurityTokenException("Invalid refresh token provided");
     }
 
-    if (existingEntity.Expires <= _machineDateTime.Now)
+    if (existingEntity.Expires <= _timeProvider.GetUtcNow().UtcDateTime)
     {
       await RemoveRefreshTokenAsync(existingEntity, cancellationToken);
 
@@ -110,9 +110,9 @@ public class ExchangeRefreshTokenCommandHandler(
 
     existingEntity.PreviousToken = existingEntity.Token;
     existingEntity.Token = _tokenFactory.HashToken(updateRefreshToken);
-    existingEntity.Expires = _machineDateTime.Now.AddSeconds(_refreshTokenSettings.ValidForSeconds);
+    existingEntity.Expires = _timeProvider.GetUtcNow().UtcDateTime.AddSeconds(_refreshTokenSettings.ValidForSeconds);
     existingEntity.Version = Guid.NewGuid();
-    existingEntity.UpdateEntityAuditFields(tokenUserId, _machineDateTime.Now);
+    existingEntity.UpdateEntityAuditFields(tokenUserId, _timeProvider.GetUtcNow().UtcDateTime);
 
     _refreshTokenRepository.UpdateEntityItem(existingEntity);
 

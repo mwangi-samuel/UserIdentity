@@ -1,7 +1,4 @@
-﻿using System.Threading;
-using System.Threading.Tasks;
-
-using FakeItEasy;
+﻿using FakeItEasy;
 
 using PolyzenKit.Common.Exceptions;
 using PolyzenKit.Domain.Entities.RegisteredApps;
@@ -40,7 +37,7 @@ public class GetWaitListQueryHandlerTests
     // Arrange
     var entity = new WaitListEntity { Id = 7, UserEmail = "shopper@example.com", AppId = 1, App = new RegisteredAppEntity { Id = 1, AppName = "TestApp" } };
     A.CallTo(() => _waitListRepository.GetEntityByAlternateIdAsync(
-        A<WaitListEntity>.That.Matches(e => e.AppId == 1 && e.UserEmail == "shopper@example.com"), QueryCondition.MUST_EXIST, A<CancellationToken>._))
+        A<WaitListEntity>.That.Matches(e => e.AppId == 1 && e.UserEmail == "shopper@example.com"), QueryCondition.MustExist, A<CancellationToken>._))
       .Returns(entity);
 
     // Act

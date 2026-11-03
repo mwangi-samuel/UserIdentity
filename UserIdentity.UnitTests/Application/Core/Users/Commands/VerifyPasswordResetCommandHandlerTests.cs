@@ -1,8 +1,6 @@
-﻿using System;
-using System.Threading;
-using System.Threading.Tasks;
+﻿using FakeItEasy;
 
-using FakeItEasy;
+using Microsoft.Extensions.Time.Testing;
 
 using PolyzenKit.Application.Interfaces;
 using PolyzenKit.Common.Exceptions;
@@ -26,14 +24,14 @@ public class VerifyPasswordResetCommandHandlerTests
   private readonly ITokenFactory _tokenFactory;
   private readonly IUnitOfWork _unitOfWork;
   private readonly IPasswordResetRepository _passwordResetRepository;
-  private readonly IMachineDateTime _machineDateTime;
+  private readonly FakeTimeProvider _timeProvider;
 
   public VerifyPasswordResetCommandHandlerTests()
   {
     _tokenFactory = A.Fake<ITokenFactory>();
     _unitOfWork = A.Fake<IUnitOfWork>();
     _passwordResetRepository = A.Fake<IPasswordResetRepository>();
-    _machineDateTime = A.Fake<IMachineDateTime>();
+    _timeProvider = new FakeTimeProvider();
 
     A.CallTo(() => _tokenFactory.HashToken(ResetRequestId)).Returns(ResetRequestIdHash);
   }
@@ -41,10 +39,10 @@ public class VerifyPasswordResetCommandHandlerTests
   [Fact]
   public async Task UpdateItemAsync_WhenRequestNotFound_ThrowsNoRecordException()
   {
-    A.CallTo(() => _passwordResetRepository.GetEntityByAlternateIdAsync(A<PasswordResetEntity>._, QueryCondition.MUST_EXIST, A<CancellationToken>._))
+    A.CallTo(() => _passwordResetRepository.GetEntityByAlternateIdAsync(A<PasswordResetEntity>._, QueryCondition.MustExist, A<CancellationToken>._))
       .Throws(NoRecordException.ForIdentifier(ResetRequestIdHash));
 
-    var handler = new VerifyPasswordResetCommandHandler(_tokenFactory, _unitOfWork, _passwordResetRepository, _machineDateTime);
+    var handler = new VerifyPasswordResetCommandHandler(_tokenFactory, _unitOfWork, _passwordResetRepository, _timeProvider);
 
     await Assert.ThrowsAsync<NoRecordException>(() => handler.UpdateItemAsync(new VerifyPasswordResetCommand { ResetRequestId = ResetRequestId }, TestStringHelper.UserId, TestContext.Current.CancellationToken));
 
@@ -57,10 +55,10 @@ public class VerifyPasswordResetCommandHandlerTests
     var existingEntity = new PasswordResetEntity { Id = Guid.NewGuid(), RequestId = ResetRequestIdHash, UserId = "user-id", Verified = false };
 
     A.CallTo(() => _passwordResetRepository.GetEntityByAlternateIdAsync(
-      A<PasswordResetEntity>.That.Matches(e => e.RequestId == ResetRequestIdHash), QueryCondition.MUST_EXIST, A<CancellationToken>._))
+      A<PasswordResetEntity>.That.Matches(e => e.RequestId == ResetRequestIdHash), QueryCondition.MustExist, A<CancellationToken>._))
       .Returns(existingEntity);
 
-    var handler = new VerifyPasswordResetCommandHandler(_tokenFactory, _unitOfWork, _passwordResetRepository, _machineDateTime);
+    var handler = new VerifyPasswordResetCommandHandler(_tokenFactory, _unitOfWork, _passwordResetRepository, _timeProvider);
 
     var vm = await handler.UpdateItemAsync(new VerifyPasswordResetCommand { ResetRequestId = ResetRequestId }, TestStringHelper.UserId, TestContext.Current.CancellationToken);
 

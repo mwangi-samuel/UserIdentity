@@ -29,8 +29,8 @@ public class UpdatePasswordCommandHandler(
     IUnitOfWork unitOfWork,
     IPasswordResetRepository passwordResetRepository,
     IRefreshTokenRepository refreshTokenRepository,
-    IMachineDateTime machineDateTime
-    ) : BaseAuditableItemCommandHandler<Guid, PasswordResetEntity, IPasswordResetRepository>(unitOfWork, passwordResetRepository, machineDateTime),
+    TimeProvider timeProvider
+    ) : BaseAuditableItemCommandHandler<Guid, PasswordResetEntity, IPasswordResetRepository>(unitOfWork, passwordResetRepository, timeProvider),
       IUpdateItemCommandHandler<UpdatePasswordCommand, UpdatePasswordViewModel>
 {
   private readonly UserManager<IdentityUser> _userManager = userManager;
@@ -44,9 +44,9 @@ public class UpdatePasswordCommandHandler(
       RequestId = _tokenFactory.HashToken(command.ResetRequestId)
     };
 
-    var existingEntity = await _repository.GetEntityByAlternateIdAsync(passwordResetEntity, QueryCondition.MAY_OR_MAY_NOT_EXIST, cancellationToken);
+    var existingEntity = await Repository.GetEntityByAlternateIdAsync(passwordResetEntity, QueryCondition.MayOrMayNotExist, cancellationToken);
 
-    if (existingEntity is null || !existingEntity.Verified || existingEntity.Applied || existingEntity.Expires <= _machineDateTime.Now)
+    if (existingEntity is null || !existingEntity.Verified || existingEntity.Applied || existingEntity.Expires <= TimeProvider.GetUtcNow().UtcDateTime)
       return GetUpdatePasswordViewModel(false);
 
     var userDetails = await _userManager.FindByIdAsync(existingEntity.UserId);
@@ -55,7 +55,7 @@ public class UpdatePasswordCommandHandler(
       return GetUpdatePasswordViewModel(false);
 
     // Start DB Transaction
-    await _unitOfWork.BeginTransactionAsync(cancellationToken);
+    await UnitOfWork.BeginTransactionAsync(cancellationToken);
 
     try
     {
@@ -76,11 +76,11 @@ public class UpdatePasswordCommandHandler(
       await _userManager.ResetAccessFailedCountAsync(userDetails);
 
       // Commit DB Transaction
-      await _unitOfWork.CommitTransactionAsync(cancellationToken);
+      await UnitOfWork.CommitTransactionAsync(cancellationToken);
     }
     catch
     {
-      await _unitOfWork.RollbackTransactionAsync();
+      await UnitOfWork.RollbackTransactionAsync(CancellationToken.None);
       throw;
     }
 

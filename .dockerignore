@@ -1,4 +1,7 @@
 *
+!Directory.Build.props
+!Directory.Packages.props
+!.editorconfig
 !UserIdentity/
 **/bin
 **/obj

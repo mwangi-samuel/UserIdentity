@@ -1,6 +1,7 @@
 ﻿using Microsoft.IdentityModel.Logging;
 
 using PolyzenKit;
+using PolyzenKit.Presentation.Endpoints;
 using PolyzenKit.Presentation.Middlewares;
 
 using UserIdentity;
@@ -8,6 +9,7 @@ using UserIdentity.Application.Interfaces;
 using UserIdentity.Infrastructure.ExternalServices;
 using UserIdentity.Persistence;
 using UserIdentity.Persistence.Migrations;
+using UserIdentity.Presentation.Endpoints;
 
 var builder = WebApplication.CreateBuilder(args);
 var assembly = typeof(Program).Assembly;
@@ -24,11 +26,13 @@ builder.Services.AddAppCommandAndQueryHandlers(assembly);
 
 builder.Services.AddAppEventHandlers(assembly);
 
-builder.Services.AddAppControllers(builder.Configuration);
+builder.Services.AddAppEndpoints();
+
+builder.Services.AddValidation();
 
 builder.Services.AddOpenApi();
 
-builder.Services.AddAppDateTimeHelpers();
+builder.Services.AddSingleton(TimeProvider.System);
 
 builder.Services.AddAppAuthentication(builder.Configuration);
 
@@ -37,8 +41,6 @@ builder.Services.AddAppAuthorization(builder.Configuration);
 builder.Services.AddAppApiKeySettings(builder.Configuration);
 
 builder.Services.AddAppRegisteredApps(builder.Configuration);
-
-builder.Services.AddHealthChecks();
 
 builder.Services.AddHttpContextAccessor();
 
@@ -85,7 +87,13 @@ app.UseAuthentication();
 
 app.UseAuthorization();
 
-app.MapControllers();
+app.MapUserEndpoints();
+app.MapRoleEndpoints();
+app.MapInviteCodeEndpoints();
+app.MapWaitListEndpoints();
+app.MapJwksEndpoints();
+app.MapAppEntityEndpoints();
+app.MapRegisteredAppEndpoints();
 
 app.MapHealthChecks("/health");
 

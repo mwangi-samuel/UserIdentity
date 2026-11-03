@@ -1,6 +1,5 @@
 ﻿using PolyzenKit.Application.Core;
 using PolyzenKit.Application.Core.Interfaces;
-using PolyzenKit.Application.Interfaces;
 
 using UserIdentity.Application.Core.Users.Shared;
 using UserIdentity.Persistence.Repositories.PasswordResets;
@@ -11,17 +10,17 @@ public record DeleteExpiredPasswordResetsCommand : IBaseCommand;
 
 public class DeleteExpiredPasswordResetsCommandHandler(
   IPasswordResetRepository passwordResetRepository,
-  IMachineDateTime machineDateTime
+  TimeProvider timeProvider
   ) : IDeleteItemCommandHandler<DeleteExpiredPasswordResetsCommand, DeleteRecordViewModel>
 {
   public const int BatchSize = 100;
 
   private readonly IPasswordResetRepository _passwordResetRepository = passwordResetRepository;
-  private readonly IMachineDateTime _machineDateTime = machineDateTime;
+  private readonly TimeProvider _timeProvider = timeProvider;
 
   public async Task<DeleteRecordViewModel> DeleteItemAsync(DeleteExpiredPasswordResetsCommand command, string userId, CancellationToken cancellationToken = default)
   {
-    var expiredBefore = _machineDateTime.Now - PasswordResetSettings.RequestCountWindow;
+    var expiredBefore = _timeProvider.GetUtcNow().UtcDateTime - PasswordResetSettings.RequestCountWindow;
     int deleted;
 
     do

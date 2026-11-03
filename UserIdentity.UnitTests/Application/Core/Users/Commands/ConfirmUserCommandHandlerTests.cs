@@ -1,5 +1,3 @@
-using System.Threading.Tasks;
-
 using FakeItEasy;
 
 using Microsoft.AspNetCore.Identity;

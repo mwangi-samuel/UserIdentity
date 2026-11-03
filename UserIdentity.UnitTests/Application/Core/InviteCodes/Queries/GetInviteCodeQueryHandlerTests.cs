@@ -1,7 +1,4 @@
-﻿using System.Threading;
-using System.Threading.Tasks;
-
-using FakeItEasy;
+﻿using FakeItEasy;
 
 using PolyzenKit.Common.Exceptions;
 using PolyzenKit.Persistence.Repositories;
@@ -73,7 +70,7 @@ public class GetInviteCodeQueryHandlerTests
 
     A.CallTo(() => _inviteCodeRepository.GetEntityByAlternateIdAsync(
         A<InviteCodeEntity>.That.Matches(e => e.UserEmail == userEmail && e.AppId == 2),
-        QueryCondition.MUST_EXIST, A<CancellationToken>._)).Returns(entity);
+        QueryCondition.MustExist, A<CancellationToken>._)).Returns(entity);
 
     var query = new GetInviteCodeQuery { UserEmail = userEmail, AppId = 2 };
     var handler = new GetInviteCodeQueryHandler(_inviteCodeRepository);
@@ -90,7 +87,7 @@ public class GetInviteCodeQueryHandlerTests
 
     A.CallTo(() => _inviteCodeRepository.GetEntityByAlternateIdAsync(
         A<InviteCodeEntity>.That.Matches(e => e.UserEmail == userEmail && e.AppId == 2),
-        QueryCondition.MUST_EXIST, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+        QueryCondition.MustExist, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
     A.CallTo(() => _inviteCodeRepository.GetEntityDtoByIdAsync(A<long>._, A<CancellationToken>._)).MustNotHaveHappened();
   }
 
@@ -134,7 +131,7 @@ public class GetInviteCodeQueryHandlerTests
 
     A.CallTo(() => _inviteCodeRepository.GetEntityByAlternateIdAsync(
         A<InviteCodeEntity>.That.Matches(e => e.UserEmail == userEmail && e.AppId == 2),
-        QueryCondition.MUST_EXIST, A<CancellationToken>._))
+        QueryCondition.MustExist, A<CancellationToken>._))
         .ThrowsAsync(NoRecordException.ForIdentifier(userEmail));
 
     var query = new GetInviteCodeQuery { UserEmail = userEmail, AppId = 2 };

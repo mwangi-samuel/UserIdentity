@@ -1,6 +1,4 @@
-﻿using System.Threading.Tasks;
-
-using PolyzenKit.Domain.Entities.RegisteredApps;
+﻿using PolyzenKit.Domain.Entities.RegisteredApps;
 
 using UserIdentity.Domain.UserRegisteredApps;
 using UserIdentity.Persistence;

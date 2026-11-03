@@ -7,6 +7,7 @@ FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0-alpine AS build
 ARG TARGETARCH
 WORKDIR /src
 
+COPY ["Directory.Build.props", "Directory.Packages.props", ".editorconfig", "./"]
 COPY ["UserIdentity/UserIdentity.csproj", "UserIdentity/"]
 RUN dotnet restore "UserIdentity/UserIdentity.csproj" \
     -a $TARGETARCH \

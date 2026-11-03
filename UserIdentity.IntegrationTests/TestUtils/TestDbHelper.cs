@@ -1,6 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
+﻿using System.Globalization;
 using System.Security.Claims;
 
 using Microsoft.AspNetCore.Identity;
@@ -37,8 +35,8 @@ public sealed class TestDbHelper(
   private readonly RoleManager<IdentityRole> _roleManager = roleManager;
   private readonly TokenFactory _tokenFactory = new();
 
-  public string DefaultRole => $"{_currentAppNameNormalized}{ZenConstants.SERVICE_ROLE_SEPARATOR}{_roleSettings.DefaultRole}";
-  public HashSet<string> AdminRoles => [.. _roleSettings.AdminRoles.Split(',').Select(r => $"{_currentAppNameNormalized}{ZenConstants.SERVICE_ROLE_SEPARATOR}{r.Trim()}")];
+  public string DefaultRole => $"{_currentAppNameNormalized}{Separators.ServiceRole}{_roleSettings.DefaultRole}";
+  public HashSet<string> AdminRoles => [.. _roleSettings.AdminRoles.Split(',').Select(r => $"{_currentAppNameNormalized}{Separators.ServiceRole}{r.Trim()}")];
 
   #region IdentityUser Related
   public IdentityUser CreateIdentityUser()
@@ -53,9 +51,9 @@ public sealed class TestDbHelper(
       Id = UserSettingHelper.UserId,
       Email = UserSettingHelper.UserEmail,
       EmailConfirmed = true,
-      NormalizedEmail = UserSettingHelper.UserEmail.ToUpper(),
-      NormalizedUserName = UserSettingHelper.UserName.ToUpper(),
-      ConcurrencyStamp = DateTime.Now.Ticks.ToString(),
+      NormalizedEmail = UserSettingHelper.UserEmail.ToUpperInvariant(),
+      NormalizedUserName = UserSettingHelper.UserName.ToUpperInvariant(),
+      ConcurrencyStamp = DateTime.Now.Ticks.ToString(CultureInfo.InvariantCulture),
     };
 
     user.PasswordHash = new PasswordHasher<IdentityUser>().HashPassword(user, UserSettingHelper.UserPassword);
@@ -102,7 +100,7 @@ public sealed class TestDbHelper(
     var role = new IdentityRole
     {
       Name = roleName,
-      NormalizedName = roleName.ToUpper()
+      NormalizedName = roleName.ToUpperInvariant()
     };
 
     _appDbContext.Roles.Add(role);
@@ -119,7 +117,7 @@ public sealed class TestDbHelper(
 
   public IdentityRole? GetIdentityRole(string roleName)
   {
-    return _appDbContext.Roles.FirstOrDefault(r => r.Name != null && r.Name.Equals(roleName));
+    return _appDbContext.Roles.FirstOrDefault(r => r.Name != null && r.Name == roleName);
   }
 
   public void DeleteIdnetityRole(string roleName)
@@ -269,7 +267,7 @@ public sealed class TestDbHelper(
     {
       Id = Guid.CreateVersion7(),
       UserId = UserSettingHelper.UserId.ToString(),
-      Token = StringUtil.GenerateRandomString(32),
+      Token = RandomStrings.Generate(32),
       CreatedBy = UserSettingHelper.UserId.ToString(),
       CreatedAt = DateTime.UtcNow,
       UpdatedBy = UserSettingHelper.UserId.ToString(),
@@ -351,7 +349,7 @@ public sealed class TestDbHelper(
   public RegisteredAppEntity GetRegisteredAppEntityByAppName(string appName)
   {
     return _appDbContext.RegisteredApp
-      .Where(a => a.AppName.Equals(appName))
+      .Where(a => a.AppName == appName)
       .SingleOrDefault() ?? throw new InvalidOperationException("No related registered app exists");
 
   }
@@ -367,7 +365,7 @@ public sealed class TestDbHelper(
 
     var entity = new InviteCodeEntity
     {
-      InviteCode = inviteCode ?? StringUtil.GenerateRandomString(8).ToUpper(),
+      InviteCode = inviteCode ?? RandomStrings.Generate(8).ToUpperInvariant(),
       UserEmail = userEmail,
       AppId = registeredApp.Id,
       Applied = applied,

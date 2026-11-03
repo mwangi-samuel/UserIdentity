@@ -1,7 +1,4 @@
-﻿using System.Linq;
-using System.Threading.Tasks;
-
-using Microsoft.AspNetCore.Identity;
+﻿using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
 using PolyzenKit.Common.Exceptions;
@@ -51,7 +48,7 @@ public class InviteCodeRepositoryTests
     {
       AppId = inviteCode.AppId,
       UserEmail = inviteCode.UserEmail
-    }, QueryCondition.MUST_EXIST, TestContext.Current.CancellationToken);
+    }, QueryCondition.MustExist, TestContext.Current.CancellationToken);
 
     Assert.NotNull(result);
     Assert.Equal(inviteCode.Id, result!.Id);
@@ -67,7 +64,7 @@ public class InviteCodeRepositoryTests
     await Assert.ThrowsAsync<NoRecordException>(() => repository.GetEntityByAlternateIdAsync(new InviteCodeEntity
     {
       UserEmail = "notfound@example.com"
-    }, QueryCondition.MUST_EXIST, TestContext.Current.CancellationToken));
+    }, QueryCondition.MustExist, TestContext.Current.CancellationToken));
   }
 
   [Fact]
@@ -85,7 +82,7 @@ public class InviteCodeRepositoryTests
     {
       AppId = inviteCode.AppId,
       UserEmail = inviteCode.UserEmail
-    }, QueryCondition.MUST_NOT_EXIST, TestContext.Current.CancellationToken));
+    }, QueryCondition.MustNotExist, TestContext.Current.CancellationToken));
   }
 
   [Fact]
@@ -97,7 +94,7 @@ public class InviteCodeRepositoryTests
     var result = await repository.GetEntityByAlternateIdAsync(new InviteCodeEntity
     {
       UserEmail = "new@example.com"
-    }, QueryCondition.MUST_NOT_EXIST, TestContext.Current.CancellationToken);
+    }, QueryCondition.MustNotExist, TestContext.Current.CancellationToken);
 
     Assert.Null(result);
   }
@@ -117,7 +114,7 @@ public class InviteCodeRepositoryTests
     {
       AppId = inviteCode.AppId + 1,
       UserEmail = inviteCode.UserEmail
-    }, QueryCondition.MAY_OR_MAY_NOT_EXIST, TestContext.Current.CancellationToken);
+    }, QueryCondition.MayOrMayNotExist, TestContext.Current.CancellationToken);
 
     Assert.Null(result);
   }
@@ -159,7 +156,7 @@ public class InviteCodeRepositoryTests
     var app = await SeedRegisteredApp(context);
     context.RegisteredApp.Add(new RegisteredAppEntity { Id = 2, AppName = "OtherApp", AppSecretKey = "other-secret-key", BaseUrl = "https://other.com" });
     var repository = new InviteCodeRepository(context);
-    var now = System.DateTime.UtcNow;
+    var now = DateTime.UtcNow;
 
     for (var i = 0; i < 3; i++)
     {
@@ -194,7 +191,7 @@ public class InviteCodeRepositoryTests
       var invite = BuildInviteCode();
       invite.UserEmail = $"owner{index}@example.test";
       invite.Applied = index % 2 == 0;
-      invite.CreatedAt = System.DateTime.UtcNow.AddMinutes(index);
+      invite.CreatedAt = DateTime.UtcNow.AddMinutes(index);
       context.InviteCode.Add(invite);
     }
 
@@ -220,7 +217,7 @@ public class InviteCodeRepositoryTests
   private static AppDbContext GetAppDbContext()
   {
     var options = new DbContextOptionsBuilder<AppDbContext>()
-        .UseInMemoryDatabase(databaseName: System.Guid.NewGuid().ToString())
+        .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
         .Options;
 
     return new AppDbContext(options);

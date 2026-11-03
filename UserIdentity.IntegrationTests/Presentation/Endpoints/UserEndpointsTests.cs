@@ -1,9 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Net;
-using System.Net.Http;
-using System.Threading.Tasks;
+﻿using System.Net;
+using System.Net.Mime;
+using System.Text;
 
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
@@ -17,7 +14,7 @@ using PolyzenKit.Common.Extensions;
 using PolyzenKit.Common.Utilities;
 using PolyzenKit.Infrastructure.Security.Tokens;
 using PolyzenKit.Presentation.Settings;
-using PolyzenKit.Presentation.ValidationHelpers;
+using PolyzenKit.Presentation.Validation;
 
 using UserIdentity.Application.Core.Tokens.ViewModels;
 using UserIdentity.Application.Core.Users.ViewModels;
@@ -31,9 +28,9 @@ using WireMock.Server;
 
 using Xunit;
 
-namespace UserIdentity.IntegrationTests.Presentation.Controllers;
+namespace UserIdentity.IntegrationTests.Presentation.Endpoints;
 
-public class UserControllerTests(
+public class UserEndpointsTests(
     TestingWebAppFactory testingWebAppFactory,
     ITestOutputHelper outputHelper
     ) : BaseIntegrationTests(testingWebAppFactory, outputHelper)
@@ -49,10 +46,10 @@ public class UserControllerTests(
   public async Task Get_Existing_User_Gets_User_Details()
   {
     // Arrange
-    _testDbHelper.SeedDatabase();
+    TestDbHelper.SeedDatabase();
 
     // Act
-    var response = await _httpClient.SendValidAuthRequestAsync(HttpMethod.Get, _baseUri + "/" + UserSettingHelper.UserId);
+    var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Get, _baseUri + "/" + UserSettingHelper.UserId);
 
     // Assert
     var responseString = await response.ValidateRequestResponseAsync();
@@ -79,10 +76,10 @@ public class UserControllerTests(
   public async Task Get_User_Returns_The_Profile_Fields_And_No_Roles()
   {
     // Arrange
-    _testDbHelper.SeedDatabase();
+    TestDbHelper.SeedDatabase();
 
     // Act
-    var response = await _httpClient.SendValidAuthRequestAsync(HttpMethod.Get, _baseUri + "/" + UserSettingHelper.UserId);
+    var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Get, _baseUri + "/" + UserSettingHelper.UserId);
 
     // Assert
     var user = SerDeHelper.Deserialize<JObject>(await response.ValidateRequestResponseAsync())?["user"] as JObject;
@@ -99,14 +96,14 @@ public class UserControllerTests(
   public async Task Get_User_Runs_One_Sql_Command()
   {
     // Arrange
-    _testDbHelper.SeedDatabase();
+    TestDbHelper.SeedDatabase();
 
     var requestId = Guid.NewGuid().ToString("N");
-    var request = await _httpClient.CreateAuthorizedHttpRequestMessageAsync(HttpMethod.Get, _baseUri + "/" + UserSettingHelper.UserId);
+    var request = await HttpClient.CreateAuthorizedHttpRequestMessageAsync(HttpMethod.Get, _baseUri + "/" + UserSettingHelper.UserId);
     request.Headers.Add("X-Request-Id", requestId);
 
     // Act
-    var response = await _httpClient.SendAsync(request, TestContext.Current.CancellationToken);
+    var response = await HttpClient.SendAsync(request, TestContext.Current.CancellationToken);
 
     // Assert
     await response.ValidateRequestResponseAsync();
@@ -119,12 +116,12 @@ public class UserControllerTests(
   public async Task Get_Non_Existing_User_Returns_Forbidden_Error_For_Unauthorized_User()
   {
     // Arrange
-    _testDbHelper.SeedDatabase();
+    TestDbHelper.SeedDatabase();
 
     var nonExistingUserId = Guid.NewGuid().ToString();
 
     // Act
-    var response = await _httpClient.SendValidAuthRequestAsync(HttpMethod.Get, _baseUri + "/" + nonExistingUserId);
+    var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Get, _baseUri + "/" + nonExistingUserId);
 
     // Assert
     var responseString = await response.ValidateRequestResponseAsync();
@@ -140,14 +137,14 @@ public class UserControllerTests(
   public async Task Get_Non_Existing_User_Does_Not_Get_User_Details_For_Authorized_User()
   {
     // Arrange
-    _testDbHelper.SeedDatabase();
-    _testDbHelper.CreateIdentityRole(_testDbHelper.AdminRoles.First());
-    _testDbHelper.ConfigureIdentityUserAsAdmin();
+    TestDbHelper.SeedDatabase();
+    TestDbHelper.CreateIdentityRole(TestDbHelper.AdminRoles.First());
+    TestDbHelper.ConfigureIdentityUserAsAdmin();
 
     var nonExistingUserId = Guid.NewGuid().ToString();
 
     // Act
-    var response = await _httpClient.SendValidAuthRequestAsync(HttpMethod.Get, _baseUri + "/" + nonExistingUserId);
+    var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Get, _baseUri + "/" + nonExistingUserId);
 
     // Assert
     var responseString = await response.ValidateRequestResponseAsync();
@@ -175,17 +172,17 @@ public class UserControllerTests(
   public async Task Get_Deleted_AppUser_Does_Not_Get_User_Details_For_UnAuthorized_User()
   {
     // Arrange
-    _testDbHelper.SeedDatabase();
+    TestDbHelper.SeedDatabase();
 
-    (var userToken, _) = await _httpClient.LoginUserAsync(UserSettingHelper.UserName, UserSettingHelper.UserPassword);
+    (var userToken, _) = await HttpClient.LoginUserAsync(UserSettingHelper.UserName, UserSettingHelper.UserPassword);
 
-    _testDbHelper.DeleteUserEntity(UserSettingHelper.UserId);
+    TestDbHelper.DeleteUserEntity(UserSettingHelper.UserId);
 
     var httpRequest = ApiRequestHelper.CreateHttpRequestMessage(HttpMethod.Get, _baseUri + "/" + UserSettingHelper.UserId);
     httpRequest.AddAuthHeader(userToken);
 
     // Act
-    var response = await _httpClient.SendAsync(httpRequest, TestContext.Current.CancellationToken);
+    var response = await HttpClient.SendAsync(httpRequest, TestContext.Current.CancellationToken);
 
     // Assert
     var responseString = await response.ValidateRequestResponseAsync();
@@ -213,13 +210,13 @@ public class UserControllerTests(
   public async Task Get_Deleted_AppUser_Does_Not_Get_User_Details_For_Authorized_User()
   {
     // Arrange
-    _testDbHelper.SeedDatabase();
-    _testDbHelper.CreateIdentityRole(_testDbHelper.AdminRoles.First());
-    _testDbHelper.ConfigureIdentityUserAsAdmin();
+    TestDbHelper.SeedDatabase();
+    TestDbHelper.CreateIdentityRole(TestDbHelper.AdminRoles.First());
+    TestDbHelper.ConfigureIdentityUserAsAdmin();
 
-    (var userToken, _) = await _httpClient.LoginUserAsync(UserSettingHelper.UserName, UserSettingHelper.UserPassword);
+    (var userToken, _) = await HttpClient.LoginUserAsync(UserSettingHelper.UserName, UserSettingHelper.UserPassword);
 
-    _testDbHelper.DeleteUserEntity(UserSettingHelper.UserId);
+    TestDbHelper.DeleteUserEntity(UserSettingHelper.UserId);
 
     var nonExistingUserId = Guid.NewGuid().ToString();
 
@@ -227,7 +224,7 @@ public class UserControllerTests(
     httpRequest.AddAuthHeader(userToken);
 
     // Act
-    var response = await _httpClient.SendAsync(httpRequest, TestContext.Current.CancellationToken);
+    var response = await HttpClient.SendAsync(httpRequest, TestContext.Current.CancellationToken);
 
     // Assert
     var responseString = await response.ValidateRequestResponseAsync();
@@ -263,7 +260,7 @@ public class UserControllerTests(
     };
 
     // Act
-    var response = await _httpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/register", requestPayload);
+    var response = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/register", requestPayload);
 
     // Assert
     var responseString = await response.ValidateRequestResponseAsync();
@@ -307,7 +304,7 @@ public class UserControllerTests(
     };
 
     // Act
-    var response = await _httpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/register", requestPayload);
+    var response = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/register", requestPayload);
 
     // Assert
     var responseString = await response.ValidateRequestResponseAsync();
@@ -342,7 +339,7 @@ public class UserControllerTests(
   public async Task Register_User_With_Valid_Request_Payload_Registers_User()
   {
     // Arrange
-    var googleRecaptchaToken = StringUtil.GenerateRandomString(90);
+    var googleRecaptchaToken = RandomStrings.Generate(90);
 
     var requestPayload = new
     {
@@ -358,7 +355,7 @@ public class UserControllerTests(
     SetUpGoogleRecaptchaEndpoint(googleRecaptchaToken);
 
     // Act
-    var response = await _httpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/register", requestPayload);
+    var response = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/register", requestPayload);
 
     // Assert
     var responseString = await response.ValidateRequestResponseAsync();
@@ -389,28 +386,28 @@ public class UserControllerTests(
     VerifyGoogleRecaptchaEndpoint();
 
     // Confirm the message reached the stream
-    var message = await _natsTestHelper.FindMessageAsync(NatsTestHelper.UserUpdatedSubject, userDetails!.Id);
+    var message = await NatsTestHelper.FindMessageAsync(NatsTestHelper.UserUpdatedSubject, userDetails!.Id);
 
     Assert.NotNull(message);
-    Assert.Equal(_registeredApp.AppName, message.RegisteredApp);
-    Assert.Equal(MessageAction.WELCOME_USER, message.Action);
+    Assert.Equal(RegisteredApp.AppName, message.RegisteredApp);
+    Assert.Equal(MessageAction.WelcomeUser, message.Action);
 
     var messageAttributes = message.Attributes;
     Assert.NotNull(messageAttributes);
 
-    Assert.Equal(requestPayload.UserEmail, messageAttributes.GetAttributeValue(MessageAttribute.RECIPIENT_EMAIL));
-    Assert.Equal(requestPayload.PhoneNumber, messageAttributes.GetAttributeValue(MessageAttribute.RECIPIENT_PHONE));
-    Assert.Equal(requestPayload.FirstName, messageAttributes.GetAttributeValue(MessageAttribute.FIRST_NAME));
-    Assert.Equal(requestPayload.LastName, messageAttributes.GetAttributeValue(MessageAttribute.LAST_NAME));
-    Assert.Equal(requestPayload.UserName, messageAttributes.GetAttributeValue(MessageAttribute.USER_NAME));
-    Assert.Equal(userDetails?.Id, messageAttributes.GetAttributeValue(MessageAttribute.USER_ID));
+    Assert.Equal(requestPayload.UserEmail, messageAttributes.GetAttributeValue(MessageAttributeKey.RecipientEmail));
+    Assert.Equal(requestPayload.PhoneNumber, messageAttributes.GetAttributeValue(MessageAttributeKey.RecipientPhone));
+    Assert.Equal(requestPayload.FirstName, messageAttributes.GetAttributeValue(MessageAttributeKey.FirstName));
+    Assert.Equal(requestPayload.LastName, messageAttributes.GetAttributeValue(MessageAttributeKey.LastName));
+    Assert.Equal(requestPayload.UserName, messageAttributes.GetAttributeValue(MessageAttributeKey.UserName));
+    Assert.Equal(userDetails?.Id, messageAttributes.GetAttributeValue(MessageAttributeKey.UserId));
   }
 
   [Fact]
   public async Task Register_User_Message_Leaves_The_Outbox_Once_It_Is_In_The_Stream()
   {
     // Arrange
-    var googleRecaptchaToken = StringUtil.GenerateRandomString(90);
+    var googleRecaptchaToken = RandomStrings.Generate(90);
 
     var requestPayload = new
     {
@@ -424,17 +421,17 @@ public class UserControllerTests(
     SetUpGoogleRecaptchaEndpoint(googleRecaptchaToken);
 
     // Act
-    var response = await _httpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/register", requestPayload);
+    var response = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/register", requestPayload);
 
     // Assert
     var userId = SerDeHelper.Deserialize<JObject>(await response.ValidateRequestResponseAsync())?["user"]?["id"]?.ToString();
 
     Assert.NotNull(userId);
-    Assert.NotNull(await _natsTestHelper.FindMessageAsync(NatsTestHelper.UserUpdatedSubject, userId));
+    Assert.NotNull(await NatsTestHelper.FindMessageAsync(NatsTestHelper.UserUpdatedSubject, userId));
 
-    await _pollyResiliencePipeline.ExecuteAsync(token =>
+    await PollyResiliencePipeline.ExecuteAsync(token =>
     {
-      Assert.Equal(0, _testDbHelper.CountOutboxMessages());
+      Assert.Equal(0, TestDbHelper.CountOutboxMessages());
       return ValueTask.CompletedTask;
     }, TestContext.Current.CancellationToken);
   }
@@ -447,7 +444,7 @@ public class UserControllerTests(
   public async Task Register_User_With_Only_Required_Request_Payload_Registers_User(string? UserEmail, string? PhoneNumber)
   {
     // Arrange
-    var googleRecaptchaToken = StringUtil.GenerateRandomString(90);
+    var googleRecaptchaToken = RandomStrings.Generate(90);
 
     var requestPayload = new
     {
@@ -462,7 +459,7 @@ public class UserControllerTests(
     SetUpGoogleRecaptchaEndpoint(googleRecaptchaToken);
 
     // Act
-    var response = await _httpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/register", requestPayload);
+    var response = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/register", requestPayload);
 
     // Assert
     var responseString = await response.ValidateRequestResponseAsync();
@@ -493,30 +490,30 @@ public class UserControllerTests(
     VerifyGoogleRecaptchaEndpoint();
 
     // Confirm the message reached the stream
-    var message = await _natsTestHelper.FindMessageAsync(NatsTestHelper.UserUpdatedSubject, userDetails!.Id);
+    var message = await NatsTestHelper.FindMessageAsync(NatsTestHelper.UserUpdatedSubject, userDetails!.Id);
 
     Assert.NotNull(message);
-    Assert.Equal(_registeredApp.AppName, message.RegisteredApp);
-    Assert.Equal(MessageAction.WELCOME_USER, message.Action);
+    Assert.Equal(RegisteredApp.AppName, message.RegisteredApp);
+    Assert.Equal(MessageAction.WelcomeUser, message.Action);
 
     var messageAttributes = message.Attributes;
     Assert.NotNull(messageAttributes);
 
-    Assert.Equal(requestPayload.UserEmail ?? string.Empty, messageAttributes.GetAttributeValue(MessageAttribute.RECIPIENT_EMAIL));
-    Assert.Equal(requestPayload.PhoneNumber ?? string.Empty, messageAttributes.GetAttributeValue(MessageAttribute.RECIPIENT_PHONE));
-    Assert.Equal(requestPayload.FirstName, messageAttributes.GetAttributeValue(MessageAttribute.FIRST_NAME));
-    Assert.Equal(string.Empty, messageAttributes.GetAttributeValue(MessageAttribute.LAST_NAME));
-    Assert.Equal(requestPayload.UserName, messageAttributes.GetAttributeValue(MessageAttribute.USER_NAME));
-    Assert.Equal(userDetails?.Id, messageAttributes.GetAttributeValue(MessageAttribute.USER_ID));
+    Assert.Equal(requestPayload.UserEmail ?? string.Empty, messageAttributes.GetAttributeValue(MessageAttributeKey.RecipientEmail));
+    Assert.Equal(requestPayload.PhoneNumber ?? string.Empty, messageAttributes.GetAttributeValue(MessageAttributeKey.RecipientPhone));
+    Assert.Equal(requestPayload.FirstName, messageAttributes.GetAttributeValue(MessageAttributeKey.FirstName));
+    Assert.Equal(string.Empty, messageAttributes.GetAttributeValue(MessageAttributeKey.LastName));
+    Assert.Equal(requestPayload.UserName, messageAttributes.GetAttributeValue(MessageAttributeKey.UserName));
+    Assert.Equal(userDetails?.Id, messageAttributes.GetAttributeValue(MessageAttributeKey.UserId));
   }
 
   [Fact]
   public async Task Register_Existing_User_With_Valid_Request_Payload_Does_Not_Create_User()
   {
     // Arrange
-    _testDbHelper.SeedDatabase();
+    TestDbHelper.SeedDatabase();
 
-    var googleRecaptchaToken = StringUtil.GenerateRandomString(90);
+    var googleRecaptchaToken = RandomStrings.Generate(90);
 
     var requestPayload = new
     {
@@ -532,7 +529,7 @@ public class UserControllerTests(
     SetUpGoogleRecaptchaEndpoint(googleRecaptchaToken);
 
     // Act
-    var response = await _httpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/register", requestPayload);
+    var response = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/register", requestPayload);
 
     // Assert
     var responseString = await response.ValidateRequestResponseAsync();
@@ -561,13 +558,13 @@ public class UserControllerTests(
     // Arrange
     const string ownerRole = "testapp:owner";
     const string ownerScope = "commercemanager-product:all";
-    var googleRecaptchaToken = StringUtil.GenerateRandomString(90);
+    var googleRecaptchaToken = RandomStrings.Generate(90);
     var userEmail = "invited-owner@example.com";
     var userName = "invited.owner";
 
-    _testDbHelper.CreateIdentityRole(ownerRole);
-    _testDbHelper.UpdateRoleClaim(ownerRole, ownerScope);
-    var inviteCode = _testDbHelper.CreateInviteCodeEntity(userEmail, _registeredApp.AppName, inviteCode: "OWNERINVITE", role: ownerRole);
+    TestDbHelper.CreateIdentityRole(ownerRole);
+    TestDbHelper.UpdateRoleClaim(ownerRole, ownerScope);
+    var inviteCode = TestDbHelper.CreateInviteCodeEntity(userEmail, RegisteredApp.AppName, inviteCode: "OWNERINVITE", role: ownerRole);
 
     var requestPayload = new
     {
@@ -582,7 +579,7 @@ public class UserControllerTests(
     SetUpGoogleRecaptchaEndpoint(googleRecaptchaToken);
 
     // Act
-    var response = await _httpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/register", requestPayload);
+    var response = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/register", requestPayload);
 
     // Assert
     var responseString = await response.ValidateRequestResponseAsync();
@@ -592,26 +589,26 @@ public class UserControllerTests(
     var userDetails = SerDeHelper.Deserialize<JObject>(responseString)?["user"]?.ToObject<UserDto>();
 
     Assert.NotNull(userDetails);
-    Assert.NotNull(_testDbHelper.GetIdentityUserRole(ownerRole, userDetails.Id));
-    Assert.True(_testDbHelper.GetInviteCodeEntityWithNoTracking(inviteCode.Id)?.Applied);
+    Assert.NotNull(TestDbHelper.GetIdentityUserRole(ownerRole, userDetails.Id));
+    Assert.True(TestDbHelper.GetInviteCodeEntityWithNoTracking(inviteCode.Id)?.Applied);
 
     // Simulate the code being verified for the welcome message
-    var attributes = new Dictionary<MessageAttribute, string>()
+    var attributes = new Dictionary<MessageAttributeKey, string>()
     {
-      { MessageAttribute.USER_ID, userDetails.Id }
+      { MessageAttributeKey.UserId, userDetails.Id }
     };
 
-    var messageEvent = MessageEventFactory.Create(userDetails.Id, _registeredApp.AppName, attributes, MessageAction.WELCOME_USER, CrudEvent.UPDATE);
+    var messageEvent = MessageEventFactory.Create(userDetails.Id, RegisteredApp.AppName, attributes, MessageAction.WelcomeUser, CrudEvent.Update);
 
-    await _natsTestHelper.PublishCodeVerifiedAsync(messageEvent);
+    await NatsTestHelper.PublishCodeVerifiedAsync(messageEvent);
 
-    await _pollyResiliencePipeline.ExecuteAsync(token =>
+    await PollyResiliencePipeline.ExecuteAsync(token =>
     {
-      Assert.True(_testDbHelper.GetIdentityUserWithNoTracking(userDetails.Id)?.EmailConfirmed);
+      Assert.True(TestDbHelper.GetIdentityUserWithNoTracking(userDetails.Id)?.EmailConfirmed);
       return ValueTask.CompletedTask;
     }, TestContext.Current.CancellationToken);
 
-    (var token, _) = await _httpClient.LoginUserAsync(userName, UserSettingHelper.UserPassword);
+    (var token, _) = await HttpClient.LoginUserAsync(userName, UserSettingHelper.UserPassword);
 
     var claims = new JsonWebToken(token).Claims.ToList();
 
@@ -623,11 +620,11 @@ public class UserControllerTests(
   public async Task Register_User_With_Invalid_Optional_Invite_Code_Does_Not_Create_User()
   {
     // Arrange
-    var googleRecaptchaToken = StringUtil.GenerateRandomString(90);
+    var googleRecaptchaToken = RandomStrings.Generate(90);
     var userEmail = "wrong-invite@example.com";
     var userName = "wrong.invite";
 
-    var inviteCode = _testDbHelper.CreateInviteCodeEntity(userEmail, _registeredApp.AppName, inviteCode: "RIGHTCODE", role: "testapp:owner");
+    var inviteCode = TestDbHelper.CreateInviteCodeEntity(userEmail, RegisteredApp.AppName, inviteCode: "RIGHTCODE", role: "testapp:owner");
 
     var requestPayload = new
     {
@@ -642,15 +639,15 @@ public class UserControllerTests(
     SetUpGoogleRecaptchaEndpoint(googleRecaptchaToken);
 
     // Act
-    var response = await _httpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/register", requestPayload);
+    var response = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/register", requestPayload);
 
     // Assert
     await response.ValidateRequestResponseAsync();
 
     Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-    Assert.False(_testDbHelper.GetInviteCodeEntityWithNoTracking(inviteCode.Id)?.Applied);
+    Assert.False(TestDbHelper.GetInviteCodeEntityWithNoTracking(inviteCode.Id)?.Applied);
 
-    var loginResponse = await _httpClient.SendNoAuthRequestAsync(HttpMethod.Post, ApiRequestHelper.loginUrl, new { UserName = userName, Password = UserSettingHelper.UserPassword });
+    var loginResponse = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, ApiRequestHelper.loginUrl, new { UserName = userName, Password = UserSettingHelper.UserPassword });
 
     Assert.Equal(HttpStatusCode.Unauthorized, loginResponse.StatusCode);
   }
@@ -659,7 +656,7 @@ public class UserControllerTests(
   public async Task Login_Existing_User_Logs_In_User()
   {
     // Arrange
-    _testDbHelper.SeedDatabase();
+    TestDbHelper.SeedDatabase();
 
     var requestPayload = new
     {
@@ -668,7 +665,7 @@ public class UserControllerTests(
     };
 
     // Act
-    var response = await _httpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/login", requestPayload);
+    var response = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/login", requestPayload);
 
     // Assert
     var responseString = await response.ValidateRequestResponseAsync();
@@ -696,6 +693,36 @@ public class UserControllerTests(
   }
 
   [Fact]
+  public async Task Login_With_A_Body_That_Isnt_Json_Returns_An_Unreadable_Request_Error()
+  {
+    // Arrange
+    var httpRequest = ApiRequestHelper.CreateHttpRequestMessage(HttpMethod.Post, _baseUri + "/login");
+    httpRequest.Content = new StringContent("{ not json", Encoding.UTF8, MediaTypeNames.Application.Json);
+
+    // Act
+    var response = await HttpClient.SendAsync(httpRequest, TestContext.Current.CancellationToken);
+
+    // Assert
+    var responseString = await response.ValidateRequestResponseAsync();
+
+    Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+
+    var jsonObject = SerDeHelper.Deserialize<JObject>(responseString);
+
+    Assert.NotNull(jsonObject);
+    Assert.Equal("Request Failed", $"{jsonObject["requestStatus"]}");
+    Assert.Equal("400 - BAD REQUEST", $"{jsonObject["statusMessage"]}");
+    Assert.Equal("Validation Failed", $"{jsonObject["error"]?["message"]}");
+
+    var errorList = jsonObject["error"]?["errorList"]?.ToObject<List<ValidationError>>();
+
+    Assert.NotNull(errorList);
+    var error = Assert.Single(errorList);
+    Assert.Null(error.Field);
+    Assert.Equal("The request couldn't be read.", error.Message);
+  }
+
+  [Fact]
   public async Task Login_Non_Existing_User_Does_Not_Log_In_User()
   {
     // Arrange
@@ -706,7 +733,7 @@ public class UserControllerTests(
     };
 
     // Act
-    var response = await _httpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/login", requestPayload);
+    var response = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/login", requestPayload);
 
     // Assert
     var responseString = await response.ValidateRequestResponseAsync();
@@ -733,8 +760,8 @@ public class UserControllerTests(
   public async Task Login_Existing_Non_Existent_AppUser_Does_Not_Log_In_User()
   {
     // Arrange
-    _testDbHelper.SeedDatabase();
-    _testDbHelper.DeleteUserEntity(UserSettingHelper.UserId);
+    TestDbHelper.SeedDatabase();
+    TestDbHelper.DeleteUserEntity(UserSettingHelper.UserId);
 
     var requestPayload = new
     {
@@ -743,7 +770,7 @@ public class UserControllerTests(
     };
 
     // Act
-    var response = await _httpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/login", requestPayload);
+    var response = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/login", requestPayload);
 
     // Assert
     var responseString = await response.ValidateRequestResponseAsync();
@@ -770,8 +797,8 @@ public class UserControllerTests(
   public async Task Login_Existing_Deleted_AppUser_Does_Not_Log_In_User()
   {
     // Arrange
-    _testDbHelper.SeedDatabase();
-    _testDbHelper.DeleteUserEntity(UserSettingHelper.UserId);
+    TestDbHelper.SeedDatabase();
+    TestDbHelper.DeleteUserEntity(UserSettingHelper.UserId);
 
     var requestPayload = new
     {
@@ -780,7 +807,7 @@ public class UserControllerTests(
     };
 
     // Act
-    var response = await _httpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/login", requestPayload);
+    var response = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/login", requestPayload);
 
     // Assert
     var responseString = await response.ValidateRequestResponseAsync();
@@ -807,7 +834,7 @@ public class UserControllerTests(
   public async Task Login_Existing_With_Invalid_Password_Does_Not_Log_In_User()
   {
     // Arrange
-    _testDbHelper.SeedDatabase();
+    TestDbHelper.SeedDatabase();
 
     var requestPayload = new
     {
@@ -816,7 +843,7 @@ public class UserControllerTests(
     };
 
     // Act
-    var response = await _httpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/login", requestPayload);
+    var response = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/login", requestPayload);
 
     // Assert
     var responseString = await response.ValidateRequestResponseAsync();
@@ -843,9 +870,9 @@ public class UserControllerTests(
   public async Task Refresh_Valid_User_Token_Refreshes_User_token()
   {
     // Arrange
-    _testDbHelper.SeedDatabase();
+    TestDbHelper.SeedDatabase();
 
-    (var userToken, var refreshToken) = await _httpClient.LoginUserAsync(UserSettingHelper.UserName, UserSettingHelper.UserPassword);
+    (var userToken, var refreshToken) = await HttpClient.LoginUserAsync(UserSettingHelper.UserName, UserSettingHelper.UserPassword);
 
     var requestPayload = new
     {
@@ -857,11 +884,11 @@ public class UserControllerTests(
     httpRequest.Content = SerDeHelper.ConvertToHttpContent(requestPayload);
 
     // Act
-    var response = await _httpClient.SendAsync(httpRequest, TestContext.Current.CancellationToken);
+    var response = await HttpClient.SendAsync(httpRequest, TestContext.Current.CancellationToken);
 
     // Assert
     var responseString = await response.ValidateRequestResponseAsync();
-    _outputHelper.WriteLine(responseString);
+    OutputHelper.WriteLine(responseString);
 
     Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     var jsonObject = SerDeHelper.Deserialize<JObject>(responseString);
@@ -886,9 +913,9 @@ public class UserControllerTests(
   public async Task Refresh_User_Token_With_Invalid_Refresh_Token_Does_Not_Refresh_User_token()
   {
     // Arrange// Arrange
-    _testDbHelper.SeedDatabase();
+    TestDbHelper.SeedDatabase();
 
-    (var userToken, var refreshToken) = await _httpClient.LoginUserAsync(UserSettingHelper.UserName, UserSettingHelper.UserPassword);
+    (var userToken, var refreshToken) = await HttpClient.LoginUserAsync(UserSettingHelper.UserName, UserSettingHelper.UserPassword);
 
     var requestPayload = new
     {
@@ -900,7 +927,7 @@ public class UserControllerTests(
     httpRequest.Content = SerDeHelper.ConvertToHttpContent(requestPayload);
 
     // Act
-    var response = await _httpClient.SendAsync(httpRequest, TestContext.Current.CancellationToken);
+    var response = await HttpClient.SendAsync(httpRequest, TestContext.Current.CancellationToken);
 
     // Assert
     var responseString = await response.ValidateRequestResponseAsync();
@@ -927,11 +954,11 @@ public class UserControllerTests(
   public async Task Refresh_User_Token_With_Deleted_Refresh_Token_Does_Not_Refresh_User_token()
   {
     // Arrange
-    _testDbHelper.SeedDatabase();
+    TestDbHelper.SeedDatabase();
 
-    (var userToken, var refreshToken) = await _httpClient.LoginUserAsync(UserSettingHelper.UserName, UserSettingHelper.UserPassword);
+    (var userToken, var refreshToken) = await HttpClient.LoginUserAsync(UserSettingHelper.UserName, UserSettingHelper.UserPassword);
 
-    _testDbHelper.DeleteRefreshTokenEntity(UserSettingHelper.UserId);
+    TestDbHelper.DeleteRefreshTokenEntity(UserSettingHelper.UserId);
 
     var requestPayload = new
     {
@@ -943,7 +970,7 @@ public class UserControllerTests(
     httpRequest.Content = SerDeHelper.ConvertToHttpContent(requestPayload);
 
     // Act
-    var response = await _httpClient.SendAsync(httpRequest, TestContext.Current.CancellationToken);
+    var response = await HttpClient.SendAsync(httpRequest, TestContext.Current.CancellationToken);
 
     // Assert
     var responseString = await response.ValidateRequestResponseAsync();
@@ -970,9 +997,9 @@ public class UserControllerTests(
   public async Task Refresh_User_Token_With_Invalid_Access_Token_Does_Not_Refresh_User_token()
   {
     // Arrange
-    _testDbHelper.SeedDatabase();
+    TestDbHelper.SeedDatabase();
 
-    (_, var refreshToken) = await _httpClient.LoginUserAsync(UserSettingHelper.UserName, UserSettingHelper.UserPassword);
+    (_, var refreshToken) = await HttpClient.LoginUserAsync(UserSettingHelper.UserName, UserSettingHelper.UserPassword);
 
     var requestPayload = new
     {
@@ -984,7 +1011,7 @@ public class UserControllerTests(
     httpRequest.Content = SerDeHelper.ConvertToHttpContent(requestPayload);
 
     // Act
-    var response = await _httpClient.SendAsync(httpRequest, TestContext.Current.CancellationToken);
+    var response = await HttpClient.SendAsync(httpRequest, TestContext.Current.CancellationToken);
 
     // Assert
     var responseString = await response.ValidateRequestResponseAsync();
@@ -1011,13 +1038,13 @@ public class UserControllerTests(
   public async Task Login_Stores_Only_The_Hash_Of_The_Refresh_Token()
   {
     // Arrange
-    _testDbHelper.SeedDatabase();
+    TestDbHelper.SeedDatabase();
 
     // Act
-    (_, var refreshToken) = await _httpClient.LoginUserAsync(UserSettingHelper.UserName, UserSettingHelper.UserPassword);
+    (_, var refreshToken) = await HttpClient.LoginUserAsync(UserSettingHelper.UserName, UserSettingHelper.UserPassword);
 
     // Assert
-    var refreshTokenEntities = _testDbHelper.GetRefreshTokenEntitiesWithNoTracking(UserSettingHelper.UserId);
+    var refreshTokenEntities = TestDbHelper.GetRefreshTokenEntitiesWithNoTracking(UserSettingHelper.UserId);
 
     Assert.DoesNotContain(refreshTokenEntities, r => r.Token == refreshToken);
     Assert.Contains(refreshTokenEntities, r => r.Token == new TokenFactory().HashToken(refreshToken) && r.Expires > DateTime.UtcNow.AddDays(29));
@@ -1027,11 +1054,11 @@ public class UserControllerTests(
   public async Task Login_After_Too_Many_Failed_Attempts_Locks_Out_User()
   {
     // Arrange
-    _testDbHelper.SeedDatabase();
+    TestDbHelper.SeedDatabase();
 
-    var user = _testDbHelper.GetIdentityUser(UserSettingHelper.UserId)!;
+    var user = TestDbHelper.GetIdentityUser(UserSettingHelper.UserId)!;
     user.LockoutEnabled = true;
-    _testDbHelper.UpdateIdentityUser(user);
+    TestDbHelper.UpdateIdentityUser(user);
 
     var wrongPasswordPayload = new
     {
@@ -1046,10 +1073,10 @@ public class UserControllerTests(
     };
 
     for (var i = 0; i < 5; i++)
-      await _httpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/login", wrongPasswordPayload);
+      await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/login", wrongPasswordPayload);
 
     // Act
-    var response = await _httpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/login", requestPayload);
+    var response = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/login", requestPayload);
 
     // Assert
     var responseString = await response.ValidateRequestResponseAsync();
@@ -1062,7 +1089,7 @@ public class UserControllerTests(
     Assert.Equal("Request Failed", $"{jsonObject["requestStatus"]}");
     Assert.Equal("Provided credentials are invalid", $"{jsonObject["error"]?["message"]}");
 
-    var lockedOutUser = _testDbHelper.GetIdentityUserWithNoTracking(UserSettingHelper.UserId);
+    var lockedOutUser = TestDbHelper.GetIdentityUserWithNoTracking(UserSettingHelper.UserId);
 
     Assert.NotNull(lockedOutUser?.LockoutEnd);
     Assert.True(lockedOutUser.LockoutEnd > DateTimeOffset.UtcNow);
@@ -1117,11 +1144,11 @@ public class UserControllerTests(
   public async Task Refresh_User_Token_With_Expired_Refresh_Token_Does_Not_Refresh_User_Token()
   {
     // Arrange
-    _testDbHelper.SeedDatabase();
+    TestDbHelper.SeedDatabase();
 
-    (var userToken, var refreshToken) = await _httpClient.LoginUserAsync(UserSettingHelper.UserName, UserSettingHelper.UserPassword);
+    (var userToken, var refreshToken) = await HttpClient.LoginUserAsync(UserSettingHelper.UserName, UserSettingHelper.UserPassword);
 
-    _testDbHelper.ExpireRefreshTokenEntities(UserSettingHelper.UserId);
+    TestDbHelper.ExpireRefreshTokenEntities(UserSettingHelper.UserId);
 
     var requestPayload = new
     {
@@ -1130,7 +1157,7 @@ public class UserControllerTests(
     };
 
     // Act
-    var response = await _httpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/refresh-token", requestPayload);
+    var response = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/refresh-token", requestPayload);
 
     // Assert
     var responseString = await response.ValidateRequestResponseAsync();
@@ -1144,16 +1171,16 @@ public class UserControllerTests(
     Assert.Equal("An invalid access token was provided", $"{jsonObject["error"]?["message"]}");
 
     var exchangedTokenHash = new TokenFactory().HashToken(refreshToken);
-    Assert.DoesNotContain(_testDbHelper.GetRefreshTokenEntitiesWithNoTracking(UserSettingHelper.UserId), token => token.Token == exchangedTokenHash);
+    Assert.DoesNotContain(TestDbHelper.GetRefreshTokenEntitiesWithNoTracking(UserSettingHelper.UserId), token => token.Token == exchangedTokenHash);
   }
 
   [Fact]
   public async Task Refresh_User_Token_With_Already_Used_Refresh_Token_Ends_Session()
   {
     // Arrange
-    _testDbHelper.SeedDatabase();
+    TestDbHelper.SeedDatabase();
 
-    (var userToken, var refreshToken) = await _httpClient.LoginUserAsync(UserSettingHelper.UserName, UserSettingHelper.UserPassword);
+    (var userToken, var refreshToken) = await HttpClient.LoginUserAsync(UserSettingHelper.UserName, UserSettingHelper.UserPassword);
 
     var requestPayload = new
     {
@@ -1161,7 +1188,7 @@ public class UserControllerTests(
       RefreshToken = refreshToken
     };
 
-    var firstResponse = await _httpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/refresh-token", requestPayload);
+    var firstResponse = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/refresh-token", requestPayload);
 
     Assert.Equal(HttpStatusCode.OK, firstResponse.StatusCode);
 
@@ -1170,7 +1197,7 @@ public class UserControllerTests(
     Assert.NotNull(userTokenVM?.RefreshToken);
 
     // Act
-    var response = await _httpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/refresh-token", requestPayload);
+    var response = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/refresh-token", requestPayload);
 
     // Assert
     var responseString = await response.ValidateRequestResponseAsync();
@@ -1182,7 +1209,7 @@ public class UserControllerTests(
 
     Assert.Equal("An invalid access token was provided", $"{jsonObject["error"]?["message"]}");
 
-    var newTokenResponse = await _httpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/refresh-token", new
+    var newTokenResponse = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/refresh-token", new
     {
       AccessToken = userTokenVM.AccessToken?.Token,
       userTokenVM.RefreshToken
@@ -1195,16 +1222,16 @@ public class UserControllerTests(
   public async Task Logout_User_Ends_Session()
   {
     // Arrange
-    _testDbHelper.SeedDatabase();
+    TestDbHelper.SeedDatabase();
 
-    (var userToken, var refreshToken) = await _httpClient.LoginUserAsync(UserSettingHelper.UserName, UserSettingHelper.UserPassword);
+    (var userToken, var refreshToken) = await HttpClient.LoginUserAsync(UserSettingHelper.UserName, UserSettingHelper.UserPassword);
 
     var httpRequest = ApiRequestHelper.CreateHttpRequestMessage(HttpMethod.Post, _baseUri + "/logout");
     httpRequest.AddAuthHeader(userToken);
     httpRequest.Content = SerDeHelper.ConvertToHttpContent(new { RefreshToken = refreshToken });
 
     // Act
-    var response = await _httpClient.SendAsync(httpRequest, TestContext.Current.CancellationToken);
+    var response = await HttpClient.SendAsync(httpRequest, TestContext.Current.CancellationToken);
 
     // Assert
     var responseString = await response.ValidateRequestResponseAsync();
@@ -1217,7 +1244,7 @@ public class UserControllerTests(
     Assert.Equal("Request Successful", $"{jsonObject["requestStatus"]}");
     Assert.Equal("Logout successful", $"{jsonObject["statusMessage"]}");
 
-    var refreshResponse = await _httpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/refresh-token", new
+    var refreshResponse = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/refresh-token", new
     {
       AccessToken = userToken,
       RefreshToken = refreshToken
@@ -1230,7 +1257,7 @@ public class UserControllerTests(
   public async Task Logout_User_Without_Access_Token_Returns_Unauthorized()
   {
     // Act
-    var response = await _httpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/logout", new { RefreshToken = StringUtil.GenerateRandomString(32) });
+    var response = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/logout", new { RefreshToken = RandomStrings.Generate(32) });
 
     // Assert
     Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
@@ -1245,7 +1272,7 @@ public class UserControllerTests(
     };
 
     // Act
-    var response = await _httpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/reset-password", requestPayload);
+    var response = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/reset-password", requestPayload);
 
     // Assert
     var responseString = await response.ValidateRequestResponseAsync();
@@ -1278,7 +1305,7 @@ public class UserControllerTests(
   public async Task Reset_Password_For_Existing_User_Creates_Reset_Request()
   {
     // Arrange
-    _testDbHelper.SeedDatabase();
+    TestDbHelper.SeedDatabase();
 
     var requestPayload = new
     {
@@ -1286,7 +1313,7 @@ public class UserControllerTests(
     };
 
     // Act
-    var response = await _httpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/reset-password", requestPayload);
+    var response = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/reset-password", requestPayload);
 
     // Assert
     var responseString = await response.ValidateRequestResponseAsync();
@@ -1303,7 +1330,7 @@ public class UserControllerTests(
 
     Assert.NotNull(resetPasswordDto?.ResetRequestId);
 
-    var passwordResetEntity = _testDbHelper.GetPasswordResetEntityWithNoTracking(UserSettingHelper.UserId);
+    var passwordResetEntity = TestDbHelper.GetPasswordResetEntityWithNoTracking(UserSettingHelper.UserId);
 
     Assert.NotNull(passwordResetEntity);
     Assert.Equal(new TokenFactory().HashToken(resetPasswordDto.ResetRequestId), passwordResetEntity.RequestId);
@@ -1315,7 +1342,7 @@ public class UserControllerTests(
   public async Task Reset_Password_For_Non_Existing_User_Returns_Same_Response_Without_Creating_Reset_Request()
   {
     // Arrange
-    _testDbHelper.SeedDatabase();
+    TestDbHelper.SeedDatabase();
 
     var requestPayload = new
     {
@@ -1323,7 +1350,7 @@ public class UserControllerTests(
     };
 
     // Act
-    var response = await _httpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/reset-password", requestPayload);
+    var response = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/reset-password", requestPayload);
 
     // Assert
     var responseString = await response.ValidateRequestResponseAsync();
@@ -1339,14 +1366,14 @@ public class UserControllerTests(
     var resetPasswordDto = jsonObject["resetPasswordDetails"]?.ToObject<ResetPasswordDto>();
 
     Assert.NotNull(resetPasswordDto?.ResetRequestId);
-    Assert.Null(_testDbHelper.GetPasswordResetEntityWithNoTracking(UserSettingHelper.UserId));
+    Assert.Null(TestDbHelper.GetPasswordResetEntityWithNoTracking(UserSettingHelper.UserId));
   }
 
   [Fact]
   public async Task Reset_Password_For_Non_Existing_UserDetails_Record_Does_Not_Create_Reset_Request()
   {
     // Arrange
-    _testDbHelper.CreateIdentityUser();
+    TestDbHelper.CreateIdentityUser();
 
     var requestPayload = new
     {
@@ -1354,48 +1381,48 @@ public class UserControllerTests(
     };
 
     // Act
-    var response = await _httpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/reset-password", requestPayload);
+    var response = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/reset-password", requestPayload);
 
     // Assert
     await response.ValidateRequestResponseAsync();
 
     Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-    Assert.Null(_testDbHelper.GetPasswordResetEntityWithNoTracking(UserSettingHelper.UserId));
+    Assert.Null(TestDbHelper.GetPasswordResetEntityWithNoTracking(UserSettingHelper.UserId));
   }
 
   [Fact]
   public async Task Reset_Password_With_Verified_Code_Updates_Password_And_Ends_Sessions()
   {
     // Arrange
-    _testDbHelper.SeedDatabase();
+    TestDbHelper.SeedDatabase();
 
-    (var userToken, var refreshToken) = await _httpClient.LoginUserAsync(UserSettingHelper.UserName, UserSettingHelper.UserPassword);
+    (var userToken, var refreshToken) = await HttpClient.LoginUserAsync(UserSettingHelper.UserName, UserSettingHelper.UserPassword);
 
-    var resetResponse = await _httpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/reset-password", new { UserSettingHelper.UserName });
+    var resetResponse = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/reset-password", new { UserSettingHelper.UserName });
     var resetRequestId = SerDeHelper.Deserialize<JObject>(await resetResponse.ValidateRequestResponseAsync())?["resetPasswordDetails"]?["resetRequestId"]?.ToString();
 
     Assert.NotNull(resetRequestId);
 
     // Simulate MessageManager verifying the code
-    var attributes = new Dictionary<MessageAttribute, string>()
+    var attributes = new Dictionary<MessageAttributeKey, string>()
     {
-      { MessageAttribute.USER_ID, resetRequestId }
+      { MessageAttributeKey.UserId, resetRequestId }
     };
 
-    var messageEvent = MessageEventFactory.Create(resetRequestId, _registeredApp.AppName, attributes, MessageAction.PASSWORD_RESET, CrudEvent.UPDATE);
+    var messageEvent = MessageEventFactory.Create(resetRequestId, RegisteredApp.AppName, attributes, MessageAction.PasswordReset, CrudEvent.Update);
 
-    await _natsTestHelper.PublishCodeVerifiedAsync(messageEvent);
+    await NatsTestHelper.PublishCodeVerifiedAsync(messageEvent);
 
-    await _pollyResiliencePipeline.ExecuteAsync(token =>
+    await PollyResiliencePipeline.ExecuteAsync(token =>
     {
-      Assert.True(_testDbHelper.GetPasswordResetEntityWithNoTracking(UserSettingHelper.UserId)?.Verified);
+      Assert.True(TestDbHelper.GetPasswordResetEntityWithNoTracking(UserSettingHelper.UserId)?.Verified);
       return ValueTask.CompletedTask;
     }, TestContext.Current.CancellationToken);
 
     var newPassword = "N3wP@ssword!";
 
     // Act
-    var response = await _httpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/update-password", new { ResetRequestId = resetRequestId, NewPassword = newPassword });
+    var response = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/update-password", new { ResetRequestId = resetRequestId, NewPassword = newPassword });
 
     // Assert
     var responseString = await response.ValidateRequestResponseAsync();
@@ -1409,11 +1436,11 @@ public class UserControllerTests(
     Assert.Equal("Password updated successfully", $"{jsonObject["statusMessage"]}");
     Assert.True(jsonObject["updatePasswordResult"]?.ToObject<UpdatePasswordDto>()?.PassWordUpdated);
 
-    Assert.True(_testDbHelper.GetPasswordResetEntityWithNoTracking(UserSettingHelper.UserId)?.Applied);
+    Assert.True(TestDbHelper.GetPasswordResetEntityWithNoTracking(UserSettingHelper.UserId)?.Applied);
 
-    await _httpClient.LoginUserAsync(UserSettingHelper.UserName, newPassword);
+    await HttpClient.LoginUserAsync(UserSettingHelper.UserName, newPassword);
 
-    var refreshResponse = await _httpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/refresh-token", new
+    var refreshResponse = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/refresh-token", new
     {
       AccessToken = userToken,
       RefreshToken = refreshToken
@@ -1421,7 +1448,7 @@ public class UserControllerTests(
 
     Assert.Equal(HttpStatusCode.Unauthorized, refreshResponse.StatusCode);
 
-    var reuseResponse = await _httpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/update-password", new { ResetRequestId = resetRequestId, NewPassword = "An0therP@ssword!" });
+    var reuseResponse = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/update-password", new { ResetRequestId = resetRequestId, NewPassword = "An0therP@ssword!" });
 
     Assert.Equal(HttpStatusCode.NotAcceptable, reuseResponse.StatusCode);
   }
@@ -1435,7 +1462,7 @@ public class UserControllerTests(
     };
 
     // Act
-    var response = await _httpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/update-password", requestPayload);
+    var response = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/update-password", requestPayload);
 
     // Assert
     var responseString = await response.ValidateRequestResponseAsync();
@@ -1469,16 +1496,16 @@ public class UserControllerTests(
   public async Task Update_Password_With_Unknown_Reset_Request_Does_Not_Update_Password()
   {
     // Arrange
-    _testDbHelper.SeedDatabase();
+    TestDbHelper.SeedDatabase();
 
     var requestPayload = new
     {
-      ResetRequestId = StringUtil.GenerateRandomString(32),
+      ResetRequestId = RandomStrings.Generate(32),
       NewPassword = "N3wP@ssword!"
     };
 
     // Act
-    var response = await _httpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/update-password", requestPayload);
+    var response = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/update-password", requestPayload);
 
     // Assert
     var responseString = await response.ValidateRequestResponseAsync();
@@ -1504,10 +1531,10 @@ public class UserControllerTests(
   public async Task Update_Password_With_Unverified_Used_Or_Expired_Reset_Request_Does_Not_Update_Password(bool verified, bool applied, int expiresInMinutes)
   {
     // Arrange
-    _testDbHelper.SeedDatabase();
+    TestDbHelper.SeedDatabase();
 
-    var resetRequestId = StringUtil.GenerateRandomString(32);
-    _testDbHelper.CreatePasswordResetEntity(resetRequestId, verified, applied, DateTime.UtcNow.AddMinutes(expiresInMinutes));
+    var resetRequestId = RandomStrings.Generate(32);
+    TestDbHelper.CreatePasswordResetEntity(resetRequestId, verified, applied, DateTime.UtcNow.AddMinutes(expiresInMinutes));
 
     var requestPayload = new
     {
@@ -1516,7 +1543,7 @@ public class UserControllerTests(
     };
 
     // Act
-    var response = await _httpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/update-password", requestPayload);
+    var response = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/update-password", requestPayload);
 
     // Assert
     var responseString = await response.ValidateRequestResponseAsync();
@@ -1529,17 +1556,17 @@ public class UserControllerTests(
     Assert.Equal("Password update failed", $"{jsonObject["statusMessage"]}");
     Assert.False(jsonObject["updatePasswordResult"]?.ToObject<UpdatePasswordDto>()?.PassWordUpdated);
 
-    await _httpClient.LoginUserAsync(UserSettingHelper.UserName, UserSettingHelper.UserPassword);
+    await HttpClient.LoginUserAsync(UserSettingHelper.UserName, UserSettingHelper.UserPassword);
   }
 
   [Fact]
   public async Task Update_Password_With_Password_Not_Meeting_Rules_Returns_Validation_Errors()
   {
     // Arrange
-    _testDbHelper.SeedDatabase();
+    TestDbHelper.SeedDatabase();
 
-    var resetRequestId = StringUtil.GenerateRandomString(32);
-    _testDbHelper.CreatePasswordResetEntity(resetRequestId);
+    var resetRequestId = RandomStrings.Generate(32);
+    TestDbHelper.CreatePasswordResetEntity(resetRequestId);
 
     var requestPayload = new
     {
@@ -1548,7 +1575,7 @@ public class UserControllerTests(
     };
 
     // Act
-    var response = await _httpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/update-password", requestPayload);
+    var response = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/update-password", requestPayload);
 
     // Assert
     var responseString = await response.ValidateRequestResponseAsync();
@@ -1562,13 +1589,13 @@ public class UserControllerTests(
     Assert.Equal("400 - BAD REQUEST", $"{jsonObject["statusMessage"]}");
     Assert.Contains("Passwords must be at least 8 characters.", $"{jsonObject["error"]?["message"]}");
 
-    Assert.False(_testDbHelper.GetPasswordResetEntityWithNoTracking(UserSettingHelper.UserId)?.Applied);
+    Assert.False(TestDbHelper.GetPasswordResetEntityWithNoTracking(UserSettingHelper.UserId)?.Applied);
   }
 
   private void SetUpGoogleRecaptchaEndpoint(string googleRecaptchaToken)
   {
 
-    var googleRecaptchaSettings = _configuration.GetSetting<GoogleRecaptchaSettings>();
+    var googleRecaptchaSettings = Configuration.GetSetting<GoogleRecaptchaSettings>();
 
     var googleRecaptchaResponse = new
     {

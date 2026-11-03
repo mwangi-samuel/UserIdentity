@@ -1,7 +1,4 @@
-﻿using System;
-using System.IO;
-using System.Net;
-using System.Threading.Tasks;
+﻿using System.Net;
 
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -71,7 +68,7 @@ public class InviteOpenApiContractTests
     {
       builder.UseEnvironment("Development");
       var keys = TestUtils.EdDsaHelper.GenerateEd25519KeyPair();
-      var phrase = StringUtil.GenerateRandomString(32, true, true);
+      var phrase = RandomStrings.Generate(32, true, true);
       builder.UseSetting("EDDSA_PRIVATE_KEY", TestUtils.EdDsaHelper.ConvertToPem(keys.Private, phrase));
       builder.UseSetting("EDDSA_PUBLIC_KEY", TestUtils.EdDsaHelper.ConvertToPem(keys.Public));
       builder.UseSetting($"{nameof(KeySetOptions)}:{nameof(KeySetOptions.PrivateKeyPath)}", "EDDSA_PRIVATE_KEY");

@@ -7,7 +7,7 @@ using PolyzenKit.Application.Core;
 using PolyzenKit.Application.Core.Interfaces;
 using PolyzenKit.Application.Interfaces;
 using PolyzenKit.Common.Exceptions;
-using PolyzenKit.Common.Utilities;
+using PolyzenKit.Common.Extensions;
 
 using UserIdentity.Application.Core.Roles.Shared;
 

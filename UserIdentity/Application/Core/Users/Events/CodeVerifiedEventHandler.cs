@@ -22,12 +22,12 @@ public class CodeVerifiedEventHandler(
   {
     switch (eventItem.Action)
     {
-      case MessageAction.WELCOME_USER:
-        await _confirmUserCommandHandler.UpdateItemAsync(new ConfirmUserCommand { UserId = eventItem.CorrelationId }, ZenConstants.SYSTEM_USER_ID, cancellationToken);
+      case MessageAction.WelcomeUser:
+        await _confirmUserCommandHandler.UpdateItemAsync(new ConfirmUserCommand { UserId = eventItem.CorrelationId }, KnownUsers.SystemId, cancellationToken);
         break;
 
-      case MessageAction.PASSWORD_RESET:
-        await _verifyPasswordResetCommandHandler.UpdateItemAsync(new VerifyPasswordResetCommand { ResetRequestId = eventItem.CorrelationId }, ZenConstants.SYSTEM_USER_ID, cancellationToken);
+      case MessageAction.PasswordReset:
+        await _verifyPasswordResetCommandHandler.UpdateItemAsync(new VerifyPasswordResetCommand { ResetRequestId = eventItem.CorrelationId }, KnownUsers.SystemId, cancellationToken);
         break;
     }
   }

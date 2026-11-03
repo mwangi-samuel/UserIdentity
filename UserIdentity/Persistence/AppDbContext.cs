@@ -21,55 +21,55 @@ public class AppDbContext(
     DbContextOptions<AppDbContext> dbContextOptions
     ) : IdentityDbContext<IdentityUser>(dbContextOptions)
 {
-  public DbSet<UserEntity> AppUser { get; internal set; }
+  public DbSet<UserEntity> AppUser => Set<UserEntity>();
 
-  public DbSet<RefreshTokenEntity> RefreshToken { get; internal set; }
+  public DbSet<RefreshTokenEntity> RefreshToken => Set<RefreshTokenEntity>();
 
-  public DbSet<AppEntity> AppEntity { get; internal set; }
+  public DbSet<AppEntity> AppEntity => Set<AppEntity>();
 
-  public DbSet<RegisteredAppEntity> RegisteredApp { get; internal set; }
+  public DbSet<RegisteredAppEntity> RegisteredApp => Set<RegisteredAppEntity>();
 
-  public DbSet<UserRegisteredAppEntity> UserRegisteredApp { get; internal set; }
+  public DbSet<UserRegisteredAppEntity> UserRegisteredApp => Set<UserRegisteredAppEntity>();
 
-  public DbSet<WaitListEntity> WaitList { get; internal set; }
+  public DbSet<WaitListEntity> WaitList => Set<WaitListEntity>();
 
-  public DbSet<InviteCodeEntity> InviteCode { get; internal set; }
+  public DbSet<InviteCodeEntity> InviteCode => Set<InviteCodeEntity>();
 
-  public DbSet<PasswordResetEntity> PasswordReset { get; internal set; }
+  public DbSet<PasswordResetEntity> PasswordReset => Set<PasswordResetEntity>();
 
-  public DbSet<OutboxMessageEntity> OutboxMessage { get; internal set; }
+  public DbSet<OutboxMessageEntity> OutboxMessage => Set<OutboxMessageEntity>();
 
-  protected override void OnModelCreating(ModelBuilder modelBuilder)
+  protected override void OnModelCreating(ModelBuilder builder)
   {
-    base.OnModelCreating(modelBuilder);
+    base.OnModelCreating(builder);
 
-    modelBuilder.ApplyConfiguration(new IdentityUserConfiguration());
-    modelBuilder.ApplyConfiguration(new UserConfiguration());
-    modelBuilder.ApplyConfiguration(new RefreshTokenConfiguration());
-    modelBuilder.ApplyConfiguration(new AppEntityConfiguration());
-    modelBuilder.ApplyConfiguration(new RegisteredAppConfiguration());
-    modelBuilder.ApplyConfiguration(new UserRegisteredAppConfiguration());
-    modelBuilder.ApplyConfiguration(new WaitListConfiguration());
-    modelBuilder.ApplyConfiguration(new InviteCodeConfiguration());
-    modelBuilder.ApplyConfiguration(new PasswordResetConfiguration());
-    modelBuilder.ApplyConfiguration(new OutboxMessageConfiguration());
+    builder.ApplyConfiguration(new IdentityUserConfiguration());
+    builder.ApplyConfiguration(new UserConfiguration());
+    builder.ApplyConfiguration(new RefreshTokenConfiguration());
+    builder.ApplyConfiguration(new AppEntityConfiguration());
+    builder.ApplyConfiguration(new RegisteredAppConfiguration());
+    builder.ApplyConfiguration(new UserRegisteredAppConfiguration());
+    builder.ApplyConfiguration(new WaitListConfiguration());
+    builder.ApplyConfiguration(new InviteCodeConfiguration());
+    builder.ApplyConfiguration(new PasswordResetConfiguration());
+    builder.ApplyConfiguration(new OutboxMessageConfiguration());
 
-    modelBuilder.Entity<UserEntity>().ToTable("user_details");
-    modelBuilder.Entity<RefreshTokenEntity>().ToTable("refresh_tokens");
-    modelBuilder.Entity<AppEntity>().ToTable("app_entities");
-    modelBuilder.Entity<RegisteredAppEntity>().ToTable("registered_apps");
-    modelBuilder.Entity<UserRegisteredAppEntity>().ToTable("user_registered_apps");
-    modelBuilder.Entity<WaitListEntity>().ToTable("wait_lists");
-    modelBuilder.Entity<InviteCodeEntity>().ToTable("invite_codes");
-    modelBuilder.Entity<PasswordResetEntity>().ToTable("password_resets");
-    modelBuilder.Entity<OutboxMessageEntity>().ToTable("outbox_messages");
+    builder.Entity<UserEntity>().ToTable("user_details");
+    builder.Entity<RefreshTokenEntity>().ToTable("refresh_tokens");
+    builder.Entity<AppEntity>().ToTable("app_entities");
+    builder.Entity<RegisteredAppEntity>().ToTable("registered_apps");
+    builder.Entity<UserRegisteredAppEntity>().ToTable("user_registered_apps");
+    builder.Entity<WaitListEntity>().ToTable("wait_lists");
+    builder.Entity<InviteCodeEntity>().ToTable("invite_codes");
+    builder.Entity<PasswordResetEntity>().ToTable("password_resets");
+    builder.Entity<OutboxMessageEntity>().ToTable("outbox_messages");
 
-    modelBuilder.Entity<IdentityUser>().ToTable("users");
-    modelBuilder.Entity<IdentityRole>().ToTable("roles");
-    modelBuilder.Entity<IdentityUserClaim<string>>().ToTable("user_claims");
-    modelBuilder.Entity<IdentityRoleClaim<string>>().ToTable("role_claims");
-    modelBuilder.Entity<IdentityUserLogin<string>>().ToTable("user_logins").HasKey(i => new { i.LoginProvider, i.ProviderKey });
-    modelBuilder.Entity<IdentityUserRole<string>>().ToTable("user_roles").HasKey(i => new { i.UserId, i.RoleId });
-    modelBuilder.Entity<IdentityUserToken<string>>().ToTable("user_tokens").HasKey(i => new { i.UserId, i.LoginProvider, i.Name });
+    builder.Entity<IdentityUser>().ToTable("users");
+    builder.Entity<IdentityRole>().ToTable("roles");
+    builder.Entity<IdentityUserClaim<string>>().ToTable("user_claims");
+    builder.Entity<IdentityRoleClaim<string>>().ToTable("role_claims");
+    builder.Entity<IdentityUserLogin<string>>().ToTable("user_logins").HasKey(i => new { i.LoginProvider, i.ProviderKey });
+    builder.Entity<IdentityUserRole<string>>().ToTable("user_roles").HasKey(i => new { i.UserId, i.RoleId });
+    builder.Entity<IdentityUserToken<string>>().ToTable("user_tokens").HasKey(i => new { i.UserId, i.LoginProvider, i.Name });
   }
 }

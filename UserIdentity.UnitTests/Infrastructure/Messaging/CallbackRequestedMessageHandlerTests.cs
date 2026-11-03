@@ -1,8 +1,4 @@
-﻿using System.Collections.Generic;
-using System.IO;
-using System.Reflection;
-using System.Threading;
-using System.Threading.Tasks;
+﻿using System.Reflection;
 
 using FakeItEasy;
 
@@ -36,14 +32,14 @@ public class CallbackRequestedMessageHandlerTests
   public async Task HandleAsync_Maps_The_App_And_The_Users_Attributes()
   {
     // Arrange
-    var message = CreateMessage(new Dictionary<MessageAttribute, string>
+    var message = CreateMessage(new Dictionary<MessageAttributeKey, string>
     {
-      [MessageAttribute.USER_ID] = "user-id",
-      [MessageAttribute.FIRST_NAME] = "Test",
-      [MessageAttribute.LAST_NAME] = "",
-      [MessageAttribute.USER_NAME] = "test.user",
-      [MessageAttribute.RECIPIENT_PHONE] = "0712345678",
-      [MessageAttribute.RECIPIENT_EMAIL] = "test.user@example.com"
+      [MessageAttributeKey.UserId] = "user-id",
+      [MessageAttributeKey.FirstName] = "Test",
+      [MessageAttributeKey.LastName] = "",
+      [MessageAttributeKey.UserName] = "test.user",
+      [MessageAttributeKey.RecipientPhone] = "0712345678",
+      [MessageAttributeKey.RecipientEmail] = "test.user@example.com"
     });
 
     // Act
@@ -66,7 +62,7 @@ public class CallbackRequestedMessageHandlerTests
   public async Task HandleAsync_Without_A_User_Id_Throws_InvalidDataException_So_The_Message_Is_Dropped()
   {
     // Arrange
-    var message = CreateMessage(new Dictionary<MessageAttribute, string> { [MessageAttribute.FIRST_NAME] = "Test" });
+    var message = CreateMessage(new Dictionary<MessageAttributeKey, string> { [MessageAttributeKey.FirstName] = "Test" });
 
     // Act & Assert
     await Assert.ThrowsAsync<InvalidDataException>(() => new CallbackRequestedMessageHandler(_eventHandler).HandleAsync(message, TestContext.Current.CancellationToken));
@@ -74,9 +70,9 @@ public class CallbackRequestedMessageHandlerTests
     A.CallTo(() => _eventHandler.HandleEventAsync(A<UserRegisteredEvent>._, A<CancellationToken>._)).MustNotHaveHappened();
   }
 
-  private static MessageEvent CreateMessage(Dictionary<MessageAttribute, string> attributes) => new()
+  private static MessageEvent CreateMessage(Dictionary<MessageAttributeKey, string> attributes) => new()
   {
-    Action = MessageAction.WELCOME_USER,
+    Action = MessageAction.WelcomeUser,
     CorrelationId = "user-id",
     RegisteredApp = "TestApp",
     Attributes = attributes

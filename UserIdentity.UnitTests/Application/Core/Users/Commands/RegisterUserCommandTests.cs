@@ -1,5 +1,4 @@
 ﻿using System.ComponentModel.DataAnnotations;
-using System.Linq;
 
 using UserIdentity.Application.Core.Users.Commands;
 

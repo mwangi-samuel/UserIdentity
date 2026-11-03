@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Threading;
-using System.Threading.Tasks;
-
-using FakeItEasy;
+﻿using FakeItEasy;
 
 using PolyzenKit.Application.Core.Interfaces;
 using PolyzenKit.Application.Core.Messages.Events;
@@ -22,10 +17,10 @@ public class CodeVerifiedMessageHandlerTests
 
   private static readonly MessageEvent _messageEvent = new()
   {
-    Action = MessageAction.WELCOME_USER,
+    Action = MessageAction.WelcomeUser,
     CorrelationId = "correlation-id",
     RegisteredApp = "TestApp",
-    Attributes = new Dictionary<MessageAttribute, string>()
+    Attributes = new Dictionary<MessageAttributeKey, string>()
   };
 
   [Fact]
@@ -39,7 +34,7 @@ public class CodeVerifiedMessageHandlerTests
     await handler.HandleAsync(_messageEvent, cancellationTokenSource.Token);
 
     // Assert
-    A.CallTo(() => _eventHandler.HandleEventAsync(new CodeVerifiedEvent(MessageAction.WELCOME_USER, "correlation-id"), cancellationTokenSource.Token))
+    A.CallTo(() => _eventHandler.HandleEventAsync(new CodeVerifiedEvent(MessageAction.WelcomeUser, "correlation-id"), cancellationTokenSource.Token))
       .MustHaveHappenedOnceExactly();
   }
 

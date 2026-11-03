@@ -3,7 +3,6 @@ using System.Security.Authentication;
 using System.Text.Json.Serialization;
 
 using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Mvc.ModelBinding.Validation;
 using Microsoft.Extensions.Options;
 
 using PolyzenKit.Application.Core;
@@ -26,7 +25,6 @@ public record LoginUserCommand : IBaseCommand
 {
 
   [JsonIgnore]
-  [ValidateNever]
   public RegisteredAppEntity? RegisteredApp { get; internal set; }
 
   public int AppId { get; set; }
@@ -49,14 +47,14 @@ public class LoginUserCommandHandler(
     IUserRepository userRepository,
     IRoleRepository roleRepository,
     IRefreshTokenRepository refreshTokenRepository,
-    IMachineDateTime machineDateTime
+    TimeProvider timeProvider
     ) : ICreateItemCommandHandler<LoginUserCommand, AuthUserViewModel>
 {
   private readonly IdentityOptions _identityOptions = identityOptions.Value;
   private readonly UserManager<IdentityUser> _userManager = userManager;
   private readonly IUnitOfWork _unitOfWork = unitOfWork;
   private readonly IUserRepository _userRepository = userRepository;
-  private readonly UserTokenIssuer _userTokenIssuer = new(roleRepository, refreshTokenRepository, jwtTokenHandler, tokenFactory, machineDateTime, roleSettingsOptions.Value, refreshTokenSettingsOptions.Value);
+  private readonly UserTokenIssuer _userTokenIssuer = new(roleRepository, refreshTokenRepository, jwtTokenHandler, tokenFactory, timeProvider, roleSettingsOptions.Value, refreshTokenSettingsOptions.Value);
 
   public async Task<AuthUserViewModel> CreateItemAsync(LoginUserCommand command, string userId, CancellationToken cancellationToken = default)
   {

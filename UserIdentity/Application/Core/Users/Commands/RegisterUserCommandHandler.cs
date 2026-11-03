@@ -44,7 +44,7 @@ public record RegisterUserCommand : IBaseCommand, IValidatableObject
   public RegisteredAppEntity? RegisteredApp { get; internal set; }
 
   [JsonIgnore]
-  public CrudEvent Event { get; internal set; } = CrudEvent.CREATE;
+  public CrudEvent Event { get; internal set; } = CrudEvent.Create;
 
   [Required]
   public string FirstName { get; init; } = null!;
@@ -86,7 +86,7 @@ public class RegisterUserCommandHandler(
     IRoleRepository roleRepository,
     IJwtTokenHandler jwtTokenHandler,
     ITokenFactory tokenFactory,
-    IMachineDateTime machineDateTime,
+    TimeProvider timeProvider,
     IMessageOutbox messageOutbox,
     IGoogleRecaptchaService googleRecaptchaService
     ) : ICreateItemCommandHandler<RegisterUserCommand, AuthUserViewModel>
@@ -101,13 +101,13 @@ public class RegisterUserCommandHandler(
   private readonly IUserRegisteredAppRepository _userRegisteredAppRepository = userRegisteredAppRepository;
   private readonly IInviteCodeRepository _inviteCodeRepository = inviteCodeRepository;
 
-  private readonly IMachineDateTime _machineDateTime = machineDateTime;
+  private readonly TimeProvider _timeProvider = timeProvider;
 
   private readonly IMessageOutbox _messageOutbox = messageOutbox;
 
   private readonly IGoogleRecaptchaService _googleRecaptchaService = googleRecaptchaService;
 
-  private readonly UserTokenIssuer _userTokenIssuer = new(roleRepository, refreshTokenRepository, jwtTokenHandler, tokenFactory, machineDateTime, roleSettingsOptions.Value, refreshTokenSettingsOptions.Value);
+  private readonly UserTokenIssuer _userTokenIssuer = new(roleRepository, refreshTokenRepository, jwtTokenHandler, tokenFactory, timeProvider, roleSettingsOptions.Value, refreshTokenSettingsOptions.Value);
 
   public async Task<AuthUserViewModel> CreateItemAsync(RegisterUserCommand command, string userId, CancellationToken cancellationToken = default)
   {
@@ -137,7 +137,7 @@ public class RegisterUserCommandHandler(
       if (!hasInviteCode)
         throw new InvalidDataException(ErrorMessages.Users.InviteCodeRequired);
 
-      inviteCodeEntity = await _inviteCodeRepository.GetEntityByAlternateIdAsync(new() { AppId = command.RegisteredApp!.Id, UserEmail = command.UserEmail! }, QueryCondition.MAY_OR_MAY_NOT_EXIST, cancellationToken);
+      inviteCodeEntity = await _inviteCodeRepository.GetEntityByAlternateIdAsync(new() { AppId = command.RegisteredApp!.Id, UserEmail = command.UserEmail! }, QueryCondition.MayOrMayNotExist, cancellationToken);
 
       // A missing, wrong or used code gets the same answer, so sign-up never says whether an email has an invite
       if (inviteCodeEntity is null || inviteCodeEntity.Applied || !string.Equals(command.InviteCode, inviteCodeEntity.InviteCode, StringComparison.OrdinalIgnoreCase))
@@ -200,7 +200,7 @@ public class RegisterUserCommandHandler(
         IsDeleted = false
       };
 
-      userDetails.SetEntityAuditFields(newUser.Id, _machineDateTime.Now);
+      userDetails.SetEntityAuditFields(newUser.Id, _timeProvider.GetUtcNow().UtcDateTime);
 
       _userRepository.CreateEntityItem(userDetails);
 
@@ -208,7 +208,7 @@ public class RegisterUserCommandHandler(
       if (inviteCodeEntity != null)
       {
         inviteCodeEntity.Applied = true;
-        inviteCodeEntity.UpdateEntityAuditFields(newUser.Id, _machineDateTime.Now);
+        inviteCodeEntity.UpdateEntityAuditFields(newUser.Id, _timeProvider.GetUtcNow().UtcDateTime);
 
         _inviteCodeRepository.UpdateEntityItem(inviteCodeEntity); // No worries - we are using a db transaction
       }
@@ -221,7 +221,7 @@ public class RegisterUserCommandHandler(
         AppId = command.RegisteredApp!.Id
       };
 
-      userRegisteredApp.SetEntityAuditFields(newUser.Id, _machineDateTime.Now);
+      userRegisteredApp.SetEntityAuditFields(newUser.Id, _timeProvider.GetUtcNow().UtcDateTime);
 
       _userRegisteredAppRepository.CreateEntityItem(userRegisteredApp);
 
@@ -262,7 +262,7 @@ public class RegisterUserCommandHandler(
     }
     catch
     {
-      await _unitOfWork.RollbackTransactionAsync();
+      await _unitOfWork.RollbackTransactionAsync(CancellationToken.None);
       throw;
     }
   }

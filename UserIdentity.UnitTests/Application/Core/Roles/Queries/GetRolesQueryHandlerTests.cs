@@ -1,8 +1,4 @@
-﻿using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
-
-using FakeItEasy;
+﻿using FakeItEasy;
 
 using UserIdentity.Application.Core.Roles.Queries;
 using UserIdentity.Domain.Roles;

@@ -1,8 +1,4 @@
-﻿using System;
-using System.Linq;
-using System.Threading.Tasks;
-
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 
 using PolyzenKit.Common.Exceptions;
 using PolyzenKit.Persistence.Repositories;
@@ -44,7 +40,7 @@ public class PasswordResetRepositoryTests
     var result = await repository.GetEntityByAlternateIdAsync(new PasswordResetEntity
     {
       RequestId = passwordReset.RequestId
-    }, QueryCondition.MUST_EXIST, TestContext.Current.CancellationToken);
+    }, QueryCondition.MustExist, TestContext.Current.CancellationToken);
 
     Assert.NotNull(result);
     Assert.Equal(passwordReset.Id, result!.Id);
@@ -58,7 +54,7 @@ public class PasswordResetRepositoryTests
     await Assert.ThrowsAsync<NoRecordException>(() => repository.GetEntityByAlternateIdAsync(new PasswordResetEntity
     {
       RequestId = Guid.NewGuid().ToString()
-    }, QueryCondition.MUST_EXIST, TestContext.Current.CancellationToken));
+    }, QueryCondition.MustExist, TestContext.Current.CancellationToken));
   }
 
   [Fact]
@@ -69,7 +65,7 @@ public class PasswordResetRepositoryTests
     var result = await repository.GetEntityByAlternateIdAsync(new PasswordResetEntity
     {
       RequestId = Guid.NewGuid().ToString()
-    }, QueryCondition.MAY_OR_MAY_NOT_EXIST, TestContext.Current.CancellationToken);
+    }, QueryCondition.MayOrMayNotExist, TestContext.Current.CancellationToken);
 
     Assert.Null(result);
   }

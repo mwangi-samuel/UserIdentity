@@ -1,6 +1,4 @@
-﻿using System.Threading.Tasks;
-
-using Microsoft.AspNetCore.Identity;
+﻿using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.DependencyInjection;
 
 using PolyzenKit.Common.Exceptions;
@@ -22,7 +20,7 @@ public class IdentityUserConfigurationTests(
   public async Task A_Second_Account_With_An_Email_That_Differs_Only_In_Case_Is_Refused_As_Existing()
   {
     // Arrange
-    _testDbHelper.CreateIdentityUser();
+    TestDbHelper.CreateIdentityUser();
 
     using var scope = _testingWebAppFactory.Services.CreateScope();
     var userManager = scope.ServiceProvider.GetRequiredService<UserManager<IdentityUser>>();

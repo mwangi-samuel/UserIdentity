@@ -3,7 +3,6 @@ using System.Text.Json.Serialization;
 
 using PolyzenKit.Application.Core;
 using PolyzenKit.Application.Core.Interfaces;
-using PolyzenKit.Application.Interfaces;
 using PolyzenKit.Persistence.Repositories;
 
 using UserIdentity.Application.Core.WaitLists.ViewModels;
@@ -24,8 +23,8 @@ public record CreateWaitListCommand : IBaseCommand
 public class CreateWaitListCommandHandler(
    IUnitOfWork unitOfWork,
    IWaitListRepository waitListRepository,
-   IMachineDateTime machineDateTime
-  ) : BaseAuditableItemCommandHandler<long, WaitListEntity, IWaitListRepository>(unitOfWork, waitListRepository, machineDateTime),
+   TimeProvider timeProvider
+  ) : BaseAuditableItemCommandHandler<long, WaitListEntity, IWaitListRepository>(unitOfWork, waitListRepository, timeProvider),
       ICreateItemCommandHandler<CreateWaitListCommand, WaitListViewModel>
 {
   public async Task<WaitListViewModel> CreateItemAsync(CreateWaitListCommand command, string userId, CancellationToken cancellationToken = default)
@@ -40,7 +39,7 @@ public class CreateWaitListCommandHandler(
 
     return new WaitListViewModel
     {
-      WaitList = await _repository.GetEntityDtoByIdAsync(entity.Id, cancellationToken)
+      WaitList = await Repository.GetEntityDtoByIdAsync(entity.Id, cancellationToken)
     };
   }
 }

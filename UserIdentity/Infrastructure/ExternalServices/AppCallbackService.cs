@@ -1,7 +1,6 @@
 ﻿using Microsoft.Extensions.Options;
 
 using PolyzenKit.Application.Interfaces;
-using PolyzenKit.Common.Enums;
 using PolyzenKit.Common.Settings;
 using PolyzenKit.Common.Utilities;
 using PolyzenKit.Domain.Entities.RegisteredApps;
@@ -13,7 +12,7 @@ using UserIdentity.Application.Interfaces;
 namespace UserIdentity.Infrastructure.ExternalServices;
 
 public class AppCallbackService(
-    IHttpClientHelper httpClientHelper,
+    IHttpRequestSender httpRequestSender,
     IJwtTokenHandler jwtTokenHandler,
     IHttpContextAccessor httpContextAccessor,
     IOptions<RoleSettings> roleSettingsOptions,
@@ -21,10 +20,13 @@ public class AppCallbackService(
     ) : BaseExternalService(jwtTokenHandler, httpContextAccessor, roleSettingsOptions),
             IAppCallbackService
 {
-  private readonly IHttpClientHelper _httpClientHelper = httpClientHelper;
+  private readonly IHttpRequestSender _httpRequestSender = httpRequestSender;
   private readonly TimeProvider _timeProvider = timeProvider;
 
   private const string targetServiceName = "AppCallback";
+
+  // Apps read the event type in upper case
+  private const string CreateEventType = "CREATE";
 
   public async Task SendCallbackRequestAsync(RegisteredAppEntity registeredApp, UserRegisteredEvent user, CancellationToken cancellationToken = default)
   {
@@ -41,10 +43,10 @@ public class AppCallbackService(
         user.UserEmail,
         EmailConfirmed = false
       },
-      EventType = CrudEvent.CREATE
+      EventType = CreateEventType
     };
 
-    var requestMessage = _httpClientHelper.CreateHttpRequestMessage(HttpMethod.Post, registeredApp.CallbackUrl!)
+    var requestMessage = _httpRequestSender.CreateHttpRequestMessage(HttpMethod.Post, registeredApp.CallbackUrl!)
         .WithXRequestId(ResolveRequestId())
         .WithHttpContent(content);
 
@@ -54,7 +56,7 @@ public class AppCallbackService(
               CurrentServiceName,
               registeredApp.AppName,
               ResolveServiceResource(registeredApp.AppName, "user"),
-              ZenConstants.SCOPE_ACTION_CREATE
+              ScopeActions.Create
               )
           );
 
@@ -63,9 +65,9 @@ public class AppCallbackService(
         requestMessage = requestMessage.WithRequestHeader(header.Key, header.Value);
 
     // Signed last so app-defined callback headers cannot replace X-Timestamp / X-Signature.
-    // The app verifies the body with its secret (see HmacSignatureUtil.IsValidSignature).
+    // The app verifies the body with its secret (see HmacSignature.IsValid).
     await requestMessage.WithHmacSignatureAsync(registeredApp.AppSecretKey, _timeProvider, cancellationToken);
 
-    await _httpClientHelper.SendRequestAsync(targetServiceName, requestMessage, cancellationToken);
+    await _httpRequestSender.SendRequestAsync(targetServiceName, requestMessage, cancellationToken);
   }
 }

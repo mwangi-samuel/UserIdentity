@@ -1,6 +1,4 @@
-﻿using System;
-
-using PolyzenKit.Domain.Entities.RegisteredApps;
+﻿using PolyzenKit.Domain.Entities.RegisteredApps;
 
 using UserIdentity.Domain.InviteCodes;
 

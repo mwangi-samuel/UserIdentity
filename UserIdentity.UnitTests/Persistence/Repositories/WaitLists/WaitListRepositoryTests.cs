@@ -1,6 +1,4 @@
-﻿using System.Threading.Tasks;
-
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 
 using PolyzenKit.Common.Exceptions;
 using PolyzenKit.Domain.Entities.RegisteredApps;
@@ -47,7 +45,7 @@ public class WaitListRepositoryTests
     {
       AppId = waitList.AppId,
       UserEmail = waitList.UserEmail
-    }, QueryCondition.MUST_EXIST, TestContext.Current.CancellationToken);
+    }, QueryCondition.MustExist, TestContext.Current.CancellationToken);
 
     Assert.NotNull(result);
     Assert.Equal(waitList.Id, result!.Id);
@@ -63,7 +61,7 @@ public class WaitListRepositoryTests
     await Assert.ThrowsAsync<NoRecordException>(() => repository.GetEntityByAlternateIdAsync(new WaitListEntity
     {
       UserEmail = "notfound@example.com"
-    }, QueryCondition.MUST_EXIST, TestContext.Current.CancellationToken));
+    }, QueryCondition.MustExist, TestContext.Current.CancellationToken));
   }
 
   [Fact]
@@ -81,7 +79,7 @@ public class WaitListRepositoryTests
     {
       AppId = waitList.AppId,
       UserEmail = waitList.UserEmail
-    }, QueryCondition.MUST_NOT_EXIST, TestContext.Current.CancellationToken));
+    }, QueryCondition.MustNotExist, TestContext.Current.CancellationToken));
   }
 
   [Fact]
@@ -93,7 +91,7 @@ public class WaitListRepositoryTests
     var result = await repository.GetEntityByAlternateIdAsync(new WaitListEntity
     {
       UserEmail = "new@example.com"
-    }, QueryCondition.MUST_NOT_EXIST, TestContext.Current.CancellationToken);
+    }, QueryCondition.MustNotExist, TestContext.Current.CancellationToken);
 
     Assert.Null(result);
   }
@@ -130,7 +128,7 @@ public class WaitListRepositoryTests
   private static AppDbContext GetAppDbContext()
   {
     var options = new DbContextOptionsBuilder<AppDbContext>()
-        .UseInMemoryDatabase(databaseName: System.Guid.NewGuid().ToString())
+        .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
         .Options;
 
     return new AppDbContext(options);

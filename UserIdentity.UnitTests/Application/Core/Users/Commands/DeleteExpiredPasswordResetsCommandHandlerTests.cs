@@ -1,10 +1,6 @@
-﻿using System;
-using System.Threading;
-using System.Threading.Tasks;
+﻿using FakeItEasy;
 
-using FakeItEasy;
-
-using PolyzenKit.Application.Interfaces;
+using Microsoft.Extensions.Time.Testing;
 
 using UserIdentity.Application.Core.Users.Commands;
 using UserIdentity.Persistence.Repositories.PasswordResets;
@@ -22,13 +18,13 @@ public class DeleteExpiredPasswordResetsCommandHandlerTests
     var now = new DateTime(2026, 10, 20, 12, 0, 0, DateTimeKind.Utc);
     var expiredBefore = now.AddDays(-1);
     var repository = A.Fake<IPasswordResetRepository>();
-    var machineDateTime = A.Fake<IMachineDateTime>();
-    A.CallTo(() => machineDateTime.Now).Returns(now);
+    var timeProvider = new FakeTimeProvider();
+    timeProvider.SetUtcNow(now);
 
     A.CallTo(() => repository.DeleteEntityItemsExpiredBeforeAsync(expiredBefore, DeleteExpiredPasswordResetsCommandHandler.BatchSize, A<CancellationToken>._))
       .ReturnsNextFromSequence(DeleteExpiredPasswordResetsCommandHandler.BatchSize, 0);
 
-    var handler = new DeleteExpiredPasswordResetsCommandHandler(repository, machineDateTime);
+    var handler = new DeleteExpiredPasswordResetsCommandHandler(repository, timeProvider);
 
     // Act
     await handler.DeleteItemAsync(new DeleteExpiredPasswordResetsCommand(), "system", TestContext.Current.CancellationToken);

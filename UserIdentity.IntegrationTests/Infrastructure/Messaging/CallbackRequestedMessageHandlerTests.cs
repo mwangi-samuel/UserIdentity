@@ -1,11 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Net;
-using System.Net.Http;
+﻿using System.Net;
 using System.Text;
 using System.Text.Json;
-using System.Threading.Tasks;
 
 using Newtonsoft.Json.Linq;
 
@@ -43,14 +38,15 @@ public class CallbackRequestedMessageHandlerTests(
     // Assert
     var callbacks = await WaitForCallbacksAsync(1);
     var callback = Assert.Single(callbacks).RequestMessage;
+    Assert.NotNull(callback);
 
     using var body = JsonDocument.Parse(callback.Body!);
     Assert.Equal(userId, body.RootElement.GetProperty("userContent").GetProperty("userIdentityId").GetString());
     Assert.Equal("CREATE", body.RootElement.GetProperty("eventType").GetString());
 
-    var timestamp = callback.Headers![ZenConstants.X_TIMESTAMP].Single();
-    var signature = callback.Headers[ZenConstants.X_SIGNATURE].Single();
-    Assert.True(HmacSignatureUtil.IsValidSignature(TestingWebAppFactory.CallbackAppSecretKey, timestamp, Encoding.UTF8.GetBytes(callback.Body!), signature, DateTimeOffset.UtcNow, TimeSpan.FromMinutes(5)));
+    var timestamp = callback.Headers![CustomHeaderNames.Timestamp].Single();
+    var signature = callback.Headers[CustomHeaderNames.Signature].Single();
+    Assert.True(HmacSignature.IsValid(TestingWebAppFactory.CallbackAppSecretKey, timestamp, Encoding.UTF8.GetBytes(callback.Body!), signature, DateTimeOffset.UtcNow, TimeSpan.FromMinutes(5)));
     Assert.Equal("TestApiKey", callback.Headers["X-Api-Key"].Single());
   }
 
@@ -67,7 +63,11 @@ public class CallbackRequestedMessageHandlerTests(
     var callbacks = await WaitForCallbacksAsync(2);
 
     Assert.Equal(2, callbacks.Count);
-    Assert.True(callbacks[1].RequestMessage.DateTime - callbacks[0].RequestMessage.DateTime >= TimeSpan.FromMilliseconds(800));
+    var first = callbacks[0].RequestMessage;
+    var second = callbacks[1].RequestMessage;
+    Assert.NotNull(first);
+    Assert.NotNull(second);
+    Assert.True(second.DateTime - first.DateTime >= TimeSpan.FromMilliseconds(800));
   }
 
   [Fact]
@@ -77,18 +77,18 @@ public class CallbackRequestedMessageHandlerTests(
     SetUpWireMock(failFirstCallback: false);
 
     // Act
-    var userId = await RegisterAsync(_registeredApp.AppName);
+    var userId = await RegisterAsync(RegisteredApp.AppName);
 
     // Assert
-    Assert.NotNull(await _natsTestHelper.FindMessageAsync(NatsTestHelper.UserUpdatedSubject, userId));
+    Assert.NotNull(await NatsTestHelper.FindMessageAsync(NatsTestHelper.UserUpdatedSubject, userId));
 
-    await _pollyResiliencePipeline.ExecuteAsync(token =>
+    await PollyResiliencePipeline.ExecuteAsync(token =>
     {
-      Assert.Equal(0, _testDbHelper.CountOutboxMessages());
+      Assert.Equal(0, TestDbHelper.CountOutboxMessages());
       return ValueTask.CompletedTask;
     }, TestContext.Current.CancellationToken);
 
-    Assert.Null(await _natsTestHelper.FindMessageAsync(NatsTestHelper.CallbackRequestedSubject, userId, TimeSpan.FromSeconds(2)));
+    Assert.Null(await NatsTestHelper.FindMessageAsync(NatsTestHelper.CallbackRequestedSubject, userId, TimeSpan.FromSeconds(2)));
     Assert.Empty(CallbackLogEntries());
   }
 
@@ -132,7 +132,7 @@ public class CallbackRequestedMessageHandlerTests(
       GoogleRecaptchaToken = RecaptchaToken
     });
 
-    var response = await _httpClient.SendAsync(request, TestContext.Current.CancellationToken);
+    var response = await HttpClient.SendAsync(request, TestContext.Current.CancellationToken);
     var responseString = await response.ValidateRequestResponseAsync();
 
     Assert.Equal(HttpStatusCode.Created, response.StatusCode);
@@ -142,7 +142,7 @@ public class CallbackRequestedMessageHandlerTests(
   }
 
   private List<ILogEntry> CallbackLogEntries() =>
-    [.. _wireMock.LogEntries.Where(entry => entry.RequestMessage.Path == TestingWebAppFactory.CallbackPath).OrderBy(entry => entry.RequestMessage.DateTime)];
+    [.. _wireMock.LogEntries.Where(entry => entry.RequestMessage?.Path == TestingWebAppFactory.CallbackPath).OrderBy(entry => entry.RequestMessage?.DateTime)];
 
   private async Task<List<ILogEntry>> WaitForCallbacksAsync(int count)
   {

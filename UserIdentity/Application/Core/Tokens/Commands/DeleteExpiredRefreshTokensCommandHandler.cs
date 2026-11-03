@@ -1,6 +1,5 @@
 ﻿using PolyzenKit.Application.Core;
 using PolyzenKit.Application.Core.Interfaces;
-using PolyzenKit.Application.Interfaces;
 
 using UserIdentity.Persistence.Repositories.RefreshTokens;
 
@@ -10,17 +9,17 @@ public record DeleteExpiredRefreshTokensCommand : IBaseCommand;
 
 public class DeleteExpiredRefreshTokensCommandHandler(
   IRefreshTokenRepository refreshTokenRepository,
-  IMachineDateTime machineDateTime
+  TimeProvider timeProvider
   ) : IDeleteItemCommandHandler<DeleteExpiredRefreshTokensCommand, DeleteRecordViewModel>
 {
   public const int BatchSize = 100;
 
   private readonly IRefreshTokenRepository _refreshTokenRepository = refreshTokenRepository;
-  private readonly IMachineDateTime _machineDateTime = machineDateTime;
+  private readonly TimeProvider _timeProvider = timeProvider;
 
   public async Task<DeleteRecordViewModel> DeleteItemAsync(DeleteExpiredRefreshTokensCommand command, string userId, CancellationToken cancellationToken = default)
   {
-    var now = _machineDateTime.Now;
+    var now = _timeProvider.GetUtcNow().UtcDateTime;
     int deleted;
 
     do

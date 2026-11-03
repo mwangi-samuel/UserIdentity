@@ -1,6 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 
-using PolyzenKit.Common.Utilities;
+using PolyzenKit.Common.Extensions;
 using PolyzenKit.Persistence.Repositories;
 
 using UserIdentity.Domain.PasswordResets;
@@ -15,7 +15,7 @@ public class PasswordResetRepository(
 
   public async Task<PasswordResetEntity?> GetEntityByAlternateIdAsync(PasswordResetEntity entity, QueryCondition queryCondition, CancellationToken cancellationToken = default)
   {
-    var requestId = ObjectUtil.RequireNonNullValue(entity.RequestId, nameof(entity.RequestId));
+    var requestId = ObjectExtensions.RequireNonNullValue(entity.RequestId, nameof(entity.RequestId));
 
     var existingEntity = await _dbContext.PasswordReset
       .SingleOrDefaultAsync(e => e.RequestId == requestId, cancellationToken);

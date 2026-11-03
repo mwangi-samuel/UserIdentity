@@ -1,11 +1,8 @@
-﻿using System;
-using System.Threading;
-using System.Threading.Tasks;
-
-using FakeItEasy;
+﻿using FakeItEasy;
 
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Time.Testing;
 
 using PolyzenKit.Application.Core.Messages.Events;
 using PolyzenKit.Application.Core.Messages.Shared;
@@ -36,7 +33,7 @@ public class ResetPasswordCommandHandlerTests
 
   private readonly IOptions<PasswordResetSettings> _passwordResetSettings;
   private readonly UserManager<IdentityUser> _userManager;
-  private readonly IMachineDateTime _machineDateTime;
+  private readonly FakeTimeProvider _timeProvider;
   private readonly ITokenFactory _tokenFactory;
   private readonly IUnitOfWork _unitOfWork;
   private readonly IUserRepository _userRepository;
@@ -51,14 +48,14 @@ public class ResetPasswordCommandHandlerTests
   {
     _passwordResetSettings = Options.Create(new PasswordResetSettings { ValidForSeconds = 900, RequestCooldownSeconds = 60 });
     _userManager = IdentityFakes.UserManager();
-    _machineDateTime = A.Fake<IMachineDateTime>();
+    _timeProvider = new FakeTimeProvider();
     _tokenFactory = A.Fake<ITokenFactory>();
     _unitOfWork = A.Fake<IUnitOfWork>();
     _userRepository = A.Fake<IUserRepository>();
     _passwordResetRepository = A.Fake<IPasswordResetRepository>();
     _messageOutbox = A.Fake<IMessageOutbox>();
 
-    A.CallTo(() => _machineDateTime.Now).Returns(_fixedNow);
+    _timeProvider.SetUtcNow(_fixedNow);
     A.CallTo(() => _tokenFactory.GenerateToken(32)).Returns(ResetRequestId);
     A.CallTo(() => _tokenFactory.HashToken(ResetRequestId)).Returns(ResetRequestIdHash);
     A.CallTo(() => _userRegisteredAppRepository.IsUserRegisteredForAppAsync(A<string>._, A<string>._, A<CancellationToken>._)).Returns(true);
@@ -114,13 +111,13 @@ public class ResetPasswordCommandHandlerTests
     A.CallTo(() => _unitOfWork.SaveChangesAsync(A<CancellationToken>._)).MustHaveHappenedOnceExactly();
 
     A.CallTo(() => _messageOutbox.Add(UserMessages.UserUpdated, A<MessageEvent>.That.Matches(m =>
-        m.Action == MessageAction.PASSWORD_RESET
+        m.Action == MessageAction.PasswordReset
         && m.CorrelationId == ResetRequestId
         && m.RegisteredApp == _registeredApp.AppName
-        && m.Attributes[MessageAttribute.USER_ID] == existingIdentityUser.Id
-        && m.Attributes[MessageAttribute.RECIPIENT_EMAIL] == existingIdentityUser.Email
-        && m.Attributes[MessageAttribute.RECIPIENT_PHONE] == existingIdentityUser.PhoneNumber
-        && m.Attributes[MessageAttribute.FIRST_NAME] == existingEntity.FirstName)))
+        && m.Attributes[MessageAttributeKey.UserId] == existingIdentityUser.Id
+        && m.Attributes[MessageAttributeKey.RecipientEmail] == existingIdentityUser.Email
+        && m.Attributes[MessageAttributeKey.RecipientPhone] == existingIdentityUser.PhoneNumber
+        && m.Attributes[MessageAttributeKey.FirstName] == existingEntity.FirstName)))
         .MustHaveHappenedOnceExactly()
         .Then(A.CallTo(() => _unitOfWork.SaveChangesAsync(A<CancellationToken>._)).MustHaveHappenedOnceExactly());
   }
@@ -237,7 +234,7 @@ public class ResetPasswordCommandHandlerTests
     return new ResetPasswordCommandHandler(
       _passwordResetSettings,
       _userManager,
-      _machineDateTime,
+      _timeProvider,
       _tokenFactory,
       _unitOfWork,
       _userRepository,

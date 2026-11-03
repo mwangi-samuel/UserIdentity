@@ -1,11 +1,6 @@
-﻿using System;
-using System.Linq;
-using System.Net;
-using System.Threading.Tasks;
+﻿using System.Net;
 
 using FakeItEasy;
-
-using Microsoft.AspNetCore.Mvc;
 
 using PolyzenKit.Application.Core;
 using PolyzenKit.Application.Core.Interfaces;
@@ -16,17 +11,15 @@ using UserIdentity.Application.Core.Roles.Queries;
 using UserIdentity.Application.Core.Roles.ViewModels;
 using UserIdentity.Domain.RoleClaims;
 using UserIdentity.Domain.Roles;
-using UserIdentity.Presentation.Controllers;
+using UserIdentity.Presentation.Endpoints;
 using UserIdentity.UnitTests.TestUtils;
 
 using Xunit;
 
-namespace UserIdentity.UnitTests.Presentation.Controllers;
+namespace UserIdentity.UnitTests.Presentation.Endpoints;
 
-public class RoleControllerTests
+public class RoleEndpointsTests
 {
-  private static readonly string Controllername = "role";
-
   private readonly ICreateItemCommandHandler<CreateRoleCommand, RoleViewModel> _createRoleCommandHandler;
   private readonly ICreateItemCommandHandler<CreateUserRoleCommand, UserRolesViewModel> _createUserRoleCommandHandler;
   private readonly IGetItemQueryHandler<GetRoleQuery, RoleViewModel> _getRoleQueryHandler;
@@ -38,7 +31,7 @@ public class RoleControllerTests
   private readonly IGetItemsQueryHandler<GetRoleClaimsQuery, RoleClaimsViewModel> _getRoleClaimsQueryHandler;
   private readonly IDeleteItemCommandHandler<DeleteRoleClaimCommand, DeleteRecordViewModel> _deleteRoleClaimCommandHandler;
 
-  public RoleControllerTests()
+  public RoleEndpointsTests()
   {
     _createRoleCommandHandler = A.Fake<ICreateItemCommandHandler<CreateRoleCommand, RoleViewModel>>();
     _createUserRoleCommandHandler = A.Fake<ICreateItemCommandHandler<CreateUserRoleCommand, UserRolesViewModel>>();
@@ -77,17 +70,18 @@ public class RoleControllerTests
     };
 
     // Act
-    A.CallTo(() => _getRolesQueryHandler.GetItemsAsync(query)).Returns(rolesVM);
+    A.CallTo(() => _getRolesQueryHandler.GetItemsAsync(query, A<CancellationToken>._)).Returns(rolesVM);
 
-    var controller = GetRoleController();
-    controller.UpdateContext(null);
+    var request = ApiRequestFactory.Create("role");
 
-    var actionResult = await controller.GetRolesAsync();
-    var result = actionResult?.Result as ObjectResult;
-    var vm = result?.Value as RolesViewModel;
+    var result = await RoleEndpoints.GetRolesAsync(
+      request,
+      _getRolesQueryHandler,
+      TestContext.Current.CancellationToken);
+    var vm = result.Value;
 
     // Assert
-    Assert.Equal((int)HttpStatusCode.OK, result?.StatusCode);
+    Assert.Equal((int)HttpStatusCode.OK, result.StatusCode);
 
     Assert.NotNull(vm);
     Assert.Equal(rolesVM.Roles.Count, vm?.Roles.Count);
@@ -104,8 +98,8 @@ public class RoleControllerTests
     Assert.False(vm?.DownloadEnabled);
     Assert.False(vm?.CreateEnabled);
 
-    Assert.Contains(RequestStatus.SUCCESSFUL.Description(), vm?.RequestStatus);
-    Assert.Contains(ItemStatusMessage.FETCH_ITEMS_SUCCESSFUL.Description(), vm?.StatusMessage);
+    Assert.Contains(RequestStatus.Successful.ToText(), vm?.RequestStatus);
+    Assert.Contains(ItemStatusMessage.FetchItemsSuccessful.ToText(), vm?.StatusMessage);
   }
 
   [Fact]
@@ -125,17 +119,19 @@ public class RoleControllerTests
     };
 
     // Act
-    A.CallTo(() => _getRoleQueryHandler.GetItemAsync(query)).Returns(roleVM);
+    A.CallTo(() => _getRoleQueryHandler.GetItemAsync(query, A<CancellationToken>._)).Returns(roleVM);
 
-    var controller = GetRoleController();
-    controller.UpdateContext(Controllername);
+    var request = ApiRequestFactory.Create("role");
 
-    var actionResult = await controller.GetRoleAsync(roleId);
-    var result = actionResult?.Result as ObjectResult;
-    var vm = result?.Value as RoleViewModel;
+    var result = await RoleEndpoints.GetRoleAsync(
+      roleId,
+      request,
+      _getRoleQueryHandler,
+      TestContext.Current.CancellationToken);
+    var vm = result.Value;
 
     // Assert
-    Assert.Equal((int)HttpStatusCode.OK, result?.StatusCode);
+    Assert.Equal((int)HttpStatusCode.OK, result.StatusCode);
 
     Assert.NotNull(vm);
     Assert.Equal(roleVM.Role.Id, vm?.Role.Id);
@@ -144,8 +140,8 @@ public class RoleControllerTests
     Assert.False(vm?.EditEnabled);
     Assert.False(vm?.DeleteEnabled);
 
-    Assert.Contains(RequestStatus.SUCCESSFUL.Description(), vm?.RequestStatus);
-    Assert.Contains(ItemStatusMessage.FETCH_ITEM_SUCCESSFUL.Description(), vm?.StatusMessage);
+    Assert.Contains(RequestStatus.Successful.ToText(), vm?.RequestStatus);
+    Assert.Contains(ItemStatusMessage.FetchItemSuccessful.ToText(), vm?.StatusMessage);
   }
 
   [Fact]
@@ -168,17 +164,20 @@ public class RoleControllerTests
     };
 
     // Act
-    A.CallTo(() => _createRoleCommandHandler.CreateItemAsync(command, TestStringHelper.UserId)).Returns(roleVM);
+    A.CallTo(() => _createRoleCommandHandler.CreateItemAsync(command, TestStringHelper.UserId, A<CancellationToken>._))
+      .Returns(roleVM);
 
-    var controller = GetRoleController();
-    controller.UpdateContext(Controllername, addUserId: true, userId: TestStringHelper.UserId);
+    var request = ApiRequestFactory.Create("role", userId: TestStringHelper.UserId);
 
-    var actionResult = await controller.CreateRoleAsync(command);
-    var result = actionResult?.Result as ObjectResult;
-    var vm = result?.Value as RoleViewModel;
+    var result = await RoleEndpoints.CreateRoleAsync(
+      command,
+      request,
+      _createRoleCommandHandler,
+      TestContext.Current.CancellationToken);
+    var vm = result.Value;
 
     // Assert
-    Assert.Equal((int)HttpStatusCode.Created, result?.StatusCode);
+    Assert.Equal((int)HttpStatusCode.Created, result.StatusCode);
 
     Assert.NotNull(vm);
     Assert.Equal(roleVM.Role.Id, vm?.Role.Id);
@@ -187,8 +186,8 @@ public class RoleControllerTests
     Assert.False(vm?.EditEnabled);
     Assert.False(vm?.DeleteEnabled);
 
-    Assert.Contains(RequestStatus.SUCCESSFUL.Description(), vm?.RequestStatus);
-    Assert.Contains(ItemStatusMessage.CREATE_ITEM_SUCCESSFUL.Description(), vm?.StatusMessage);
+    Assert.Contains(RequestStatus.Successful.ToText(), vm?.RequestStatus);
+    Assert.Contains(ItemStatusMessage.CreateItemSuccessful.ToText(), vm?.StatusMessage);
   }
 
   [Fact]
@@ -214,17 +213,21 @@ public class RoleControllerTests
     };
 
     // Act
-    A.CallTo(() => _updateRoleCommandHandler.UpdateItemAsync(command, TestStringHelper.UserId)).Returns(roleVM);
+    A.CallTo(() => _updateRoleCommandHandler.UpdateItemAsync(command, TestStringHelper.UserId, A<CancellationToken>._))
+      .Returns(roleVM);
 
-    var controller = GetRoleController();
-    controller.UpdateContext(Controllername, addUserId: true, userId: TestStringHelper.UserId);
+    var request = ApiRequestFactory.Create("role", userId: TestStringHelper.UserId);
 
-    var actionResult = await controller.UpdateRoleAsync(roleId, command);
-    var result = actionResult?.Result as ObjectResult;
-    var vm = result?.Value as RoleViewModel;
+    var result = await RoleEndpoints.UpdateRoleAsync(
+      roleId,
+      command,
+      request,
+      _updateRoleCommandHandler,
+      TestContext.Current.CancellationToken);
+    var vm = result.Value;
 
     // Assert
-    Assert.Equal((int)HttpStatusCode.OK, result?.StatusCode);
+    Assert.Equal((int)HttpStatusCode.OK, result.StatusCode);
 
     Assert.NotNull(vm);
     Assert.Equal(roleVM.Role.Id, vm?.Role.Id);
@@ -233,8 +236,8 @@ public class RoleControllerTests
     Assert.False(vm?.EditEnabled);
     Assert.False(vm?.DeleteEnabled);
 
-    Assert.Contains(RequestStatus.SUCCESSFUL.Description(), vm?.RequestStatus);
-    Assert.Contains(ItemStatusMessage.UPDATE_ITEM_SUCCESSFUL.Description(), vm?.StatusMessage);
+    Assert.Contains(RequestStatus.Successful.ToText(), vm?.RequestStatus);
+    Assert.Contains(ItemStatusMessage.UpdateItemSuccessful.ToText(), vm?.StatusMessage);
   }
 
   [Fact]
@@ -248,21 +251,24 @@ public class RoleControllerTests
     var deleteRoleVM = new DeleteRecordViewModel { };
 
     // Act
-    A.CallTo(() => _deleteRoleCommandHandler.DeleteItemAsync(command, TestStringHelper.UserId)).Returns(deleteRoleVM);
+    A.CallTo(() => _deleteRoleCommandHandler.DeleteItemAsync(command, TestStringHelper.UserId, A<CancellationToken>._))
+      .Returns(deleteRoleVM);
 
-    var controller = GetRoleController();
-    controller.UpdateContext(Controllername);
+    var request = ApiRequestFactory.Create("role");
 
-    var actionResult = await controller.DeleteRoleAsync(roleId);
-    var result = actionResult?.Result as ObjectResult;
-    var vm = result?.Value as DeleteRecordViewModel;
+    var result = await RoleEndpoints.DeleteRoleAsync(
+      roleId,
+      request,
+      _deleteRoleCommandHandler,
+      TestContext.Current.CancellationToken);
+    var vm = result.Value;
 
     // Assert
-    Assert.Equal((int)HttpStatusCode.OK, result?.StatusCode);
+    Assert.Equal((int)HttpStatusCode.OK, result.StatusCode);
 
     Assert.NotNull(vm);
 
-    Assert.Contains(RequestStatus.SUCCESSFUL.Description(), vm?.RequestStatus);
+    Assert.Contains(RequestStatus.Successful.ToText(), vm?.RequestStatus);
     Assert.Contains(deleteSuccesMessage, vm?.StatusMessage);
   }
 
@@ -279,18 +285,20 @@ public class RoleControllerTests
     };
 
     // Act
-    A.CallTo(() => _getUserRolesQueryHandler.GetItemsAsync(query)).Returns(userRolesVM);
+    A.CallTo(() => _getUserRolesQueryHandler.GetItemsAsync(query, A<CancellationToken>._)).Returns(userRolesVM);
 
-    var controller = GetRoleController();
-    controller.UpdateContext(Controllername);
+    var request = ApiRequestFactory.Create("role");
 
-    var actionResult = await controller.GetUserRolesAsync(userId);
-    var result = actionResult?.Result as ObjectResult;
+    var result = await RoleEndpoints.GetUserRolesAsync(
+      userId,
+      request,
+      _getUserRolesQueryHandler,
+      TestContext.Current.CancellationToken);
 
-    var vm = result?.Value as UserRolesViewModel;
+    var vm = result.Value;
 
     // Assert
-    Assert.Equal((int)HttpStatusCode.OK, result?.StatusCode);
+    Assert.Equal((int)HttpStatusCode.OK, result.StatusCode);
 
     Assert.NotNull(vm);
     Assert.Equal(userRolesVM.UserRoles.Count, vm?.UserRoles.Count);
@@ -312,8 +320,8 @@ public class RoleControllerTests
 
     Assert.True(allRolesExist);
 
-    Assert.Contains(RequestStatus.SUCCESSFUL.Description(), vm?.RequestStatus);
-    Assert.Contains(ItemStatusMessage.FETCH_ITEMS_SUCCESSFUL.Description(), vm?.StatusMessage);
+    Assert.Contains(RequestStatus.Successful.ToText(), vm?.RequestStatus);
+    Assert.Contains(ItemStatusMessage.FetchItemsSuccessful.ToText(), vm?.StatusMessage);
   }
 
   [Fact]
@@ -335,18 +343,24 @@ public class RoleControllerTests
     };
 
     // Act
-    A.CallTo(() => _createUserRoleCommandHandler.CreateItemAsync(command, TestStringHelper.UserId)).Returns(userRolesVM);
+    A.CallTo(() => _createUserRoleCommandHandler.CreateItemAsync(
+      command,
+      TestStringHelper.UserId,
+      A<CancellationToken>._))
+      .Returns(userRolesVM);
 
-    var controller = GetRoleController();
-    controller.UpdateContext(Controllername, addUserId: true, userId: TestStringHelper.UserId);
+    var request = ApiRequestFactory.Create("role", userId: TestStringHelper.UserId);
 
-    var actionResult = await controller.CreateUserRoleAsync(command);
-    var result = actionResult?.Result as ObjectResult;
+    var result = await RoleEndpoints.CreateUserRoleAsync(
+      command,
+      request,
+      _createUserRoleCommandHandler,
+      TestContext.Current.CancellationToken);
 
-    var vm = result?.Value as UserRolesViewModel;
+    var vm = result.Value;
 
     // Assert
-    Assert.Equal((int)HttpStatusCode.Created, result?.StatusCode);
+    Assert.Equal((int)HttpStatusCode.Created, result.StatusCode);
 
     Assert.NotNull(vm);
     Assert.Equal(userRolesVM.UserRoles.Count, vm?.UserRoles.Count);
@@ -368,8 +382,8 @@ public class RoleControllerTests
 
     Assert.True(allRolesExist);
 
-    Assert.Contains(RequestStatus.SUCCESSFUL.Description(), vm?.RequestStatus);
-    Assert.Contains(ItemStatusMessage.CREATE_ITEM_SUCCESSFUL.Description(), vm?.StatusMessage);
+    Assert.Contains(RequestStatus.Successful.ToText(), vm?.RequestStatus);
+    Assert.Contains(ItemStatusMessage.CreateItemSuccessful.ToText(), vm?.StatusMessage);
   }
 
   [Fact]
@@ -398,18 +412,24 @@ public class RoleControllerTests
     };
 
     // Act
-    A.CallTo(() => _createRoleClaimCommandHandler.CreateItemAsync(command, TestStringHelper.UserId)).Returns(roleClaimVM);
+    A.CallTo(() => _createRoleClaimCommandHandler.CreateItemAsync(
+      command,
+      TestStringHelper.UserId,
+      A<CancellationToken>._))
+      .Returns(roleClaimVM);
 
-    var controller = GetRoleController();
-    controller.UpdateContext(Controllername, addUserId: true, userId: TestStringHelper.UserId);
+    var request = ApiRequestFactory.Create("role", userId: TestStringHelper.UserId);
 
-    var actionResult = await controller.CreateRoleClaimAsync(command);
-    var result = actionResult?.Result as ObjectResult;
+    var result = await RoleEndpoints.CreateRoleClaimAsync(
+      command,
+      request,
+      _createRoleClaimCommandHandler,
+      TestContext.Current.CancellationToken);
 
-    var vm = result?.Value as RoleClaimViewModel;
+    var vm = result.Value;
 
     // Assert
-    Assert.Equal((int)HttpStatusCode.Created, result?.StatusCode);
+    Assert.Equal((int)HttpStatusCode.Created, result.StatusCode);
 
     Assert.NotNull(vm);
 
@@ -439,18 +459,20 @@ public class RoleControllerTests
     };
 
     // Act
-    A.CallTo(() => _getRoleClaimsQueryHandler.GetItemsAsync(query)).Returns(roleClaimsVM);
+    A.CallTo(() => _getRoleClaimsQueryHandler.GetItemsAsync(query, A<CancellationToken>._)).Returns(roleClaimsVM);
 
-    var controller = GetRoleController();
-    controller.UpdateContext(Controllername, addUserId: true, userId: TestStringHelper.UserId);
+    var request = ApiRequestFactory.Create("role", userId: TestStringHelper.UserId);
 
-    var actionResult = await controller.GetRoleClaimsAsync(roleId);
-    var result = actionResult?.Result as ObjectResult;
+    var result = await RoleEndpoints.GetRoleClaimsAsync(
+      roleId,
+      request,
+      _getRoleClaimsQueryHandler,
+      TestContext.Current.CancellationToken);
 
-    var vm = result?.Value as RoleClaimsViewModel;
+    var vm = result.Value;
 
     // Assert
-    Assert.Equal((int)HttpStatusCode.OK, result?.StatusCode);
+    Assert.Equal((int)HttpStatusCode.OK, result.StatusCode);
 
     Assert.NotNull(vm);
     Assert.Equal(roleClaimsVM.RoleClaims.Count, vm?.RoleClaims.Count);
@@ -472,8 +494,8 @@ public class RoleControllerTests
 
     Assert.True(allClaimsExist);
 
-    Assert.Contains(RequestStatus.SUCCESSFUL.Description(), vm?.RequestStatus);
-    Assert.Contains(ItemStatusMessage.FETCH_ITEMS_SUCCESSFUL.Description(), vm?.StatusMessage);
+    Assert.Contains(RequestStatus.Successful.ToText(), vm?.RequestStatus);
+    Assert.Contains(ItemStatusMessage.FetchItemsSuccessful.ToText(), vm?.StatusMessage);
   }
 
   [Fact]
@@ -495,38 +517,29 @@ public class RoleControllerTests
     var deleteRoleClaimVM = new DeleteRecordViewModel { };
 
     // Act
-    A.CallTo(() => _deleteRoleClaimCommandHandler.DeleteItemAsync(command, TestStringHelper.UserId)).Returns(deleteRoleClaimVM);
+    A.CallTo(() => _deleteRoleClaimCommandHandler.DeleteItemAsync(
+      command,
+      TestStringHelper.UserId,
+      A<CancellationToken>._))
+      .Returns(deleteRoleClaimVM);
 
-    var controller = GetRoleController();
-    controller.UpdateContext(Controllername, addUserId: true, userId: TestStringHelper.UserId);
+    var request = ApiRequestFactory.Create("role", userId: TestStringHelper.UserId);
 
-    var actionResult = await controller.DeleteRoleClaimAsync(command);
-    var result = actionResult?.Result as ObjectResult;
+    var result = await RoleEndpoints.DeleteRoleClaimAsync(
+      command,
+      request,
+      _deleteRoleClaimCommandHandler,
+      TestContext.Current.CancellationToken);
 
-    var vm = result?.Value as DeleteRecordViewModel;
+    var vm = result.Value;
 
     // Assert
-    Assert.Equal((int)HttpStatusCode.OK, result?.StatusCode);
+    Assert.Equal((int)HttpStatusCode.OK, result.StatusCode);
 
     Assert.NotNull(vm);
 
-    Assert.Contains(RequestStatus.SUCCESSFUL.Description(), vm?.RequestStatus);
+    Assert.Contains(RequestStatus.Successful.ToText(), vm?.RequestStatus);
     Assert.Contains(deleteMessage, vm?.StatusMessage);
 
-  }
-
-  private RoleController GetRoleController()
-  {
-    return new RoleController(
-                    _createRoleCommandHandler,
-                    _createUserRoleCommandHandler,
-                    _getRoleQueryHandler,
-                    _getRolesQueryHandler,
-                    _getUserRolesQueryHandler,
-                    _updateRoleCommandHandler,
-                    _deleteRoleCommandHandler,
-                    _createRoleClaimCommandHandler,
-                    _getRoleClaimsQueryHandler,
-                    _deleteRoleClaimCommandHandler);
   }
 }
