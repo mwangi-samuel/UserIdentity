@@ -32,11 +32,7 @@ public class CreateWaitListCommandHandlerTests
   public async Task CreateItemAsync_Creates_WaitList_And_Returns_ViewModel()
   {
     // Arrange
-    var command = new CreateWaitListCommand
-    {
-      UserEmail = "waitlist@example.com",
-      AppId = 1
-    };
+    var command = new CreateWaitListCommand { UserEmail = "waitlist@example.com", AppId = 1 };
 
     var expectedDto = new WaitListDto
     {
@@ -62,7 +58,8 @@ public class CreateWaitListCommandHandlerTests
 
     A.CallTo(() => _waitListRepository.CreateEntityItem(A<WaitListEntity>._)).MustHaveHappenedOnceExactly();
     A.CallTo(() => _unitOfWork.SaveChangesAsync(A<CancellationToken>._)).MustHaveHappenedOnceExactly();
-    A.CallTo(() => _waitListRepository.GetEntityDtoByIdAsync(A<long>._, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+    A.CallTo(() => _waitListRepository.GetEntityDtoByIdAsync(A<long>._, A<CancellationToken>._))
+      .MustHaveHappenedOnceExactly();
   }
 
   [Fact]
@@ -72,11 +69,7 @@ public class CreateWaitListCommandHandlerTests
     var now = DateTime.UtcNow;
     _timeProvider.SetUtcNow(now);
 
-    var command = new CreateWaitListCommand
-    {
-      UserEmail = "audit@example.com",
-      AppId = 2
-    };
+    var command = new CreateWaitListCommand { UserEmail = "audit@example.com", AppId = 2 };
 
     WaitListEntity? capturedEntity = null;
     A.CallTo(() => _waitListRepository.CreateEntityItem(A<WaitListEntity>._))

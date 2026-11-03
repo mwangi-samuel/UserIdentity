@@ -15,8 +15,10 @@ namespace UserIdentity.UnitTests.Application.Core.Users.Events;
 
 public class CodeVerifiedEventHandlerTests
 {
-  private readonly IUpdateItemCommandHandler<ConfirmUserCommand, ConfirmUserViewModel> _confirmUserCommandHandler = A.Fake<IUpdateItemCommandHandler<ConfirmUserCommand, ConfirmUserViewModel>>();
-  private readonly IUpdateItemCommandHandler<VerifyPasswordResetCommand, VerifyPasswordResetViewModel> _verifyPasswordResetCommandHandler = A.Fake<IUpdateItemCommandHandler<VerifyPasswordResetCommand, VerifyPasswordResetViewModel>>();
+  private readonly IUpdateItemCommandHandler<ConfirmUserCommand, ConfirmUserViewModel> _confirmUserCommandHandler =
+    A.Fake<IUpdateItemCommandHandler<ConfirmUserCommand, ConfirmUserViewModel>>();
+  private readonly IUpdateItemCommandHandler<VerifyPasswordResetCommand, VerifyPasswordResetViewModel> _verifyPasswordResetCommandHandler =
+    A.Fake<IUpdateItemCommandHandler<VerifyPasswordResetCommand, VerifyPasswordResetViewModel>>();
 
   [Fact]
   public async Task HandleEventAsync_For_A_Welcome_User_Code_Confirms_The_User()
@@ -25,12 +27,20 @@ public class CodeVerifiedEventHandlerTests
     var handler = CreateHandler();
 
     // Act
-    await handler.HandleEventAsync(new CodeVerifiedEvent(MessageAction.WelcomeUser, "user-id"), TestContext.Current.CancellationToken);
+    await handler.HandleEventAsync(
+      new CodeVerifiedEvent(MessageAction.WelcomeUser, "user-id"),
+      TestContext.Current.CancellationToken);
 
     // Assert
-    A.CallTo(() => _confirmUserCommandHandler.UpdateItemAsync(A<ConfirmUserCommand>.That.Matches(c => c.UserId == "user-id"), KnownUsers.SystemId, A<CancellationToken>._))
+    A.CallTo(() => _confirmUserCommandHandler.UpdateItemAsync(
+      A<ConfirmUserCommand>.That.Matches(c => c.UserId == "user-id"),
+      KnownUsers.SystemId,
+      A<CancellationToken>._))
       .MustHaveHappenedOnceExactly();
-    A.CallTo(() => _verifyPasswordResetCommandHandler.UpdateItemAsync(A<VerifyPasswordResetCommand>._, A<string>._, A<CancellationToken>._))
+    A.CallTo(() => _verifyPasswordResetCommandHandler.UpdateItemAsync(
+      A<VerifyPasswordResetCommand>._,
+      A<string>._,
+      A<CancellationToken>._))
       .MustNotHaveHappened();
   }
 
@@ -41,12 +51,20 @@ public class CodeVerifiedEventHandlerTests
     var handler = CreateHandler();
 
     // Act
-    await handler.HandleEventAsync(new CodeVerifiedEvent(MessageAction.PasswordReset, "reset-request-id"), TestContext.Current.CancellationToken);
+    await handler.HandleEventAsync(
+      new CodeVerifiedEvent(MessageAction.PasswordReset, "reset-request-id"),
+      TestContext.Current.CancellationToken);
 
     // Assert
-    A.CallTo(() => _verifyPasswordResetCommandHandler.UpdateItemAsync(A<VerifyPasswordResetCommand>.That.Matches(c => c.ResetRequestId == "reset-request-id"), KnownUsers.SystemId, A<CancellationToken>._))
+    A.CallTo(() => _verifyPasswordResetCommandHandler.UpdateItemAsync(
+      A<VerifyPasswordResetCommand>.That.Matches(c => c.ResetRequestId == "reset-request-id"),
+      KnownUsers.SystemId,
+      A<CancellationToken>._))
       .MustHaveHappenedOnceExactly();
-    A.CallTo(() => _confirmUserCommandHandler.UpdateItemAsync(A<ConfirmUserCommand>._, A<string>._, A<CancellationToken>._))
+    A.CallTo(() => _confirmUserCommandHandler.UpdateItemAsync(
+      A<ConfirmUserCommand>._,
+      A<string>._,
+      A<CancellationToken>._))
       .MustNotHaveHappened();
   }
 
@@ -57,12 +75,20 @@ public class CodeVerifiedEventHandlerTests
     var handler = CreateHandler();
 
     // Act
-    await handler.HandleEventAsync(new CodeVerifiedEvent(MessageAction.OrderPlaced, "order-id"), TestContext.Current.CancellationToken);
+    await handler.HandleEventAsync(
+      new CodeVerifiedEvent(MessageAction.OrderPlaced, "order-id"),
+      TestContext.Current.CancellationToken);
 
     // Assert
-    A.CallTo(() => _confirmUserCommandHandler.UpdateItemAsync(A<ConfirmUserCommand>._, A<string>._, A<CancellationToken>._))
+    A.CallTo(() => _confirmUserCommandHandler.UpdateItemAsync(
+      A<ConfirmUserCommand>._,
+      A<string>._,
+      A<CancellationToken>._))
       .MustNotHaveHappened();
-    A.CallTo(() => _verifyPasswordResetCommandHandler.UpdateItemAsync(A<VerifyPasswordResetCommand>._, A<string>._, A<CancellationToken>._))
+    A.CallTo(() => _verifyPasswordResetCommandHandler.UpdateItemAsync(
+      A<VerifyPasswordResetCommand>._,
+      A<string>._,
+      A<CancellationToken>._))
       .MustNotHaveHappened();
   }
 
@@ -70,14 +96,20 @@ public class CodeVerifiedEventHandlerTests
   public async Task HandleEventAsync_For_An_Unknown_User_Lets_NoRecordException_Through()
   {
     // Arrange
-    A.CallTo(() => _confirmUserCommandHandler.UpdateItemAsync(A<ConfirmUserCommand>._, A<string>._, A<CancellationToken>._))
+    A.CallTo(() => _confirmUserCommandHandler.UpdateItemAsync(
+      A<ConfirmUserCommand>._,
+      A<string>._,
+      A<CancellationToken>._))
       .ThrowsAsync(NoRecordException.ForIdentifier("user-id"));
 
     var handler = CreateHandler();
 
     // Act & Assert
-    await Assert.ThrowsAsync<NoRecordException>(() => handler.HandleEventAsync(new CodeVerifiedEvent(MessageAction.WelcomeUser, "user-id"), TestContext.Current.CancellationToken));
+    await Assert.ThrowsAsync<NoRecordException>(() => handler.HandleEventAsync(
+      new CodeVerifiedEvent(MessageAction.WelcomeUser, "user-id"),
+      TestContext.Current.CancellationToken));
   }
 
-  private CodeVerifiedEventHandler CreateHandler() => new(_confirmUserCommandHandler, _verifyPasswordResetCommandHandler);
+  private CodeVerifiedEventHandler CreateHandler() =>
+    new(_confirmUserCommandHandler, _verifyPasswordResetCommandHandler);
 }

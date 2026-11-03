@@ -19,7 +19,8 @@ public class CallbackRequestedMessageHandler(
     var userRegisteredEvent = new UserRegisteredEvent
     {
       AppName = message.RegisteredApp,
-      UserId = Attribute(message, MessageAttributeKey.UserId) ?? throw new InvalidDataException($"Callback message {message.CorrelationId} has no user id"),
+      UserId = Attribute(message, MessageAttributeKey.UserId)
+        ?? throw new InvalidDataException($"Callback message {message.CorrelationId} has no user id"),
       FirstName = Attribute(message, MessageAttributeKey.FirstName),
       LastName = Attribute(message, MessageAttributeKey.LastName),
       UserName = Attribute(message, MessageAttributeKey.UserName),

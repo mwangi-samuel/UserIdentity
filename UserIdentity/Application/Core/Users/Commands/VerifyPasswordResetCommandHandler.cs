@@ -22,19 +22,25 @@ public class VerifyPasswordResetCommandHandler(
   IUnitOfWork unitOfWork,
   IPasswordResetRepository passwordResetRepository,
   TimeProvider timeProvider
-  ) : BaseAuditableItemCommandHandler<Guid, PasswordResetEntity, IPasswordResetRepository>(unitOfWork, passwordResetRepository, timeProvider),
+  ) : BaseAuditableItemCommandHandler<Guid, PasswordResetEntity, IPasswordResetRepository>(
+    unitOfWork,
+    passwordResetRepository,
+    timeProvider),
     IUpdateItemCommandHandler<VerifyPasswordResetCommand, VerifyPasswordResetViewModel>
 {
   private readonly ITokenFactory _tokenFactory = tokenFactory;
 
-  public async Task<VerifyPasswordResetViewModel> UpdateItemAsync(VerifyPasswordResetCommand command, string userId, CancellationToken cancellationToken = default)
+  public async Task<VerifyPasswordResetViewModel> UpdateItemAsync(
+    VerifyPasswordResetCommand command,
+    string userId,
+    CancellationToken cancellationToken = default)
   {
-    var passwordResetEntity = new PasswordResetEntity
-    {
-      RequestId = _tokenFactory.HashToken(command.ResetRequestId)
-    };
+    var passwordResetEntity = new PasswordResetEntity { RequestId = _tokenFactory.HashToken(command.ResetRequestId) };
 
-    var existingEntity = (await Repository.GetEntityByAlternateIdAsync(passwordResetEntity, QueryCondition.MustExist, cancellationToken))!;
+    var existingEntity = (await Repository.GetEntityByAlternateIdAsync(
+      passwordResetEntity,
+      QueryCondition.MustExist,
+      cancellationToken))!;
 
     existingEntity.Verified = true;
 
@@ -42,10 +48,7 @@ public class VerifyPasswordResetCommandHandler(
 
     return new VerifyPasswordResetViewModel
     {
-      VerifyPasswordResetResult = new VerifyPasswordResetDto
-      {
-        PasswordResetVerified = existingEntity.Verified
-      }
+      VerifyPasswordResetResult = new VerifyPasswordResetDto { PasswordResetVerified = existingEntity.Verified }
     };
   }
 }

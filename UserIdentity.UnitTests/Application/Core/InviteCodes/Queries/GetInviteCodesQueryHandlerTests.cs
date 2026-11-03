@@ -18,7 +18,14 @@ public class GetInviteCodesQueryHandlerTests
   public async Task GetItemsAsync_Returns_The_Apps_Page_Of_InviteCodes()
   {
     // Arrange
-    var dto = new InviteCodeDto { Id = 3, InviteCode = "INVITE", UserEmail = "owner@example.com", AppId = 1, Role = "testapp:owner" };
+    var dto = new InviteCodeDto
+    {
+      Id = 3,
+      InviteCode = "INVITE",
+      UserEmail = "owner@example.com",
+      AppId = 1,
+      Role = "testapp:owner"
+    };
 
     A.CallTo(() => _inviteCodeRepository.SearchEntityDtosByAppIdAsync(1, null, null, 2, 10, A<CancellationToken>._))
         .Returns(new PagedList<InviteCodeDto>([dto], 11));
@@ -26,7 +33,9 @@ public class GetInviteCodesQueryHandlerTests
     var handler = new GetInviteCodesQueryHandler(_inviteCodeRepository);
 
     // Act
-    var result = await handler.GetItemsAsync(new GetInviteCodesQuery { AppId = 1, Page = 2, PageSize = 10 }, TestContext.Current.CancellationToken);
+    var result = await handler.GetItemsAsync(
+      new GetInviteCodesQuery { AppId = 1, Page = 2, PageSize = 10 },
+      TestContext.Current.CancellationToken);
 
     // Assert
     Assert.Equal(11, result.TotalCount);

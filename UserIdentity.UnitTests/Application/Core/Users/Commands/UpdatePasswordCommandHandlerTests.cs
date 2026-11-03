@@ -51,13 +51,19 @@ public class UpdatePasswordCommandHandlerTests
   public async Task UpdatePassword_When_No_Existing_Request_Returns_False()
   {
     // Arrange
-    A.CallTo(() => _passwordResetRepository.GetEntityByAlternateIdAsync(A<PasswordResetEntity>._, QueryCondition.MayOrMayNotExist, A<CancellationToken>._))
+    A.CallTo(() => _passwordResetRepository.GetEntityByAlternateIdAsync(
+      A<PasswordResetEntity>._,
+      QueryCondition.MayOrMayNotExist,
+      A<CancellationToken>._))
         .Returns((PasswordResetEntity?)null);
 
     var handler = GetUpdatePasswordCommandHandler();
 
     // Act
-    var vm = await handler.UpdateItemAsync(GetUpdatePasswordCommand(), TestStringHelper.UserId, TestContext.Current.CancellationToken);
+    var vm = await handler.UpdateItemAsync(
+      GetUpdatePasswordCommand(),
+      TestStringHelper.UserId,
+      TestContext.Current.CancellationToken);
 
     // Assert
     Assert.IsType<UpdatePasswordViewModel>(vm);
@@ -69,7 +75,10 @@ public class UpdatePasswordCommandHandlerTests
   [InlineData(false, false, 60)]
   [InlineData(true, true, 60)]
   [InlineData(true, false, -1)]
-  public async Task UpdatePassword_When_Request_Is_Not_Verified_Already_Applied_Or_Expired_Returns_False(bool verified, bool applied, int expiresInSeconds)
+  public async Task UpdatePassword_When_Request_Is_Not_Verified_Already_Applied_Or_Expired_Returns_False(
+    bool verified,
+    bool applied,
+    int expiresInSeconds)
   {
     // Arrange
     SetUpPasswordResetEntity(verified, applied, _fixedNow.AddSeconds(expiresInSeconds));
@@ -77,7 +86,10 @@ public class UpdatePasswordCommandHandlerTests
     var handler = GetUpdatePasswordCommandHandler();
 
     // Act
-    var vm = await handler.UpdateItemAsync(GetUpdatePasswordCommand(), TestStringHelper.UserId, TestContext.Current.CancellationToken);
+    var vm = await handler.UpdateItemAsync(
+      GetUpdatePasswordCommand(),
+      TestStringHelper.UserId,
+      TestContext.Current.CancellationToken);
 
     // Assert
     Assert.False(vm.UpdatePasswordResult.PassWordUpdated);
@@ -96,7 +108,10 @@ public class UpdatePasswordCommandHandlerTests
     var handler = GetUpdatePasswordCommandHandler();
 
     // Act
-    var vm = await handler.UpdateItemAsync(GetUpdatePasswordCommand(), TestStringHelper.UserId, TestContext.Current.CancellationToken);
+    var vm = await handler.UpdateItemAsync(
+      GetUpdatePasswordCommand(),
+      TestStringHelper.UserId,
+      TestContext.Current.CancellationToken);
 
     // Assert
     Assert.False(vm.UpdatePasswordResult.PassWordUpdated);
@@ -111,18 +126,26 @@ public class UpdatePasswordCommandHandlerTests
 
     A.CallTo(() => _userManager.GeneratePasswordResetTokenAsync(_identityUser)).Returns("identity-reset-token");
     A.CallTo(() => _userManager.ResetPasswordAsync(_identityUser, "identity-reset-token", NewPassword))
-        .Returns(IdentityResult.Failed(new IdentityError { Description = "Passwords must have at least one digit ('0'-'9')." }));
+        .Returns(
+          IdentityResult.Failed(new IdentityError
+          {
+            Description = "Passwords must have at least one digit ('0'-'9')."
+          }));
 
     var handler = GetUpdatePasswordCommandHandler();
 
     // Act & Assert
-    var exception = await Assert.ThrowsAsync<InvalidDataException>(() => handler.UpdateItemAsync(GetUpdatePasswordCommand(), TestStringHelper.UserId, TestContext.Current.CancellationToken));
+    var exception = await Assert.ThrowsAsync<InvalidDataException>(() => handler.UpdateItemAsync(
+      GetUpdatePasswordCommand(),
+      TestStringHelper.UserId,
+      TestContext.Current.CancellationToken));
 
     Assert.Equal("Passwords must have at least one digit ('0'-'9').", exception.Message);
     Assert.False(existingEntity.Applied);
     A.CallTo(() => _unitOfWork.RollbackTransactionAsync(A<CancellationToken>._)).MustHaveHappenedOnceExactly();
     A.CallTo(() => _unitOfWork.CommitTransactionAsync(A<CancellationToken>._)).MustNotHaveHappened();
-    A.CallTo(() => _refreshTokenRepository.RemoveEntityItemsAsync(A<string>._, A<CancellationToken>._)).MustNotHaveHappened();
+    A.CallTo(() => _refreshTokenRepository.RemoveEntityItemsAsync(A<string>._, A<CancellationToken>._))
+      .MustNotHaveHappened();
   }
 
   [Fact]
@@ -132,12 +155,16 @@ public class UpdatePasswordCommandHandlerTests
     var existingEntity = SetUpPasswordResetEntity(true, false, _fixedNow.AddSeconds(60));
 
     A.CallTo(() => _userManager.GeneratePasswordResetTokenAsync(_identityUser)).Returns("identity-reset-token");
-    A.CallTo(() => _userManager.ResetPasswordAsync(_identityUser, "identity-reset-token", NewPassword)).Returns(IdentityResult.Success);
+    A.CallTo(() => _userManager.ResetPasswordAsync(_identityUser, "identity-reset-token", NewPassword))
+      .Returns(IdentityResult.Success);
 
     var handler = GetUpdatePasswordCommandHandler();
 
     // Act
-    var vm = await handler.UpdateItemAsync(GetUpdatePasswordCommand(), TestStringHelper.UserId, TestContext.Current.CancellationToken);
+    var vm = await handler.UpdateItemAsync(
+      GetUpdatePasswordCommand(),
+      TestStringHelper.UserId,
+      TestContext.Current.CancellationToken);
 
     // Assert
     Assert.True(vm.UpdatePasswordResult.PassWordUpdated);
@@ -145,7 +172,8 @@ public class UpdatePasswordCommandHandlerTests
     Assert.Equal(_identityUser.Id, existingEntity.UpdatedBy);
 
     A.CallTo(() => _passwordResetRepository.UpdateEntityItem(existingEntity)).MustHaveHappenedOnceExactly();
-    A.CallTo(() => _refreshTokenRepository.RemoveEntityItemsAsync(_identityUser.Id, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+    A.CallTo(() => _refreshTokenRepository.RemoveEntityItemsAsync(_identityUser.Id, A<CancellationToken>._))
+      .MustHaveHappenedOnceExactly();
     A.CallTo(() => _userManager.SetLockoutEndDateAsync(_identityUser, null)).MustHaveHappenedOnceExactly();
     A.CallTo(() => _userManager.ResetAccessFailedCountAsync(_identityUser)).MustHaveHappenedOnceExactly();
     A.CallTo(() => _unitOfWork.CommitTransactionAsync(A<CancellationToken>._)).MustHaveHappenedOnceExactly();
@@ -165,7 +193,9 @@ public class UpdatePasswordCommandHandlerTests
     };
 
     A.CallTo(() => _passwordResetRepository.GetEntityByAlternateIdAsync(
-        A<PasswordResetEntity>.That.Matches(e => e.RequestId == ResetRequestIdHash), QueryCondition.MayOrMayNotExist, A<CancellationToken>._))
+      A<PasswordResetEntity>.That.Matches(e => e.RequestId == ResetRequestIdHash),
+      QueryCondition.MayOrMayNotExist,
+      A<CancellationToken>._))
         .Returns(existingEntity);
 
     return existingEntity;
@@ -173,11 +203,7 @@ public class UpdatePasswordCommandHandlerTests
 
   private static UpdatePasswordCommand GetUpdatePasswordCommand()
   {
-    return new UpdatePasswordCommand
-    {
-      ResetRequestId = ResetRequestId,
-      NewPassword = NewPassword
-    };
+    return new UpdatePasswordCommand { ResetRequestId = ResetRequestId, NewPassword = NewPassword };
   }
 
   private UpdatePasswordCommandHandler GetUpdatePasswordCommandHandler()

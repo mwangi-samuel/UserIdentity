@@ -26,18 +26,17 @@ public class UpdateRoleCommandHandlerTests
   public async Task Update_NonExisting_Role_Throws_NoRecordException()
   {
     // Arrange
-    UpdateRoleCommand command = new()
-    {
-      RoleId = "1",
-      RoleName = "admin"
-    };
+    UpdateRoleCommand command = new() { RoleId = "1", RoleName = "admin" };
 
     A.CallTo(() => _roleManager.FindByIdAsync(command.RoleId)).Returns(default(IdentityRole));
 
     UpdateRoleCommandHandler handler = new(_roleManager);
 
     // Act& Assert
-    await Assert.ThrowsAsync<NoRecordException>(() => handler.UpdateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken));
+    await Assert.ThrowsAsync<NoRecordException>(() => handler.UpdateItemAsync(
+      command,
+      TestStringHelper.UserId,
+      TestContext.Current.CancellationToken));
   }
 
   [Fact]
@@ -46,12 +45,16 @@ public class UpdateRoleCommandHandlerTests
     // Arrange
     UpdateRoleCommand command = new() { RoleId = "1", RoleName = "testapp:editor", AppName = "TestApp" };
 
-    A.CallTo(() => _roleManager.FindByIdAsync(command.RoleId)).Returns(new IdentityRole { Id = "1", Name = "otherapp:editor" });
+    A.CallTo(() => _roleManager.FindByIdAsync(command.RoleId))
+      .Returns(new IdentityRole { Id = "1", Name = "otherapp:editor" });
 
     UpdateRoleCommandHandler handler = new(_roleManager);
 
     // Act & Assert
-    await Assert.ThrowsAsync<NoRecordException>(() => handler.UpdateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken));
+    await Assert.ThrowsAsync<NoRecordException>(() => handler.UpdateItemAsync(
+      command,
+      TestStringHelper.UserId,
+      TestContext.Current.CancellationToken));
 
     A.CallTo(() => _roleManager.UpdateAsync(A<IdentityRole>._)).MustNotHaveHappened();
   }
@@ -62,12 +65,16 @@ public class UpdateRoleCommandHandlerTests
     // Arrange
     UpdateRoleCommand command = new() { RoleId = "1", RoleName = "otherapp:admin", AppName = "TestApp" };
 
-    A.CallTo(() => _roleManager.FindByIdAsync(command.RoleId)).Returns(new IdentityRole { Id = "1", Name = "testapp:editor" });
+    A.CallTo(() => _roleManager.FindByIdAsync(command.RoleId))
+      .Returns(new IdentityRole { Id = "1", Name = "testapp:editor" });
 
     UpdateRoleCommandHandler handler = new(_roleManager);
 
     // Act & Assert
-    await Assert.ThrowsAsync<InvalidDataException>(() => handler.UpdateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken));
+    await Assert.ThrowsAsync<InvalidDataException>(() => handler.UpdateItemAsync(
+      command,
+      TestStringHelper.UserId,
+      TestContext.Current.CancellationToken));
 
     A.CallTo(() => _roleManager.UpdateAsync(A<IdentityRole>._)).MustNotHaveHappened();
   }
@@ -76,17 +83,9 @@ public class UpdateRoleCommandHandlerTests
   public async Task Update_Existing_Role_Failure_Throws_RecordUpdateException()
   {
     // Arrange
-    UpdateRoleCommand command = new()
-    {
-      RoleId = "1",
-      RoleName = "admin"
-    };
+    UpdateRoleCommand command = new() { RoleId = "1", RoleName = "admin" };
 
-    IdentityRole identityRole = new()
-    {
-      Id = command.RoleId,
-      Name = "User"
-    };
+    IdentityRole identityRole = new() { Id = command.RoleId, Name = "User" };
 
     A.CallTo(() => _roleManager.FindByIdAsync(command.RoleId)).Returns(identityRole);
 
@@ -95,24 +94,19 @@ public class UpdateRoleCommandHandlerTests
     UpdateRoleCommandHandler handler = new(_roleManager);
 
     // Act& Assert
-    await Assert.ThrowsAsync<RecordUpdateException>(() => handler.UpdateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken));
+    await Assert.ThrowsAsync<RecordUpdateException>(() => handler.UpdateItemAsync(
+      command,
+      TestStringHelper.UserId,
+      TestContext.Current.CancellationToken));
   }
 
   [Fact]
   public async Task Update_Existing_Role_Updates_Successfully()
   {
     // Arrange
-    UpdateRoleCommand command = new()
-    {
-      RoleId = "1",
-      RoleName = "admin"
-    };
+    UpdateRoleCommand command = new() { RoleId = "1", RoleName = "admin" };
 
-    IdentityRole identityRole = new()
-    {
-      Id = command.RoleId,
-      Name = "User"
-    };
+    IdentityRole identityRole = new() { Id = command.RoleId, Name = "User" };
 
     A.CallTo(() => _roleManager.FindByIdAsync(command.RoleId)).Returns(identityRole);
 

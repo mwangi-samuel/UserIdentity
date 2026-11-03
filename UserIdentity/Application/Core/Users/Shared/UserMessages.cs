@@ -17,7 +17,11 @@ public static class UserMessages
   public static MessageEvent Welcome(IdentityUser user, UserEntity userDetails, string appName) =>
     MessageEventFactory.Create(user.Id, appName, Attributes(user, userDetails), MessageAction.WelcomeUser);
 
-  public static MessageEvent PasswordReset(string resetRequestId, IdentityUser user, UserEntity userDetails, string appName) =>
+  public static MessageEvent PasswordReset(
+    string resetRequestId,
+    IdentityUser user,
+    UserEntity userDetails,
+    string appName) =>
     MessageEventFactory.Create(resetRequestId, appName, Attributes(user, userDetails), MessageAction.PasswordReset);
 
   private static Dictionary<MessageAttributeKey, string> Attributes(IdentityUser user, UserEntity userDetails) => new()

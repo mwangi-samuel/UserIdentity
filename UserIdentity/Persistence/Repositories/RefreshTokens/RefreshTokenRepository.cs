@@ -13,7 +13,10 @@ public class RefreshTokenRepository(
 {
   private readonly AppDbContext _appDbContext = appDbContext;
 
-  public async Task<RefreshTokenEntity?> GetEntityByAlternateIdAsync(RefreshTokenEntity entity, QueryCondition queryCondition, CancellationToken cancellationToken = default)
+  public async Task<RefreshTokenEntity?> GetEntityByAlternateIdAsync(
+    RefreshTokenEntity entity,
+    QueryCondition queryCondition,
+    CancellationToken cancellationToken = default)
   {
     var userId = ObjectExtensions.RequireNonNullValue(entity.UserId, nameof(entity.UserId));
     var token = ObjectExtensions.RequireNonNullValue(entity.Token, nameof(entity.Token));
@@ -24,13 +27,19 @@ public class RefreshTokenRepository(
     return queryCondition.Apply(existingEntity, userId);
   }
 
-  public async Task<RefreshTokenEntity?> GetEntityByPreviousTokenAsync(string userId, string previousToken, CancellationToken cancellationToken = default)
+  public async Task<RefreshTokenEntity?> GetEntityByPreviousTokenAsync(
+    string userId,
+    string previousToken,
+    CancellationToken cancellationToken = default)
   {
     return await _appDbContext.RefreshToken
         .SingleOrDefaultAsync(e => e.UserId == userId && e.PreviousToken == previousToken, cancellationToken);
   }
 
-  public async Task<int> DeleteEntityItemsExpiredBeforeAsync(DateTime expiredBefore, int count, CancellationToken cancellationToken = default)
+  public async Task<int> DeleteEntityItemsExpiredBeforeAsync(
+    DateTime expiredBefore,
+    int count,
+    CancellationToken cancellationToken = default)
   {
     return await _appDbContext.RefreshToken
         .Where(e => e.Expires <= expiredBefore)

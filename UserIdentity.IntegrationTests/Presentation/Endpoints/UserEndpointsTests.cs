@@ -49,7 +49,9 @@ public class UserEndpointsTests(
     TestDbHelper.SeedDatabase();
 
     // Act
-    var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Get, _baseUri + "/" + UserSettingHelper.UserId);
+    var response = await HttpClient.SendValidAuthRequestAsync(
+      HttpMethod.Get,
+      _baseUri + "/" + UserSettingHelper.UserId);
 
     // Assert
     var responseString = await response.ValidateRequestResponseAsync();
@@ -79,14 +81,27 @@ public class UserEndpointsTests(
     TestDbHelper.SeedDatabase();
 
     // Act
-    var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Get, _baseUri + "/" + UserSettingHelper.UserId);
+    var response = await HttpClient.SendValidAuthRequestAsync(
+      HttpMethod.Get,
+      _baseUri + "/" + UserSettingHelper.UserId);
 
     // Assert
     var user = SerDeHelper.Deserialize<JObject>(await response.ValidateRequestResponseAsync())?["user"] as JObject;
 
     Assert.NotNull(user);
     Assert.Equal(
-      ["createdAt", "createdBy", "email", "firstName", "id", "lastName", "phoneNumber", "updatedAt", "updatedBy", "userName"],
+      [
+        "createdAt",
+        "createdBy",
+        "email",
+        "firstName",
+        "id",
+        "lastName",
+        "phoneNumber",
+        "updatedAt",
+        "updatedBy",
+        "userName"
+      ],
       user.Properties().Select(property => property.Name).Order());
     Assert.Equal(UserSettingHelper.UserId, $"{user["id"]}");
     Assert.Equal(UserSettingHelper.PhoneNumber, $"{user["phoneNumber"]}");
@@ -99,7 +114,9 @@ public class UserEndpointsTests(
     TestDbHelper.SeedDatabase();
 
     var requestId = Guid.NewGuid().ToString("N");
-    var request = await HttpClient.CreateAuthorizedHttpRequestMessageAsync(HttpMethod.Get, _baseUri + "/" + UserSettingHelper.UserId);
+    var request = await HttpClient.CreateAuthorizedHttpRequestMessageAsync(
+      HttpMethod.Get,
+      _baseUri + "/" + UserSettingHelper.UserId);
     request.Headers.Add("X-Request-Id", requestId);
 
     // Act
@@ -158,7 +175,9 @@ public class UserEndpointsTests(
     Assert.Equal("Request Failed", $"{jsonObject["requestStatus"]}");
     Assert.Equal("404 - NOT FOUND", $"{jsonObject["statusMessage"]}");
 
-    Assert.Equal($"No record exists for the provided identifier - {nonExistingUserId}", $"{jsonObject["error"]?["message"]}");
+    Assert.Equal(
+      $"No record exists for the provided identifier - {nonExistingUserId}",
+      $"{jsonObject["error"]?["message"]}");
 
     var dateTime = (DateTime?)jsonObject["error"]?["timestamp"];
 
@@ -178,7 +197,9 @@ public class UserEndpointsTests(
 
     TestDbHelper.DeleteUserEntity(UserSettingHelper.UserId);
 
-    var httpRequest = ApiRequestHelper.CreateHttpRequestMessage(HttpMethod.Get, _baseUri + "/" + UserSettingHelper.UserId);
+    var httpRequest = ApiRequestHelper.CreateHttpRequestMessage(
+      HttpMethod.Get,
+      _baseUri + "/" + UserSettingHelper.UserId);
     httpRequest.AddAuthHeader(userToken);
 
     // Act
@@ -196,7 +217,9 @@ public class UserEndpointsTests(
     Assert.Equal("Request Failed", $"{jsonObject["requestStatus"]}");
     Assert.Equal("404 - NOT FOUND", $"{jsonObject["statusMessage"]}");
 
-    Assert.Equal($"No record exists for the provided identifier - {UserSettingHelper.UserId}", $"{jsonObject["error"]?["message"]}");
+    Assert.Equal(
+      $"No record exists for the provided identifier - {UserSettingHelper.UserId}",
+      $"{jsonObject["error"]?["message"]}");
 
     var dateTime = (DateTime?)jsonObject["error"]?["timestamp"];
 
@@ -238,7 +261,9 @@ public class UserEndpointsTests(
     Assert.Equal("Request Failed", $"{jsonObject["requestStatus"]}");
     Assert.Equal("404 - NOT FOUND", $"{jsonObject["statusMessage"]}");
 
-    Assert.Equal($"No record exists for the provided identifier - {nonExistingUserId}", $"{jsonObject["error"]?["message"]}");
+    Assert.Equal(
+      $"No record exists for the provided identifier - {nonExistingUserId}",
+      $"{jsonObject["error"]?["message"]}");
 
     var dateTime = (DateTime?)jsonObject["error"]?["timestamp"];
 
@@ -252,12 +277,7 @@ public class UserEndpointsTests(
   public async Task Register_User_With_Invalid_Request_Payload_Returns_Validation_Errors()
   {
     // Arrange
-    var requestPayload = new
-    {
-      UserSettingHelper.LastName,
-      UserSettingHelper.PhoneNumber,
-      UserSettingHelper.UserEmail
-    };
+    var requestPayload = new { UserSettingHelper.LastName, UserSettingHelper.PhoneNumber, UserSettingHelper.UserEmail };
 
     // Act
     var response = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/register", requestPayload);
@@ -287,9 +307,11 @@ public class UserEndpointsTests(
 
     Assert.Equal(3, errorList?.Count);
 
-    Assert.True(errorList?.Any(x => x.Field == "FirstName" && x.Message == "The FirstName field is required.") ?? false);
+    Assert.True(
+      errorList?.Any(x => x.Field == "FirstName" && x.Message == "The FirstName field is required.") ?? false);
     Assert.True(errorList?.Any(x => x.Field == "UserName" && x.Message == "The UserName field is required.") ?? false);
-    Assert.True(errorList?.Any(x => x.Field == "UserPassword" && x.Message == "The UserPassword field is required.") ?? false);
+    Assert.True(
+      errorList?.Any(x => x.Field == "UserPassword" && x.Message == "The UserPassword field is required.") ?? false);
   }
 
   [Fact]
@@ -331,8 +353,12 @@ public class UserEndpointsTests(
 
     Assert.Equal(2, errorList?.Count);
 
-    Assert.True(errorList?.Any(x => x.Field == "UserEmail" && x.Message == "Either PhoneNumber or UserEmail must be provided.") ?? false);
-    Assert.True(errorList?.Any(x => x.Field == "PhoneNumber" && x.Message == "Either PhoneNumber or UserEmail must be provided.") ?? false);
+    Assert.True(
+      errorList?.Any(x => x.Field == "UserEmail" && x.Message == "Either PhoneNumber or UserEmail must be provided.")
+        ?? false);
+    Assert.True(
+      errorList?.Any(x => x.Field == "PhoneNumber" && x.Message == "Either PhoneNumber or UserEmail must be provided.")
+        ?? false);
   }
 
   [Fact]
@@ -424,7 +450,8 @@ public class UserEndpointsTests(
     var response = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/register", requestPayload);
 
     // Assert
-    var userId = SerDeHelper.Deserialize<JObject>(await response.ValidateRequestResponseAsync())?["user"]?["id"]?.ToString();
+    var userId = SerDeHelper.Deserialize<JObject>(
+      await response.ValidateRequestResponseAsync())?["user"]?["id"]?.ToString();
 
     Assert.NotNull(userId);
     Assert.NotNull(await NatsTestHelper.FindMessageAsync(NatsTestHelper.UserUpdatedSubject, userId));
@@ -441,7 +468,9 @@ public class UserEndpointsTests(
   [InlineData("random@test.com", "")]
   [InlineData(null, "712121212")]
   [InlineData("", "712121212")]
-  public async Task Register_User_With_Only_Required_Request_Payload_Registers_User(string? UserEmail, string? PhoneNumber)
+  public async Task Register_User_With_Only_Required_Request_Payload_Registers_User(
+    string? UserEmail,
+    string? PhoneNumber)
   {
     // Arrange
     var googleRecaptchaToken = RandomStrings.Generate(90);
@@ -499,8 +528,12 @@ public class UserEndpointsTests(
     var messageAttributes = message.Attributes;
     Assert.NotNull(messageAttributes);
 
-    Assert.Equal(requestPayload.UserEmail ?? string.Empty, messageAttributes.GetAttributeValue(MessageAttributeKey.RecipientEmail));
-    Assert.Equal(requestPayload.PhoneNumber ?? string.Empty, messageAttributes.GetAttributeValue(MessageAttributeKey.RecipientPhone));
+    Assert.Equal(
+      requestPayload.UserEmail ?? string.Empty,
+      messageAttributes.GetAttributeValue(MessageAttributeKey.RecipientEmail));
+    Assert.Equal(
+      requestPayload.PhoneNumber ?? string.Empty,
+      messageAttributes.GetAttributeValue(MessageAttributeKey.RecipientPhone));
     Assert.Equal(requestPayload.FirstName, messageAttributes.GetAttributeValue(MessageAttributeKey.FirstName));
     Assert.Equal(string.Empty, messageAttributes.GetAttributeValue(MessageAttributeKey.LastName));
     Assert.Equal(requestPayload.UserName, messageAttributes.GetAttributeValue(MessageAttributeKey.UserName));
@@ -542,7 +575,9 @@ public class UserEndpointsTests(
     Assert.Equal("Request Failed", $"{jsonObject["requestStatus"]}");
     Assert.Equal("400 - BAD REQUEST", $"{jsonObject["statusMessage"]}");
 
-    Assert.Equal($"A record identified with - {requestPayload.UserName} - exists", $"{jsonObject["error"]?["message"]}");
+    Assert.Equal(
+      $"A record identified with - {requestPayload.UserName} - exists",
+      $"{jsonObject["error"]?["message"]}");
 
     var dateTime = (DateTime?)jsonObject["error"]?["timestamp"];
 
@@ -564,7 +599,11 @@ public class UserEndpointsTests(
 
     TestDbHelper.CreateIdentityRole(ownerRole);
     TestDbHelper.UpdateRoleClaim(ownerRole, ownerScope);
-    var inviteCode = TestDbHelper.CreateInviteCodeEntity(userEmail, RegisteredApp.AppName, inviteCode: "OWNERINVITE", role: ownerRole);
+    var inviteCode = TestDbHelper.CreateInviteCodeEntity(
+      userEmail,
+      RegisteredApp.AppName,
+      inviteCode: "OWNERINVITE",
+      role: ownerRole);
 
     var requestPayload = new
     {
@@ -593,12 +632,14 @@ public class UserEndpointsTests(
     Assert.True(TestDbHelper.GetInviteCodeEntityWithNoTracking(inviteCode.Id)?.Applied);
 
     // Simulate the code being verified for the welcome message
-    var attributes = new Dictionary<MessageAttributeKey, string>()
-    {
-      { MessageAttributeKey.UserId, userDetails.Id }
-    };
+    var attributes = new Dictionary<MessageAttributeKey, string>() { { MessageAttributeKey.UserId, userDetails.Id } };
 
-    var messageEvent = MessageEventFactory.Create(userDetails.Id, RegisteredApp.AppName, attributes, MessageAction.WelcomeUser, CrudEvent.Update);
+    var messageEvent = MessageEventFactory.Create(
+      userDetails.Id,
+      RegisteredApp.AppName,
+      attributes,
+      MessageAction.WelcomeUser,
+      CrudEvent.Update);
 
     await NatsTestHelper.PublishCodeVerifiedAsync(messageEvent);
 
@@ -624,7 +665,11 @@ public class UserEndpointsTests(
     var userEmail = "wrong-invite@example.com";
     var userName = "wrong.invite";
 
-    var inviteCode = TestDbHelper.CreateInviteCodeEntity(userEmail, RegisteredApp.AppName, inviteCode: "RIGHTCODE", role: "testapp:owner");
+    var inviteCode = TestDbHelper.CreateInviteCodeEntity(
+      userEmail,
+      RegisteredApp.AppName,
+      inviteCode: "RIGHTCODE",
+      role: "testapp:owner");
 
     var requestPayload = new
     {
@@ -647,7 +692,10 @@ public class UserEndpointsTests(
     Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     Assert.False(TestDbHelper.GetInviteCodeEntityWithNoTracking(inviteCode.Id)?.Applied);
 
-    var loginResponse = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, ApiRequestHelper.loginUrl, new { UserName = userName, Password = UserSettingHelper.UserPassword });
+    var loginResponse = await HttpClient.SendNoAuthRequestAsync(
+      HttpMethod.Post,
+      ApiRequestHelper.loginUrl,
+      new { UserName = userName, Password = UserSettingHelper.UserPassword });
 
     Assert.Equal(HttpStatusCode.Unauthorized, loginResponse.StatusCode);
   }
@@ -658,11 +706,7 @@ public class UserEndpointsTests(
     // Arrange
     TestDbHelper.SeedDatabase();
 
-    var requestPayload = new
-    {
-      UserName = UserSettingHelper.UserName,
-      Password = UserSettingHelper.UserPassword
-    };
+    var requestPayload = new { UserName = UserSettingHelper.UserName, Password = UserSettingHelper.UserPassword };
 
     // Act
     var response = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/login", requestPayload);
@@ -726,11 +770,7 @@ public class UserEndpointsTests(
   public async Task Login_Non_Existing_User_Does_Not_Log_In_User()
   {
     // Arrange
-    var requestPayload = new
-    {
-      UserName = UserSettingHelper.UserName,
-      Password = UserSettingHelper.UserPassword
-    };
+    var requestPayload = new { UserName = UserSettingHelper.UserName, Password = UserSettingHelper.UserPassword };
 
     // Act
     var response = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/login", requestPayload);
@@ -763,11 +803,7 @@ public class UserEndpointsTests(
     TestDbHelper.SeedDatabase();
     TestDbHelper.DeleteUserEntity(UserSettingHelper.UserId);
 
-    var requestPayload = new
-    {
-      UserName = UserSettingHelper.UserName,
-      Password = UserSettingHelper.UserPassword
-    };
+    var requestPayload = new { UserName = UserSettingHelper.UserName, Password = UserSettingHelper.UserPassword };
 
     // Act
     var response = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/login", requestPayload);
@@ -800,11 +836,7 @@ public class UserEndpointsTests(
     TestDbHelper.SeedDatabase();
     TestDbHelper.DeleteUserEntity(UserSettingHelper.UserId);
 
-    var requestPayload = new
-    {
-      UserName = UserSettingHelper.UserName,
-      Password = UserSettingHelper.UserPassword
-    };
+    var requestPayload = new { UserName = UserSettingHelper.UserName, Password = UserSettingHelper.UserPassword };
 
     // Act
     var response = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/login", requestPayload);
@@ -872,13 +904,11 @@ public class UserEndpointsTests(
     // Arrange
     TestDbHelper.SeedDatabase();
 
-    (var userToken, var refreshToken) = await HttpClient.LoginUserAsync(UserSettingHelper.UserName, UserSettingHelper.UserPassword);
+    (var userToken, var refreshToken) = await HttpClient.LoginUserAsync(
+      UserSettingHelper.UserName,
+      UserSettingHelper.UserPassword);
 
-    var requestPayload = new
-    {
-      AccessToken = userToken,
-      RefreshToken = refreshToken
-    };
+    var requestPayload = new { AccessToken = userToken, RefreshToken = refreshToken };
 
     var httpRequest = ApiRequestHelper.CreateHttpRequestMessage(HttpMethod.Post, _baseUri + "/refresh-token");
     httpRequest.Content = SerDeHelper.ConvertToHttpContent(requestPayload);
@@ -915,13 +945,11 @@ public class UserEndpointsTests(
     // Arrange// Arrange
     TestDbHelper.SeedDatabase();
 
-    (var userToken, var refreshToken) = await HttpClient.LoginUserAsync(UserSettingHelper.UserName, UserSettingHelper.UserPassword);
+    (var userToken, var refreshToken) = await HttpClient.LoginUserAsync(
+      UserSettingHelper.UserName,
+      UserSettingHelper.UserPassword);
 
-    var requestPayload = new
-    {
-      AccessToken = userToken,
-      RefreshToken = Base64UrlEncoder.Encode(refreshToken)
-    };
+    var requestPayload = new { AccessToken = userToken, RefreshToken = Base64UrlEncoder.Encode(refreshToken) };
 
     var httpRequest = ApiRequestHelper.CreateHttpRequestMessage(HttpMethod.Post, _baseUri + "/refresh-token");
     httpRequest.Content = SerDeHelper.ConvertToHttpContent(requestPayload);
@@ -956,15 +984,13 @@ public class UserEndpointsTests(
     // Arrange
     TestDbHelper.SeedDatabase();
 
-    (var userToken, var refreshToken) = await HttpClient.LoginUserAsync(UserSettingHelper.UserName, UserSettingHelper.UserPassword);
+    (var userToken, var refreshToken) = await HttpClient.LoginUserAsync(
+      UserSettingHelper.UserName,
+      UserSettingHelper.UserPassword);
 
     TestDbHelper.DeleteRefreshTokenEntity(UserSettingHelper.UserId);
 
-    var requestPayload = new
-    {
-      AccessToken = userToken,
-      RefreshToken = Base64UrlEncoder.Encode(refreshToken)
-    };
+    var requestPayload = new { AccessToken = userToken, RefreshToken = Base64UrlEncoder.Encode(refreshToken) };
 
     var httpRequest = ApiRequestHelper.CreateHttpRequestMessage(HttpMethod.Post, _baseUri + "/refresh-token");
     httpRequest.Content = SerDeHelper.ConvertToHttpContent(requestPayload);
@@ -1001,11 +1027,7 @@ public class UserEndpointsTests(
 
     (_, var refreshToken) = await HttpClient.LoginUserAsync(UserSettingHelper.UserName, UserSettingHelper.UserPassword);
 
-    var requestPayload = new
-    {
-      AccessToken = UserSettingHelper.InvalidUserToken,
-      RefreshToken = refreshToken
-    };
+    var requestPayload = new { AccessToken = UserSettingHelper.InvalidUserToken, RefreshToken = refreshToken };
 
     var httpRequest = ApiRequestHelper.CreateHttpRequestMessage(HttpMethod.Post, _baseUri + "/refresh-token");
     httpRequest.Content = SerDeHelper.ConvertToHttpContent(requestPayload);
@@ -1047,7 +1069,9 @@ public class UserEndpointsTests(
     var refreshTokenEntities = TestDbHelper.GetRefreshTokenEntitiesWithNoTracking(UserSettingHelper.UserId);
 
     Assert.DoesNotContain(refreshTokenEntities, r => r.Token == refreshToken);
-    Assert.Contains(refreshTokenEntities, r => r.Token == new TokenFactory().HashToken(refreshToken) && r.Expires > DateTime.UtcNow.AddDays(29));
+    Assert.Contains(
+      refreshTokenEntities,
+      r => r.Token == new TokenFactory().HashToken(refreshToken) && r.Expires > DateTime.UtcNow.AddDays(29));
   }
 
   [Fact]
@@ -1066,11 +1090,7 @@ public class UserEndpointsTests(
       Password = UserSettingHelper.UserPassword + "123"
     };
 
-    var requestPayload = new
-    {
-      UserName = UserSettingHelper.UserName,
-      Password = UserSettingHelper.UserPassword
-    };
+    var requestPayload = new { UserName = UserSettingHelper.UserName, Password = UserSettingHelper.UserPassword };
 
     for (var i = 0; i < 5; i++)
       await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/login", wrongPasswordPayload);
@@ -1108,11 +1128,7 @@ public class UserEndpointsTests(
 
     using var httpClient = rateLimitedFactory.CreateClient();
 
-    var requestPayload = new
-    {
-      UserName = UserSettingHelper.UserName,
-      Password = UserSettingHelper.UserPassword
-    };
+    var requestPayload = new { UserName = UserSettingHelper.UserName, Password = UserSettingHelper.UserPassword };
 
     // Act
     var allowedResponses = new List<HttpResponseMessage>
@@ -1146,18 +1162,19 @@ public class UserEndpointsTests(
     // Arrange
     TestDbHelper.SeedDatabase();
 
-    (var userToken, var refreshToken) = await HttpClient.LoginUserAsync(UserSettingHelper.UserName, UserSettingHelper.UserPassword);
+    (var userToken, var refreshToken) = await HttpClient.LoginUserAsync(
+      UserSettingHelper.UserName,
+      UserSettingHelper.UserPassword);
 
     TestDbHelper.ExpireRefreshTokenEntities(UserSettingHelper.UserId);
 
-    var requestPayload = new
-    {
-      AccessToken = userToken,
-      RefreshToken = refreshToken
-    };
+    var requestPayload = new { AccessToken = userToken, RefreshToken = refreshToken };
 
     // Act
-    var response = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/refresh-token", requestPayload);
+    var response = await HttpClient.SendNoAuthRequestAsync(
+      HttpMethod.Post,
+      _baseUri + "/refresh-token",
+      requestPayload);
 
     // Assert
     var responseString = await response.ValidateRequestResponseAsync();
@@ -1171,7 +1188,9 @@ public class UserEndpointsTests(
     Assert.Equal("An invalid access token was provided", $"{jsonObject["error"]?["message"]}");
 
     var exchangedTokenHash = new TokenFactory().HashToken(refreshToken);
-    Assert.DoesNotContain(TestDbHelper.GetRefreshTokenEntitiesWithNoTracking(UserSettingHelper.UserId), token => token.Token == exchangedTokenHash);
+    Assert.DoesNotContain(
+      TestDbHelper.GetRefreshTokenEntitiesWithNoTracking(UserSettingHelper.UserId),
+      token => token.Token == exchangedTokenHash);
   }
 
   [Fact]
@@ -1180,24 +1199,29 @@ public class UserEndpointsTests(
     // Arrange
     TestDbHelper.SeedDatabase();
 
-    (var userToken, var refreshToken) = await HttpClient.LoginUserAsync(UserSettingHelper.UserName, UserSettingHelper.UserPassword);
+    (var userToken, var refreshToken) = await HttpClient.LoginUserAsync(
+      UserSettingHelper.UserName,
+      UserSettingHelper.UserPassword);
 
-    var requestPayload = new
-    {
-      AccessToken = userToken,
-      RefreshToken = refreshToken
-    };
+    var requestPayload = new { AccessToken = userToken, RefreshToken = refreshToken };
 
-    var firstResponse = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/refresh-token", requestPayload);
+    var firstResponse = await HttpClient.SendNoAuthRequestAsync(
+      HttpMethod.Post,
+      _baseUri + "/refresh-token",
+      requestPayload);
 
     Assert.Equal(HttpStatusCode.OK, firstResponse.StatusCode);
 
-    var userTokenVM = SerDeHelper.Deserialize<JObject>(await firstResponse.ValidateRequestResponseAsync())?["userToken"]?.ToObject<AccessTokenViewModel>();
+    var userTokenVM = SerDeHelper.Deserialize<JObject>(
+      await firstResponse.ValidateRequestResponseAsync())?["userToken"]?.ToObject<AccessTokenViewModel>();
 
     Assert.NotNull(userTokenVM?.RefreshToken);
 
     // Act
-    var response = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/refresh-token", requestPayload);
+    var response = await HttpClient.SendNoAuthRequestAsync(
+      HttpMethod.Post,
+      _baseUri + "/refresh-token",
+      requestPayload);
 
     // Assert
     var responseString = await response.ValidateRequestResponseAsync();
@@ -1224,7 +1248,9 @@ public class UserEndpointsTests(
     // Arrange
     TestDbHelper.SeedDatabase();
 
-    (var userToken, var refreshToken) = await HttpClient.LoginUserAsync(UserSettingHelper.UserName, UserSettingHelper.UserPassword);
+    (var userToken, var refreshToken) = await HttpClient.LoginUserAsync(
+      UserSettingHelper.UserName,
+      UserSettingHelper.UserPassword);
 
     var httpRequest = ApiRequestHelper.CreateHttpRequestMessage(HttpMethod.Post, _baseUri + "/logout");
     httpRequest.AddAuthHeader(userToken);
@@ -1257,7 +1283,10 @@ public class UserEndpointsTests(
   public async Task Logout_User_Without_Access_Token_Returns_Unauthorized()
   {
     // Act
-    var response = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/logout", new { RefreshToken = RandomStrings.Generate(32) });
+    var response = await HttpClient.SendNoAuthRequestAsync(
+      HttpMethod.Post,
+      _baseUri + "/logout",
+      new { RefreshToken = RandomStrings.Generate(32) });
 
     // Assert
     Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
@@ -1267,12 +1296,13 @@ public class UserEndpointsTests(
   public async Task Reset_Password_With_Invalid_Payload_Returns_Validation_Results()
   {
     // Arrange
-    var requestPayload = new
-    {
-    };
+    var requestPayload = new { };
 
     // Act
-    var response = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/reset-password", requestPayload);
+    var response = await HttpClient.SendNoAuthRequestAsync(
+      HttpMethod.Post,
+      _baseUri + "/reset-password",
+      requestPayload);
 
     // Assert
     var responseString = await response.ValidateRequestResponseAsync();
@@ -1307,13 +1337,13 @@ public class UserEndpointsTests(
     // Arrange
     TestDbHelper.SeedDatabase();
 
-    var requestPayload = new
-    {
-      UserName = UserSettingHelper.UserEmail,
-    };
+    var requestPayload = new { UserName = UserSettingHelper.UserEmail };
 
     // Act
-    var response = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/reset-password", requestPayload);
+    var response = await HttpClient.SendNoAuthRequestAsync(
+      HttpMethod.Post,
+      _baseUri + "/reset-password",
+      requestPayload);
 
     // Assert
     var responseString = await response.ValidateRequestResponseAsync();
@@ -1344,13 +1374,13 @@ public class UserEndpointsTests(
     // Arrange
     TestDbHelper.SeedDatabase();
 
-    var requestPayload = new
-    {
-      UserName = "hello@test.com",
-    };
+    var requestPayload = new { UserName = "hello@test.com" };
 
     // Act
-    var response = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/reset-password", requestPayload);
+    var response = await HttpClient.SendNoAuthRequestAsync(
+      HttpMethod.Post,
+      _baseUri + "/reset-password",
+      requestPayload);
 
     // Assert
     var responseString = await response.ValidateRequestResponseAsync();
@@ -1375,13 +1405,13 @@ public class UserEndpointsTests(
     // Arrange
     TestDbHelper.CreateIdentityUser();
 
-    var requestPayload = new
-    {
-      UserSettingHelper.UserName
-    };
+    var requestPayload = new { UserSettingHelper.UserName };
 
     // Act
-    var response = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/reset-password", requestPayload);
+    var response = await HttpClient.SendNoAuthRequestAsync(
+      HttpMethod.Post,
+      _baseUri + "/reset-password",
+      requestPayload);
 
     // Assert
     await response.ValidateRequestResponseAsync();
@@ -1396,20 +1426,28 @@ public class UserEndpointsTests(
     // Arrange
     TestDbHelper.SeedDatabase();
 
-    (var userToken, var refreshToken) = await HttpClient.LoginUserAsync(UserSettingHelper.UserName, UserSettingHelper.UserPassword);
+    (var userToken, var refreshToken) = await HttpClient.LoginUserAsync(
+      UserSettingHelper.UserName,
+      UserSettingHelper.UserPassword);
 
-    var resetResponse = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/reset-password", new { UserSettingHelper.UserName });
-    var resetRequestId = SerDeHelper.Deserialize<JObject>(await resetResponse.ValidateRequestResponseAsync())?["resetPasswordDetails"]?["resetRequestId"]?.ToString();
+    var resetResponse = await HttpClient.SendNoAuthRequestAsync(
+      HttpMethod.Post,
+      _baseUri + "/reset-password",
+      new { UserSettingHelper.UserName });
+    var resetRequestId = SerDeHelper.Deserialize<JObject>(
+      await resetResponse.ValidateRequestResponseAsync())?["resetPasswordDetails"]?["resetRequestId"]?.ToString();
 
     Assert.NotNull(resetRequestId);
 
     // Simulate MessageManager verifying the code
-    var attributes = new Dictionary<MessageAttributeKey, string>()
-    {
-      { MessageAttributeKey.UserId, resetRequestId }
-    };
+    var attributes = new Dictionary<MessageAttributeKey, string>() { { MessageAttributeKey.UserId, resetRequestId } };
 
-    var messageEvent = MessageEventFactory.Create(resetRequestId, RegisteredApp.AppName, attributes, MessageAction.PasswordReset, CrudEvent.Update);
+    var messageEvent = MessageEventFactory.Create(
+      resetRequestId,
+      RegisteredApp.AppName,
+      attributes,
+      MessageAction.PasswordReset,
+      CrudEvent.Update);
 
     await NatsTestHelper.PublishCodeVerifiedAsync(messageEvent);
 
@@ -1422,7 +1460,10 @@ public class UserEndpointsTests(
     var newPassword = "N3wP@ssword!";
 
     // Act
-    var response = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/update-password", new { ResetRequestId = resetRequestId, NewPassword = newPassword });
+    var response = await HttpClient.SendNoAuthRequestAsync(
+      HttpMethod.Post,
+      _baseUri + "/update-password",
+      new { ResetRequestId = resetRequestId, NewPassword = newPassword });
 
     // Assert
     var responseString = await response.ValidateRequestResponseAsync();
@@ -1448,7 +1489,10 @@ public class UserEndpointsTests(
 
     Assert.Equal(HttpStatusCode.Unauthorized, refreshResponse.StatusCode);
 
-    var reuseResponse = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/update-password", new { ResetRequestId = resetRequestId, NewPassword = "An0therP@ssword!" });
+    var reuseResponse = await HttpClient.SendNoAuthRequestAsync(
+      HttpMethod.Post,
+      _baseUri + "/update-password",
+      new { ResetRequestId = resetRequestId, NewPassword = "An0therP@ssword!" });
 
     Assert.Equal(HttpStatusCode.NotAcceptable, reuseResponse.StatusCode);
   }
@@ -1457,12 +1501,13 @@ public class UserEndpointsTests(
   public async Task Update_Password_With_Invalid_Payload_Returns_Validation_Results()
   {
     // Arrange
-    var requestPayload = new
-    {
-    };
+    var requestPayload = new { };
 
     // Act
-    var response = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/update-password", requestPayload);
+    var response = await HttpClient.SendNoAuthRequestAsync(
+      HttpMethod.Post,
+      _baseUri + "/update-password",
+      requestPayload);
 
     // Assert
     var responseString = await response.ValidateRequestResponseAsync();
@@ -1488,8 +1533,11 @@ public class UserEndpointsTests(
 
     Assert.Equal(2, errorList?.Count);
 
-    Assert.True(errorList?.Any(x => x.Field == "NewPassword" && x.Message == "The NewPassword field is required.") ?? false);
-    Assert.True(errorList?.Any(x => x.Field == "ResetRequestId" && x.Message == "The ResetRequestId field is required.") ?? false);
+    Assert.True(
+      errorList?.Any(x => x.Field == "NewPassword" && x.Message == "The NewPassword field is required.") ?? false);
+    Assert.True(
+      errorList?.Any(x => x.Field == "ResetRequestId" && x.Message == "The ResetRequestId field is required.")
+        ?? false);
   }
 
   [Fact]
@@ -1498,14 +1546,13 @@ public class UserEndpointsTests(
     // Arrange
     TestDbHelper.SeedDatabase();
 
-    var requestPayload = new
-    {
-      ResetRequestId = RandomStrings.Generate(32),
-      NewPassword = "N3wP@ssword!"
-    };
+    var requestPayload = new { ResetRequestId = RandomStrings.Generate(32), NewPassword = "N3wP@ssword!" };
 
     // Act
-    var response = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/update-password", requestPayload);
+    var response = await HttpClient.SendNoAuthRequestAsync(
+      HttpMethod.Post,
+      _baseUri + "/update-password",
+      requestPayload);
 
     // Assert
     var responseString = await response.ValidateRequestResponseAsync();
@@ -1528,22 +1575,28 @@ public class UserEndpointsTests(
   [InlineData(false, false, 15)]
   [InlineData(true, true, 15)]
   [InlineData(true, false, -1)]
-  public async Task Update_Password_With_Unverified_Used_Or_Expired_Reset_Request_Does_Not_Update_Password(bool verified, bool applied, int expiresInMinutes)
+  public async Task Update_Password_With_Unverified_Used_Or_Expired_Reset_Request_Does_Not_Update_Password(
+    bool verified,
+    bool applied,
+    int expiresInMinutes)
   {
     // Arrange
     TestDbHelper.SeedDatabase();
 
     var resetRequestId = RandomStrings.Generate(32);
-    TestDbHelper.CreatePasswordResetEntity(resetRequestId, verified, applied, DateTime.UtcNow.AddMinutes(expiresInMinutes));
+    TestDbHelper.CreatePasswordResetEntity(
+      resetRequestId,
+      verified,
+      applied,
+      DateTime.UtcNow.AddMinutes(expiresInMinutes));
 
-    var requestPayload = new
-    {
-      ResetRequestId = resetRequestId,
-      NewPassword = "N3wP@ssword!"
-    };
+    var requestPayload = new { ResetRequestId = resetRequestId, NewPassword = "N3wP@ssword!" };
 
     // Act
-    var response = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/update-password", requestPayload);
+    var response = await HttpClient.SendNoAuthRequestAsync(
+      HttpMethod.Post,
+      _baseUri + "/update-password",
+      requestPayload);
 
     // Assert
     var responseString = await response.ValidateRequestResponseAsync();
@@ -1568,14 +1621,13 @@ public class UserEndpointsTests(
     var resetRequestId = RandomStrings.Generate(32);
     TestDbHelper.CreatePasswordResetEntity(resetRequestId);
 
-    var requestPayload = new
-    {
-      ResetRequestId = resetRequestId,
-      NewPassword = "12345"
-    };
+    var requestPayload = new { ResetRequestId = resetRequestId, NewPassword = "12345" };
 
     // Act
-    var response = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/update-password", requestPayload);
+    var response = await HttpClient.SendNoAuthRequestAsync(
+      HttpMethod.Post,
+      _baseUri + "/update-password",
+      requestPayload);
 
     // Assert
     var responseString = await response.ValidateRequestResponseAsync();
@@ -1597,11 +1649,7 @@ public class UserEndpointsTests(
 
     var googleRecaptchaSettings = Configuration.GetSetting<GoogleRecaptchaSettings>();
 
-    var googleRecaptchaResponse = new
-    {
-      success = true,
-      score = 0.9f
-    };
+    var googleRecaptchaResponse = new { success = true, score = 0.9f };
 
     _wireMock.Reset();
     _wireMock.Given(
@@ -1611,9 +1659,7 @@ public class UserEndpointsTests(
       .WithParam("response", googleRecaptchaToken)
       .UsingPost()
     ).RespondWith(
-      Response.Create()
-      .WithStatusCode(HttpStatusCode.OK)
-      .WithBody(JsonConvert.SerializeObject(googleRecaptchaResponse))
+      Response.Create().WithStatusCode(HttpStatusCode.OK).WithBody(JsonConvert.SerializeObject(googleRecaptchaResponse))
      );
 
   }

@@ -6,9 +6,7 @@ using Xunit;
 
 namespace UserIdentity.IntegrationTests.Certs;
 
-public class EdDsaCertsHelper(
-   ITestOutputHelper testOutputHelper
-  )
+public class EdDsaCertsHelper(ITestOutputHelper testOutputHelper)
 {
   private readonly ITestOutputHelper _testOutputHelper = testOutputHelper;
 

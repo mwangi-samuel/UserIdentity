@@ -27,17 +27,28 @@ public class UserConfigurationTests(
     var userId = UserSettingHelper.UserId;
 
     Assert.True(await context.AppUser.AnyAsync(details => details.Id == userId, TestContext.Current.CancellationToken));
-    Assert.True(await context.UserRegisteredApp.AnyAsync(registration => registration.UserId == userId, TestContext.Current.CancellationToken));
-    Assert.True(await context.RefreshToken.AnyAsync(token => token.UserId == userId, TestContext.Current.CancellationToken));
-    Assert.True(await context.PasswordReset.AnyAsync(reset => reset.UserId == userId, TestContext.Current.CancellationToken));
+    Assert.True(
+      await context.UserRegisteredApp.AnyAsync(
+        registration => registration.UserId == userId,
+        TestContext.Current.CancellationToken));
+    Assert.True(
+      await context.RefreshToken.AnyAsync(token => token.UserId == userId, TestContext.Current.CancellationToken));
+    Assert.True(
+      await context.PasswordReset.AnyAsync(reset => reset.UserId == userId, TestContext.Current.CancellationToken));
 
     // Act
     await context.Users.Where(user => user.Id == userId).ExecuteDeleteAsync(TestContext.Current.CancellationToken);
 
     // Assert
-    Assert.False(await context.AppUser.AnyAsync(details => details.Id == userId, TestContext.Current.CancellationToken));
-    Assert.False(await context.UserRegisteredApp.AnyAsync(registration => registration.UserId == userId, TestContext.Current.CancellationToken));
-    Assert.False(await context.RefreshToken.AnyAsync(token => token.UserId == userId, TestContext.Current.CancellationToken));
-    Assert.False(await context.PasswordReset.AnyAsync(reset => reset.UserId == userId, TestContext.Current.CancellationToken));
+    Assert.False(
+      await context.AppUser.AnyAsync(details => details.Id == userId, TestContext.Current.CancellationToken));
+    Assert.False(
+      await context.UserRegisteredApp.AnyAsync(
+        registration => registration.UserId == userId,
+        TestContext.Current.CancellationToken));
+    Assert.False(
+      await context.RefreshToken.AnyAsync(token => token.UserId == userId, TestContext.Current.CancellationToken));
+    Assert.False(
+      await context.PasswordReset.AnyAsync(reset => reset.UserId == userId, TestContext.Current.CancellationToken));
   }
 }

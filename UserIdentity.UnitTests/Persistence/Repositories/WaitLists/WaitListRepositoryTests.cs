@@ -25,7 +25,9 @@ public class WaitListRepositoryTests
     repository.CreateEntityItem(waitList);
     await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
-    var saved = await context.WaitList.SingleOrDefaultAsync(x => x.Id == waitList.Id, cancellationToken: TestContext.Current.CancellationToken);
+    var saved = await context.WaitList.SingleOrDefaultAsync(
+      x => x.Id == waitList.Id,
+      cancellationToken: TestContext.Current.CancellationToken);
     Assert.NotNull(saved);
     Assert.Equal(waitList.UserEmail, saved!.UserEmail);
   }
@@ -122,7 +124,9 @@ public class WaitListRepositoryTests
     var context = GetAppDbContext();
     var repository = new WaitListRepository(context);
 
-    await Assert.ThrowsAsync<NoRecordException>(() => repository.GetEntityDtoByIdAsync(999, TestContext.Current.CancellationToken));
+    await Assert.ThrowsAsync<NoRecordException>(() => repository.GetEntityDtoByIdAsync(
+      999,
+      TestContext.Current.CancellationToken));
   }
 
   private static AppDbContext GetAppDbContext()

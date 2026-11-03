@@ -43,9 +43,7 @@ public static class UserEndpoints
       .AllowAnonymous()
       .RequireRateLimiting(RateLimitSettings.ClientIpPolicy)
       .Produces<AuthUserViewModel>();
-    group.MapPost("refresh-token", RefreshToken)
-      .AllowAnonymous()
-      .Produces<ExchangeRefreshTokenViewModel>();
+    group.MapPost("refresh-token", RefreshToken).AllowAnonymous().Produces<ExchangeRefreshTokenViewModel>();
     group.MapPost("logout", LogoutUser).Produces<DeleteRecordViewModel>();
     group.MapPost("reset-password", ResetPassword)
       .AllowAnonymous()

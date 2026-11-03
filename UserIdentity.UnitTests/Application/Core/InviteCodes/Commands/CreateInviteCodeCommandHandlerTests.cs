@@ -26,7 +26,12 @@ public class CreateInviteCodeCommandHandlerTests
 
   public CreateInviteCodeCommandHandlerTests()
   {
-    _roleSettings = Options.Create(new RoleSettings { ServiceName = "UserIdentity", AdminRoles = "admin,superuser", DefaultRole = "user" });
+    _roleSettings = Options.Create(new RoleSettings
+    {
+      ServiceName = "UserIdentity",
+      AdminRoles = "admin,superuser",
+      DefaultRole = "user"
+    });
     _roleManager = A.Fake<RoleManager<IdentityRole>>();
     _unitOfWork = A.Fake<IUnitOfWork>();
     _inviteCodeRepository = A.Fake<IInviteCodeRepository>();
@@ -39,12 +44,7 @@ public class CreateInviteCodeCommandHandlerTests
   public async Task CreateItemAsync_Creates_InviteCode_And_Returns_ViewModel()
   {
     // Arrange
-    var command = new CreateInviteCodeCommand
-    {
-      InviteCode = "INVITE123",
-      UserEmail = "test@example.com",
-      AppId = 1
-    };
+    var command = new CreateInviteCodeCommand { InviteCode = "INVITE123", UserEmail = "test@example.com", AppId = 1 };
 
     InviteCodeEntity? capturedEntity = null;
     A.CallTo(() => _inviteCodeRepository.CreateEntityItem(A<InviteCodeEntity>._))
@@ -81,7 +81,8 @@ public class CreateInviteCodeCommandHandlerTests
 
     A.CallTo(() => _inviteCodeRepository.CreateEntityItem(A<InviteCodeEntity>._)).MustHaveHappenedOnceExactly();
     A.CallTo(() => _unitOfWork.SaveChangesAsync(A<CancellationToken>._)).MustHaveHappenedOnceExactly();
-    A.CallTo(() => _inviteCodeRepository.GetEntityDtoByIdAsync(A<long>._, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+    A.CallTo(() => _inviteCodeRepository.GetEntityDtoByIdAsync(A<long>._, A<CancellationToken>._))
+      .MustHaveHappenedOnceExactly();
   }
 
   [Fact]
@@ -91,24 +92,20 @@ public class CreateInviteCodeCommandHandlerTests
     var now = DateTime.UtcNow;
     _timeProvider.SetUtcNow(now);
 
-    var command = new CreateInviteCodeCommand
-    {
-      InviteCode = "INVITE456",
-      UserEmail = "audit@example.com",
-      AppId = 2
-    };
+    var command = new CreateInviteCodeCommand { InviteCode = "INVITE456", UserEmail = "audit@example.com", AppId = 2 };
 
     InviteCodeEntity? capturedEntity = null;
     A.CallTo(() => _inviteCodeRepository.CreateEntityItem(A<InviteCodeEntity>._))
         .Invokes((InviteCodeEntity e) => capturedEntity = e);
 
-    A.CallTo(() => _inviteCodeRepository.GetEntityDtoByIdAsync(A<long>._, A<CancellationToken>._)).Returns(new InviteCodeDto
-    {
-      Id = 1,
-      InviteCode = command.InviteCode,
-      UserEmail = command.UserEmail,
-      AppId = command.AppId
-    });
+    A.CallTo(() => _inviteCodeRepository.GetEntityDtoByIdAsync(A<long>._, A<CancellationToken>._))
+      .Returns(new InviteCodeDto
+      {
+        Id = 1,
+        InviteCode = command.InviteCode,
+        UserEmail = command.UserEmail,
+        AppId = command.AppId
+      });
 
     var handler = GetHandler();
 
@@ -185,7 +182,10 @@ public class CreateInviteCodeCommandHandlerTests
     var handler = GetHandler();
 
     // Act & Assert
-    await Assert.ThrowsAsync<InvalidDataException>(() => handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken));
+    await Assert.ThrowsAsync<InvalidDataException>(() => handler.CreateItemAsync(
+      command,
+      TestStringHelper.UserId,
+      TestContext.Current.CancellationToken));
 
     A.CallTo(() => _inviteCodeRepository.CreateEntityItem(A<InviteCodeEntity>._)).MustNotHaveHappened();
   }
@@ -201,7 +201,10 @@ public class CreateInviteCodeCommandHandlerTests
     var handler = GetHandler();
 
     // Act & Assert
-    await Assert.ThrowsAsync<InvalidDataException>(() => handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken));
+    await Assert.ThrowsAsync<InvalidDataException>(() => handler.CreateItemAsync(
+      command,
+      TestStringHelper.UserId,
+      TestContext.Current.CancellationToken));
 
     A.CallTo(() => _inviteCodeRepository.CreateEntityItem(A<InviteCodeEntity>._)).MustNotHaveHappened();
   }

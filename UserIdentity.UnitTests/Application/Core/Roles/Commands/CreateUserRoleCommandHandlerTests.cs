@@ -37,10 +37,17 @@ public class CreateUserRoleCommandHandlerTests
     CreateUserRoleCommand command = new() { UserId = "123", RoleId = "Admin123" };
     A.CallTo(() => _userManager.FindByIdAsync(command.UserId)).Returns(default(IdentityUser));
 
-    CreateUserRoleCommandHandler handler = new(_roleManager, _userManager, _userRegisteredAppRepository, _getUserRolesQueryHandler);
+    CreateUserRoleCommandHandler handler = new(
+      _roleManager,
+      _userManager,
+      _userRegisteredAppRepository,
+      _getUserRolesQueryHandler);
 
     // Act & Assert
-    await Assert.ThrowsAsync<NoRecordException>(() => handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken));
+    await Assert.ThrowsAsync<NoRecordException>(() => handler.CreateItemAsync(
+      command,
+      TestStringHelper.UserId,
+      TestContext.Current.CancellationToken));
   }
 
   [Fact]
@@ -51,10 +58,17 @@ public class CreateUserRoleCommandHandlerTests
     A.CallTo(() => _userManager.FindByIdAsync(command.UserId)).Returns(new IdentityUser { Id = command.UserId });
     A.CallTo(() => _roleManager.FindByIdAsync(command.RoleId)).Returns(default(IdentityRole));
 
-    CreateUserRoleCommandHandler handler = new(_roleManager, _userManager, _userRegisteredAppRepository, _getUserRolesQueryHandler);
+    CreateUserRoleCommandHandler handler = new(
+      _roleManager,
+      _userManager,
+      _userRegisteredAppRepository,
+      _getUserRolesQueryHandler);
 
     // Act & Assert
-    await Assert.ThrowsAsync<NoRecordException>(() => handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken));
+    await Assert.ThrowsAsync<NoRecordException>(() => handler.CreateItemAsync(
+      command,
+      TestStringHelper.UserId,
+      TestContext.Current.CancellationToken));
   }
 
   [Fact]
@@ -66,12 +80,22 @@ public class CreateUserRoleCommandHandlerTests
 
     A.CallTo(() => _userManager.FindByIdAsync(command.UserId)).Returns(new IdentityUser { Id = command.UserId });
     A.CallTo(() => _roleManager.FindByIdAsync(command.RoleId)).Returns(existingRole);
-    A.CallTo(() => _userManager.IsInRoleAsync(A<IdentityUser>.That.Matches(u => u.Id == command.UserId), existingRole.Name)).Returns(Task.FromResult(true));
+    A.CallTo(() => _userManager.IsInRoleAsync(
+      A<IdentityUser>.That.Matches(u => u.Id == command.UserId),
+      existingRole.Name))
+      .Returns(Task.FromResult(true));
 
-    CreateUserRoleCommandHandler handler = new(_roleManager, _userManager, _userRegisteredAppRepository, _getUserRolesQueryHandler);
+    CreateUserRoleCommandHandler handler = new(
+      _roleManager,
+      _userManager,
+      _userRegisteredAppRepository,
+      _getUserRolesQueryHandler);
 
     // Act & Assert
-    await Assert.ThrowsAsync<RecordExistsException>(() => handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken));
+    await Assert.ThrowsAsync<RecordExistsException>(() => handler.CreateItemAsync(
+      command,
+      TestStringHelper.UserId,
+      TestContext.Current.CancellationToken));
   }
 
   [Fact]
@@ -82,13 +106,26 @@ public class CreateUserRoleCommandHandlerTests
     IdentityRole existingRole = new() { Id = command.RoleId, Name = "Admin" };
     A.CallTo(() => _userManager.FindByIdAsync(command.UserId)).Returns(new IdentityUser { Id = command.UserId });
     A.CallTo(() => _roleManager.FindByIdAsync(command.RoleId)).Returns(existingRole);
-    A.CallTo(() => _userManager.IsInRoleAsync(A<IdentityUser>.That.Matches(u => u.Id == command.UserId), existingRole.Name)).Returns(Task.FromResult(false));
-    A.CallTo(() => _userManager.AddToRoleAsync(A<IdentityUser>.That.Matches(u => u.Id == command.UserId), existingRole.Name)).Returns(Task.FromResult(IdentityResult.Failed()));
+    A.CallTo(() => _userManager.IsInRoleAsync(
+      A<IdentityUser>.That.Matches(u => u.Id == command.UserId),
+      existingRole.Name))
+      .Returns(Task.FromResult(false));
+    A.CallTo(() => _userManager.AddToRoleAsync(
+      A<IdentityUser>.That.Matches(u => u.Id == command.UserId),
+      existingRole.Name))
+      .Returns(Task.FromResult(IdentityResult.Failed()));
 
-    CreateUserRoleCommandHandler handler = new(_roleManager, _userManager, _userRegisteredAppRepository, _getUserRolesQueryHandler);
+    CreateUserRoleCommandHandler handler = new(
+      _roleManager,
+      _userManager,
+      _userRegisteredAppRepository,
+      _getUserRolesQueryHandler);
 
     // Act & Assert
-    await Assert.ThrowsAsync<RecordCreationException>(() => handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken));
+    await Assert.ThrowsAsync<RecordCreationException>(() => handler.CreateItemAsync(
+      command,
+      TestStringHelper.UserId,
+      TestContext.Current.CancellationToken));
   }
 
   [Fact]
@@ -100,11 +137,24 @@ public class CreateUserRoleCommandHandlerTests
 
     A.CallTo(() => _userManager.FindByIdAsync(command.UserId)).Returns(new IdentityUser { Id = command.UserId });
     A.CallTo(() => _roleManager.FindByIdAsync(command.RoleId)).Returns(existingRole);
-    A.CallTo(() => _userManager.IsInRoleAsync(A<IdentityUser>.That.Matches(u => u.Id == command.UserId), existingRole.Name)).Returns(Task.FromResult(false));
-    A.CallTo(() => _userManager.AddToRoleAsync(A<IdentityUser>.That.Matches(u => u.Id == command.UserId), existingRole.Name)).Returns(Task.FromResult(IdentityResult.Success));
-    A.CallTo(() => _getUserRolesQueryHandler.GetItemsAsync(A<GetUserRolesQuery>.That.Matches(q => q.UserId == command.UserId), A<CancellationToken>._)).Returns(new UserRolesViewModel { UserRoles = ["Admin"] });
+    A.CallTo(() => _userManager.IsInRoleAsync(
+      A<IdentityUser>.That.Matches(u => u.Id == command.UserId),
+      existingRole.Name))
+      .Returns(Task.FromResult(false));
+    A.CallTo(() => _userManager.AddToRoleAsync(
+      A<IdentityUser>.That.Matches(u => u.Id == command.UserId),
+      existingRole.Name))
+      .Returns(Task.FromResult(IdentityResult.Success));
+    A.CallTo(() => _getUserRolesQueryHandler.GetItemsAsync(
+      A<GetUserRolesQuery>.That.Matches(q => q.UserId == command.UserId),
+      A<CancellationToken>._))
+      .Returns(new UserRolesViewModel { UserRoles = ["Admin"] });
 
-    CreateUserRoleCommandHandler handler = new(_roleManager, _userManager, _userRegisteredAppRepository, _getUserRolesQueryHandler);
+    CreateUserRoleCommandHandler handler = new(
+      _roleManager,
+      _userManager,
+      _userRegisteredAppRepository,
+      _getUserRolesQueryHandler);
 
     // Act
     var result = await handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken);
@@ -122,18 +172,30 @@ public class CreateUserRoleCommandHandlerTests
     IdentityRole existingRole = new() { Id = command.RoleId, Name = "testapp:editor" };
 
     A.CallTo(() => _userManager.FindByIdAsync(command.UserId)).Returns(new IdentityUser { Id = command.UserId });
-    A.CallTo(() => _userRegisteredAppRepository.IsUserRegisteredForAppAsync(command.UserId, "TestApp", A<CancellationToken>._)).Returns(true);
+    A.CallTo(() => _userRegisteredAppRepository.IsUserRegisteredForAppAsync(
+      command.UserId,
+      "TestApp",
+      A<CancellationToken>._))
+      .Returns(true);
     A.CallTo(() => _roleManager.FindByIdAsync(command.RoleId)).Returns(existingRole);
-    A.CallTo(() => _userManager.AddToRoleAsync(A<IdentityUser>._, existingRole.Name)).Returns(Task.FromResult(IdentityResult.Success));
+    A.CallTo(() => _userManager.AddToRoleAsync(A<IdentityUser>._, existingRole.Name))
+      .Returns(Task.FromResult(IdentityResult.Success));
 
-    CreateUserRoleCommandHandler handler = new(_roleManager, _userManager, _userRegisteredAppRepository, _getUserRolesQueryHandler);
+    CreateUserRoleCommandHandler handler = new(
+      _roleManager,
+      _userManager,
+      _userRegisteredAppRepository,
+      _getUserRolesQueryHandler);
 
     // Act
     await handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken);
 
     // Assert
     A.CallTo(() => _userManager.AddToRoleAsync(A<IdentityUser>._, existingRole.Name)).MustHaveHappenedOnceExactly();
-    A.CallTo(() => _getUserRolesQueryHandler.GetItemsAsync(A<GetUserRolesQuery>.That.Matches(q => q.AppName == "TestApp"), A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+    A.CallTo(() => _getUserRolesQueryHandler.GetItemsAsync(
+      A<GetUserRolesQuery>.That.Matches(q => q.AppName == "TestApp"),
+      A<CancellationToken>._))
+      .MustHaveHappenedOnceExactly();
   }
 
   [Fact]
@@ -143,12 +205,23 @@ public class CreateUserRoleCommandHandlerTests
     CreateUserRoleCommand command = new() { UserId = "123", RoleId = "Editor123", AppName = "TestApp" };
 
     A.CallTo(() => _userManager.FindByIdAsync(command.UserId)).Returns(new IdentityUser { Id = command.UserId });
-    A.CallTo(() => _userRegisteredAppRepository.IsUserRegisteredForAppAsync(command.UserId, "TestApp", A<CancellationToken>._)).Returns(false);
+    A.CallTo(() => _userRegisteredAppRepository.IsUserRegisteredForAppAsync(
+      command.UserId,
+      "TestApp",
+      A<CancellationToken>._))
+      .Returns(false);
 
-    CreateUserRoleCommandHandler handler = new(_roleManager, _userManager, _userRegisteredAppRepository, _getUserRolesQueryHandler);
+    CreateUserRoleCommandHandler handler = new(
+      _roleManager,
+      _userManager,
+      _userRegisteredAppRepository,
+      _getUserRolesQueryHandler);
 
     // Act & Assert
-    await Assert.ThrowsAsync<NoRecordException>(() => handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken));
+    await Assert.ThrowsAsync<NoRecordException>(() => handler.CreateItemAsync(
+      command,
+      TestStringHelper.UserId,
+      TestContext.Current.CancellationToken));
 
     A.CallTo(() => _userManager.AddToRoleAsync(A<IdentityUser>._, A<string>._)).MustNotHaveHappened();
   }
@@ -157,19 +230,32 @@ public class CreateUserRoleCommandHandlerTests
   [InlineData("otherapp:admin")]
   [InlineData("global:admin")]
   [InlineData("Administrator")]
-  public async Task Create_UserRole_For_An_App_Admin_Throws_NoRecordException_For_A_Role_Outside_The_App(string roleName)
+  public async Task Create_UserRole_For_An_App_Admin_Throws_NoRecordException_For_A_Role_Outside_The_App(
+    string roleName)
   {
     // Arrange
     CreateUserRoleCommand command = new() { UserId = "123", RoleId = "Role123", AppName = "TestApp" };
 
     A.CallTo(() => _userManager.FindByIdAsync(command.UserId)).Returns(new IdentityUser { Id = command.UserId });
-    A.CallTo(() => _userRegisteredAppRepository.IsUserRegisteredForAppAsync(command.UserId, "TestApp", A<CancellationToken>._)).Returns(true);
-    A.CallTo(() => _roleManager.FindByIdAsync(command.RoleId)).Returns(new IdentityRole { Id = command.RoleId, Name = roleName });
+    A.CallTo(() => _userRegisteredAppRepository.IsUserRegisteredForAppAsync(
+      command.UserId,
+      "TestApp",
+      A<CancellationToken>._))
+      .Returns(true);
+    A.CallTo(() => _roleManager.FindByIdAsync(command.RoleId))
+      .Returns(new IdentityRole { Id = command.RoleId, Name = roleName });
 
-    CreateUserRoleCommandHandler handler = new(_roleManager, _userManager, _userRegisteredAppRepository, _getUserRolesQueryHandler);
+    CreateUserRoleCommandHandler handler = new(
+      _roleManager,
+      _userManager,
+      _userRegisteredAppRepository,
+      _getUserRolesQueryHandler);
 
     // Act & Assert
-    await Assert.ThrowsAsync<NoRecordException>(() => handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken));
+    await Assert.ThrowsAsync<NoRecordException>(() => handler.CreateItemAsync(
+      command,
+      TestStringHelper.UserId,
+      TestContext.Current.CancellationToken));
 
     A.CallTo(() => _userManager.AddToRoleAsync(A<IdentityUser>._, A<string>._)).MustNotHaveHappened();
   }

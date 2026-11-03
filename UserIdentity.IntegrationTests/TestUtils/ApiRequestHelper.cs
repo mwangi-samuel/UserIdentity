@@ -16,14 +16,13 @@ internal static class ApiRequestHelper
 
   public static string loginUrl = "/api/v1/user/login";
 
-  public static async Task<(string, string)> LoginUserAsync(this HttpClient httpClient, string userName, string userPassword)
+  public static async Task<(string, string)> LoginUserAsync(
+    this HttpClient httpClient,
+    string userName,
+    string userPassword)
   {
     // Arrange
-    var requestPayload = new
-    {
-      UserName = userName,
-      Password = userPassword
-    };
+    var requestPayload = new { UserName = userName, Password = userPassword };
 
     var httpRequest = CreateHttpRequestMessage(HttpMethod.Post, loginUrl);
     httpRequest.Content = SerDeHelper.ConvertToHttpContent(requestPayload);
@@ -75,7 +74,10 @@ internal static class ApiRequestHelper
     httpRequest.Headers.Add("X-App-Name", AppName);
   }
 
-  public static async Task<HttpRequestMessage> CreateAuthorizedHttpRequestMessageAsync(this HttpClient httpClient, HttpMethod httpMethod, string uri)
+  public static async Task<HttpRequestMessage> CreateAuthorizedHttpRequestMessageAsync(
+    this HttpClient httpClient,
+    HttpMethod httpMethod,
+    string uri)
   {
     (var userToken, _) = await httpClient.LoginUserAsync(UserSettingHelper.UserName, UserSettingHelper.UserPassword);
 
@@ -86,7 +88,11 @@ internal static class ApiRequestHelper
     return httpRequest;
   }
 
-  public static async Task<HttpResponseMessage> SendNoAuthRequestAsync(this HttpClient httpClient, HttpMethod httpMethod, string uri, object? httpBody = null)
+  public static async Task<HttpResponseMessage> SendNoAuthRequestAsync(
+    this HttpClient httpClient,
+    HttpMethod httpMethod,
+    string uri,
+    object? httpBody = null)
   {
     var httpRequest = CreateHttpRequestMessage(httpMethod, uri);
 
@@ -96,7 +102,11 @@ internal static class ApiRequestHelper
     return await httpClient.SendAsync(httpRequest);
   }
 
-  public static async Task<HttpResponseMessage> SendValidAuthRequestAsync(this HttpClient httpClient, HttpMethod httpMethod, string uri, object? httpBody = null)
+  public static async Task<HttpResponseMessage> SendValidAuthRequestAsync(
+    this HttpClient httpClient,
+    HttpMethod httpMethod,
+    string uri,
+    object? httpBody = null)
   {
     var httpRequest = await CreateAuthorizedHttpRequestMessageAsync(httpClient, httpMethod, uri);
 
@@ -106,7 +116,11 @@ internal static class ApiRequestHelper
     return await httpClient.SendAsync(httpRequest);
   }
 
-  public static async Task<HttpResponseMessage> SendInvalidAuthRequestAsync(this HttpClient httpClient, HttpMethod httpMethod, string uri, object? httpBody = null)
+  public static async Task<HttpResponseMessage> SendInvalidAuthRequestAsync(
+    this HttpClient httpClient,
+    HttpMethod httpMethod,
+    string uri,
+    object? httpBody = null)
   {
     var httpRequest = CreateHttpRequestMessage(httpMethod, uri);
 

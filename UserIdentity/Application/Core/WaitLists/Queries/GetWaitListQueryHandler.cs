@@ -24,12 +24,18 @@ public class GetWaitListQueryHandler(
 {
   private readonly IWaitListRepository _waitListRepository = waitListRepository;
 
-  public async Task<WaitListViewModel> GetItemAsync(GetWaitListQuery query, CancellationToken cancellationToken = default)
+  public async Task<WaitListViewModel> GetItemAsync(
+    GetWaitListQuery query,
+    CancellationToken cancellationToken = default)
   {
 
     var dto = query.WaitListId.HasValue
       ? await _waitListRepository.GetEntityDtoByIdAsync(query.WaitListId!.Value, cancellationToken)
-      : WaitListDto.FromEntityDetailed((await _waitListRepository.GetEntityByAlternateIdAsync(new() { AppId = query.AppId, UserEmail = query.UserEmail! }, QueryCondition.MustExist, cancellationToken))!);
+      : WaitListDto.FromEntityDetailed(
+        (await _waitListRepository.GetEntityByAlternateIdAsync(
+          new() { AppId = query.AppId, UserEmail = query.UserEmail! },
+          QueryCondition.MustExist,
+          cancellationToken))!);
 
     if (dto.AppId != query.AppId)
       throw NoRecordException.ForIdentifier($"{query.WaitListId}");

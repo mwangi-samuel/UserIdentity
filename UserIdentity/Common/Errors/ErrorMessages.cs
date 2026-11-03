@@ -23,7 +23,8 @@ public static class ErrorMessages
   {
     public const string UsedInviteNotRevocable = "An invite code that has been used can't be revoked";
 
-    public static string RoleNotGrantable(string appPrefix) => $"An invite can only grant a {appPrefix} role that isn't an admin role";
+    public static string RoleNotGrantable(
+      string appPrefix) => $"An invite can only grant a {appPrefix} role that isn't an admin role";
 
     public static string RoleMissing(string role) => $"The role {role} doesn't exist";
   }

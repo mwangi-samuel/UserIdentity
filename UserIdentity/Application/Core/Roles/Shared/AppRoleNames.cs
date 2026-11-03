@@ -6,12 +6,15 @@ namespace UserIdentity.Application.Core.Roles.Shared;
 
 public static class AppRoleNames
 {
-  // Always admin roles, since token consumers may treat <app>:admin as an admin role whatever this service's AdminRoles says
+  // Always admin roles, since token consumers may treat <app>:admin as an admin role
+  // whatever this service's AdminRoles says
   private static readonly HashSet<string> _defaultAdminRoles = RoleSettings.ParseRoles(KnownRoles.Admin);
 
   public static string Prefix(string appName) => $"{appName.TrimAndLowerInvariant()}{Separators.ServiceRole}";
 
-  public static string DefaultRole(string appName, RoleSettings roleSettings) => $"{Prefix(appName)}{roleSettings.DefaultRole.TrimAndLowerInvariant()}";
+  public static string DefaultRole(
+    string appName,
+    RoleSettings roleSettings) => $"{Prefix(appName)}{roleSettings.DefaultRole.TrimAndLowerInvariant()}";
 
   public static bool IsAppRole(string? roleName, string appName) =>
     roleName is not null && roleName.StartsWith(Prefix(appName), StringComparison.OrdinalIgnoreCase);
@@ -29,7 +32,8 @@ public static class AppRoleNames
   }
 
   public static bool IsGlobalAdminRole(string? roleName, string? globalAdminRole) =>
-    !string.IsNullOrWhiteSpace(globalAdminRole) && string.Equals(roleName, globalAdminRole.Trim(), StringComparison.OrdinalIgnoreCase);
+    !string.IsNullOrWhiteSpace(globalAdminRole)
+      && string.Equals(roleName, globalAdminRole.Trim(), StringComparison.OrdinalIgnoreCase);
 
   // Tokens and app admins only see the app's own roles, plus the global admin role, which isn't tied to an app
   public static List<string> ForApp(IEnumerable<string> roles, string appName, string? globalAdminRole) =>

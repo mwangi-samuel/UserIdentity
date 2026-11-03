@@ -21,7 +21,11 @@ public class RefreshTokenConfiguration : IEntityTypeConfiguration<RefreshTokenEn
     builder.Property(e => e.PreviousToken).HasMaxLength(200);
     builder.HasIndex(e => e.PreviousToken);
 
-    builder.HasOne<IdentityUser>().WithMany().HasForeignKey(e => e.UserId).IsRequired().OnDelete(DeleteBehavior.Cascade);
+    builder.HasOne<IdentityUser>()
+      .WithMany()
+      .HasForeignKey(e => e.UserId)
+      .IsRequired()
+      .OnDelete(DeleteBehavior.Cascade);
     builder.HasIndex(e => e.Expires);
 
     builder.Property(e => e.Version).IsConcurrencyToken();

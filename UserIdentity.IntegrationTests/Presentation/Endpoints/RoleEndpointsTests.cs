@@ -216,10 +216,7 @@ public class RoleEndpointsTests(
 
     (_, _) = await HttpClient.LoginUserAsync(UserSettingHelper.UserName, UserSettingHelper.UserPassword);
 
-    var requestPayload = new
-    {
-      RoleName = "testapp:newrole",
-    };
+    var requestPayload = new { RoleName = "testapp:newrole" };
 
     // Act
     var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Post, _baseUri, requestPayload);
@@ -254,10 +251,7 @@ public class RoleEndpointsTests(
     var additionalRolename = "testapp:additionalrole";
     TestDbHelper.CreateIdentityRole(additionalRolename);
 
-    var requestPayload = new
-    {
-      RoleName = additionalRolename,
-    };
+    var requestPayload = new { RoleName = additionalRolename };
 
     // Act
     var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Post, _baseUri, requestPayload);
@@ -273,7 +267,9 @@ public class RoleEndpointsTests(
     Assert.Equal("Request Failed", $"{jsonObject["requestStatus"]}");
     Assert.Equal("400 - BAD REQUEST", $"{jsonObject["statusMessage"]}");
 
-    Assert.Equal($"A record identified with - {requestPayload.RoleName} - exists", $"{jsonObject["error"]?["message"]}");
+    Assert.Equal(
+      $"A record identified with - {requestPayload.RoleName} - exists",
+      $"{jsonObject["error"]?["message"]}");
 
     var dateTime = (DateTime?)jsonObject["error"]?["timestamp"];
 
@@ -295,9 +291,7 @@ public class RoleEndpointsTests(
 
     TestDbHelper.CreateIdentityRole(additionalRolename);
 
-    var requestPayload = new
-    {
-    };
+    var requestPayload = new { };
 
     // Act
     var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Post, _baseUri, requestPayload);
@@ -339,10 +333,7 @@ public class RoleEndpointsTests(
 
     TestDbHelper.CreateIdentityRole(additionalRolename);
 
-    var requestPayload = new
-    {
-      RoleName = "testapp:newrole",
-    };
+    var requestPayload = new { RoleName = "testapp:newrole" };
 
     // Act
     var response = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri, requestPayload);
@@ -362,10 +353,7 @@ public class RoleEndpointsTests(
     var additionalRolename = "testapp:additionalrole";
     TestDbHelper.CreateIdentityRole(additionalRolename);
 
-    var requestPayload = new
-    {
-      RoleName = "testapp:newrole",
-    };
+    var requestPayload = new { RoleName = "testapp:newrole" };
 
     // Act
     var response = await HttpClient.SendInvalidAuthRequestAsync(HttpMethod.Post, _baseUri, requestPayload);
@@ -387,10 +375,7 @@ public class RoleEndpointsTests(
     TestDbHelper.CreateUserEntity();
     TestDbHelper.CreateRefreshTokenEntity();
 
-    var requestPayload = new
-    {
-      RoleName = "testapp:newrole",
-    };
+    var requestPayload = new { RoleName = "testapp:newrole" };
 
     // Act
     var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Post, _baseUri, requestPayload);
@@ -412,14 +397,13 @@ public class RoleEndpointsTests(
     var additionalRolename = "testapp:additionalrole";
     var newRole = TestDbHelper.CreateIdentityRole(additionalRolename);
 
-    var requestPayload = new
-    {
-      RoleId = newRole.Id,
-      RoleName = "testapp:updatednewrole",
-    };
+    var requestPayload = new { RoleId = newRole.Id, RoleName = "testapp:updatednewrole" };
 
     // Act
-    var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Put, _baseUri + "/" + requestPayload.RoleId, requestPayload);
+    var response = await HttpClient.SendValidAuthRequestAsync(
+      HttpMethod.Put,
+      _baseUri + "/" + requestPayload.RoleId,
+      requestPayload);
 
     // Assert
     var responseString = await response.ValidateRequestResponseAsync();
@@ -451,14 +435,13 @@ public class RoleEndpointsTests(
     var additionalRolename = "testapp:additionalrole";
     TestDbHelper.CreateIdentityRole(additionalRolename);
 
-    var requestPayload = new
-    {
-      RoleId = Guid.NewGuid().ToString(),
-      RoleName = additionalRolename,
-    };
+    var requestPayload = new { RoleId = Guid.NewGuid().ToString(), RoleName = additionalRolename };
 
     // Act
-    var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Put, _baseUri + "/" + requestPayload.RoleId, requestPayload);
+    var response = await HttpClient.SendValidAuthRequestAsync(
+      HttpMethod.Put,
+      _baseUri + "/" + requestPayload.RoleId,
+      requestPayload);
 
     // Assert
     var responseString = await response.ValidateRequestResponseAsync();
@@ -471,7 +454,9 @@ public class RoleEndpointsTests(
     Assert.Equal("Request Failed", $"{jsonObject["requestStatus"]}");
     Assert.Equal("404 - NOT FOUND", $"{jsonObject["statusMessage"]}");
 
-    Assert.Equal($"No record exists for the provided identifier - {requestPayload.RoleId}", $"{jsonObject["error"]?["message"]}");
+    Assert.Equal(
+      $"No record exists for the provided identifier - {requestPayload.RoleId}",
+      $"{jsonObject["error"]?["message"]}");
 
     var dateTime = (DateTime?)jsonObject["error"]?["timestamp"];
 
@@ -492,9 +477,7 @@ public class RoleEndpointsTests(
     var additionalRolename = "testapp:additionalrole";
     var role = TestDbHelper.CreateIdentityRole(additionalRolename);
 
-    var requestPayload = new
-    {
-    };
+    var requestPayload = new { };
 
     // Act
     var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Put, _baseUri + "/" + role.Id, requestPayload);
@@ -534,10 +517,7 @@ public class RoleEndpointsTests(
     var additionalRolename = "testapp:additionalrole";
     var role = TestDbHelper.CreateIdentityRole(additionalRolename);
 
-    var requestPayload = new
-    {
-      RoleName = "testapp:updatednewrole",
-    };
+    var requestPayload = new { RoleName = "testapp:updatednewrole" };
 
     // Act
     var response = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Put, _baseUri + "/" + role.Id, requestPayload);
@@ -557,13 +537,13 @@ public class RoleEndpointsTests(
     var additionalRolename = "testapp:additionalrole";
     var role = TestDbHelper.CreateIdentityRole(additionalRolename);
 
-    var requestPayload = new
-    {
-      RoleName = "testapp:updatedrole",
-    };
+    var requestPayload = new { RoleName = "testapp:updatedrole" };
 
     // Act
-    var response = await HttpClient.SendInvalidAuthRequestAsync(HttpMethod.Put, _baseUri + "/" + role.Id, requestPayload);
+    var response = await HttpClient.SendInvalidAuthRequestAsync(
+      HttpMethod.Put,
+      _baseUri + "/" + role.Id,
+      requestPayload);
 
     // Assert
     await response.ValidateRequestResponseAsync();
@@ -583,10 +563,7 @@ public class RoleEndpointsTests(
     TestDbHelper.CreateUserEntity();
     TestDbHelper.CreateRefreshTokenEntity();
 
-    var requestPayload = new
-    {
-      RoleName = "testapp:updatedrole",
-    };
+    var requestPayload = new { RoleName = "testapp:updatedrole" };
 
     // Act
     var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Put, _baseUri + "/" + role.Id, requestPayload);
@@ -650,7 +627,9 @@ public class RoleEndpointsTests(
     Assert.Equal("Request Failed", $"{jsonObject["requestStatus"]}");
     Assert.Equal("404 - NOT FOUND", $"{jsonObject["statusMessage"]}");
 
-    Assert.Equal($"No record exists for the provided identifier - {nonExistentRuleId}", $"{jsonObject["error"]?["message"]}");
+    Assert.Equal(
+      $"No record exists for the provided identifier - {nonExistentRuleId}",
+      $"{jsonObject["error"]?["message"]}");
 
     var dateTime = (DateTime?)jsonObject["error"]?["timestamp"];
 
@@ -724,7 +703,9 @@ public class RoleEndpointsTests(
     TestDbHelper.SeedDatabase();
 
     // Act
-    var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Get, _baseUri + "/user/" + UserSettingHelper.UserId);
+    var response = await HttpClient.SendValidAuthRequestAsync(
+      HttpMethod.Get,
+      _baseUri + "/user/" + UserSettingHelper.UserId);
 
     // Assert
     var responseString = await response.ValidateRequestResponseAsync();
@@ -771,7 +752,9 @@ public class RoleEndpointsTests(
     Assert.Equal("Request Failed", $"{jsonObject["requestStatus"]}");
     Assert.Equal("404 - NOT FOUND", $"{jsonObject["statusMessage"]}");
 
-    Assert.Equal($"No record exists for the provided identifier - {nonExistentUserId}", $"{jsonObject["error"]?["message"]}");
+    Assert.Equal(
+      $"No record exists for the provided identifier - {nonExistentUserId}",
+      $"{jsonObject["error"]?["message"]}");
 
     var dateTime = (DateTime?)jsonObject["error"]?["timestamp"];
 
@@ -792,7 +775,9 @@ public class RoleEndpointsTests(
     TestDbHelper.CreateIdentityRole(additionalRolename);
 
     // Act
-    var response = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Get, _baseUri + "/user/" + UserSettingHelper.UserId);
+    var response = await HttpClient.SendNoAuthRequestAsync(
+      HttpMethod.Get,
+      _baseUri + "/user/" + UserSettingHelper.UserId);
 
     // Assert
     await response.ValidateRequestResponseAsync();
@@ -810,7 +795,9 @@ public class RoleEndpointsTests(
     TestDbHelper.CreateIdentityRole(additionalRolename);
 
     // Act
-    var response = await HttpClient.SendInvalidAuthRequestAsync(HttpMethod.Get, _baseUri + "/user/" + UserSettingHelper.UserId);
+    var response = await HttpClient.SendInvalidAuthRequestAsync(
+      HttpMethod.Get,
+      _baseUri + "/user/" + UserSettingHelper.UserId);
 
     // Assert
     await response.ValidateRequestResponseAsync();
@@ -831,7 +818,9 @@ public class RoleEndpointsTests(
     TestDbHelper.CreateRefreshTokenEntity();
 
     // Act
-    var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Get, _baseUri + "/user/" + UserSettingHelper.UserId);
+    var response = await HttpClient.SendValidAuthRequestAsync(
+      HttpMethod.Get,
+      _baseUri + "/user/" + UserSettingHelper.UserId);
 
     // Assert
     var responseString = await response.ValidateRequestResponseAsync();
@@ -865,11 +854,7 @@ public class RoleEndpointsTests(
 
     var role = TestDbHelper.CreateIdentityRole(additionalRolename);
 
-    var requestPayload = new
-    {
-      UserSettingHelper.UserId,
-      RoleId = role.Id
-    };
+    var requestPayload = new { UserSettingHelper.UserId, RoleId = role.Id };
 
     // Act
     var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Post, _baseUri + "/user", requestPayload);
@@ -908,11 +893,7 @@ public class RoleEndpointsTests(
     var role = TestDbHelper.CreateIdentityRole(additionalRolename);
     TestDbHelper.CreateIdentityUserRole(additionalRolename, UserSettingHelper.UserId);
 
-    var requestPayload = new
-    {
-      UserSettingHelper.UserId,
-      RoleId = role.Id
-    };
+    var requestPayload = new { UserSettingHelper.UserId, RoleId = role.Id };
 
     // Act
     var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Post, _baseUri + "/user", requestPayload);
@@ -950,9 +931,7 @@ public class RoleEndpointsTests(
 
     TestDbHelper.CreateIdentityRole(additionalRolename);
 
-    var requestPayload = new
-    {
-    };
+    var requestPayload = new { };
 
     // Act
     var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Post, _baseUri + "/user", requestPayload);
@@ -996,11 +975,7 @@ public class RoleEndpointsTests(
 
     var role = TestDbHelper.CreateIdentityRole(additionalRolename);
 
-    var requestPayload = new
-    {
-      UserSettingHelper.UserId,
-      RoleId = role.Id
-    };
+    var requestPayload = new { UserSettingHelper.UserId, RoleId = role.Id };
 
     // Act
     var response = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/user", requestPayload);
@@ -1021,11 +996,7 @@ public class RoleEndpointsTests(
 
     var role = TestDbHelper.CreateIdentityRole(additionalRolename);
 
-    var requestPayload = new
-    {
-      UserSettingHelper.UserId,
-      RoleId = role.Id
-    };
+    var requestPayload = new { UserSettingHelper.UserId, RoleId = role.Id };
 
     // Act
     var response = await HttpClient.SendInvalidAuthRequestAsync(HttpMethod.Post, _baseUri + "/user", requestPayload);
@@ -1048,11 +1019,7 @@ public class RoleEndpointsTests(
     TestDbHelper.CreateUserEntity();
     TestDbHelper.CreateRefreshTokenEntity();
 
-    var requestPayload = new
-    {
-      UserSettingHelper.UserId,
-      RoleId = role.Id
-    };
+    var requestPayload = new { UserSettingHelper.UserId, RoleId = role.Id };
 
     // Act
     var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Post, _baseUri + "/user", requestPayload);
@@ -1074,12 +1041,7 @@ public class RoleEndpointsTests(
     var additionalRolename = "testapp:additionalrole";
     var role = TestDbHelper.CreateIdentityRole(additionalRolename);
 
-    var requestPayload = new
-    {
-      RoleId = role.Id,
-      Resource = "user",
-      Action = "create",
-    };
+    var requestPayload = new { RoleId = role.Id, Resource = "user", Action = "create" };
 
     // Act
     var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Post, _baseUri + "/claim", requestPayload);
@@ -1119,12 +1081,7 @@ public class RoleEndpointsTests(
 
     Assert.True(createRoleClaimResult);
 
-    var requestPayload = new
-    {
-      RoleId = role.Id,
-      Resource = "user",
-      Action = "edit"
-    };
+    var requestPayload = new { RoleId = role.Id, Resource = "user", Action = "edit" };
 
     // Act
     var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Post, _baseUri + "/claim", requestPayload);
@@ -1140,7 +1097,9 @@ public class RoleEndpointsTests(
     Assert.Equal("Request Failed", $"{jsonObject["requestStatus"]}");
     Assert.Equal("400 - BAD REQUEST", $"{jsonObject["statusMessage"]}");
 
-    Assert.Equal($"A record identified with - {$"user{Separators.ScopeClaim}edit"} - exists", $"{jsonObject["error"]?["message"]}");
+    Assert.Equal(
+      $"A record identified with - {$"user{Separators.ScopeClaim}edit"} - exists",
+      $"{jsonObject["error"]?["message"]}");
 
     var dateTime = (DateTime?)jsonObject["error"]?["timestamp"];
 
@@ -1163,9 +1122,7 @@ public class RoleEndpointsTests(
 
     var role = TestDbHelper.CreateIdentityRole(additionalRolename);
 
-    var requestPayload = new
-    {
-    };
+    var requestPayload = new { };
 
     // Act
     var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Post, _baseUri + "/claim", requestPayload);
@@ -1209,12 +1166,7 @@ public class RoleEndpointsTests(
     var additionalRolename = "testapp:additionalrole";
     var role = TestDbHelper.CreateIdentityRole(additionalRolename);
 
-    var requestPayload = new
-    {
-      RoleId = role.Id,
-      Resource = "user",
-      Action = "write"
-    };
+    var requestPayload = new { RoleId = role.Id, Resource = "user", Action = "write" };
 
     // Act
     var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Post, _baseUri + "/claim", requestPayload);
@@ -1224,7 +1176,8 @@ public class RoleEndpointsTests(
 
     Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
 
-    var errorList = SerDeHelper.Deserialize<JObject>(responseString)?["error"]?["errorList"]?.ToObject<List<ValidationError>>();
+    var errorList = SerDeHelper.Deserialize<JObject>(
+      responseString)?["error"]?["errorList"]?.ToObject<List<ValidationError>>();
 
     Assert.True(errorList?.Any(x => x.Field == "Action") ?? false);
     Assert.Empty(TestDbHelper.GetRoleClaims(additionalRolename));
@@ -1239,12 +1192,7 @@ public class RoleEndpointsTests(
     var additionalRolename = "testapp:additionalrole";
     var role = TestDbHelper.CreateIdentityRole(additionalRolename);
 
-    var requestPayload = new
-    {
-      RoleId = role.Id,
-      Resource = "user",
-      Action = "create",
-    };
+    var requestPayload = new { RoleId = role.Id, Resource = "user", Action = "create" };
 
     // Act
     var response = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/claim", requestPayload);
@@ -1265,12 +1213,7 @@ public class RoleEndpointsTests(
 
     var role = TestDbHelper.CreateIdentityRole(additionalRolename);
 
-    var requestPayload = new
-    {
-      RoleId = role.Id,
-      Resource = "user",
-      Action = "create",
-    };
+    var requestPayload = new { RoleId = role.Id, Resource = "user", Action = "create" };
 
     // Act
     var response = await HttpClient.SendInvalidAuthRequestAsync(HttpMethod.Post, _baseUri + "/claim", requestPayload);
@@ -1293,12 +1236,7 @@ public class RoleEndpointsTests(
     TestDbHelper.CreateUserEntity();
     TestDbHelper.CreateRefreshTokenEntity();
 
-    var requestPayload = new
-    {
-      RoleId = role.Id,
-      Resource = "user",
-      Action = "create",
-    };
+    var requestPayload = new { RoleId = role.Id, Resource = "user", Action = "create" };
 
     // Act
     var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Post, _baseUri + "/claim", requestPayload);
@@ -1373,7 +1311,9 @@ public class RoleEndpointsTests(
     Assert.Equal("Request Failed", $"{jsonObject["requestStatus"]}");
     Assert.Equal("404 - NOT FOUND", $"{jsonObject["statusMessage"]}");
 
-    Assert.Equal($"No record exists for the provided identifier - {nonExistentRoleId}", $"{jsonObject["error"]?["message"]}");
+    Assert.Equal(
+      $"No record exists for the provided identifier - {nonExistentRoleId}",
+      $"{jsonObject["error"]?["message"]}");
 
     var dateTime = (DateTime?)jsonObject["error"]?["timestamp"];
 
@@ -1457,12 +1397,7 @@ public class RoleEndpointsTests(
 
     Assert.True(createRoleClaimResult);
 
-    var requestPayload = new
-    {
-      RoleId = role.Id,
-      Resource = "user",
-      Action = "edit",
-    };
+    var requestPayload = new { RoleId = role.Id, Resource = "user", Action = "edit" };
 
     // Act
     var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Delete, _baseUri + "/claim", requestPayload);
@@ -1491,12 +1426,7 @@ public class RoleEndpointsTests(
 
     var role = TestDbHelper.CreateIdentityRole(additionalRolename);
 
-    var requestPayload = new
-    {
-      RoleId = role.Id,
-      Resource = "user",
-      Action = "create",
-    };
+    var requestPayload = new { RoleId = role.Id, Resource = "user", Action = "create" };
 
     // Act
     var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Delete, _baseUri + "/claim", requestPayload);
@@ -1513,7 +1443,9 @@ public class RoleEndpointsTests(
     Assert.Equal("Request Failed", $"{jsonObject["requestStatus"]}");
     Assert.Equal("404 - NOT FOUND", $"{jsonObject["statusMessage"]}");
 
-    Assert.Equal($"No record exists for the provided identifier - {requestPayload.Resource}:{requestPayload.Action}", $"{jsonObject["error"]?["message"]}");
+    Assert.Equal(
+      $"No record exists for the provided identifier - {requestPayload.Resource}:{requestPayload.Action}",
+      $"{jsonObject["error"]?["message"]}");
 
     var dateTime = (DateTime?)jsonObject["error"]?["timestamp"];
 
@@ -1534,9 +1466,7 @@ public class RoleEndpointsTests(
     var additionalRolename = "testapp:additionalrole";
     var role = TestDbHelper.CreateIdentityRole(additionalRolename);
 
-    var requestPayload = new
-    {
-    };
+    var requestPayload = new { };
 
     // Act
     var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Delete, _baseUri + "/claim", requestPayload);
@@ -1579,12 +1509,7 @@ public class RoleEndpointsTests(
     var additionalRolename = "testapp:additionalrole";
     var role = TestDbHelper.CreateIdentityRole(additionalRolename);
 
-    var requestPayload = new
-    {
-      RoleId = role.Id,
-      Resource = "user",
-      Action = "create",
-    };
+    var requestPayload = new { RoleId = role.Id, Resource = "user", Action = "create" };
 
     // Act
     var response = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Delete, _baseUri + "/claim", requestPayload);
@@ -1604,12 +1529,7 @@ public class RoleEndpointsTests(
     var additionalRolename = "testapp:additionalrole";
     var role = TestDbHelper.CreateIdentityRole(additionalRolename);
 
-    var requestPayload = new
-    {
-      RoleId = role.Id,
-      Resource = "user",
-      Action = "create",
-    };
+    var requestPayload = new { RoleId = role.Id, Resource = "user", Action = "create" };
 
     // Act
     var response = await HttpClient.SendInvalidAuthRequestAsync(HttpMethod.Delete, _baseUri + "/claim", requestPayload);
@@ -1632,12 +1552,7 @@ public class RoleEndpointsTests(
     TestDbHelper.CreateUserEntity();
     TestDbHelper.CreateRefreshTokenEntity();
 
-    var requestPayload = new
-    {
-      RoleId = role.Id,
-      Resource = "user",
-      Action = "create",
-    };
+    var requestPayload = new { RoleId = role.Id, Resource = "user", Action = "create" };
 
     // Act
     var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Delete, _baseUri + "/claim", requestPayload);

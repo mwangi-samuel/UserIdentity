@@ -29,59 +29,47 @@ public class GetRoleClaimsQueryHandlerTests
   public async Task Get_RoleClaims_When_Role_Is_Not_Found_Throws_NoRecordException()
   {
     // Arrange
-    GetRoleClaimsQuery query = new()
-    {
-      RoleId = "1"
-    };
+    GetRoleClaimsQuery query = new() { RoleId = "1" };
 
     A.CallTo(() => _roleManager.FindByIdAsync(query.RoleId)).Returns((default(IdentityRole)));
 
     GetRoleClaimsQueryHandler handler = new(_roleManager, _jwtTokenHandler);
 
     // Act & Assert
-    await Assert.ThrowsAsync<NoRecordException>(() => handler.GetItemsAsync(query, TestContext.Current.CancellationToken));
+    await Assert.ThrowsAsync<NoRecordException>(() => handler.GetItemsAsync(
+      query,
+      TestContext.Current.CancellationToken));
   }
 
   [Fact]
   public async Task Get_RoleClaims_For_Another_Apps_Role_Throws_NoRecordException()
   {
     // Arrange
-    GetRoleClaimsQuery query = new()
-    {
-      RoleId = "1",
-      AppName = "testapp"
-    };
+    GetRoleClaimsQuery query = new() { RoleId = "1", AppName = "testapp" };
 
-    A.CallTo(() => _roleManager.FindByIdAsync(query.RoleId)).Returns(new IdentityRole { Id = query.RoleId, Name = "otherapp:owner" });
+    A.CallTo(() => _roleManager.FindByIdAsync(query.RoleId))
+      .Returns(new IdentityRole { Id = query.RoleId, Name = "otherapp:owner" });
 
     GetRoleClaimsQueryHandler handler = new(_roleManager, _jwtTokenHandler);
 
     // Act & Assert
-    await Assert.ThrowsAsync<NoRecordException>(() => handler.GetItemsAsync(query, TestContext.Current.CancellationToken));
+    await Assert.ThrowsAsync<NoRecordException>(() => handler.GetItemsAsync(
+      query,
+      TestContext.Current.CancellationToken));
   }
 
   [Fact]
   public async Task Get_RoleClaims_Returns_RoleClaims()
   {
     // Arrange
-    GetRoleClaimsQuery query = new()
-    {
-      RoleId = "1"
-    };
+    GetRoleClaimsQuery query = new() { RoleId = "1" };
 
-    IdentityRole role = new()
-    {
-      Id = "1",
-      Name = "Admin"
-    };
+    IdentityRole role = new() { Id = "1", Name = "Admin" };
 
     var resource = "resource";
     var action = "action";
 
-    List<Claim> roleClaims =
-    [
-        new("scope", $"{resource}:{action}")
-    ];
+    List<Claim> roleClaims = [new("scope", $"{resource}:{action}")];
 
     A.CallTo(() => _roleManager.FindByIdAsync(query.RoleId)).Returns(role);
 

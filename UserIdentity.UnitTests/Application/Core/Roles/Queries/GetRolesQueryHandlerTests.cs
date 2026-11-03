@@ -22,7 +22,9 @@ public class GetRolesQueryHandlerTests
     var handler = new GetRolesQueryHandler(_roleRepository);
 
     // Act
-    var vm = await handler.GetItemsAsync(new GetRolesQuery { AppName = "TestApp" }, TestContext.Current.CancellationToken);
+    var vm = await handler.GetItemsAsync(
+      new GetRolesQuery { AppName = "TestApp" },
+      TestContext.Current.CancellationToken);
 
     // Assert
     Assert.Equal(["testapp:admin", "testapp:user"], vm.Roles.Select(role => role.Name));

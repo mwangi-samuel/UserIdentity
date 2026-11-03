@@ -12,9 +12,7 @@ public record GetRolesQuery : IBaseQuery
   public string? AppName { get; init; }
 }
 
-public class GetRolesQueryHandler(
-    IRoleRepository roleRepository
-    ) : IGetItemsQueryHandler<GetRolesQuery, RolesViewModel>
+public class GetRolesQueryHandler(IRoleRepository roleRepository) : IGetItemsQueryHandler<GetRolesQuery, RolesViewModel>
 {
   private readonly IRoleRepository _roleRepository = roleRepository;
 
@@ -22,9 +20,6 @@ public class GetRolesQueryHandler(
   {
     var namePrefix = query.AppName is null ? null : AppRoleNames.Prefix(query.AppName);
 
-    return new RolesViewModel
-    {
-      Roles = await _roleRepository.GetRoleDtosAsync(namePrefix, cancellationToken)
-    };
+    return new RolesViewModel { Roles = await _roleRepository.GetRoleDtosAsync(namePrefix, cancellationToken) };
   }
 }

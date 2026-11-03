@@ -20,18 +20,16 @@ public class GoogleRecaptchaServiceTests
   public GoogleRecaptchaServiceTests()
   {
     _httpRequestSender = A.Fake<IHttpRequestSender>();
-    _settingsOptions = Options.Create(new GoogleRecaptchaSettings
-    {
-      Enabled = true,
-      SiteKey = "site-key"
-    });
+    _settingsOptions = Options.Create(new GoogleRecaptchaSettings { Enabled = true, SiteKey = "site-key" });
   }
 
   [Fact]
   public async Task VerifyTokenAsync_WhenDisabled_ReturnsTrue()
   {
     // Arrange
-    var service = new GoogleRecaptchaService(_httpRequestSender, Options.Create(new GoogleRecaptchaSettings { Enabled = false }));
+    var service = new GoogleRecaptchaService(
+      _httpRequestSender,
+      Options.Create(new GoogleRecaptchaSettings { Enabled = false }));
 
     // Act
     var result = await service.VerifyTokenAsync(null, TestContext.Current.CancellationToken);
@@ -78,8 +76,14 @@ public class GoogleRecaptchaServiceTests
     var result = await service.VerifyTokenAsync(token, TestContext.Current.CancellationToken);
 
     Assert.True(result);
-    A.CallTo(() => _httpRequestSender.CreateHttpRequestMessage(HttpMethod.Post, "siteverify")).MustHaveHappenedOnceExactly();
-    A.CallTo(() => _httpRequestSender.SendRequestAsync<GoogleRecaptchaResponseDto>("GoogleRecaptcha", requestMessage, HttpStatusCode.OK, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+    A.CallTo(() => _httpRequestSender.CreateHttpRequestMessage(HttpMethod.Post, "siteverify"))
+      .MustHaveHappenedOnceExactly();
+    A.CallTo(() => _httpRequestSender.SendRequestAsync<GoogleRecaptchaResponseDto>(
+      "GoogleRecaptcha",
+      requestMessage,
+      HttpStatusCode.OK,
+      A<CancellationToken>._))
+      .MustHaveHappenedOnceExactly();
   }
 
   [Fact]

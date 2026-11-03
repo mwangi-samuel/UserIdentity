@@ -68,8 +68,12 @@ public class AppDbContext(
     builder.Entity<IdentityRole>().ToTable("roles");
     builder.Entity<IdentityUserClaim<string>>().ToTable("user_claims");
     builder.Entity<IdentityRoleClaim<string>>().ToTable("role_claims");
-    builder.Entity<IdentityUserLogin<string>>().ToTable("user_logins").HasKey(i => new { i.LoginProvider, i.ProviderKey });
+    builder.Entity<IdentityUserLogin<string>>()
+      .ToTable("user_logins")
+      .HasKey(i => new { i.LoginProvider, i.ProviderKey });
     builder.Entity<IdentityUserRole<string>>().ToTable("user_roles").HasKey(i => new { i.UserId, i.RoleId });
-    builder.Entity<IdentityUserToken<string>>().ToTable("user_tokens").HasKey(i => new { i.UserId, i.LoginProvider, i.Name });
+    builder.Entity<IdentityUserToken<string>>()
+      .ToTable("user_tokens")
+      .HasKey(i => new { i.UserId, i.LoginProvider, i.Name });
   }
 }

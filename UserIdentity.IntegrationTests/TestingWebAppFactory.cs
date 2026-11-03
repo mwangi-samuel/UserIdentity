@@ -77,10 +77,7 @@ public class TestingWebAppFactory : WebApplicationFactory<Program>, IAsyncLifeti
 
   public async ValueTask InitializeAsync()
   {
-    await Task.WhenAll(
-      _mysqlContainer.StartAsync(),
-      _natsContainer.StartAsync()
-    );
+    await Task.WhenAll(_mysqlContainer.StartAsync(), _natsContainer.StartAsync());
 
     // Without the streams, the app's consumers back off for up to 30 seconds before they attach
     await using var natsConnection = new NatsConnection(NatsOpts.Default with
@@ -98,7 +95,9 @@ public class TestingWebAppFactory : WebApplicationFactory<Program>, IAsyncLifeti
       services.ConfigureDbContext<AppDbContext>((_, options) => options.AddInterceptors(SqlCommandCounter)));
 
     // Override MYSQL Settings
-    builder.UseSetting($"{nameof(MysqlSettings)}:{nameof(MysqlSettings.Port)}", _mysqlContainer.GetMappedPublicPort().ToString(CultureInfo.InvariantCulture));
+    builder.UseSetting(
+      $"{nameof(MysqlSettings)}:{nameof(MysqlSettings.Port)}",
+      _mysqlContainer.GetMappedPublicPort().ToString(CultureInfo.InvariantCulture));
     builder.UseSetting($"{nameof(MysqlSettings)}:{nameof(MysqlSettings.UserName)}", _dbUserName);
     builder.UseSetting($"{nameof(MysqlSettings)}:{nameof(MysqlSettings.Password)}", _dbUserPassword);
     builder.UseSetting($"{nameof(MysqlSettings)}:{nameof(MysqlSettings.Database)}", _dbName);
@@ -121,7 +120,9 @@ public class TestingWebAppFactory : WebApplicationFactory<Program>, IAsyncLifeti
 
     // Override Google Recaptcha Settings
     builder.UseSetting($"{nameof(GoogleRecaptchaSettings)}:{nameof(GoogleRecaptchaSettings.Enabled)}", "true");
-    builder.UseSetting($"{nameof(ExternalServicesSettings)}:{nameof(ExternalServicesSettings.ExternalServices)}:GoogleRecaptcha:BaseUrl", WireMockServer.Urls[0]);
+    builder.UseSetting(
+      $"{nameof(ExternalServicesSettings)}:{nameof(ExternalServicesSettings.ExternalServices)}:GoogleRecaptcha:BaseUrl",
+      WireMockServer.Urls[0]);
 
     // Override Rate Limit Settings
     builder.UseSetting($"{nameof(RateLimitSettings)}:{nameof(RateLimitSettings.Enabled)}", "false");

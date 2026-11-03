@@ -54,9 +54,19 @@ public class LoginUserCommandHandler(
   private readonly UserManager<IdentityUser> _userManager = userManager;
   private readonly IUnitOfWork _unitOfWork = unitOfWork;
   private readonly IUserRepository _userRepository = userRepository;
-  private readonly UserTokenIssuer _userTokenIssuer = new(roleRepository, refreshTokenRepository, jwtTokenHandler, tokenFactory, timeProvider, roleSettingsOptions.Value, refreshTokenSettingsOptions.Value);
+  private readonly UserTokenIssuer _userTokenIssuer = new(
+    roleRepository,
+    refreshTokenRepository,
+    jwtTokenHandler,
+    tokenFactory,
+    timeProvider,
+    roleSettingsOptions.Value,
+    refreshTokenSettingsOptions.Value);
 
-  public async Task<AuthUserViewModel> CreateItemAsync(LoginUserCommand command, string userId, CancellationToken cancellationToken = default)
+  public async Task<AuthUserViewModel> CreateItemAsync(
+    LoginUserCommand command,
+    string userId,
+    CancellationToken cancellationToken = default)
   {
     var appName = command.RegisteredApp!.AppName;
 
@@ -80,7 +90,9 @@ public class LoginUserCommandHandler(
       ?? throw new InvalidCredentialException($"User {user.Id} has no profile for app {appName}");
 
     // We only include the accessToken in the payload, when user is confirmed.
-    var isConfirmed = !_identityOptions.SignIn.RequireConfirmedAccount || user.EmailConfirmed || user.PhoneNumberConfirmed;
+    var isConfirmed = !_identityOptions.SignIn.RequireConfirmedAccount
+      || user.EmailConfirmed
+      || user.PhoneNumberConfirmed;
     AccessTokenViewModel? userToken = null;
 
     if (isConfirmed)
@@ -90,11 +102,6 @@ public class LoginUserCommandHandler(
       await _unitOfWork.SaveChangesAsync(cancellationToken);
     }
 
-    return new AuthUserViewModel
-    {
-      User = userDto,
-      UserToken = userToken,
-      IsConfirmed = isConfirmed,
-    };
+    return new AuthUserViewModel { User = userDto, UserToken = userToken, IsConfirmed = isConfirmed };
   }
 }

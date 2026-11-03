@@ -28,7 +28,11 @@ public class AppRoleNamesTests
   [InlineData("otherapp:admin", "TestApp", "admin", false)]
   [InlineData(" testapp:admin ", "TestApp", "superuser", true)]
   [InlineData(null, "TestApp", "admin", false)]
-  public void IsAppAdminRole_Matches_The_Apps_Admin_Roles_And_Its_Admin_Role(string? roleName, string appName, string adminRoles, bool expected)
+  public void IsAppAdminRole_Matches_The_Apps_Admin_Roles_And_Its_Admin_Role(
+    string? roleName,
+    string appName,
+    string adminRoles,
+    bool expected)
   {
     // Arrange
     var roleSettings = new RoleSettings { ServiceName = "UserIdentity", AdminRoles = adminRoles };
@@ -58,7 +62,10 @@ public class AppRoleNamesTests
   public void ForApp_Keeps_The_Apps_Roles_And_The_Global_Admin_Role()
   {
     // Act
-    var roles = AppRoleNames.ForApp(["testapp:user", "otherapp:admin", "global:admin", "Administrator", "service:internal"], "TestApp", "global:admin");
+    var roles = AppRoleNames.ForApp(
+      ["testapp:user", "otherapp:admin", "global:admin", "Administrator", "service:internal"],
+      "TestApp",
+      "global:admin");
 
     // Assert
     Assert.Equal(["testapp:user", "global:admin"], roles);

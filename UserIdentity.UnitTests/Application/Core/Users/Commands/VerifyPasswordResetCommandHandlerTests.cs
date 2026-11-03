@@ -39,12 +39,22 @@ public class VerifyPasswordResetCommandHandlerTests
   [Fact]
   public async Task UpdateItemAsync_WhenRequestNotFound_ThrowsNoRecordException()
   {
-    A.CallTo(() => _passwordResetRepository.GetEntityByAlternateIdAsync(A<PasswordResetEntity>._, QueryCondition.MustExist, A<CancellationToken>._))
+    A.CallTo(() => _passwordResetRepository.GetEntityByAlternateIdAsync(
+      A<PasswordResetEntity>._,
+      QueryCondition.MustExist,
+      A<CancellationToken>._))
       .Throws(NoRecordException.ForIdentifier(ResetRequestIdHash));
 
-    var handler = new VerifyPasswordResetCommandHandler(_tokenFactory, _unitOfWork, _passwordResetRepository, _timeProvider);
+    var handler = new VerifyPasswordResetCommandHandler(
+      _tokenFactory,
+      _unitOfWork,
+      _passwordResetRepository,
+      _timeProvider);
 
-    await Assert.ThrowsAsync<NoRecordException>(() => handler.UpdateItemAsync(new VerifyPasswordResetCommand { ResetRequestId = ResetRequestId }, TestStringHelper.UserId, TestContext.Current.CancellationToken));
+    await Assert.ThrowsAsync<NoRecordException>(() => handler.UpdateItemAsync(
+      new VerifyPasswordResetCommand { ResetRequestId = ResetRequestId },
+      TestStringHelper.UserId,
+      TestContext.Current.CancellationToken));
 
     A.CallTo(() => _unitOfWork.SaveChangesAsync(A<CancellationToken>._)).MustNotHaveHappened();
   }
@@ -52,15 +62,30 @@ public class VerifyPasswordResetCommandHandlerTests
   [Fact]
   public async Task UpdateItemAsync_WhenRequestExists_MarksRequestVerified()
   {
-    var existingEntity = new PasswordResetEntity { Id = Guid.NewGuid(), RequestId = ResetRequestIdHash, UserId = "user-id", Verified = false };
+    var existingEntity = new PasswordResetEntity
+    {
+      Id = Guid.NewGuid(),
+      RequestId = ResetRequestIdHash,
+      UserId = "user-id",
+      Verified = false
+    };
 
     A.CallTo(() => _passwordResetRepository.GetEntityByAlternateIdAsync(
-      A<PasswordResetEntity>.That.Matches(e => e.RequestId == ResetRequestIdHash), QueryCondition.MustExist, A<CancellationToken>._))
+      A<PasswordResetEntity>.That.Matches(e => e.RequestId == ResetRequestIdHash),
+      QueryCondition.MustExist,
+      A<CancellationToken>._))
       .Returns(existingEntity);
 
-    var handler = new VerifyPasswordResetCommandHandler(_tokenFactory, _unitOfWork, _passwordResetRepository, _timeProvider);
+    var handler = new VerifyPasswordResetCommandHandler(
+      _tokenFactory,
+      _unitOfWork,
+      _passwordResetRepository,
+      _timeProvider);
 
-    var vm = await handler.UpdateItemAsync(new VerifyPasswordResetCommand { ResetRequestId = ResetRequestId }, TestStringHelper.UserId, TestContext.Current.CancellationToken);
+    var vm = await handler.UpdateItemAsync(
+      new VerifyPasswordResetCommand { ResetRequestId = ResetRequestId },
+      TestStringHelper.UserId,
+      TestContext.Current.CancellationToken);
 
     Assert.IsType<VerifyPasswordResetViewModel>(vm);
     Assert.True(vm.VerifyPasswordResetResult.PasswordResetVerified);

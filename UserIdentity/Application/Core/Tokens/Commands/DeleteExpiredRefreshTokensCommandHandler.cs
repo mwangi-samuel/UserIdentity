@@ -17,7 +17,10 @@ public class DeleteExpiredRefreshTokensCommandHandler(
   private readonly IRefreshTokenRepository _refreshTokenRepository = refreshTokenRepository;
   private readonly TimeProvider _timeProvider = timeProvider;
 
-  public async Task<DeleteRecordViewModel> DeleteItemAsync(DeleteExpiredRefreshTokensCommand command, string userId, CancellationToken cancellationToken = default)
+  public async Task<DeleteRecordViewModel> DeleteItemAsync(
+    DeleteExpiredRefreshTokensCommand command,
+    string userId,
+    CancellationToken cancellationToken = default)
   {
     var now = _timeProvider.GetUtcNow().UtcDateTime;
     int deleted;

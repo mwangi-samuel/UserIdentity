@@ -25,7 +25,9 @@ public class UserRepositoryTests
     repository.CreateEntityItem(newUser);
     await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
-    var saved = await context.AppUser.SingleOrDefaultAsync(x => x.Id == newUser.Id, cancellationToken: TestContext.Current.CancellationToken);
+    var saved = await context.AppUser.SingleOrDefaultAsync(
+      x => x.Id == newUser.Id,
+      cancellationToken: TestContext.Current.CancellationToken);
     Assert.NotNull(saved);
     Assert.Equal(newUser.FirstName, saved!.FirstName);
   }
@@ -59,7 +61,9 @@ public class UserRepositoryTests
     repository.UpdateEntityItem(newUser);
     await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
-    var saved = await context.AppUser.SingleAsync(x => x.Id == newUser.Id, cancellationToken: TestContext.Current.CancellationToken);
+    var saved = await context.AppUser.SingleAsync(
+      x => x.Id == newUser.Id,
+      cancellationToken: TestContext.Current.CancellationToken);
     Assert.Equal("Updated", saved.FirstName);
   }
 
@@ -86,7 +90,10 @@ public class UserRepositoryTests
     var repository = new UserRepository(context);
 
     // Act
-    var result = await repository.GetUnconfirmedEntityItemsCreatedBeforeAsync(now.AddDays(-30), 10, TestContext.Current.CancellationToken);
+    var result = await repository.GetUnconfirmedEntityItemsCreatedBeforeAsync(
+      now.AddDays(-30),
+      10,
+      TestContext.Current.CancellationToken);
 
     // Assert
     Assert.Equal([oldUnconfirmed.Id], result.Select(e => e.Id));
@@ -100,7 +107,8 @@ public class UserRepositoryTests
     var (user, details) = await SeedUserAsync(context, "TestApp");
 
     // Act
-    var dto = await new UserRepository(context).GetUserDtoAsync(user.Id, "TestApp", TestContext.Current.CancellationToken);
+    var dto = await new UserRepository(context)
+      .GetUserDtoAsync(user.Id, "TestApp", TestContext.Current.CancellationToken);
 
     // Assert
     Assert.NotNull(dto);
@@ -134,11 +142,18 @@ public class UserRepositoryTests
     // Arrange
     var context = AppDbContextTestFactory.GetAppDbContext();
     var (user, _) = await SeedUserAsync(context, "TestApp");
-    context.RegisteredApp.Add(new RegisteredAppEntity { Id = 2, AppName = "OtherApp", AppSecretKey = "other-secret-key", BaseUrl = "https://other.test" });
+    context.RegisteredApp.Add(new RegisteredAppEntity
+    {
+      Id = 2,
+      AppName = "OtherApp",
+      AppSecretKey = "other-secret-key",
+      BaseUrl = "https://other.test"
+    });
     await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
     // Act
-    var dto = await new UserRepository(context).GetUserDtoAsync(user.Id, "OtherApp", TestContext.Current.CancellationToken);
+    var dto = await new UserRepository(context)
+      .GetUserDtoAsync(user.Id, "OtherApp", TestContext.Current.CancellationToken);
 
     // Assert
     Assert.Null(dto);
@@ -152,7 +167,8 @@ public class UserRepositoryTests
     var (user, _) = await SeedUserAsync(context, "TestApp", appDeleted: true);
 
     // Act
-    var dto = await new UserRepository(context).GetUserDtoAsync(user.Id, "TestApp", TestContext.Current.CancellationToken);
+    var dto = await new UserRepository(context)
+      .GetUserDtoAsync(user.Id, "TestApp", TestContext.Current.CancellationToken);
 
     // Assert
     Assert.Null(dto);
@@ -165,26 +181,48 @@ public class UserRepositoryTests
     var context = AppDbContextTestFactory.GetAppDbContext();
 
     // Act
-    var dto = await new UserRepository(context).GetUserDtoAsync(Guid.NewGuid().ToString(), null, TestContext.Current.CancellationToken);
+    var dto = await new UserRepository(context)
+      .GetUserDtoAsync(Guid.NewGuid().ToString(), null, TestContext.Current.CancellationToken);
 
     // Assert
     Assert.Null(dto);
   }
 
-  private static async Task<(IdentityUser User, UserEntity Details)> SeedUserAsync(AppDbContext context, string appName, bool appDeleted = false)
+  private static async Task<(IdentityUser User, UserEntity Details)> SeedUserAsync(
+    AppDbContext context,
+    string appName,
+    bool appDeleted = false)
   {
-    var user = new IdentityUser { Id = Guid.NewGuid().ToString(), UserName = "test.user", Email = "test.user@example.com", PhoneNumber = "0712345678" };
+    var user = new IdentityUser
+    {
+      Id = Guid.NewGuid().ToString(),
+      UserName = "test.user",
+      Email = "test.user@example.com",
+      PhoneNumber = "0712345678"
+    };
     var details = BuildUser();
     details.Id = user.Id;
     details.CreatedBy = user.Id;
     details.CreatedAt = DateTime.UtcNow;
 
-    var app = new RegisteredAppEntity { Id = 1, AppName = appName, AppSecretKey = "secret-key", BaseUrl = "https://app.test", IsDeleted = appDeleted };
+    var app = new RegisteredAppEntity
+    {
+      Id = 1,
+      AppName = appName,
+      AppSecretKey = "secret-key",
+      BaseUrl = "https://app.test",
+      IsDeleted = appDeleted
+    };
 
     context.Users.Add(user);
     context.AppUser.Add(details);
     context.RegisteredApp.Add(app);
-    context.UserRegisteredApp.Add(new UserRegisteredAppEntity { Id = $"{user.Id}-{app.Id}", UserId = user.Id, AppId = app.Id });
+    context.UserRegisteredApp.Add(new UserRegisteredAppEntity
+    {
+      Id = $"{user.Id}-{app.Id}",
+      UserId = user.Id,
+      AppId = app.Id
+    });
     await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
     return (user, details);

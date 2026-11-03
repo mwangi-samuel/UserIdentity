@@ -22,9 +22,13 @@ public class ConfirmUserCommandHandler(
 {
   private readonly UserManager<IdentityUser> _userManager = userManager;
 
-  public async Task<ConfirmUserViewModel> UpdateItemAsync(ConfirmUserCommand command, string userId, CancellationToken cancellationToken = default)
+  public async Task<ConfirmUserViewModel> UpdateItemAsync(
+    ConfirmUserCommand command,
+    string userId,
+    CancellationToken cancellationToken = default)
   {
-    var userDetails = await _userManager.FindByIdAsync(command.UserId) ?? throw NoRecordException.ForIdentifier(command.UserId);
+    var userDetails = await _userManager.FindByIdAsync(command.UserId)
+      ?? throw NoRecordException.ForIdentifier(command.UserId);
 
     userDetails.EmailConfirmed = true;
 
@@ -35,10 +39,7 @@ public class ConfirmUserCommandHandler(
 
     return new ConfirmUserViewModel
     {
-      ConfirmUserResult = new ConfirmUserDto
-      {
-        UserConfirmed = confirmResult.Succeeded
-      }
+      ConfirmUserResult = new ConfirmUserDto { UserConfirmed = confirmResult.Succeeded }
     };
   }
 }

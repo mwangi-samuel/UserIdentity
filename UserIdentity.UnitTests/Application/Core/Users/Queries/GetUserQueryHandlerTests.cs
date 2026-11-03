@@ -25,7 +25,9 @@ public class GetUserQueryHandlerTests
     var handler = new GetUserQueryHandler(_userRepository);
 
     // Act
-    var vm = await handler.GetItemAsync(new GetUserQuery { UserId = "user-id", AppName = "TestApp" }, TestContext.Current.CancellationToken);
+    var vm = await handler.GetItemAsync(
+      new GetUserQuery { UserId = "user-id", AppName = "TestApp" },
+      TestContext.Current.CancellationToken);
 
     // Assert
     Assert.Same(user, vm.User);
@@ -35,7 +37,8 @@ public class GetUserQueryHandlerTests
   public async Task Get_User_For_A_Global_Admin_Reads_Without_An_App()
   {
     // Arrange
-    A.CallTo(() => _userRepository.GetUserDtoAsync("user-id", null, A<CancellationToken>._)).Returns(new UserDto { Id = "user-id" });
+    A.CallTo(() => _userRepository.GetUserDtoAsync("user-id", null, A<CancellationToken>._))
+      .Returns(new UserDto { Id = "user-id" });
 
     var handler = new GetUserQueryHandler(_userRepository);
 
@@ -50,12 +53,15 @@ public class GetUserQueryHandlerTests
   public async Task Get_User_That_Is_Missing_Or_Of_Another_App_Throws_NoRecordException()
   {
     // Arrange
-    A.CallTo(() => _userRepository.GetUserDtoAsync("user-id", "TestApp", A<CancellationToken>._)).Returns((UserDto?)null);
+    A.CallTo(() => _userRepository.GetUserDtoAsync("user-id", "TestApp", A<CancellationToken>._))
+      .Returns((UserDto?)null);
 
     var handler = new GetUserQueryHandler(_userRepository);
 
     // Act & Assert
-    var exception = await Assert.ThrowsAsync<NoRecordException>(() => handler.GetItemAsync(new GetUserQuery { UserId = "user-id", AppName = "TestApp" }, TestContext.Current.CancellationToken));
+    var exception = await Assert.ThrowsAsync<NoRecordException>(() => handler.GetItemAsync(
+      new GetUserQuery { UserId = "user-id", AppName = "TestApp" },
+      TestContext.Current.CancellationToken));
 
     Assert.Equal("No record exists for the provided identifier - user-id", exception.Message);
   }

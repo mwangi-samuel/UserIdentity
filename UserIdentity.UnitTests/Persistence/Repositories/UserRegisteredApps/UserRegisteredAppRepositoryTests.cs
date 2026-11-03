@@ -21,7 +21,8 @@ public class UserRegisteredAppRepositoryTests
     await SeedAsync(context);
 
     // Act
-    var result = await new UserRegisteredAppRepository(context).IsUserRegisteredForAppAsync("user-id", appName, TestContext.Current.CancellationToken);
+    var result = await new UserRegisteredAppRepository(context)
+      .IsUserRegisteredForAppAsync("user-id", appName, TestContext.Current.CancellationToken);
 
     // Assert
     Assert.Equal(expected, result);
@@ -35,7 +36,8 @@ public class UserRegisteredAppRepositoryTests
     await SeedAsync(context);
 
     // Act
-    var result = await new UserRegisteredAppRepository(context).IsUserRegisteredForAppAsync("other-user-id", "TestApp", TestContext.Current.CancellationToken);
+    var result = await new UserRegisteredAppRepository(context)
+      .IsUserRegisteredForAppAsync("other-user-id", "TestApp", TestContext.Current.CancellationToken);
 
     // Assert
     Assert.False(result);
@@ -44,9 +46,28 @@ public class UserRegisteredAppRepositoryTests
   private static async Task SeedAsync(AppDbContext context)
   {
     context.RegisteredApp.AddRange(
-      new RegisteredAppEntity { Id = 1, AppName = "TestApp", AppSecretKey = "secret-key", BaseUrl = "https://test.test" },
-      new RegisteredAppEntity { Id = 2, AppName = "OtherApp", AppSecretKey = "secret-key", BaseUrl = "https://other.test" },
-      new RegisteredAppEntity { Id = 3, AppName = "DeletedApp", AppSecretKey = "secret-key", BaseUrl = "https://deleted.test", IsDeleted = true });
+      new RegisteredAppEntity
+      {
+        Id = 1,
+        AppName = "TestApp",
+        AppSecretKey = "secret-key",
+        BaseUrl = "https://test.test"
+      },
+      new RegisteredAppEntity
+      {
+        Id = 2,
+        AppName = "OtherApp",
+        AppSecretKey = "secret-key",
+        BaseUrl = "https://other.test"
+      },
+      new RegisteredAppEntity
+      {
+        Id = 3,
+        AppName = "DeletedApp",
+        AppSecretKey = "secret-key",
+        BaseUrl = "https://deleted.test",
+        IsDeleted = true
+      });
 
     context.UserRegisteredApp.AddRange(
       new UserRegisteredAppEntity { Id = "user-id-1", UserId = "user-id", AppId = 1 },

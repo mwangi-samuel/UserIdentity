@@ -22,7 +22,9 @@ public class RefreshTokenRepositoryTests
     repository.CreateEntityItem(refreshToken);
     await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
-    var saved = await context.RefreshToken.SingleOrDefaultAsync(x => x.Id == refreshToken.Id, cancellationToken: TestContext.Current.CancellationToken);
+    var saved = await context.RefreshToken.SingleOrDefaultAsync(
+      x => x.Id == refreshToken.Id,
+      cancellationToken: TestContext.Current.CancellationToken);
     Assert.NotNull(saved);
     Assert.Equal(refreshToken.Token, saved!.Token);
   }
@@ -90,7 +92,9 @@ public class RefreshTokenRepositoryTests
     repository.UpdateEntityItem(refreshToken);
     await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
-    var saved = await context.RefreshToken.SingleAsync(x => x.Id == refreshToken.Id, cancellationToken: TestContext.Current.CancellationToken);
+    var saved = await context.RefreshToken.SingleAsync(
+      x => x.Id == refreshToken.Id,
+      cancellationToken: TestContext.Current.CancellationToken);
     Assert.Equal(refreshToken.Expires, saved.Expires);
   }
 
@@ -105,8 +109,14 @@ public class RefreshTokenRepositoryTests
     context.RefreshToken.Add(refreshToken);
     await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
-    var result = await repository.GetEntityByPreviousTokenAsync(refreshToken.UserId!, refreshToken.PreviousToken, TestContext.Current.CancellationToken);
-    var otherUserResult = await repository.GetEntityByPreviousTokenAsync(Guid.NewGuid().ToString(), refreshToken.PreviousToken, TestContext.Current.CancellationToken);
+    var result = await repository.GetEntityByPreviousTokenAsync(
+      refreshToken.UserId!,
+      refreshToken.PreviousToken,
+      TestContext.Current.CancellationToken);
+    var otherUserResult = await repository.GetEntityByPreviousTokenAsync(
+      Guid.NewGuid().ToString(),
+      refreshToken.PreviousToken,
+      TestContext.Current.CancellationToken);
 
     Assert.NotNull(result);
     Assert.Equal(refreshToken.Id, result!.Id);

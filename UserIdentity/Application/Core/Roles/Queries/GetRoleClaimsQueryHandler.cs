@@ -26,7 +26,9 @@ public class GetRoleClaimsQueryHandler(
   private readonly RoleManager<IdentityRole> _roleManager = roleManager;
   private readonly IJwtTokenHandler _jwtTokenHandler = jwtTokenHandler;
 
-  public async Task<RoleClaimsViewModel> GetItemsAsync(GetRoleClaimsQuery query, CancellationToken cancellationToken = default)
+  public async Task<RoleClaimsViewModel> GetItemsAsync(
+    GetRoleClaimsQuery query,
+    CancellationToken cancellationToken = default)
   {
     var role = await _roleManager.FindByIdAsync(query.RoleId) ?? throw NoRecordException.ForIdentifier(query.RoleId);
 
@@ -41,20 +43,12 @@ public class GetRoleClaimsQueryHandler(
     {
       (var resource, var action) = _jwtTokenHandler.DecodeScopeClaim(roleClaim);
 
-      RoleClaimDto claimDto = new()
-      {
-        Resource = resource,
-        Action = action,
-        Scope = roleClaim.Value
-      };
+      RoleClaimDto claimDto = new() { Resource = resource, Action = action, Scope = roleClaim.Value };
 
       rolesCollection.Add(claimDto);
     }
 
-    return new RoleClaimsViewModel
-    {
-      RoleClaims = rolesCollection
-    };
+    return new RoleClaimsViewModel { RoleClaims = rolesCollection };
 
   }
 }

@@ -12,7 +12,9 @@ public class LayerDependencyTests
     while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "UserIdentity.slnx")))
       directory = directory.Parent;
 
-    return Path.Combine((directory ?? throw new DirectoryNotFoundException("UserIdentity.slnx")).FullName, "UserIdentity");
+    return Path.Combine(
+      (directory ?? throw new DirectoryNotFoundException("UserIdentity.slnx")).FullName,
+      "UserIdentity");
   }
 
   [Theory]

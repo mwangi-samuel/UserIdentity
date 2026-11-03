@@ -16,11 +16,9 @@ public class WaitListDto : WaitListEntity, IBaseAuditableEntityDto<long>
       AppId = entity.AppId
     };
 
-  private static readonly Func<WaitListEntity, WaitListDto> _compiledBasic
-       = Basic.Compile();
+  private static readonly Func<WaitListEntity, WaitListDto> _compiledBasic = Basic.Compile();
 
-  public static WaitListDto FromEntityBasic(WaitListEntity entity)
-        => _compiledBasic(entity);
+  public static WaitListDto FromEntityBasic(WaitListEntity entity) => _compiledBasic(entity);
 
   public static Expression<Func<WaitListEntity, WaitListDto>> Detailed
     => entity => new WaitListDto
@@ -35,9 +33,7 @@ public class WaitListDto : WaitListEntity, IBaseAuditableEntityDto<long>
       UpdatedAt = entity.UpdatedAt
     };
 
-  private static readonly Func<WaitListEntity, WaitListDto> _compiledDetailed
-        = Detailed.Compile();
+  private static readonly Func<WaitListEntity, WaitListDto> _compiledDetailed = Detailed.Compile();
 
-  public static WaitListDto FromEntityDetailed(WaitListEntity entity)
-        => _compiledDetailed(entity);
+  public static WaitListDto FromEntityDetailed(WaitListEntity entity) => _compiledDetailed(entity);
 }

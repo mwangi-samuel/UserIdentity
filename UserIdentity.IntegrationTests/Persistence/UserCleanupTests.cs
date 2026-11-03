@@ -67,7 +67,10 @@ public class UserCleanupTests(
   {
     // Arrange
     SeedAgedUser(emailConfirmed: false);
-    var ownInvite = TestDbHelper.CreateInviteCodeEntity(UserSettingHelper.UserEmail, RegisteredApp.AppName, applied: true);
+    var ownInvite = TestDbHelper.CreateInviteCodeEntity(
+      UserSettingHelper.UserEmail,
+      RegisteredApp.AppName,
+      applied: true);
     var otherAppInvite = new InviteCodeEntity
     {
       InviteCode = "OTHERAPPCODE",
@@ -97,7 +100,9 @@ public class UserCleanupTests(
     var now = DateTime.UtcNow;
     var context = ServiceProvider.GetRequiredService<AppDbContext>();
 
-    context.RefreshToken.AddRange(Enumerable.Range(0, DeleteExpiredRefreshTokensCommandHandler.BatchSize + 20).Select(index => BuildRefreshToken(now.AddMinutes(-index - 1))));
+    context.RefreshToken.AddRange(
+      Enumerable.Range(0, DeleteExpiredRefreshTokensCommandHandler.BatchSize + 20)
+        .Select(index => BuildRefreshToken(now.AddMinutes(-index - 1))));
     context.RefreshToken.AddRange(Enumerable.Range(0, 3).Select(index => BuildRefreshToken(now.AddDays(index + 1))));
     await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 

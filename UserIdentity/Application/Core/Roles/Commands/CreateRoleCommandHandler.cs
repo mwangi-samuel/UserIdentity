@@ -30,7 +30,10 @@ public class CreateRoleCommandHandler(
 {
   private readonly RoleManager<IdentityRole> _roleManager = roleManager;
 
-  public async Task<RoleViewModel> CreateItemAsync(CreateRoleCommand command, string userId, CancellationToken cancellationToken = default)
+  public async Task<RoleViewModel> CreateItemAsync(
+    CreateRoleCommand command,
+    string userId,
+    CancellationToken cancellationToken = default)
   {
     var roleName = command.RoleName.TrimAndLowerInvariant();
 
@@ -49,13 +52,6 @@ public class CreateRoleCommandHandler(
     if (!createdRoleResult.Succeeded)
       throw new RecordCreationException($"Role {roleName} wasn't created");
 
-    return new RoleViewModel
-    {
-      Role = new RoleDto
-      {
-        Id = newRole.Id,
-        Name = newRole.Name
-      }
-    };
+    return new RoleViewModel { Role = new RoleDto { Id = newRole.Id, Name = newRole.Name } };
   }
 }

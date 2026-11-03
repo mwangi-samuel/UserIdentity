@@ -51,9 +51,19 @@ public class ExchangeRefreshTokenCommandHandler(
   private readonly TimeProvider _timeProvider = timeProvider;
 
   private readonly IUserRegisteredAppRepository _userRegisteredAppRepository = userRegisteredAppRepository;
-  private readonly UserTokenIssuer _userTokenIssuer = new(roleRepository, refreshTokenRepository, jwtTokenHandler, tokenFactory, timeProvider, roleSettingsOptions.Value, refreshTokenSettingsOptions.Value);
+  private readonly UserTokenIssuer _userTokenIssuer = new(
+    roleRepository,
+    refreshTokenRepository,
+    jwtTokenHandler,
+    tokenFactory,
+    timeProvider,
+    roleSettingsOptions.Value,
+    refreshTokenSettingsOptions.Value);
 
-  public async Task<ExchangeRefreshTokenViewModel> UpdateItemAsync(ExchangeRefreshTokenCommand command, string userId, CancellationToken cancellationToken = default)
+  public async Task<ExchangeRefreshTokenViewModel> UpdateItemAsync(
+    ExchangeRefreshTokenCommand command,
+    string userId,
+    CancellationToken cancellationToken = default)
   {
     var requestAccessToken = ObjectExtensions.RequireNonNullValue(command.AccessToken, nameof(command.AccessToken));
     var requestRefreshToken = ObjectExtensions.RequireNonNullValue(command.RefreshToken, nameof(command.RefreshToken));
@@ -62,7 +72,9 @@ public class ExchangeRefreshTokenCommandHandler(
     var tokenValidationResult = await _jwtTokenHandler.ValidateTokenAsync(requestAccessToken, validateLifetime: false);
 
     var tokenUserId = _jwtTokenHandler.ResolveTokenValue<string?>(tokenValidationResult, JwtRegisteredClaimNames.Sub);
-    var tokenUserName = _jwtTokenHandler.ResolveTokenValue<string?>(tokenValidationResult, JwtRegisteredClaimNames.Name);
+    var tokenUserName = _jwtTokenHandler.ResolveTokenValue<string?>(
+      tokenValidationResult,
+      JwtRegisteredClaimNames.Name);
     var azp = _jwtTokenHandler.ResolveTokenValue<string?>(tokenValidationResult, JwtRegisteredClaimNames.Azp);
 
     if (tokenUserId == null || tokenUserName == null || azp == null)
@@ -70,18 +82,20 @@ public class ExchangeRefreshTokenCommandHandler(
 
     var requestRefreshTokenHash = _tokenFactory.HashToken(requestRefreshToken);
 
-    var tokenEntity = new RefreshTokenEntity
-    {
-      UserId = tokenUserId,
-      Token = requestRefreshTokenHash
-    };
+    var tokenEntity = new RefreshTokenEntity { UserId = tokenUserId, Token = requestRefreshTokenHash };
 
-    var existingEntity = await _refreshTokenRepository.GetEntityByAlternateIdAsync(tokenEntity, QueryCondition.MayOrMayNotExist, cancellationToken);
+    var existingEntity = await _refreshTokenRepository.GetEntityByAlternateIdAsync(
+      tokenEntity,
+      QueryCondition.MayOrMayNotExist,
+      cancellationToken);
 
     if (existingEntity is null)
     {
       // A replaced refresh token is being reused - end its session
-      var reusedEntity = await _refreshTokenRepository.GetEntityByPreviousTokenAsync(tokenUserId, requestRefreshTokenHash, cancellationToken);
+      var reusedEntity = await _refreshTokenRepository.GetEntityByPreviousTokenAsync(
+        tokenUserId,
+        requestRefreshTokenHash,
+        cancellationToken);
 
       if (reusedEntity is not null)
         await RemoveRefreshTokenAsync(reusedEntity, cancellationToken);
@@ -120,11 +134,7 @@ public class ExchangeRefreshTokenCommandHandler(
 
     return new ExchangeRefreshTokenViewModel
     {
-      UserToken = new AccessTokenViewModel
-      {
-        AccessToken = accessToken,
-        RefreshToken = updateRefreshToken,
-      },
+      UserToken = new AccessTokenViewModel { AccessToken = accessToken, RefreshToken = updateRefreshToken },
       EditEnabled = false,
       DeleteEnabled = false
     };

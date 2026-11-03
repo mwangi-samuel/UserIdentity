@@ -29,30 +29,38 @@ public class UserRegisteredEventHandlerTests
     await CreateHandler().HandleEventAsync(_event, TestContext.Current.CancellationToken);
 
     // Assert
-    A.CallTo(() => _appCallbackService.SendCallbackRequestAsync(app, _event, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+    A.CallTo(() => _appCallbackService.SendCallbackRequestAsync(app, _event, A<CancellationToken>._))
+      .MustHaveHappenedOnceExactly();
   }
 
   [Fact]
   public async Task HandleEventAsync_For_An_App_That_No_Longer_Has_A_Callback_Url_Sends_Nothing()
   {
     // Arrange
-    A.CallTo(() => _registeredAppResolver.GetActiveAppAsync("TestApp", A<CancellationToken>._)).Returns(new RegisteredAppEntity { AppName = "TestApp" });
+    A.CallTo(() => _registeredAppResolver.GetActiveAppAsync("TestApp", A<CancellationToken>._))
+      .Returns(new RegisteredAppEntity { AppName = "TestApp" });
 
     // Act
     await CreateHandler().HandleEventAsync(_event, TestContext.Current.CancellationToken);
 
     // Assert
-    A.CallTo(() => _appCallbackService.SendCallbackRequestAsync(A<RegisteredAppEntity>._, A<UserRegisteredEvent>._, A<CancellationToken>._)).MustNotHaveHappened();
+    A.CallTo(() => _appCallbackService.SendCallbackRequestAsync(
+      A<RegisteredAppEntity>._,
+      A<UserRegisteredEvent>._,
+      A<CancellationToken>._))
+      .MustNotHaveHappened();
   }
 
   [Fact]
   public async Task HandleEventAsync_For_A_Missing_App_Lets_NoRecordException_Through()
   {
     // Arrange
-    A.CallTo(() => _registeredAppResolver.GetActiveAppAsync("TestApp", A<CancellationToken>._)).ThrowsAsync(NoRecordException.ForIdentifier("TestApp"));
+    A.CallTo(() => _registeredAppResolver.GetActiveAppAsync("TestApp", A<CancellationToken>._))
+      .ThrowsAsync(NoRecordException.ForIdentifier("TestApp"));
 
     // Act & Assert
-    await Assert.ThrowsAsync<NoRecordException>(() => CreateHandler().HandleEventAsync(_event, TestContext.Current.CancellationToken));
+    await Assert.ThrowsAsync<NoRecordException>(() => CreateHandler()
+      .HandleEventAsync(_event, TestContext.Current.CancellationToken));
   }
 
   private UserRegisteredEventHandler CreateHandler() => new(_registeredAppResolver, _appCallbackService);

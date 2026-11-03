@@ -14,7 +14,10 @@ public class InviteCodeRepository(
  ) : EntityRepository<InviteCodeEntity, long>(dbContext), IInviteCodeRepository
 {
   private readonly AppDbContext _dbContext = dbContext;
-  public async Task<InviteCodeEntity?> GetEntityByAlternateIdAsync(InviteCodeEntity entity, QueryCondition queryCondition, CancellationToken cancellationToken = default)
+  public async Task<InviteCodeEntity?> GetEntityByAlternateIdAsync(
+    InviteCodeEntity entity,
+    QueryCondition queryCondition,
+    CancellationToken cancellationToken = default)
   {
     var userEmail = ObjectExtensions.RequireNonNullValue(entity.UserEmail, nameof(entity.UserEmail));
 
@@ -33,16 +36,25 @@ public class InviteCodeRepository(
       .SingleOrDefaultAsync(cancellationToken) ?? throw NoRecordException.ForIdentifier($"{id}");
   }
 
-  public async Task<List<InviteCodeEntity>> GetAppliedEntityItemsForUserAsync(string userId, CancellationToken cancellationToken = default)
+  public async Task<List<InviteCodeEntity>> GetAppliedEntityItemsForUserAsync(
+    string userId,
+    CancellationToken cancellationToken = default)
   {
     return await _dbContext.InviteCode
       .Where(invite => invite.Applied
-        && _dbContext.UserRegisteredApp.Any(registration => registration.UserId == userId && registration.AppId == invite.AppId)
+        && _dbContext.UserRegisteredApp.Any(registration => registration.UserId == userId
+          && registration.AppId == invite.AppId)
         && _dbContext.Users.Any(user => user.Id == userId && user.Email == invite.UserEmail))
       .ToListAsync(cancellationToken);
   }
 
-  public async Task<PagedList<InviteCodeDto>> SearchEntityDtosByAppIdAsync(int appId, string? search, bool? applied, int page, int pageSize, CancellationToken cancellationToken = default)
+  public async Task<PagedList<InviteCodeDto>> SearchEntityDtosByAppIdAsync(
+    int appId,
+    string? search,
+    bool? applied,
+    int page,
+    int pageSize,
+    CancellationToken cancellationToken = default)
   {
     return await _dbContext.InviteCode
       .Where(invite => invite.AppId == appId && (search == null || invite.UserEmail.Contains(search)))

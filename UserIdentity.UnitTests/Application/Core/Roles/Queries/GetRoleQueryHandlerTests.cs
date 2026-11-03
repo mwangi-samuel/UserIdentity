@@ -24,16 +24,9 @@ public class GetRoleQueryHandlerTests
   public async Task Get_Role_Returns_Role()
   {
     // Arrange
-    GetRoleQuery query = new()
-    {
-      RoleId = "1"
-    };
+    GetRoleQuery query = new() { RoleId = "1" };
 
-    IdentityRole role = new()
-    {
-      Id = "1",
-      Name = "Admin"
-    };
+    IdentityRole role = new() { Id = "1", Name = "Admin" };
 
     A.CallTo(() => _roleManager.FindByIdAsync(query.RoleId)).Returns(role);
 
@@ -52,17 +45,16 @@ public class GetRoleQueryHandlerTests
   public async Task Get_Role_Throws_NoRecordException()
   {
     // Arrange
-    GetRoleQuery query = new()
-    {
-      RoleId = "1"
-    };
+    GetRoleQuery query = new() { RoleId = "1" };
 
     A.CallTo(() => _roleManager.FindByIdAsync(query.RoleId)).Returns(default(IdentityRole));
 
     GetRoleQueryHandler handler = new(_roleManager);
 
     // Act & Assert
-    await Assert.ThrowsAsync<NoRecordException>(() => handler.GetItemAsync(query, TestContext.Current.CancellationToken));
+    await Assert.ThrowsAsync<NoRecordException>(() => handler.GetItemAsync(
+      query,
+      TestContext.Current.CancellationToken));
 
   }
 }

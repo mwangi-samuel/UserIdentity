@@ -35,7 +35,12 @@ public class LogoutUserCommandHandlerTests
   {
     // Arrange
     var command = new LogoutUserCommand { RefreshToken = RefreshToken };
-    var existingEntity = new RefreshTokenEntity { Id = Guid.NewGuid(), UserId = TestStringHelper.UserId, Token = RefreshTokenHash };
+    var existingEntity = new RefreshTokenEntity
+    {
+      Id = Guid.NewGuid(),
+      UserId = TestStringHelper.UserId,
+      Token = RefreshTokenHash
+    };
 
     A.CallTo(() => _refreshTokenRepository.GetEntityByAlternateIdAsync(
         A<RefreshTokenEntity>.That.Matches(e => e.UserId == TestStringHelper.UserId && e.Token == RefreshTokenHash),
@@ -57,7 +62,10 @@ public class LogoutUserCommandHandlerTests
     // Arrange
     var command = new LogoutUserCommand { RefreshToken = RefreshToken };
 
-    A.CallTo(() => _refreshTokenRepository.GetEntityByAlternateIdAsync(A<RefreshTokenEntity>._, QueryCondition.MayOrMayNotExist, A<CancellationToken>._))
+    A.CallTo(() => _refreshTokenRepository.GetEntityByAlternateIdAsync(
+      A<RefreshTokenEntity>._,
+      QueryCondition.MayOrMayNotExist,
+      A<CancellationToken>._))
         .Returns((RefreshTokenEntity?)null);
 
     var handler = new LogoutUserCommandHandler(_tokenFactory, _unitOfWork, _refreshTokenRepository);

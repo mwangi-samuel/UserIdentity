@@ -161,11 +161,7 @@ public class InviteCodeEndpointsTests(
     var inviteCode = "TESTCODE01";
     var userEmail = "new-invitecode@example.com";
 
-    var requestPayload = new
-    {
-      inviteCode,
-      userEmail
-    };
+    var requestPayload = new { inviteCode, userEmail };
 
     // Clean up any existing record
     TestDbHelper.DeleteInviteCodeEntityByEmail(userEmail);
@@ -205,11 +201,7 @@ public class InviteCodeEndpointsTests(
     // Arrange
     TestDbHelper.SeedDatabase();
 
-    var requestPayload = new
-    {
-      InviteCode = "FORBCODE01",
-      UserEmail = "forbidden-invitecode@example.com"
-    };
+    var requestPayload = new { InviteCode = "FORBCODE01", UserEmail = "forbidden-invitecode@example.com" };
 
     // Act
     var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Post, _baseUri, requestPayload);
@@ -226,11 +218,7 @@ public class InviteCodeEndpointsTests(
     // Arrange
     TestDbHelper.SeedDatabase();
 
-    var requestPayload = new
-    {
-      InviteCode = "NOAUTHCODE",
-      UserEmail = "noauth-invitecode@example.com"
-    };
+    var requestPayload = new { InviteCode = "NOAUTHCODE", UserEmail = "noauth-invitecode@example.com" };
 
     // Act
     var response = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri, requestPayload);
@@ -253,7 +241,10 @@ public class InviteCodeEndpointsTests(
     var userEmail = "owner-invitecode@example.com";
 
     // Act
-    var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Post, _baseUri, new { inviteCode = "OWNERCODE1", userEmail, role = OwnerRole });
+    var response = await HttpClient.SendValidAuthRequestAsync(
+      HttpMethod.Post,
+      _baseUri,
+      new { inviteCode = "OWNERCODE1", userEmail, role = OwnerRole });
 
     // Assert
     var responseString = await response.ValidateRequestResponseAsync();
@@ -283,7 +274,10 @@ public class InviteCodeEndpointsTests(
     var userEmail = "bad-role-invitecode@example.com";
 
     // Act
-    var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Post, _baseUri, new { inviteCode = "BADROLE001", userEmail, role });
+    var response = await HttpClient.SendValidAuthRequestAsync(
+      HttpMethod.Post,
+      _baseUri,
+      new { inviteCode = "BADROLE001", userEmail, role });
 
     // Assert
     await response.ValidateRequestResponseAsync();
@@ -306,8 +300,16 @@ public class InviteCodeEndpointsTests(
 
     var now = DateTime.UtcNow;
     TestDbHelper.CreateInviteCodeEntity("first-list@example.com", RegisteredApp.AppName, createdAt: now.AddMinutes(-2));
-    TestDbHelper.CreateInviteCodeEntity("second-list@example.com", RegisteredApp.AppName, applied: true, createdAt: now.AddMinutes(-1));
-    TestDbHelper.CreateInviteCodeEntity("third-list@example.com", RegisteredApp.AppName, role: OwnerRole, createdAt: now);
+    TestDbHelper.CreateInviteCodeEntity(
+      "second-list@example.com",
+      RegisteredApp.AppName,
+      applied: true,
+      createdAt: now.AddMinutes(-1));
+    TestDbHelper.CreateInviteCodeEntity(
+      "third-list@example.com",
+      RegisteredApp.AppName,
+      role: OwnerRole,
+      createdAt: now);
     TestDbHelper.CreateInviteCodeEntity("other-app-list@example.com", TestingWebAppFactory.OtherAppName);
 
     // Act
@@ -409,7 +411,10 @@ public class InviteCodeEndpointsTests(
     TestDbHelper.CreateIdentityRole(TestDbHelper.AdminRoles.First());
     TestDbHelper.ConfigureIdentityUserAsAdmin();
 
-    var inviteCode = TestDbHelper.CreateInviteCodeEntity("revoke-used@example.com", RegisteredApp.AppName, applied: true);
+    var inviteCode = TestDbHelper.CreateInviteCodeEntity(
+      "revoke-used@example.com",
+      RegisteredApp.AppName,
+      applied: true);
 
     // Act
     var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Delete, $"{_baseUri}/{inviteCode.Id}");
@@ -429,7 +434,9 @@ public class InviteCodeEndpointsTests(
     TestDbHelper.CreateIdentityRole(TestDbHelper.AdminRoles.First());
     TestDbHelper.ConfigureIdentityUserAsAdmin();
 
-    var inviteCode = TestDbHelper.CreateInviteCodeEntity("revoke-other-app@example.com", TestingWebAppFactory.OtherAppName);
+    var inviteCode = TestDbHelper.CreateInviteCodeEntity(
+      "revoke-other-app@example.com",
+      TestingWebAppFactory.OtherAppName);
 
     // Act
     var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Delete, $"{_baseUri}/{inviteCode.Id}");

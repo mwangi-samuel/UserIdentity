@@ -12,11 +12,17 @@ public class UserRepository(
 {
   private readonly AppDbContext _appDbContext = appDbContext;
 
-  public async Task<UserDto?> GetUserDtoAsync(string userId, string? appName, CancellationToken cancellationToken = default)
+  public async Task<UserDto?> GetUserDtoAsync(
+    string userId,
+    string? appName,
+    CancellationToken cancellationToken = default)
   {
     return await _appDbContext.Users
       .Where(user => user.Id == userId)
-      .Where(user => appName == null || _appDbContext.UserRegisteredApp.Any(registration => registration.UserId == user.Id && registration.App.AppName == appName && !registration.App.IsDeleted))
+      .Where(user => appName == null
+        || _appDbContext.UserRegisteredApp.Any(registration => registration.UserId == user.Id
+          && registration.App.AppName == appName
+          && !registration.App.IsDeleted))
       .Join(_appDbContext.AppUser, user => user.Id, details => details.Id, (user, details) => new UserDto
       {
         Id = user.Id,
@@ -34,11 +40,18 @@ public class UserRepository(
       .SingleOrDefaultAsync(cancellationToken);
   }
 
-  public async Task<List<UserEntity>> GetUnconfirmedEntityItemsCreatedBeforeAsync(DateTime createdBefore, int count, CancellationToken cancellationToken = default)
+  public async Task<List<UserEntity>> GetUnconfirmedEntityItemsCreatedBeforeAsync(
+    DateTime createdBefore,
+    int count,
+    CancellationToken cancellationToken = default)
   {
     return await _appDbContext.AppUser
       .Where(e => e.CreatedAt < createdBefore)
-      .Join(_appDbContext.Users.Where(u => !u.EmailConfirmed && !u.PhoneNumberConfirmed), e => e.Id, u => u.Id, (e, _) => e)
+      .Join(
+        _appDbContext.Users.Where(u => !u.EmailConfirmed && !u.PhoneNumberConfirmed),
+        e => e.Id,
+        u => u.Id,
+        (e, _) => e)
       .OrderBy(e => e.CreatedAt)
       .Take(count)
       .ToListAsync(cancellationToken);

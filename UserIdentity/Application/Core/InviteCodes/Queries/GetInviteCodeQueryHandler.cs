@@ -25,19 +25,22 @@ public class GetInviteCodeQueryHandler(
 
   private readonly IInviteCodeRepository _inviteCodeRepository = inviteCodeRepository;
 
-  public async Task<InviteCodeViewModel> GetItemAsync(GetInviteCodeQuery query, CancellationToken cancellationToken = default)
+  public async Task<InviteCodeViewModel> GetItemAsync(
+    GetInviteCodeQuery query,
+    CancellationToken cancellationToken = default)
   {
 
     var dto = query.InviteCodeId.HasValue
       ? await _inviteCodeRepository.GetEntityDtoByIdAsync(query.InviteCodeId!.Value, cancellationToken)
-      : InviteCodeDto.FromEntityDetailed((await _inviteCodeRepository.GetEntityByAlternateIdAsync(new() { AppId = query.AppId, UserEmail = query.UserEmail! }, QueryCondition.MustExist, cancellationToken))!);
+      : InviteCodeDto.FromEntityDetailed(
+        (await _inviteCodeRepository.GetEntityByAlternateIdAsync(
+          new() { AppId = query.AppId, UserEmail = query.UserEmail! },
+          QueryCondition.MustExist,
+          cancellationToken))!);
 
     if (dto.AppId != query.AppId)
       throw NoRecordException.ForIdentifier($"{query.InviteCodeId}");
 
-    return new InviteCodeViewModel
-    {
-      InviteCode = dto
-    };
+    return new InviteCodeViewModel { InviteCode = dto };
   }
 }

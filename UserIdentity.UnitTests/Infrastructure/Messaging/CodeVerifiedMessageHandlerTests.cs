@@ -34,7 +34,9 @@ public class CodeVerifiedMessageHandlerTests
     await handler.HandleAsync(_messageEvent, cancellationTokenSource.Token);
 
     // Assert
-    A.CallTo(() => _eventHandler.HandleEventAsync(new CodeVerifiedEvent(MessageAction.WelcomeUser, "correlation-id"), cancellationTokenSource.Token))
+    A.CallTo(() => _eventHandler.HandleEventAsync(
+      new CodeVerifiedEvent(MessageAction.WelcomeUser, "correlation-id"),
+      cancellationTokenSource.Token))
       .MustHaveHappenedOnceExactly();
   }
 
@@ -48,7 +50,9 @@ public class CodeVerifiedMessageHandlerTests
     var handler = new CodeVerifiedMessageHandler(_eventHandler);
 
     // Act & Assert
-    var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => handler.HandleAsync(_messageEvent, TestContext.Current.CancellationToken));
+    var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => handler.HandleAsync(
+      _messageEvent,
+      TestContext.Current.CancellationToken));
 
     Assert.Equal("boom", exception.Message);
   }

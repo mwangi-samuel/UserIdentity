@@ -20,9 +20,13 @@ public class DeleteRoleCommandHandler(
 {
   private readonly RoleManager<IdentityRole> _roleManager = roleManager;
 
-  public async Task<DeleteRecordViewModel> DeleteItemAsync(DeleteRoleCommand command, string userId, CancellationToken cancellationToken = default)
+  public async Task<DeleteRecordViewModel> DeleteItemAsync(
+    DeleteRoleCommand command,
+    string userId,
+    CancellationToken cancellationToken = default)
   {
-    var role = await _roleManager.FindByIdAsync(command.RoleId) ?? throw NoRecordException.ForIdentifier(command.RoleId);
+    var role = await _roleManager.FindByIdAsync(command.RoleId)
+      ?? throw NoRecordException.ForIdentifier(command.RoleId);
 
     if (command.AppName is not null && !AppRoleNames.IsAppRole(role.Name, command.AppName))
       throw NoRecordException.ForIdentifier(command.RoleId);
@@ -32,9 +36,6 @@ public class DeleteRoleCommandHandler(
     if (!deleteRoleResult.Succeeded)
       throw new RecordDeletionException($"Role {command.RoleId} wasn't deleted");
 
-    return new DeleteRecordViewModel
-    {
-
-    };
+    return new DeleteRecordViewModel { };
   }
 }
