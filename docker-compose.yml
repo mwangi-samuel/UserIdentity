@@ -32,10 +32,14 @@ services:
 
   nats-ui:
     image: ghcr.io/nats-nui/nui:0.10.0
+    command: --nats-cli-contexts=/nats-cli-contexts
     volumes:
       - nats_ui_data:/db
     ports:
       - 31311:31311
+    configs:
+      - source: nats_ui_context
+        target: /nats-cli-contexts/local.json
     depends_on:
       nats:
         condition: service_healthy
@@ -53,6 +57,7 @@ services:
       EDDSA_PRIVATE_KEY:
       EDDSA_PUBLIC_KEY:
       RateLimitSettings__PermitLimit: 100000
+      ASPNETCORE_ENVIRONMENT: Development
     depends_on:
       db:
         condition: service_healthy
@@ -75,6 +80,14 @@ volumes:
   nats_ui_data:
 
 configs:
+  nats_ui_context:
+    content: |
+      {
+        "url": "nats://nats:4222",
+        "user": "ui",
+        "password": "ui-local"
+      }
+
   nats_config:
     content: |
       port: 4222
@@ -88,6 +101,7 @@ configs:
 
       authorization {
         users: [
-          { user: useridentity, password: useridentity-local, permissions: { publish: ["useridentity.>", "$$JS.API.>", "$$JS.ACK.>"], subscribe: ["_INBOX.>"] } }
+          { user: useridentity, password: useridentity-local, permissions: { publish: ["useridentity.>", "$$JS.API.>", "$$JS.ACK.>"], subscribe: ["_INBOX.>"] } },
+          { user: ui, password: ui-local }
         ]
       }
