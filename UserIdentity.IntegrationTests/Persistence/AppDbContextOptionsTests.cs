@@ -15,9 +15,9 @@ using Xunit;
 namespace UserIdentity.IntegrationTests.Persistence;
 
 public class AppDbContextOptionsTests(
-    TestingWebAppFactory testingWebAppFactory,
-    ITestOutputHelper outputHelper
-    ) : BaseIntegrationTests(testingWebAppFactory, outputHelper)
+  TestingWebAppFactory testingWebAppFactory,
+  ITestOutputHelper outputHelper
+  ) : BaseIntegrationTests(testingWebAppFactory, outputHelper)
 {
   [Fact]
   public void UseAppMysql_Adds_The_Unique_Violation_Interceptor_And_Snake_Case_Names()

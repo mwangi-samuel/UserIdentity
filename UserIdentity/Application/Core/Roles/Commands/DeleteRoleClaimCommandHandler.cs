@@ -28,9 +28,9 @@ public record DeleteRoleClaimCommand : IBaseCommand
   public string? AppName { get; internal set; }
 }
 public class DeleteRoleClaimCommandHandler(
-    RoleManager<IdentityRole> roleManager,
-    IJwtTokenHandler jwtTokenHandler
-    ) : IDeleteItemCommandHandler<DeleteRoleClaimCommand, DeleteRecordViewModel>
+  RoleManager<IdentityRole> roleManager,
+  IJwtTokenHandler jwtTokenHandler
+  ) : IDeleteItemCommandHandler<DeleteRoleClaimCommand, DeleteRecordViewModel>
 {
   private readonly RoleManager<IdentityRole> _roleManager = roleManager;
   private readonly IJwtTokenHandler _jwtTokenHandler = jwtTokenHandler;

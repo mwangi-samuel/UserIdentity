@@ -37,18 +37,18 @@ public record LoginUserCommand : IBaseCommand
 }
 
 public class LoginUserCommandHandler(
-    IOptions<IdentityOptions> identityOptions,
-    IOptions<RoleSettings> roleSettingsOptions,
-    IOptions<RefreshTokenSettings> refreshTokenSettingsOptions,
-    IJwtTokenHandler jwtTokenHandler,
-    ITokenFactory tokenFactory,
-    UserManager<IdentityUser> userManager,
-    IUnitOfWork unitOfWork,
-    IUserRepository userRepository,
-    IRoleRepository roleRepository,
-    IRefreshTokenRepository refreshTokenRepository,
-    TimeProvider timeProvider
-    ) : ICreateItemCommandHandler<LoginUserCommand, AuthUserViewModel>
+  IOptions<IdentityOptions> identityOptions,
+  IOptions<RoleSettings> roleSettingsOptions,
+  IOptions<RefreshTokenSettings> refreshTokenSettingsOptions,
+  IJwtTokenHandler jwtTokenHandler,
+  ITokenFactory tokenFactory,
+  UserManager<IdentityUser> userManager,
+  IUnitOfWork unitOfWork,
+  IUserRepository userRepository,
+  IRoleRepository roleRepository,
+  IRefreshTokenRepository refreshTokenRepository,
+  TimeProvider timeProvider
+  ) : ICreateItemCommandHandler<LoginUserCommand, AuthUserViewModel>
 {
   private readonly IdentityOptions _identityOptions = identityOptions.Value;
   private readonly UserManager<IdentityUser> _userManager = userManager;

@@ -31,16 +31,16 @@ public record ExchangeRefreshTokenCommand : IBaseCommand
 }
 
 public class ExchangeRefreshTokenCommandHandler(
-    IOptions<RefreshTokenSettings> refreshTokenSettingsOptions,
-    IJwtTokenHandler jwtTokenHandler,
-    ITokenFactory tokenFactory,
-    IUnitOfWork unitOfWork,
-    IRefreshTokenRepository refreshTokenRepository,
-    IRoleRepository roleRepository,
-    TimeProvider timeProvider,
-    IUserRegisteredAppRepository userRegisteredAppRepository,
-    IOptions<RoleSettings> roleSettingsOptions
-    ) : IUpdateItemCommandHandler<ExchangeRefreshTokenCommand, ExchangeRefreshTokenViewModel>
+  IOptions<RefreshTokenSettings> refreshTokenSettingsOptions,
+  IJwtTokenHandler jwtTokenHandler,
+  ITokenFactory tokenFactory,
+  IUnitOfWork unitOfWork,
+  IRefreshTokenRepository refreshTokenRepository,
+  IRoleRepository roleRepository,
+  TimeProvider timeProvider,
+  IUserRegisteredAppRepository userRegisteredAppRepository,
+  IOptions<RoleSettings> roleSettingsOptions
+  ) : IUpdateItemCommandHandler<ExchangeRefreshTokenCommand, ExchangeRefreshTokenViewModel>
 {
   private readonly RefreshTokenSettings _refreshTokenSettings = refreshTokenSettingsOptions.Value;
   private readonly IJwtTokenHandler _jwtTokenHandler = jwtTokenHandler;

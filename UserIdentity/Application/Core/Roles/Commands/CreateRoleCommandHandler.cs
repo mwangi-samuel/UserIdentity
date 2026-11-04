@@ -25,8 +25,8 @@ public record CreateRoleCommand : IBaseCommand
 }
 
 public class CreateRoleCommandHandler(
-    RoleManager<IdentityRole> roleManager
-    ) : ICreateItemCommandHandler<CreateRoleCommand, RoleViewModel>
+  RoleManager<IdentityRole> roleManager
+  ) : ICreateItemCommandHandler<CreateRoleCommand, RoleViewModel>
 {
   private readonly RoleManager<IdentityRole> _roleManager = roleManager;
 

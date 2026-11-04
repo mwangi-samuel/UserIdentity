@@ -11,9 +11,9 @@ using Xunit;
 namespace UserIdentity.IntegrationTests.Presentation.Endpoints;
 
 public class AppScopingTests(
-    TestingWebAppFactory testingWebAppFactory,
-    ITestOutputHelper outputHelper
-    ) : BaseIntegrationTests(testingWebAppFactory, outputHelper)
+  TestingWebAppFactory testingWebAppFactory,
+  ITestOutputHelper outputHelper
+  ) : BaseIntegrationTests(testingWebAppFactory, outputHelper)
 {
   private const string OtherAppRole = "otherapp:admin";
   private const string OwnerRole = "testapp:owner";

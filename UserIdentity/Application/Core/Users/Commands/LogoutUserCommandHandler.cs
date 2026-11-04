@@ -17,10 +17,10 @@ public record LogoutUserCommand : IBaseCommand
 }
 
 public class LogoutUserCommandHandler(
-    ITokenFactory tokenFactory,
-    IUnitOfWork unitOfWork,
-    IRefreshTokenRepository refreshTokenRepository
-    ) : IDeleteItemCommandHandler<LogoutUserCommand, DeleteRecordViewModel>
+  ITokenFactory tokenFactory,
+  IUnitOfWork unitOfWork,
+  IRefreshTokenRepository refreshTokenRepository
+  ) : IDeleteItemCommandHandler<LogoutUserCommand, DeleteRecordViewModel>
 {
   private readonly ITokenFactory _tokenFactory = tokenFactory;
   private readonly IUnitOfWork _unitOfWork = unitOfWork;

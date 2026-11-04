@@ -1,7 +1,6 @@
-FROM mcr.microsoft.com/dotnet/runtime-deps:10.0-alpine AS base
+FROM mcr.microsoft.com/dotnet/aspnet:10.0-alpine AS base
 WORKDIR /app
 EXPOSE 8080
-ENV ASPNETCORE_HTTP_PORTS=8080
 
 FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0-alpine AS build
 ARG TARGETARCH
@@ -12,8 +11,7 @@ COPY ["UserIdentity/UserIdentity.csproj", "UserIdentity/"]
 RUN dotnet restore "UserIdentity/UserIdentity.csproj" \
     -a $TARGETARCH \
     /p:Configuration=Release \
-    /p:SelfContained=true \
-    /p:PublishSingleFile=true \
+    /p:SelfContained=false \
     /p:PublishReadyToRun=true \
     /p:ExcludeEfDesign=true
 
@@ -25,8 +23,7 @@ RUN dotnet publish "UserIdentity.csproj" \
     --no-restore \
     -o /app/publish \
     /p:ExcludeEfDesign=true \
-    /p:SelfContained=true \
-    /p:PublishSingleFile=true \
+    /p:SelfContained=false \
     /p:PublishReadyToRun=true \
     /p:DebugType=none \
     /p:SatelliteResourceLanguages=en \
@@ -34,7 +31,6 @@ RUN dotnet publish "UserIdentity.csproj" \
     /p:PublishReferencesSymbols=false
 
 FROM base AS final
-RUN apk upgrade --no-cache
 
 WORKDIR /app
 COPY --from=build /app/publish .

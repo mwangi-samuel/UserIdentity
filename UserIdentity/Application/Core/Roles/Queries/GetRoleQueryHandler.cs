@@ -18,8 +18,8 @@ public record GetRoleQuery : IBaseQuery
 }
 
 public class GetRoleQueryHandler(
-    RoleManager<IdentityRole> roleManager
-    ) : IGetItemQueryHandler<GetRoleQuery, RoleViewModel>
+  RoleManager<IdentityRole> roleManager
+  ) : IGetItemQueryHandler<GetRoleQuery, RoleViewModel>
 {
   private readonly RoleManager<IdentityRole> _roleManager = roleManager;
 

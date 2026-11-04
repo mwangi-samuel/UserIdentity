@@ -20,23 +20,13 @@ public static class InviteCodeEndpoints
 {
   public static RouteGroupBuilder MapInviteCodeEndpoints(this IEndpointRouteBuilder endpoints)
   {
-    var group = endpoints.MapApiGroup("InviteCode").RequireAuthorization();
+    var group = endpoints.MapApiGroup("InviteCode").RequireAuthorization(AuthorizationPolicies.AdminOrGlobalAdmin);
 
-    group.MapGet("", GetInviteCodes)
-      .RequireAuthorization(AuthorizationPolicies.AdminOrGlobalAdmin)
-      .Produces<InviteCodesViewModel>();
-    group.MapGet("{id}", GetInviteCode)
-      .RequireAuthorization(AuthorizationPolicies.AdminOrGlobalAdmin)
-      .Produces<InviteCodeViewModel>();
-    group.MapGet("email/{email}", GetInviteCodeByEmail)
-      .RequireAuthorization(AuthorizationPolicies.AdminOrGlobalAdmin)
-      .Produces<InviteCodeViewModel>();
-    group.MapPost("", CreateInviteCode)
-      .RequireAuthorization(AuthorizationPolicies.AdminOrGlobalAdmin)
-      .Produces<InviteCodeViewModel>();
-    group.MapDelete("{id}", DeleteInviteCode)
-      .RequireAuthorization(AuthorizationPolicies.AdminOrGlobalAdmin)
-      .Produces<DeleteRecordViewModel>();
+    group.MapGet("", GetInviteCodes).Produces<InviteCodesViewModel>();
+    group.MapGet("{id}", GetInviteCode).Produces<InviteCodeViewModel>();
+    group.MapGet("email/{email}", GetInviteCodeByEmail).Produces<InviteCodeViewModel>();
+    group.MapPost("", CreateInviteCode).Produces<InviteCodeViewModel>();
+    group.MapDelete("{id}", DeleteInviteCode).Produces<DeleteRecordViewModel>();
 
     return group;
   }

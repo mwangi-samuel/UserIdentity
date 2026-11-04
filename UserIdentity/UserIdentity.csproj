@@ -4,6 +4,7 @@
     <UserSecretsId>a57d50c3-7787-4619-8e3a-200167dd4978</UserSecretsId>
     <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
     <InvariantGlobalization>true</InvariantGlobalization>
+    <ServerGarbageCollection>false</ServerGarbageCollection>
   </PropertyGroup>
 
   <ItemGroup>

@@ -52,9 +52,7 @@ services:
       KeySetOptions__PrivateKeyPassPhrase: ${EDDSA_PRIVATE_KEY_PASSPHRASE:-S3T@G00dPa22Phr@S3}
       EDDSA_PRIVATE_KEY:
       EDDSA_PUBLIC_KEY:
-      DOTNET_gcServer: "0"
-      DOTNET_gcConcurrent: "1"
-      DOTNET_TieredPGO: "0"
+      RateLimitSettings__PermitLimit: 100000
     depends_on:
       db:
         condition: service_healthy

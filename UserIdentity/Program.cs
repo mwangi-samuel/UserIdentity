@@ -8,10 +8,9 @@ using UserIdentity;
 using UserIdentity.Application.Interfaces;
 using UserIdentity.Infrastructure.ExternalServices;
 using UserIdentity.Persistence;
-using UserIdentity.Persistence.Migrations;
 using UserIdentity.Presentation.Endpoints;
 
-var builder = WebApplication.CreateBuilder(args);
+var builder = WebApplication.CreateSlimBuilder(args);
 var assembly = typeof(Program).Assembly;
 
 builder.AddAppSerilog();
@@ -31,8 +30,6 @@ builder.Services.AddAppEndpoints();
 builder.Services.AddValidation();
 
 builder.Services.AddOpenApi();
-
-builder.Services.AddSingleton(TimeProvider.System);
 
 builder.Services.AddAppAuthentication(builder.Configuration);
 

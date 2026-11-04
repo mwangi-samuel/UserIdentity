@@ -8,8 +8,8 @@ using Xunit;
 namespace UserIdentity.IntegrationTests.Infrastructure.Messaging;
 
 public class CodeVerifiedMessageHandlerTests(
-    TestingWebAppFactory testingWebAppFactory,
-    ITestOutputHelper outputHelper
+  TestingWebAppFactory testingWebAppFactory,
+  ITestOutputHelper outputHelper
   ) : BaseIntegrationTests(testingWebAppFactory, outputHelper)
 {
   [Fact]

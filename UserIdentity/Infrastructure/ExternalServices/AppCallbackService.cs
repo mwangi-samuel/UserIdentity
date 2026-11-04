@@ -13,13 +13,12 @@ using UserIdentity.Application.Interfaces;
 namespace UserIdentity.Infrastructure.ExternalServices;
 
 public class AppCallbackService(
-    IHttpRequestSender httpRequestSender,
-    IJwtTokenHandler jwtTokenHandler,
-    IHttpContextAccessor httpContextAccessor,
-    IOptions<RoleSettings> roleSettingsOptions,
-    TimeProvider timeProvider
-    ) : BaseExternalService(jwtTokenHandler, httpContextAccessor, roleSettingsOptions),
-            IAppCallbackService
+  IHttpRequestSender httpRequestSender,
+  IJwtTokenHandler jwtTokenHandler,
+  IHttpContextAccessor httpContextAccessor,
+  IOptions<RoleSettings> roleSettingsOptions,
+  TimeProvider timeProvider
+  ) : BaseExternalService(jwtTokenHandler, httpContextAccessor, roleSettingsOptions), IAppCallbackService
 {
   private readonly IHttpRequestSender _httpRequestSender = httpRequestSender;
   private readonly TimeProvider _timeProvider = timeProvider;
@@ -48,18 +47,16 @@ public class AppCallbackService(
     };
 
     var requestMessage = _httpRequestSender.CreateHttpRequestMessage(HttpMethod.Post, registeredApp.CallbackUrl!)
-        .WithXRequestId(ResolveRequestId())
-        .WithHttpContent(content);
+      .WithXRequestId(ResolveRequestId())
+      .WithHttpContent(content);
 
     if (registeredApp.ForwardServiceToken)
       requestMessage = requestMessage.WithBearerToken(
-          GenerateServiceToken(
-              CurrentServiceName,
-              registeredApp.AppName,
-              ResolveServiceResource(registeredApp.AppName, "user"),
-              ScopeActions.Create
-              )
-          );
+        GenerateServiceToken(
+          CurrentServiceName,
+          registeredApp.AppName,
+          ResolveServiceResource(registeredApp.AppName, "user"),
+          ScopeActions.Create));
 
     if (registeredApp.CallbackHeaders != null && registeredApp.CallbackHeaders.Count > 0)
       foreach (var header in registeredApp.CallbackHeaders)

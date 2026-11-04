@@ -23,7 +23,9 @@ public static class Extensions
   {
     var mysqlSettings = configuration.GetRequiredSetting<MysqlSettings>();
 
-    services.AddDbContext<DbContext, TContext>(options => options.UseAppMysql(mysqlSettings));
+    services.AddDbContext<DbContext, TContext>(
+      options => options.UseAppMysql(mysqlSettings),
+      optionsLifetime: ServiceLifetime.Singleton);
     services.AddHealthChecks().AddDbContextCheck<TContext>("mysql");
   }
 
