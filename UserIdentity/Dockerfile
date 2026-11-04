@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/dotnet/aspnet:10.0-alpine AS base
+FROM mcr.microsoft.com/dotnet/runtime-deps:10.0-alpine AS base
 WORKDIR /app
 EXPOSE 8080
 
@@ -11,9 +11,10 @@ COPY ["UserIdentity/UserIdentity.csproj", "UserIdentity/"]
 RUN dotnet restore "UserIdentity/UserIdentity.csproj" \
     -a $TARGETARCH \
     /p:Configuration=Release \
-    /p:SelfContained=false \
-    /p:PublishReadyToRun=true \
-    /p:ExcludeEfDesign=true
+    /p:ExcludeEfDesign=true \
+    /p:SelfContained=true \
+    /p:PublishTrimmed=true \
+    /p:TrimMode=partial 
 
 COPY ["UserIdentity/", "UserIdentity/"]
 WORKDIR "/src/UserIdentity"
@@ -23,14 +24,20 @@ RUN dotnet publish "UserIdentity.csproj" \
     --no-restore \
     -o /app/publish \
     /p:ExcludeEfDesign=true \
-    /p:SelfContained=false \
-    /p:PublishReadyToRun=true \
+    /p:SelfContained=true \
+    /p:PublishTrimmed=true \
+    /p:TrimMode=partial \
+    /p:JsonSerializerIsReflectionEnabledByDefault=true \
+    /p:SuppressTrimAnalysisWarnings=true \
+    /p:EnableTrimAnalyzer=false \
     /p:DebugType=none \
     /p:SatelliteResourceLanguages=en \
     /p:PublishDocumentationFiles=false \
     /p:PublishReferencesSymbols=false
 
 FROM base AS final
+
+RUN apk upgrade --no-cache
 
 WORKDIR /app
 COPY --from=build /app/publish .

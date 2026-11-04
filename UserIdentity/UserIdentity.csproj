@@ -5,6 +5,7 @@
     <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
     <InvariantGlobalization>true</InvariantGlobalization>
     <ServerGarbageCollection>false</ServerGarbageCollection>
+		<EnableRequestDelegateGenerator>true</EnableRequestDelegateGenerator>
   </PropertyGroup>
 
   <ItemGroup>
@@ -17,6 +18,10 @@
     <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore" />
     <PackageReference Include="Microting.EntityFrameworkCore.MySql" />
     <PackageReference Include="PolyzenKit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <TrimmableAssembly Include="BouncyCastle.Cryptography" />
   </ItemGroup>
 
   <ItemGroup>
