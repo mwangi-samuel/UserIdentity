@@ -14,7 +14,8 @@ RUN dotnet restore "UserIdentity/UserIdentity.csproj" \
     /p:ExcludeEfDesign=true \
     /p:SelfContained=true \
     /p:PublishTrimmed=true \
-    /p:TrimMode=partial 
+    /p:TrimMode=partial \
+    /p:PublishReadyToRun=true 
 
 COPY ["UserIdentity/", "UserIdentity/"]
 WORKDIR "/src/UserIdentity"
@@ -27,13 +28,14 @@ RUN dotnet publish "UserIdentity.csproj" \
     /p:SelfContained=true \
     /p:PublishTrimmed=true \
     /p:TrimMode=partial \
+    /p:PublishReadyToRun=true \
     /p:JsonSerializerIsReflectionEnabledByDefault=true \
     /p:SuppressTrimAnalysisWarnings=true \
     /p:EnableTrimAnalyzer=false \
     /p:DebugType=none \
     /p:SatelliteResourceLanguages=en \
     /p:PublishDocumentationFiles=false \
-    /p:PublishReferencesSymbols=false
+    /p:PublishReferencesSymbols=false 
 
 FROM base AS final
 
