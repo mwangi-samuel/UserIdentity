@@ -10,9 +10,9 @@ using Xunit;
 namespace UserIdentity.IntegrationTests.Persistence.Configurations;
 
 public class IdentityUserConfigurationTests(
-    TestingWebAppFactory testingWebAppFactory,
-    ITestOutputHelper outputHelper
-    ) : BaseIntegrationTests(testingWebAppFactory, outputHelper)
+  TestingWebAppFactory testingWebAppFactory,
+  ITestOutputHelper outputHelper
+  ) : BaseIntegrationTests(testingWebAppFactory, outputHelper)
 {
   private readonly TestingWebAppFactory _testingWebAppFactory = testingWebAppFactory;
 

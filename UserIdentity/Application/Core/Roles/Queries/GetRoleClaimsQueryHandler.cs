@@ -19,9 +19,9 @@ public record GetRoleClaimsQuery : IBaseQuery
 }
 
 public class GetRoleClaimsQueryHandler(
-    RoleManager<IdentityRole> roleManager,
-    IJwtTokenHandler jwtTokenHandler
-    ) : IGetItemsQueryHandler<GetRoleClaimsQuery, RoleClaimsViewModel>
+  RoleManager<IdentityRole> roleManager,
+  IJwtTokenHandler jwtTokenHandler
+  ) : IGetItemsQueryHandler<GetRoleClaimsQuery, RoleClaimsViewModel>
 {
   private readonly RoleManager<IdentityRole> _roleManager = roleManager;
   private readonly IJwtTokenHandler _jwtTokenHandler = jwtTokenHandler;

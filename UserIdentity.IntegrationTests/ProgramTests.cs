@@ -15,9 +15,9 @@ using Xunit;
 namespace UserIdentity.IntegrationTests;
 
 public class ProgramTests(
-    TestingWebAppFactory testingWebAppFactory,
-    ITestOutputHelper outputHelper
-    ) : BaseIntegrationTests(testingWebAppFactory, outputHelper)
+  TestingWebAppFactory testingWebAppFactory,
+  ITestOutputHelper outputHelper
+  ) : BaseIntegrationTests(testingWebAppFactory, outputHelper)
 {
   private readonly TestingWebAppFactory _testingWebAppFactory = testingWebAppFactory;
 
@@ -30,6 +30,21 @@ public class ProgramTests(
     // Assert
     Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     Assert.Equal("Healthy", await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
+  }
+
+  [Fact]
+  public void Db_Context_Options_Are_Shared_By_Every_Request()
+  {
+    // Arrange
+    using var firstScope = _testingWebAppFactory.Services.CreateScope();
+    using var secondScope = _testingWebAppFactory.Services.CreateScope();
+
+    // Act
+    var firstOptions = firstScope.ServiceProvider.GetRequiredService<DbContextOptions<AppDbContext>>();
+    var secondOptions = secondScope.ServiceProvider.GetRequiredService<DbContextOptions<AppDbContext>>();
+
+    // Assert
+    Assert.Same(firstOptions, secondOptions);
   }
 
   [Fact]

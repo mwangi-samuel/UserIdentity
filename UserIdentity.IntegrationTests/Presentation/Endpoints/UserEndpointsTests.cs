@@ -31,9 +31,9 @@ using Xunit;
 namespace UserIdentity.IntegrationTests.Presentation.Endpoints;
 
 public class UserEndpointsTests(
-    TestingWebAppFactory testingWebAppFactory,
-    ITestOutputHelper outputHelper
-    ) : BaseIntegrationTests(testingWebAppFactory, outputHelper)
+  TestingWebAppFactory testingWebAppFactory,
+  ITestOutputHelper outputHelper
+  ) : BaseIntegrationTests(testingWebAppFactory, outputHelper)
 {
 
   private readonly static string _baseUri = "/api/v1/user";

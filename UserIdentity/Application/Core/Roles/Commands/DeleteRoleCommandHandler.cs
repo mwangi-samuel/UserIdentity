@@ -15,8 +15,8 @@ public record DeleteRoleCommand : IBaseCommand
   public string? AppName { get; init; }
 }
 public class DeleteRoleCommandHandler(
-    RoleManager<IdentityRole> roleManager
-    ) : IDeleteItemCommandHandler<DeleteRoleCommand, DeleteRecordViewModel>
+  RoleManager<IdentityRole> roleManager
+  ) : IDeleteItemCommandHandler<DeleteRoleCommand, DeleteRecordViewModel>
 {
   private readonly RoleManager<IdentityRole> _roleManager = roleManager;
 

@@ -39,10 +39,10 @@ public record CreateRoleClaimCommand : IBaseCommand
 }
 
 public class CreateRoleClaimCommandHandler(
-    RoleManager<IdentityRole> roleManager,
-    IJwtTokenHandler jwtTokenHandler,
-    IOptions<RoleSettings> roleSettingsOptions
-    ) : ICreateItemCommandHandler<CreateRoleClaimCommand, RoleClaimViewModel>
+  RoleManager<IdentityRole> roleManager,
+  IJwtTokenHandler jwtTokenHandler,
+  IOptions<RoleSettings> roleSettingsOptions
+  ) : ICreateItemCommandHandler<CreateRoleClaimCommand, RoleClaimViewModel>
 {
   private readonly RoleManager<IdentityRole> _roleManager = roleManager;
   private readonly IJwtTokenHandler _jwtTokenHandler = jwtTokenHandler;

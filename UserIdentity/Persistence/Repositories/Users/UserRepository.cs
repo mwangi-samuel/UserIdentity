@@ -7,8 +7,8 @@ using UserIdentity.Domain.Users;
 namespace UserIdentity.Persistence.Repositories.Users;
 
 public class UserRepository(
-    AppDbContext appDbContext
-    ) : EntityRepository<UserEntity, string>(appDbContext), IUserRepository
+  AppDbContext appDbContext
+  ) : EntityRepository<UserEntity, string>(appDbContext), IUserRepository
 {
   private readonly AppDbContext _appDbContext = appDbContext;
 

@@ -26,8 +26,8 @@ public record UpdateRoleCommand : IBaseCommand
   public string? AppName { get; internal set; }
 }
 public class UpdateRoleCommandHandler(
-    RoleManager<IdentityRole> roleManager
-    ) : IUpdateItemCommandHandler<UpdateRoleCommand, RoleViewModel>
+  RoleManager<IdentityRole> roleManager
+  ) : IUpdateItemCommandHandler<UpdateRoleCommand, RoleViewModel>
 {
   private readonly RoleManager<IdentityRole> _roleManager = roleManager;
 

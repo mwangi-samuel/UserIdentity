@@ -11,7 +11,7 @@ namespace UserIdentity.Persistence.Repositories.InviteCodes;
 
 public class InviteCodeRepository(
   AppDbContext dbContext
- ) : EntityRepository<InviteCodeEntity, long>(dbContext), IInviteCodeRepository
+  ) : EntityRepository<InviteCodeEntity, long>(dbContext), IInviteCodeRepository
 {
   private readonly AppDbContext _dbContext = dbContext;
   public async Task<InviteCodeEntity?> GetEntityByAlternateIdAsync(

@@ -9,7 +9,7 @@ namespace UserIdentity.Persistence.Repositories.PasswordResets;
 
 public class PasswordResetRepository(
   AppDbContext dbContext
- ) : EntityRepository<PasswordResetEntity, Guid>(dbContext), IPasswordResetRepository
+  ) : EntityRepository<PasswordResetEntity, Guid>(dbContext), IPasswordResetRepository
 {
   private readonly AppDbContext _dbContext = dbContext;
 

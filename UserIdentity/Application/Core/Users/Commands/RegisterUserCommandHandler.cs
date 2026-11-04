@@ -75,23 +75,23 @@ public record RegisterUserCommand : IBaseCommand, IValidatableObject
 }
 
 public class RegisterUserCommandHandler(
-    IOptions<RoleSettings> roleSettingsOptions,
-    IOptions<IdentityOptions> identityOptions,
-    IOptions<RefreshTokenSettings> refreshTokenSettingsOptions,
-    UserManager<IdentityUser> userManager,
-    RoleManager<IdentityRole> roleManager,
-    IUnitOfWork unitOfWork,
-    IUserRepository userRepository,
-    IRefreshTokenRepository refreshTokenRepository,
-    IUserRegisteredAppRepository userRegisteredAppRepository,
-    IInviteCodeRepository inviteCodeRepository,
-    IRoleRepository roleRepository,
-    IJwtTokenHandler jwtTokenHandler,
-    ITokenFactory tokenFactory,
-    TimeProvider timeProvider,
-    IMessageOutbox messageOutbox,
-    IGoogleRecaptchaService googleRecaptchaService
-    ) : ICreateItemCommandHandler<RegisterUserCommand, AuthUserViewModel>
+  IOptions<RoleSettings> roleSettingsOptions,
+  IOptions<IdentityOptions> identityOptions,
+  IOptions<RefreshTokenSettings> refreshTokenSettingsOptions,
+  UserManager<IdentityUser> userManager,
+  RoleManager<IdentityRole> roleManager,
+  IUnitOfWork unitOfWork,
+  IUserRepository userRepository,
+  IRefreshTokenRepository refreshTokenRepository,
+  IUserRegisteredAppRepository userRegisteredAppRepository,
+  IInviteCodeRepository inviteCodeRepository,
+  IRoleRepository roleRepository,
+  IJwtTokenHandler jwtTokenHandler,
+  ITokenFactory tokenFactory,
+  TimeProvider timeProvider,
+  IMessageOutbox messageOutbox,
+  IGoogleRecaptchaService googleRecaptchaService
+  ) : ICreateItemCommandHandler<RegisterUserCommand, AuthUserViewModel>
 {
   private readonly RoleSettings _roleSettings = roleSettingsOptions.Value;
   private readonly IdentityOptions _identityOptions = identityOptions.Value;

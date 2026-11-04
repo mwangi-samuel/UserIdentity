@@ -8,8 +8,8 @@ using UserIdentity.Domain.RefreshTokens;
 namespace UserIdentity.Persistence.Repositories.RefreshTokens;
 
 public class RefreshTokenRepository(
-    AppDbContext appDbContext
-    ) : EntityRepository<RefreshTokenEntity, Guid>(appDbContext), IRefreshTokenRepository
+  AppDbContext appDbContext
+  ) : EntityRepository<RefreshTokenEntity, Guid>(appDbContext), IRefreshTokenRepository
 {
   private readonly AppDbContext _appDbContext = appDbContext;
 

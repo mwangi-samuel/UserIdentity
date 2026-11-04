@@ -20,11 +20,11 @@ public record GetUserRolesQuery : IBaseQuery
 }
 
 public class GetUserRolesQueryHandler(
-    RoleManager<IdentityRole> roleManager,
-    UserManager<IdentityUser> userManager,
-    IUserRegisteredAppRepository userRegisteredAppRepository,
-    IOptions<RoleSettings> roleSettingsOptions
-    ) : IGetItemsQueryHandler<GetUserRolesQuery, UserRolesViewModel>
+  RoleManager<IdentityRole> roleManager,
+  UserManager<IdentityUser> userManager,
+  IUserRegisteredAppRepository userRegisteredAppRepository,
+  IOptions<RoleSettings> roleSettingsOptions
+  ) : IGetItemsQueryHandler<GetUserRolesQuery, UserRolesViewModel>
 {
   private readonly RoleManager<IdentityRole> _roleManager = roleManager;
   private readonly UserManager<IdentityUser> _userManager = userManager;

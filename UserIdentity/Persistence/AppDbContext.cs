@@ -18,8 +18,8 @@ using UserIdentity.Persistence.Configurations;
 namespace UserIdentity.Persistence;
 
 public class AppDbContext(
-    DbContextOptions<AppDbContext> dbContextOptions
-    ) : IdentityDbContext<IdentityUser>(dbContextOptions)
+  DbContextOptions<AppDbContext> dbContextOptions
+  ) : IdentityDbContext<IdentityUser>(dbContextOptions)
 {
   public DbSet<UserEntity> AppUser => Set<UserEntity>();
 

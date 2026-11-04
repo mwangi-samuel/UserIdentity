@@ -18,8 +18,8 @@ using Xunit;
 namespace UserIdentity.IntegrationTests.Infrastructure.Messaging;
 
 public class CallbackRequestedMessageHandlerTests(
-    TestingWebAppFactory testingWebAppFactory,
-    ITestOutputHelper outputHelper
+  TestingWebAppFactory testingWebAppFactory,
+  ITestOutputHelper outputHelper
   ) : BaseIntegrationTests(testingWebAppFactory, outputHelper)
 {
   private const string RecaptchaToken = "callback-recaptcha-token";

@@ -16,9 +16,9 @@ using Xunit;
 namespace UserIdentity.IntegrationTests.Persistence;
 
 public class UserCleanupTests(
-    TestingWebAppFactory testingWebAppFactory,
-    ITestOutputHelper outputHelper
-    ) : BaseIntegrationTests(testingWebAppFactory, outputHelper)
+  TestingWebAppFactory testingWebAppFactory,
+  ITestOutputHelper outputHelper
+  ) : BaseIntegrationTests(testingWebAppFactory, outputHelper)
 {
   private void SeedAgedUser(bool emailConfirmed)
   {

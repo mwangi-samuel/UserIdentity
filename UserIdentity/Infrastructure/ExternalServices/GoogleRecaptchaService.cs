@@ -9,9 +9,9 @@ using UserIdentity.Application.Interfaces;
 namespace UserIdentity.Infrastructure.ExternalServices;
 
 public class GoogleRecaptchaService(
-    IHttpRequestSender httpRequestSender,
-    IOptions<GoogleRecaptchaSettings> googleRecaptchaSettingsOptions
-    ) : IGoogleRecaptchaService
+  IHttpRequestSender httpRequestSender,
+  IOptions<GoogleRecaptchaSettings> googleRecaptchaSettingsOptions
+  ) : IGoogleRecaptchaService
 {
 
   private readonly IHttpRequestSender _httpRequestSender = httpRequestSender;

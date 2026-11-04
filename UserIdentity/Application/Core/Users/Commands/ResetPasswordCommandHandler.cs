@@ -32,16 +32,16 @@ public record ResetPasswordCommand : IBaseCommand
 }
 
 public class ResetPasswordCommandHandler(
-    IOptions<PasswordResetSettings> passwordResetSettingsOptions,
-    UserManager<IdentityUser> userManager,
-    TimeProvider timeProvider,
-    ITokenFactory tokenFactory,
-    IUnitOfWork unitOfWork,
-    IUserRepository userRepository,
-    IPasswordResetRepository passwordResetRepository,
-    IMessageOutbox messageOutbox,
-    IUserRegisteredAppRepository userRegisteredAppRepository
-    ) : BaseAuditableItemCommandHandler<Guid, PasswordResetEntity, IPasswordResetRepository>(
+  IOptions<PasswordResetSettings> passwordResetSettingsOptions,
+  UserManager<IdentityUser> userManager,
+  TimeProvider timeProvider,
+  ITokenFactory tokenFactory,
+  IUnitOfWork unitOfWork,
+  IUserRepository userRepository,
+  IPasswordResetRepository passwordResetRepository,
+  IMessageOutbox messageOutbox,
+  IUserRegisteredAppRepository userRegisteredAppRepository
+  ) : BaseAuditableItemCommandHandler<Guid, PasswordResetEntity, IPasswordResetRepository>(
       unitOfWork,
       passwordResetRepository,
       timeProvider),

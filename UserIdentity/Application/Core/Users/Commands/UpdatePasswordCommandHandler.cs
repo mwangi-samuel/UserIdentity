@@ -24,13 +24,13 @@ public record UpdatePasswordCommand : IBaseCommand
 }
 
 public class UpdatePasswordCommandHandler(
-    UserManager<IdentityUser> userManager,
-    ITokenFactory tokenFactory,
-    IUnitOfWork unitOfWork,
-    IPasswordResetRepository passwordResetRepository,
-    IRefreshTokenRepository refreshTokenRepository,
-    TimeProvider timeProvider
-    ) : BaseAuditableItemCommandHandler<Guid, PasswordResetEntity, IPasswordResetRepository>(
+  UserManager<IdentityUser> userManager,
+  ITokenFactory tokenFactory,
+  IUnitOfWork unitOfWork,
+  IPasswordResetRepository passwordResetRepository,
+  IRefreshTokenRepository refreshTokenRepository,
+  TimeProvider timeProvider
+  ) : BaseAuditableItemCommandHandler<Guid, PasswordResetEntity, IPasswordResetRepository>(
       unitOfWork,
       passwordResetRepository,
       timeProvider),

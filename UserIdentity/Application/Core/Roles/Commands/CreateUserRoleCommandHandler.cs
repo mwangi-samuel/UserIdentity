@@ -27,11 +27,11 @@ public record CreateUserRoleCommand : IBaseCommand
 }
 
 public class CreateUserRoleCommandHandler(
-    RoleManager<IdentityRole> roleManager,
-    UserManager<IdentityUser> userManager,
-    IUserRegisteredAppRepository userRegisteredAppRepository,
-    IGetItemsQueryHandler<GetUserRolesQuery, UserRolesViewModel> getUserRolesQueryHandler
-    ) : ICreateItemCommandHandler<CreateUserRoleCommand, UserRolesViewModel>
+  RoleManager<IdentityRole> roleManager,
+  UserManager<IdentityUser> userManager,
+  IUserRegisteredAppRepository userRegisteredAppRepository,
+  IGetItemsQueryHandler<GetUserRolesQuery, UserRolesViewModel> getUserRolesQueryHandler
+  ) : ICreateItemCommandHandler<CreateUserRoleCommand, UserRolesViewModel>
 {
   private readonly RoleManager<IdentityRole> _roleManager = roleManager;
   private readonly UserManager<IdentityUser> _userManager = userManager;
