@@ -6,9 +6,6 @@ using Microsoft.Extensions.DependencyInjection;
 
 using NATS.Client.JetStream;
 
-using Polly;
-using Polly.Retry;
-
 using PolyzenKit.Application.Core.RegisteredApps.Shared;
 using PolyzenKit.Common.Exceptions;
 using PolyzenKit.Domain.Entities.AppEntities;
@@ -42,7 +39,6 @@ public class BaseIntegrationTests : IAsyncLifetime
   protected RegisteredAppSeed RegisteredApp { get; }
 
   protected IConfiguration Configuration { get; }
-  protected ResiliencePipeline PollyResiliencePipeline { get; }
 
   public BaseIntegrationTests(TestingWebAppFactory testingWebAppFactory, ITestOutputHelper outputHelper)
   {
@@ -67,19 +63,6 @@ public class BaseIntegrationTests : IAsyncLifetime
 
     RegisteredApp = Configuration.GetSetting<RegisteredAppsSettings>().RegisteredApps.FirstOrDefault()
       ?? throw new MissingConfigurationException("At least one registered app must be provided");
-
-    PollyResiliencePipeline = new ResiliencePipelineBuilder()
-      .AddRetry(new RetryStrategyOptions
-      {
-        MaxRetryAttempts = 5,
-        OnRetry = args =>
-        {
-          outputHelper.WriteLine("OnRetry, Attempt: {0}", args.AttemptNumber);
-          return default;
-        }
-      })
-      .AddTimeout(TimeSpan.FromSeconds(2))
-      .Build();
 
     _resetDatabase = ResolveResetDatabaseFunc();
   }

@@ -89,11 +89,7 @@ public class CallbackRequestedMessageHandlerTests(
     // Assert
     Assert.NotNull(await NatsTestHelper.FindMessageAsync(NatsTestHelper.UserUpdatedSubject, userId));
 
-    await PollyResiliencePipeline.ExecuteAsync(token =>
-    {
-      Assert.Equal(0, TestDbHelper.CountOutboxMessages());
-      return ValueTask.CompletedTask;
-    }, TestContext.Current.CancellationToken);
+    await Eventually.HoldsAsync(() => TestDbHelper.CountOutboxMessages() == 0);
 
     Assert.Null(
       await NatsTestHelper.FindMessageAsync(NatsTestHelper.CallbackRequestedSubject, userId, TimeSpan.FromSeconds(2)));
