@@ -456,11 +456,7 @@ public class UserEndpointsTests(
     Assert.NotNull(userId);
     Assert.NotNull(await NatsTestHelper.FindMessageAsync(NatsTestHelper.UserUpdatedSubject, userId));
 
-    await PollyResiliencePipeline.ExecuteAsync(token =>
-    {
-      Assert.Equal(0, TestDbHelper.CountOutboxMessages());
-      return ValueTask.CompletedTask;
-    }, TestContext.Current.CancellationToken);
+    await Eventually.HoldsAsync(() => TestDbHelper.CountOutboxMessages() == 0);
   }
 
   [Theory]
@@ -643,11 +639,8 @@ public class UserEndpointsTests(
 
     await NatsTestHelper.PublishCodeVerifiedAsync(messageEvent);
 
-    await PollyResiliencePipeline.ExecuteAsync(token =>
-    {
-      Assert.True(TestDbHelper.GetIdentityUserWithNoTracking(userDetails.Id)?.EmailConfirmed);
-      return ValueTask.CompletedTask;
-    }, TestContext.Current.CancellationToken);
+    await Eventually.HoldsAsync(
+      () => TestDbHelper.GetIdentityUserWithNoTracking(userDetails.Id)?.EmailConfirmed == true);
 
     (var token, _) = await HttpClient.LoginUserAsync(userName, UserSettingHelper.UserPassword);
 
@@ -1451,11 +1444,8 @@ public class UserEndpointsTests(
 
     await NatsTestHelper.PublishCodeVerifiedAsync(messageEvent);
 
-    await PollyResiliencePipeline.ExecuteAsync(token =>
-    {
-      Assert.True(TestDbHelper.GetPasswordResetEntityWithNoTracking(UserSettingHelper.UserId)?.Verified);
-      return ValueTask.CompletedTask;
-    }, TestContext.Current.CancellationToken);
+    await Eventually.HoldsAsync(
+      () => TestDbHelper.GetPasswordResetEntityWithNoTracking(UserSettingHelper.UserId)?.Verified == true);
 
     var newPassword = "N3wP@ssword!";
 

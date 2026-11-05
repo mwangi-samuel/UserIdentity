@@ -33,11 +33,7 @@ public class CodeVerifiedMessageHandlerTests(
     await NatsTestHelper.PublishCodeVerifiedAsync(messageEvent);
 
     // Assert
-    await PollyResiliencePipeline.ExecuteAsync(token =>
-    {
-      Assert.True(TestDbHelper.GetIdentityUserWithNoTracking(user.Id)?.EmailConfirmed);
-      return ValueTask.CompletedTask;
-    }, TestContext.Current.CancellationToken);
+    await Eventually.HoldsAsync(() => TestDbHelper.GetIdentityUserWithNoTracking(user.Id)?.EmailConfirmed == true);
   }
 
   [Fact]
@@ -60,10 +56,7 @@ public class CodeVerifiedMessageHandlerTests(
     await NatsTestHelper.PublishCodeVerifiedAsync(messageEvent);
 
     // Assert
-    await PollyResiliencePipeline.ExecuteAsync(token =>
-    {
-      Assert.True(TestDbHelper.GetPasswordResetEntityWithNoTracking(UserSettingHelper.UserId)?.Verified);
-      return ValueTask.CompletedTask;
-    }, TestContext.Current.CancellationToken);
+    await Eventually.HoldsAsync(
+      () => TestDbHelper.GetPasswordResetEntityWithNoTracking(UserSettingHelper.UserId)?.Verified == true);
   }
 }
