@@ -1,167 +1,167 @@
 ﻿using Microsoft.EntityFrameworkCore;
-
 using PolyzenKit.Common.Exceptions;
 using PolyzenKit.Domain.Entities.RegisteredApps;
 using PolyzenKit.Persistence.Repositories;
-
 using UserIdentity.Domain.WaitLists;
 using UserIdentity.Persistence;
 using UserIdentity.Persistence.Repositories.WaitLists;
-
 using Xunit;
 
 namespace UserIdentity.UnitTests.Persistence.Repositories.WaitLists;
 
 public class WaitListRepositoryTests
 {
-  [Fact]
-  public async Task CreateEntityItem_Persists_WaitList()
-  {
-    var context = GetAppDbContext();
-    await SeedRegisteredApp(context);
-    var repository = new WaitListRepository(context);
-    var waitList = BuildWaitList();
-
-    repository.CreateEntityItem(waitList);
-    await context.SaveChangesAsync(TestContext.Current.CancellationToken);
-
-    var saved = await context.WaitList.SingleOrDefaultAsync(
-      x => x.Id == waitList.Id,
-      cancellationToken: TestContext.Current.CancellationToken);
-    Assert.NotNull(saved);
-    Assert.Equal(waitList.UserEmail, saved!.UserEmail);
-  }
-
-  [Fact]
-  public async Task GetEntityByAlternateIdAsync_MustExist_Returns_Entity()
-  {
-    var context = GetAppDbContext();
-    await SeedRegisteredApp(context);
-    var repository = new WaitListRepository(context);
-    var waitList = BuildWaitList();
-
-    context.WaitList.Add(waitList);
-    await context.SaveChangesAsync(TestContext.Current.CancellationToken);
-
-    var result = await repository.GetEntityByAlternateIdAsync(new WaitListEntity
+    [Fact]
+    public async Task CreateEntityItem_Persists_WaitList()
     {
-      AppId = waitList.AppId,
-      UserEmail = waitList.UserEmail
-    }, QueryCondition.MustExist, TestContext.Current.CancellationToken);
+        var context = GetAppDbContext();
+        await SeedRegisteredApp(context);
+        var repository = new WaitListRepository(context);
+        var waitList = BuildWaitList();
 
-    Assert.NotNull(result);
-    Assert.Equal(waitList.Id, result!.Id);
-    Assert.Equal(waitList.UserEmail, result.UserEmail);
-  }
+        repository.CreateEntityItem(waitList);
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
-  [Fact]
-  public async Task GetEntityByAlternateIdAsync_MustExist_When_Missing_Throws_NoRecordException()
-  {
-    var context = GetAppDbContext();
-    var repository = new WaitListRepository(context);
+        var saved = await context.WaitList.SingleOrDefaultAsync(
+            x => x.Id == waitList.Id,
+            cancellationToken: TestContext.Current.CancellationToken
+        );
+        Assert.NotNull(saved);
+        Assert.Equal(waitList.UserEmail, saved!.UserEmail);
+    }
 
-    await Assert.ThrowsAsync<NoRecordException>(() => repository.GetEntityByAlternateIdAsync(new WaitListEntity
+    [Fact]
+    public async Task GetEntityByAlternateIdAsync_MustExist_Returns_Entity()
     {
-      UserEmail = "notfound@example.com"
-    }, QueryCondition.MustExist, TestContext.Current.CancellationToken));
-  }
+        var context = GetAppDbContext();
+        await SeedRegisteredApp(context);
+        var repository = new WaitListRepository(context);
+        var waitList = BuildWaitList();
 
-  [Fact]
-  public async Task GetEntityByAlternateIdAsync_MustNotExist_When_Exists_Throws_RecordExistsException()
-  {
-    var context = GetAppDbContext();
-    await SeedRegisteredApp(context);
-    var repository = new WaitListRepository(context);
-    var waitList = BuildWaitList();
+        context.WaitList.Add(waitList);
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
-    context.WaitList.Add(waitList);
-    await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+        var result = await repository.GetEntityByAlternateIdAsync(
+            new WaitListEntity { AppId = waitList.AppId, UserEmail = waitList.UserEmail },
+            QueryCondition.MustExist,
+            TestContext.Current.CancellationToken
+        );
 
-    await Assert.ThrowsAsync<RecordExistsException>(() => repository.GetEntityByAlternateIdAsync(new WaitListEntity
+        Assert.NotNull(result);
+        Assert.Equal(waitList.Id, result!.Id);
+        Assert.Equal(waitList.UserEmail, result.UserEmail);
+    }
+
+    [Fact]
+    public async Task GetEntityByAlternateIdAsync_MustExist_When_Missing_Throws_NoRecordException()
     {
-      AppId = waitList.AppId,
-      UserEmail = waitList.UserEmail
-    }, QueryCondition.MustNotExist, TestContext.Current.CancellationToken));
-  }
+        var context = GetAppDbContext();
+        var repository = new WaitListRepository(context);
 
-  [Fact]
-  public async Task GetEntityByAlternateIdAsync_MustNotExist_When_Missing_Returns_Null()
-  {
-    var context = GetAppDbContext();
-    var repository = new WaitListRepository(context);
+        await Assert.ThrowsAsync<NoRecordException>(() =>
+            repository.GetEntityByAlternateIdAsync(
+                new WaitListEntity { UserEmail = "notfound@example.com" },
+                QueryCondition.MustExist,
+                TestContext.Current.CancellationToken
+            )
+        );
+    }
 
-    var result = await repository.GetEntityByAlternateIdAsync(new WaitListEntity
+    [Fact]
+    public async Task GetEntityByAlternateIdAsync_MustNotExist_When_Exists_Throws_RecordExistsException()
     {
-      UserEmail = "new@example.com"
-    }, QueryCondition.MustNotExist, TestContext.Current.CancellationToken);
+        var context = GetAppDbContext();
+        await SeedRegisteredApp(context);
+        var repository = new WaitListRepository(context);
+        var waitList = BuildWaitList();
 
-    Assert.Null(result);
-  }
+        context.WaitList.Add(waitList);
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
-  [Fact]
-  public async Task GetEntityDtoByIdAsync_Returns_Dto()
-  {
-    var context = GetAppDbContext();
-    var app = await SeedRegisteredApp(context);
-    var repository = new WaitListRepository(context);
-    var waitList = BuildWaitList();
-    waitList.AppId = app.Id;
+        await Assert.ThrowsAsync<RecordExistsException>(() =>
+            repository.GetEntityByAlternateIdAsync(
+                new WaitListEntity { AppId = waitList.AppId, UserEmail = waitList.UserEmail },
+                QueryCondition.MustNotExist,
+                TestContext.Current.CancellationToken
+            )
+        );
+    }
 
-    context.WaitList.Add(waitList);
-    await context.SaveChangesAsync(TestContext.Current.CancellationToken);
-
-    var result = await repository.GetEntityDtoByIdAsync(waitList.Id, TestContext.Current.CancellationToken);
-
-    Assert.NotNull(result);
-    Assert.Equal(waitList.Id, result.Id);
-    Assert.Equal(waitList.UserEmail, result.UserEmail);
-    Assert.Equal(app.AppName, result.AppName);
-  }
-
-  [Fact]
-  public async Task GetEntityDtoByIdAsync_When_Not_Found_Throws_NoRecordException()
-  {
-    var context = GetAppDbContext();
-    var repository = new WaitListRepository(context);
-
-    await Assert.ThrowsAsync<NoRecordException>(() => repository.GetEntityDtoByIdAsync(
-      999,
-      TestContext.Current.CancellationToken));
-  }
-
-  private static AppDbContext GetAppDbContext()
-  {
-    var options = new DbContextOptionsBuilder<AppDbContext>()
-        .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
-        .Options;
-
-    return new AppDbContext(options);
-  }
-
-  private static async Task<RegisteredAppEntity> SeedRegisteredApp(AppDbContext context)
-  {
-    var app = new RegisteredAppEntity
+    [Fact]
+    public async Task GetEntityByAlternateIdAsync_MustNotExist_When_Missing_Returns_Null()
     {
-      Id = 1,
-      AppName = "TestApp",
-      AppSecretKey = "test-secret-key",
-      BaseUrl = "https://test.com",
-      RequireInviteCode = false
-    };
-    context.RegisteredApp.Add(app);
-    await context.SaveChangesAsync();
-    return app;
-  }
+        var context = GetAppDbContext();
+        var repository = new WaitListRepository(context);
 
-  private static WaitListEntity BuildWaitList()
-  {
-    return new WaitListEntity
+        var result = await repository.GetEntityByAlternateIdAsync(
+            new WaitListEntity { UserEmail = "new@example.com" },
+            QueryCondition.MustNotExist,
+            TestContext.Current.CancellationToken
+        );
+
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public async Task GetEntityDtoByIdAsync_Returns_Dto()
     {
-      UserEmail = "waitlist@example.com",
-      AppId = 1,
-      CreatedBy = "system",
-      UpdatedBy = "system",
-      IsDeleted = false
-    };
-  }
+        var context = GetAppDbContext();
+        var app = await SeedRegisteredApp(context);
+        var repository = new WaitListRepository(context);
+        var waitList = BuildWaitList();
+        waitList.AppId = app.Id;
+
+        context.WaitList.Add(waitList);
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+
+        var result = await repository.GetEntityDtoByIdAsync(waitList.Id, TestContext.Current.CancellationToken);
+
+        Assert.NotNull(result);
+        Assert.Equal(waitList.Id, result.Id);
+        Assert.Equal(waitList.UserEmail, result.UserEmail);
+        Assert.Equal(app.AppName, result.AppName);
+    }
+
+    [Fact]
+    public async Task GetEntityDtoByIdAsync_When_Not_Found_Throws_NoRecordException()
+    {
+        var context = GetAppDbContext();
+        var repository = new WaitListRepository(context);
+
+        await Assert.ThrowsAsync<NoRecordException>(() => repository.GetEntityDtoByIdAsync(999, TestContext.Current.CancellationToken));
+    }
+
+    private static AppDbContext GetAppDbContext()
+    {
+        var options = new DbContextOptionsBuilder<AppDbContext>().UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString()).Options;
+
+        return new AppDbContext(options);
+    }
+
+    private static async Task<RegisteredAppEntity> SeedRegisteredApp(AppDbContext context)
+    {
+        var app = new RegisteredAppEntity
+        {
+            Id = 1,
+            AppName = "TestApp",
+            AppSecretKey = "test-secret-key",
+            BaseUrl = "https://test.com",
+            RequireInviteCode = false,
+        };
+        context.RegisteredApp.Add(app);
+        await context.SaveChangesAsync();
+        return app;
+    }
+
+    private static WaitListEntity BuildWaitList()
+    {
+        return new WaitListEntity
+        {
+            UserEmail = "waitlist@example.com",
+            AppId = 1,
+            CreatedBy = "system",
+            UpdatedBy = "system",
+            IsDeleted = false,
+        };
+    }
 }

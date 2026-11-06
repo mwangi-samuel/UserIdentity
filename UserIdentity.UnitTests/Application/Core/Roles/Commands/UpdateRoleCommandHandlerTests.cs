@@ -1,146 +1,151 @@
 ﻿using FakeItEasy;
-
 using Microsoft.AspNetCore.Identity;
-
 using PolyzenKit.Common.Exceptions;
-
 using UserIdentity.Application.Core.Roles.Commands;
 using UserIdentity.Application.Core.Roles.ViewModels;
 using UserIdentity.Domain.Roles;
 using UserIdentity.UnitTests.TestUtils;
-
 using Xunit;
 
 namespace UserIdentity.UnitTests.Application.Core.Roles.Commands;
 
 public class UpdateRoleCommandHandlerTests
 {
+    private readonly RoleManager<IdentityRole> _roleManager;
 
-  private readonly RoleManager<IdentityRole> _roleManager;
-  public UpdateRoleCommandHandlerTests()
-  {
-    _roleManager = A.Fake<RoleManager<IdentityRole>>();
-  }
+    public UpdateRoleCommandHandlerTests()
+    {
+        _roleManager = A.Fake<RoleManager<IdentityRole>>();
+    }
 
-  [Fact]
-  public async Task Update_NonExisting_Role_Throws_NoRecordException()
-  {
-    // Arrange
-    UpdateRoleCommand command = new() { RoleId = "1", RoleName = "admin" };
+    [Fact]
+    public async Task Update_NonExisting_Role_Throws_NoRecordException()
+    {
+        // Arrange
+        UpdateRoleCommand command = new() { RoleId = "1", RoleName = "admin" };
 
-    A.CallTo(() => _roleManager.FindByIdAsync(command.RoleId)).Returns(default(IdentityRole));
+        A.CallTo(() => _roleManager.FindByIdAsync(command.RoleId)).Returns(default(IdentityRole));
 
-    UpdateRoleCommandHandler handler = new(_roleManager);
+        UpdateRoleCommandHandler handler = new(_roleManager);
 
-    // Act& Assert
-    await Assert.ThrowsAsync<NoRecordException>(() => handler.UpdateItemAsync(
-      command,
-      TestStringHelper.UserId,
-      TestContext.Current.CancellationToken));
-  }
+        // Act& Assert
+        await Assert.ThrowsAsync<NoRecordException>(() =>
+            handler.UpdateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken)
+        );
+    }
 
-  [Fact]
-  public async Task Update_Role_For_An_App_Admin_With_Another_Apps_Role_Throws_NoRecordException()
-  {
-    // Arrange
-    UpdateRoleCommand command = new() { RoleId = "1", RoleName = "testapp:editor", AppName = "TestApp" };
+    [Fact]
+    public async Task Update_Role_For_An_App_Admin_With_Another_Apps_Role_Throws_NoRecordException()
+    {
+        // Arrange
+        UpdateRoleCommand command = new()
+        {
+            RoleId = "1",
+            RoleName = "testapp:editor",
+            AppName = "TestApp",
+        };
 
-    A.CallTo(() => _roleManager.FindByIdAsync(command.RoleId))
-      .Returns(new IdentityRole { Id = "1", Name = "otherapp:editor" });
+        A.CallTo(() => _roleManager.FindByIdAsync(command.RoleId)).Returns(new IdentityRole { Id = "1", Name = "otherapp:editor" });
 
-    UpdateRoleCommandHandler handler = new(_roleManager);
+        UpdateRoleCommandHandler handler = new(_roleManager);
 
-    // Act & Assert
-    await Assert.ThrowsAsync<NoRecordException>(() => handler.UpdateItemAsync(
-      command,
-      TestStringHelper.UserId,
-      TestContext.Current.CancellationToken));
+        // Act & Assert
+        await Assert.ThrowsAsync<NoRecordException>(() =>
+            handler.UpdateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken)
+        );
 
-    A.CallTo(() => _roleManager.UpdateAsync(A<IdentityRole>._)).MustNotHaveHappened();
-  }
+        A.CallTo(() => _roleManager.UpdateAsync(A<IdentityRole>._)).MustNotHaveHappened();
+    }
 
-  [Fact]
-  public async Task Update_Role_For_An_App_Admin_To_A_Name_Outside_The_Apps_Prefix_Throws_InvalidDataException()
-  {
-    // Arrange
-    UpdateRoleCommand command = new() { RoleId = "1", RoleName = "otherapp:admin", AppName = "TestApp" };
+    [Fact]
+    public async Task Update_Role_For_An_App_Admin_To_A_Name_Outside_The_Apps_Prefix_Throws_InvalidDataException()
+    {
+        // Arrange
+        UpdateRoleCommand command = new()
+        {
+            RoleId = "1",
+            RoleName = "otherapp:admin",
+            AppName = "TestApp",
+        };
 
-    A.CallTo(() => _roleManager.FindByIdAsync(command.RoleId))
-      .Returns(new IdentityRole { Id = "1", Name = "testapp:editor" });
+        A.CallTo(() => _roleManager.FindByIdAsync(command.RoleId)).Returns(new IdentityRole { Id = "1", Name = "testapp:editor" });
 
-    UpdateRoleCommandHandler handler = new(_roleManager);
+        UpdateRoleCommandHandler handler = new(_roleManager);
 
-    // Act & Assert
-    await Assert.ThrowsAsync<InvalidDataException>(() => handler.UpdateItemAsync(
-      command,
-      TestStringHelper.UserId,
-      TestContext.Current.CancellationToken));
+        // Act & Assert
+        await Assert.ThrowsAsync<InvalidDataException>(() =>
+            handler.UpdateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken)
+        );
 
-    A.CallTo(() => _roleManager.UpdateAsync(A<IdentityRole>._)).MustNotHaveHappened();
-  }
+        A.CallTo(() => _roleManager.UpdateAsync(A<IdentityRole>._)).MustNotHaveHappened();
+    }
 
-  [Fact]
-  public async Task Update_Existing_Role_Failure_Throws_RecordUpdateException()
-  {
-    // Arrange
-    UpdateRoleCommand command = new() { RoleId = "1", RoleName = "admin" };
+    [Fact]
+    public async Task Update_Existing_Role_Failure_Throws_RecordUpdateException()
+    {
+        // Arrange
+        UpdateRoleCommand command = new() { RoleId = "1", RoleName = "admin" };
 
-    IdentityRole identityRole = new() { Id = command.RoleId, Name = "User" };
+        IdentityRole identityRole = new() { Id = command.RoleId, Name = "User" };
 
-    A.CallTo(() => _roleManager.FindByIdAsync(command.RoleId)).Returns(identityRole);
+        A.CallTo(() => _roleManager.FindByIdAsync(command.RoleId)).Returns(identityRole);
 
-    A.CallTo(() => _roleManager.UpdateAsync(identityRole)).Returns(IdentityResult.Failed());
+        A.CallTo(() => _roleManager.UpdateAsync(identityRole)).Returns(IdentityResult.Failed());
 
-    UpdateRoleCommandHandler handler = new(_roleManager);
+        UpdateRoleCommandHandler handler = new(_roleManager);
 
-    // Act& Assert
-    await Assert.ThrowsAsync<RecordUpdateException>(() => handler.UpdateItemAsync(
-      command,
-      TestStringHelper.UserId,
-      TestContext.Current.CancellationToken));
-  }
+        // Act& Assert
+        await Assert.ThrowsAsync<RecordUpdateException>(() =>
+            handler.UpdateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken)
+        );
+    }
 
-  [Fact]
-  public async Task Update_Existing_Role_Updates_Successfully()
-  {
-    // Arrange
-    UpdateRoleCommand command = new() { RoleId = "1", RoleName = "admin" };
+    [Fact]
+    public async Task Update_Existing_Role_Updates_Successfully()
+    {
+        // Arrange
+        UpdateRoleCommand command = new() { RoleId = "1", RoleName = "admin" };
 
-    IdentityRole identityRole = new() { Id = command.RoleId, Name = "User" };
+        IdentityRole identityRole = new() { Id = command.RoleId, Name = "User" };
 
-    A.CallTo(() => _roleManager.FindByIdAsync(command.RoleId)).Returns(identityRole);
+        A.CallTo(() => _roleManager.FindByIdAsync(command.RoleId)).Returns(identityRole);
 
-    A.CallTo(() => _roleManager.UpdateAsync(identityRole)).Returns(IdentityResult.Success);
+        A.CallTo(() => _roleManager.UpdateAsync(identityRole)).Returns(IdentityResult.Success);
 
-    UpdateRoleCommandHandler handler = new(_roleManager);
+        UpdateRoleCommandHandler handler = new(_roleManager);
 
-    // Act
-    var vm = await handler.UpdateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken);
+        // Act
+        var vm = await handler.UpdateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken);
 
-    // Assert
-    Assert.IsType<RoleViewModel>(vm);
-    Assert.IsType<RoleDto>(vm.Role);
-    Assert.Equal(command.RoleName, vm.Role.Name);
-  }
+        // Assert
+        Assert.IsType<RoleViewModel>(vm);
+        Assert.IsType<RoleDto>(vm.Role);
+        Assert.Equal(command.RoleName, vm.Role.Name);
+    }
 
-  [Fact]
-  public async Task Update_Role_Stores_The_Trimmed_Name_In_Lower_Case()
-  {
-    // Arrange
-    UpdateRoleCommand command = new() { RoleId = "1", RoleName = " TestApp:Editor ", AppName = "TestApp" };
+    [Fact]
+    public async Task Update_Role_Stores_The_Trimmed_Name_In_Lower_Case()
+    {
+        // Arrange
+        UpdateRoleCommand command = new()
+        {
+            RoleId = "1",
+            RoleName = " TestApp:Editor ",
+            AppName = "TestApp",
+        };
 
-    IdentityRole identityRole = new() { Id = command.RoleId, Name = "testapp:user" };
+        IdentityRole identityRole = new() { Id = command.RoleId, Name = "testapp:user" };
 
-    A.CallTo(() => _roleManager.FindByIdAsync(command.RoleId)).Returns(identityRole);
-    A.CallTo(() => _roleManager.UpdateAsync(identityRole)).Returns(IdentityResult.Success);
+        A.CallTo(() => _roleManager.FindByIdAsync(command.RoleId)).Returns(identityRole);
+        A.CallTo(() => _roleManager.UpdateAsync(identityRole)).Returns(IdentityResult.Success);
 
-    UpdateRoleCommandHandler handler = new(_roleManager);
+        UpdateRoleCommandHandler handler = new(_roleManager);
 
-    // Act
-    var vm = await handler.UpdateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken);
+        // Act
+        var vm = await handler.UpdateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken);
 
-    // Assert
-    Assert.Equal("testapp:editor", vm.Role.Name);
-    Assert.Equal("testapp:editor", identityRole.Name);
-  }
+        // Assert
+        Assert.Equal("testapp:editor", vm.Role.Name);
+        Assert.Equal("testapp:editor", identityRole.Name);
+    }
 }

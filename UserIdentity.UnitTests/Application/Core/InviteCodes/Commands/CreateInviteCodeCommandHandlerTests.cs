@@ -1,223 +1,227 @@
 ﻿using FakeItEasy;
-
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Time.Testing;
-
 using PolyzenKit.Common.Settings;
 using PolyzenKit.Persistence.Repositories;
-
 using UserIdentity.Application.Core.InviteCodes.Commands;
 using UserIdentity.Domain.InviteCodes;
 using UserIdentity.Persistence.Repositories.InviteCodes;
 using UserIdentity.UnitTests.TestUtils;
-
 using Xunit;
 
 namespace UserIdentity.UnitTests.Application.Core.InviteCodes.Commands;
 
 public class CreateInviteCodeCommandHandlerTests
 {
-  private readonly IOptions<RoleSettings> _roleSettings;
-  private readonly RoleManager<IdentityRole> _roleManager;
-  private readonly IUnitOfWork _unitOfWork;
-  private readonly IInviteCodeRepository _inviteCodeRepository;
-  private readonly FakeTimeProvider _timeProvider;
+    private readonly IOptions<RoleSettings> _roleSettings;
+    private readonly RoleManager<IdentityRole> _roleManager;
+    private readonly IUnitOfWork _unitOfWork;
+    private readonly IInviteCodeRepository _inviteCodeRepository;
+    private readonly FakeTimeProvider _timeProvider;
 
-  public CreateInviteCodeCommandHandlerTests()
-  {
-    _roleSettings = Options.Create(new RoleSettings
+    public CreateInviteCodeCommandHandlerTests()
     {
-      ServiceName = "UserIdentity",
-      AdminRoles = "admin,superuser",
-      DefaultRole = "user"
-    });
-    _roleManager = A.Fake<RoleManager<IdentityRole>>();
-    _unitOfWork = A.Fake<IUnitOfWork>();
-    _inviteCodeRepository = A.Fake<IInviteCodeRepository>();
-    _timeProvider = new FakeTimeProvider();
+        _roleSettings = Options.Create(
+            new RoleSettings
+            {
+                ServiceName = "UserIdentity",
+                AdminRoles = "admin,superuser",
+                DefaultRole = "user",
+            }
+        );
+        _roleManager = A.Fake<RoleManager<IdentityRole>>();
+        _unitOfWork = A.Fake<IUnitOfWork>();
+        _inviteCodeRepository = A.Fake<IInviteCodeRepository>();
+        _timeProvider = new FakeTimeProvider();
 
-    _timeProvider.SetUtcNow(DateTime.UtcNow);
-  }
+        _timeProvider.SetUtcNow(DateTime.UtcNow);
+    }
 
-  [Fact]
-  public async Task CreateItemAsync_Creates_InviteCode_And_Returns_ViewModel()
-  {
-    // Arrange
-    var command = new CreateInviteCodeCommand { InviteCode = "INVITE123", UserEmail = "test@example.com", AppId = 1 };
-
-    InviteCodeEntity? capturedEntity = null;
-    A.CallTo(() => _inviteCodeRepository.CreateEntityItem(A<InviteCodeEntity>._))
-        .Invokes((InviteCodeEntity e) => capturedEntity = e);
-
-    var expectedDto = new InviteCodeDto
+    [Fact]
+    public async Task CreateItemAsync_Creates_InviteCode_And_Returns_ViewModel()
     {
-      Id = 1,
-      InviteCode = command.InviteCode,
-      UserEmail = command.UserEmail,
-      AppId = command.AppId,
-      AppName = "TestApp"
-    };
+        // Arrange
+        var command = new CreateInviteCodeCommand
+        {
+            InviteCode = "INVITE123",
+            UserEmail = "test@example.com",
+            AppId = 1,
+        };
 
-    A.CallTo(() => _inviteCodeRepository.GetEntityDtoByIdAsync(A<long>._, A<CancellationToken>._)).Returns(expectedDto);
+        InviteCodeEntity? capturedEntity = null;
+        A.CallTo(() => _inviteCodeRepository.CreateEntityItem(A<InviteCodeEntity>._)).Invokes((InviteCodeEntity e) => capturedEntity = e);
 
-    var handler = GetHandler();
+        var expectedDto = new InviteCodeDto
+        {
+            Id = 1,
+            InviteCode = command.InviteCode,
+            UserEmail = command.UserEmail,
+            AppId = command.AppId,
+            AppName = "TestApp",
+        };
 
-    // Act
-    var result = await handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken);
+        A.CallTo(() => _inviteCodeRepository.GetEntityDtoByIdAsync(A<long>._, A<CancellationToken>._)).Returns(expectedDto);
 
-    // Assert
-    Assert.NotNull(result);
-    Assert.NotNull(result.InviteCode);
-    Assert.Equal(expectedDto.InviteCode, result.InviteCode.InviteCode);
-    Assert.Equal(expectedDto.UserEmail, result.InviteCode.UserEmail);
-    Assert.Equal(expectedDto.AppId, result.InviteCode.AppId);
+        var handler = GetHandler();
 
-    Assert.NotNull(capturedEntity);
-    Assert.Equal(command.InviteCode, capturedEntity.InviteCode);
-    Assert.Equal(command.UserEmail, capturedEntity.UserEmail);
-    Assert.Equal(command.AppId, capturedEntity.AppId);
-    Assert.False(capturedEntity.Applied);
+        // Act
+        var result = await handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken);
 
-    A.CallTo(() => _inviteCodeRepository.CreateEntityItem(A<InviteCodeEntity>._)).MustHaveHappenedOnceExactly();
-    A.CallTo(() => _unitOfWork.SaveChangesAsync(A<CancellationToken>._)).MustHaveHappenedOnceExactly();
-    A.CallTo(() => _inviteCodeRepository.GetEntityDtoByIdAsync(A<long>._, A<CancellationToken>._))
-      .MustHaveHappenedOnceExactly();
-  }
+        // Assert
+        Assert.NotNull(result);
+        Assert.NotNull(result.InviteCode);
+        Assert.Equal(expectedDto.InviteCode, result.InviteCode.InviteCode);
+        Assert.Equal(expectedDto.UserEmail, result.InviteCode.UserEmail);
+        Assert.Equal(expectedDto.AppId, result.InviteCode.AppId);
 
-  [Fact]
-  public async Task CreateItemAsync_Sets_Audit_Fields()
-  {
-    // Arrange
-    var now = DateTime.UtcNow;
-    _timeProvider.SetUtcNow(now);
+        Assert.NotNull(capturedEntity);
+        Assert.Equal(command.InviteCode, capturedEntity.InviteCode);
+        Assert.Equal(command.UserEmail, capturedEntity.UserEmail);
+        Assert.Equal(command.AppId, capturedEntity.AppId);
+        Assert.False(capturedEntity.Applied);
 
-    var command = new CreateInviteCodeCommand { InviteCode = "INVITE456", UserEmail = "audit@example.com", AppId = 2 };
+        A.CallTo(() => _inviteCodeRepository.CreateEntityItem(A<InviteCodeEntity>._)).MustHaveHappenedOnceExactly();
+        A.CallTo(() => _unitOfWork.SaveChangesAsync(A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+        A.CallTo(() => _inviteCodeRepository.GetEntityDtoByIdAsync(A<long>._, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+    }
 
-    InviteCodeEntity? capturedEntity = null;
-    A.CallTo(() => _inviteCodeRepository.CreateEntityItem(A<InviteCodeEntity>._))
-        .Invokes((InviteCodeEntity e) => capturedEntity = e);
+    [Fact]
+    public async Task CreateItemAsync_Sets_Audit_Fields()
+    {
+        // Arrange
+        var now = DateTime.UtcNow;
+        _timeProvider.SetUtcNow(now);
 
-    A.CallTo(() => _inviteCodeRepository.GetEntityDtoByIdAsync(A<long>._, A<CancellationToken>._))
-      .Returns(new InviteCodeDto
-      {
-        Id = 1,
-        InviteCode = command.InviteCode,
-        UserEmail = command.UserEmail,
-        AppId = command.AppId
-      });
+        var command = new CreateInviteCodeCommand
+        {
+            InviteCode = "INVITE456",
+            UserEmail = "audit@example.com",
+            AppId = 2,
+        };
 
-    var handler = GetHandler();
+        InviteCodeEntity? capturedEntity = null;
+        A.CallTo(() => _inviteCodeRepository.CreateEntityItem(A<InviteCodeEntity>._)).Invokes((InviteCodeEntity e) => capturedEntity = e);
 
-    // Act
-    await handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken);
+        A.CallTo(() => _inviteCodeRepository.GetEntityDtoByIdAsync(A<long>._, A<CancellationToken>._))
+            .Returns(
+                new InviteCodeDto
+                {
+                    Id = 1,
+                    InviteCode = command.InviteCode,
+                    UserEmail = command.UserEmail,
+                    AppId = command.AppId,
+                }
+            );
 
-    // Assert
-    Assert.NotNull(capturedEntity);
-    Assert.Equal(TestStringHelper.UserId, capturedEntity!.CreatedBy);
-    Assert.Equal(TestStringHelper.UserId, capturedEntity.UpdatedBy);
-  }
+        var handler = GetHandler();
 
-  [Theory]
-  [InlineData(null)]
-  [InlineData("")]
-  [InlineData("  ")]
-  public async Task CreateItemAsync_Without_Role_Stores_No_Role(string? role)
-  {
-    // Arrange
-    var command = GetCommand(role);
+        // Act
+        await handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken);
 
-    InviteCodeEntity? capturedEntity = null;
-    A.CallTo(() => _inviteCodeRepository.CreateEntityItem(A<InviteCodeEntity>._))
-        .Invokes((InviteCodeEntity e) => capturedEntity = e);
+        // Assert
+        Assert.NotNull(capturedEntity);
+        Assert.Equal(TestStringHelper.UserId, capturedEntity!.CreatedBy);
+        Assert.Equal(TestStringHelper.UserId, capturedEntity.UpdatedBy);
+    }
 
-    var handler = GetHandler();
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("  ")]
+    public async Task CreateItemAsync_Without_Role_Stores_No_Role(string? role)
+    {
+        // Arrange
+        var command = GetCommand(role);
 
-    // Act
-    await handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken);
+        InviteCodeEntity? capturedEntity = null;
+        A.CallTo(() => _inviteCodeRepository.CreateEntityItem(A<InviteCodeEntity>._)).Invokes((InviteCodeEntity e) => capturedEntity = e);
 
-    // Assert
-    Assert.Null(capturedEntity?.Role);
-    A.CallTo(() => _roleManager.FindByNameAsync(A<string>._)).MustNotHaveHappened();
-  }
+        var handler = GetHandler();
 
-  [Theory]
-  [InlineData("testapp:owner")]
-  [InlineData(" TestApp:Owner ")]
-  public async Task CreateItemAsync_With_An_Existing_App_Role_Stores_The_Role(string role)
-  {
-    // Arrange
-    var command = GetCommand(role);
+        // Act
+        await handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken);
 
-    A.CallTo(() => _roleManager.FindByNameAsync(role.Trim())).Returns(new IdentityRole("testapp:owner"));
+        // Assert
+        Assert.Null(capturedEntity?.Role);
+        A.CallTo(() => _roleManager.FindByNameAsync(A<string>._)).MustNotHaveHappened();
+    }
 
-    InviteCodeEntity? capturedEntity = null;
-    A.CallTo(() => _inviteCodeRepository.CreateEntityItem(A<InviteCodeEntity>._))
-        .Invokes((InviteCodeEntity e) => capturedEntity = e);
+    [Theory]
+    [InlineData("testapp:owner")]
+    [InlineData(" TestApp:Owner ")]
+    public async Task CreateItemAsync_With_An_Existing_App_Role_Stores_The_Role(string role)
+    {
+        // Arrange
+        var command = GetCommand(role);
 
-    var handler = GetHandler();
+        A.CallTo(() => _roleManager.FindByNameAsync(role.Trim())).Returns(new IdentityRole("testapp:owner"));
 
-    // Act
-    await handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken);
+        InviteCodeEntity? capturedEntity = null;
+        A.CallTo(() => _inviteCodeRepository.CreateEntityItem(A<InviteCodeEntity>._)).Invokes((InviteCodeEntity e) => capturedEntity = e);
 
-    // Assert
-    Assert.Equal("testapp:owner", capturedEntity?.Role);
-    A.CallTo(() => _unitOfWork.SaveChangesAsync(A<CancellationToken>._)).MustHaveHappenedOnceExactly();
-  }
+        var handler = GetHandler();
 
-  [Theory]
-  [InlineData("otherapp:owner")]
-  [InlineData("owner")]
-  [InlineData("testapp:admin")]
-  [InlineData("TestApp:Admin")]
-  [InlineData("testapp:superuser")]
-  [InlineData("global:admin")]
-  public async Task CreateItemAsync_With_Another_Apps_Role_Or_An_Admin_Role_Throws_InvalidDataException(string role)
-  {
-    // Arrange
-    var command = GetCommand(role);
+        // Act
+        await handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken);
 
-    A.CallTo(() => _roleManager.FindByNameAsync(A<string>._)).Returns(new IdentityRole(role));
+        // Assert
+        Assert.Equal("testapp:owner", capturedEntity?.Role);
+        A.CallTo(() => _unitOfWork.SaveChangesAsync(A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+    }
 
-    var handler = GetHandler();
+    [Theory]
+    [InlineData("otherapp:owner")]
+    [InlineData("owner")]
+    [InlineData("testapp:admin")]
+    [InlineData("TestApp:Admin")]
+    [InlineData("testapp:superuser")]
+    [InlineData("global:admin")]
+    public async Task CreateItemAsync_With_Another_Apps_Role_Or_An_Admin_Role_Throws_InvalidDataException(string role)
+    {
+        // Arrange
+        var command = GetCommand(role);
 
-    // Act & Assert
-    await Assert.ThrowsAsync<InvalidDataException>(() => handler.CreateItemAsync(
-      command,
-      TestStringHelper.UserId,
-      TestContext.Current.CancellationToken));
+        A.CallTo(() => _roleManager.FindByNameAsync(A<string>._)).Returns(new IdentityRole(role));
 
-    A.CallTo(() => _inviteCodeRepository.CreateEntityItem(A<InviteCodeEntity>._)).MustNotHaveHappened();
-  }
+        var handler = GetHandler();
 
-  [Fact]
-  public async Task CreateItemAsync_With_A_Missing_Role_Throws_InvalidDataException()
-  {
-    // Arrange
-    var command = GetCommand("testapp:owner");
+        // Act & Assert
+        await Assert.ThrowsAsync<InvalidDataException>(() =>
+            handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken)
+        );
 
-    A.CallTo(() => _roleManager.FindByNameAsync("testapp:owner")).Returns((IdentityRole?)null);
+        A.CallTo(() => _inviteCodeRepository.CreateEntityItem(A<InviteCodeEntity>._)).MustNotHaveHappened();
+    }
 
-    var handler = GetHandler();
+    [Fact]
+    public async Task CreateItemAsync_With_A_Missing_Role_Throws_InvalidDataException()
+    {
+        // Arrange
+        var command = GetCommand("testapp:owner");
 
-    // Act & Assert
-    await Assert.ThrowsAsync<InvalidDataException>(() => handler.CreateItemAsync(
-      command,
-      TestStringHelper.UserId,
-      TestContext.Current.CancellationToken));
+        A.CallTo(() => _roleManager.FindByNameAsync("testapp:owner")).Returns((IdentityRole?)null);
 
-    A.CallTo(() => _inviteCodeRepository.CreateEntityItem(A<InviteCodeEntity>._)).MustNotHaveHappened();
-  }
+        var handler = GetHandler();
 
-  private static CreateInviteCodeCommand GetCommand(string? role) => new()
-  {
-    InviteCode = "INVITE789",
-    UserEmail = "owner@example.com",
-    AppId = 1,
-    AppName = "TestApp",
-    Role = role
-  };
+        // Act & Assert
+        await Assert.ThrowsAsync<InvalidDataException>(() =>
+            handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken)
+        );
 
-  private CreateInviteCodeCommandHandler GetHandler() =>
-    new(_roleSettings, _roleManager, _unitOfWork, _inviteCodeRepository, _timeProvider);
+        A.CallTo(() => _inviteCodeRepository.CreateEntityItem(A<InviteCodeEntity>._)).MustNotHaveHappened();
+    }
+
+    private static CreateInviteCodeCommand GetCommand(string? role) =>
+        new()
+        {
+            InviteCode = "INVITE789",
+            UserEmail = "owner@example.com",
+            AppId = 1,
+            AppName = "TestApp",
+            Role = role,
+        };
+
+    private CreateInviteCodeCommandHandler GetHandler() =>
+        new(_roleSettings, _roleManager, _unitOfWork, _inviteCodeRepository, _timeProvider);
 }

@@ -1,45 +1,44 @@
 ﻿using System.Linq.Expressions;
-
 using PolyzenKit.Domain.Dtos;
 
 namespace UserIdentity.Domain.InviteCodes;
 
 public class InviteCodeDto : InviteCodeEntity, IBaseAuditableEntityDto<long>
 {
-  public string? AppName { get; set; }
+    public string? AppName { get; set; }
 
-  public static Expression<Func<InviteCodeEntity, InviteCodeDto>> Basic
-    => entity => new InviteCodeDto
-    {
-      Id = entity.Id,
-      InviteCode = entity.InviteCode,
-      UserEmail = entity.UserEmail,
-      Applied = entity.Applied,
-      Role = entity.Role,
-      AppId = entity.AppId
-    };
+    public static Expression<Func<InviteCodeEntity, InviteCodeDto>> Basic =>
+        entity => new InviteCodeDto
+        {
+            Id = entity.Id,
+            InviteCode = entity.InviteCode,
+            UserEmail = entity.UserEmail,
+            Applied = entity.Applied,
+            Role = entity.Role,
+            AppId = entity.AppId,
+        };
 
-  private static readonly Func<InviteCodeEntity, InviteCodeDto> _compiledBasic = Basic.Compile();
+    private static readonly Func<InviteCodeEntity, InviteCodeDto> _compiledBasic = Basic.Compile();
 
-  public static InviteCodeDto FromEntityBasic(InviteCodeEntity entity) => _compiledBasic(entity);
+    public static InviteCodeDto FromEntityBasic(InviteCodeEntity entity) => _compiledBasic(entity);
 
-  public static Expression<Func<InviteCodeEntity, InviteCodeDto>> Detailed
-    => entity => new InviteCodeDto
-    {
-      Id = entity.Id,
-      InviteCode = entity.InviteCode,
-      UserEmail = entity.UserEmail,
-      Applied = entity.Applied,
-      Role = entity.Role,
-      AppId = entity.AppId,
-      AppName = entity.App.AppName,
-      CreatedBy = entity.CreatedBy,
-      CreatedAt = entity.CreatedAt,
-      UpdatedBy = entity.UpdatedBy,
-      UpdatedAt = entity.UpdatedAt
-    };
+    public static Expression<Func<InviteCodeEntity, InviteCodeDto>> Detailed =>
+        entity => new InviteCodeDto
+        {
+            Id = entity.Id,
+            InviteCode = entity.InviteCode,
+            UserEmail = entity.UserEmail,
+            Applied = entity.Applied,
+            Role = entity.Role,
+            AppId = entity.AppId,
+            AppName = entity.App.AppName,
+            CreatedBy = entity.CreatedBy,
+            CreatedAt = entity.CreatedAt,
+            UpdatedBy = entity.UpdatedBy,
+            UpdatedAt = entity.UpdatedAt,
+        };
 
-  private static readonly Func<InviteCodeEntity, InviteCodeDto> _compiledDetailed = Detailed.Compile();
+    private static readonly Func<InviteCodeEntity, InviteCodeDto> _compiledDetailed = Detailed.Compile();
 
-  public static InviteCodeDto FromEntityDetailed(InviteCodeEntity entity) => _compiledDetailed(entity);
+    public static InviteCodeDto FromEntityDetailed(InviteCodeEntity entity) => _compiledDetailed(entity);
 }

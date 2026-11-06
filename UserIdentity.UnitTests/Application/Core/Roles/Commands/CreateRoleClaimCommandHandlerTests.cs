@@ -1,217 +1,233 @@
 ﻿using System.Security.Claims;
-
 using FakeItEasy;
-
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Options;
-
 using PolyzenKit.Application.Interfaces;
 using PolyzenKit.Common.Exceptions;
 using PolyzenKit.Common.Settings;
-
 using UserIdentity.Application.Core.Roles.Commands;
 using UserIdentity.Application.Core.Roles.ViewModels;
 using UserIdentity.UnitTests.TestUtils;
-
 using Xunit;
 
 namespace UserIdentity.UnitTests.Application.Core.Roles.Commands;
 
 public class CreateRoleClaimCommandHandlerTests
 {
+    private readonly RoleManager<IdentityRole> _roleManager;
+    private readonly IJwtTokenHandler _jwtTokenHandler;
+    private readonly IOptions<RoleSettings> _roleSettings = Options.Create(
+        new RoleSettings
+        {
+            ServiceName = "UserIdentity",
+            AdminRoles = "admin",
+            DefaultRole = "user",
+        }
+    );
 
-  private readonly RoleManager<IdentityRole> _roleManager;
-  private readonly IJwtTokenHandler _jwtTokenHandler;
-  private readonly IOptions<RoleSettings> _roleSettings = Options.Create(new RoleSettings
-  {
-    ServiceName = "UserIdentity",
-    AdminRoles = "admin",
-    DefaultRole = "user"
-  });
-
-  public CreateRoleClaimCommandHandlerTests()
-  {
-    _roleManager = A.Fake<RoleManager<IdentityRole>>();
-    _jwtTokenHandler = A.Fake<IJwtTokenHandler>();
-  }
-
-  [Fact]
-  public async Task Create_RoleClaim_When_Role_Does_Not_Exist_Throws_NoRecordException()
-  {
-    // Arrange
-    CreateRoleClaimCommand command = new() { RoleId = "1", Resource = "resource", Action = "action" };
-
-    A.CallTo(() => _roleManager.FindByIdAsync(command.RoleId)).Returns(default(IdentityRole));
-
-    CreateRoleClaimCommandHandler handler = new(_roleManager, _jwtTokenHandler, _roleSettings);
-
-    // Act & Assert
-    await Assert.ThrowsAsync<NoRecordException>(() => handler.CreateItemAsync(
-      command,
-      TestStringHelper.UserId,
-      TestContext.Current.CancellationToken));
-  }
-
-  [Fact]
-  public async Task Create_RoleClaim_For_Another_Apps_Role_Throws_NoRecordException()
-  {
-    // Arrange
-    CreateRoleClaimCommand command = new()
+    public CreateRoleClaimCommandHandlerTests()
     {
-      RoleId = "1",
-      Resource = "resource",
-      Action = "create",
-      AppName = "testapp"
-    };
+        _roleManager = A.Fake<RoleManager<IdentityRole>>();
+        _jwtTokenHandler = A.Fake<IJwtTokenHandler>();
+    }
 
-    A.CallTo(() => _roleManager.FindByIdAsync(command.RoleId))
-      .Returns(new IdentityRole { Id = command.RoleId, Name = "otherapp:owner" });
-
-    CreateRoleClaimCommandHandler handler = new(_roleManager, _jwtTokenHandler, _roleSettings);
-
-    // Act & Assert
-    await Assert.ThrowsAsync<NoRecordException>(() => handler.CreateItemAsync(
-      command,
-      TestStringHelper.UserId,
-      TestContext.Current.CancellationToken));
-    A.CallTo(() => _roleManager.AddClaimAsync(A<IdentityRole>._, A<Claim>._)).MustNotHaveHappened();
-  }
-
-  [Fact]
-  public async Task Create_RoleClaim_On_The_Global_Admin_Role_Throws_InvalidDataException()
-  {
-    // Arrange
-    CreateRoleClaimCommand command = new() { RoleId = "1", Resource = "resource", Action = "create" };
-
-    A.CallTo(() => _roleManager.FindByIdAsync(command.RoleId))
-      .Returns(new IdentityRole { Id = command.RoleId, Name = _roleSettings.Value.GlobalAdminRole });
-
-    CreateRoleClaimCommandHandler handler = new(_roleManager, _jwtTokenHandler, _roleSettings);
-
-    // Act & Assert
-    await Assert.ThrowsAsync<InvalidDataException>(() => handler.CreateItemAsync(
-      command,
-      TestStringHelper.UserId,
-      TestContext.Current.CancellationToken));
-    A.CallTo(() => _roleManager.AddClaimAsync(A<IdentityRole>._, A<Claim>._)).MustNotHaveHappened();
-  }
-
-  [Fact]
-  public async Task Create_RoleClaim_Stores_The_Scope_In_Lowercase()
-  {
-    // Arrange
-    CreateRoleClaimCommand command = new()
+    [Fact]
+    public async Task Create_RoleClaim_When_Role_Does_Not_Exist_Throws_NoRecordException()
     {
-      RoleId = "1",
-      Resource = "FileManager-File",
-      Action = "Create",
-      AppName = "testapp"
-    };
+        // Arrange
+        CreateRoleClaimCommand command = new()
+        {
+            RoleId = "1",
+            Resource = "resource",
+            Action = "action",
+        };
 
-    IdentityRole role = new() { Id = command.RoleId, Name = "testapp:owner" };
-    A.CallTo(() => _roleManager.FindByIdAsync(command.RoleId)).Returns(role);
+        A.CallTo(() => _roleManager.FindByIdAsync(command.RoleId)).Returns(default(IdentityRole));
 
-    Claim scopeClaim = new("scope", "filemanager-file:create");
-    A.CallTo(() => _jwtTokenHandler.GenerateScopeClaim("filemanager-file", "create")).Returns(scopeClaim);
-    A.CallTo(() => _roleManager.GetClaimsAsync(role)).Returns([]);
-    A.CallTo(() => _roleManager.AddClaimAsync(role, scopeClaim)).Returns(Task.FromResult(IdentityResult.Success));
+        CreateRoleClaimCommandHandler handler = new(_roleManager, _jwtTokenHandler, _roleSettings);
 
-    CreateRoleClaimCommandHandler handler = new(_roleManager, _jwtTokenHandler, _roleSettings);
+        // Act & Assert
+        await Assert.ThrowsAsync<NoRecordException>(() =>
+            handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken)
+        );
+    }
 
-    // Act
-    var vm = await handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken);
+    [Fact]
+    public async Task Create_RoleClaim_For_Another_Apps_Role_Throws_NoRecordException()
+    {
+        // Arrange
+        CreateRoleClaimCommand command = new()
+        {
+            RoleId = "1",
+            Resource = "resource",
+            Action = "create",
+            AppName = "testapp",
+        };
 
-    // Assert
-    Assert.Equal("filemanager-file", vm.RoleClaim.Resource);
-    Assert.Equal("create", vm.RoleClaim.Action);
-    A.CallTo(() => _roleManager.AddClaimAsync(role, scopeClaim)).MustHaveHappenedOnceExactly();
-  }
+        A.CallTo(() => _roleManager.FindByIdAsync(command.RoleId))
+            .Returns(new IdentityRole { Id = command.RoleId, Name = "otherapp:owner" });
 
-  [Fact]
-  public async Task Create_RoleClaim_When_Role_Claim_Exists_Throws_RecordExistsException()
-  {
-    // Arrange
-    CreateRoleClaimCommand command = new() { RoleId = "1", Resource = "resource", Action = "action" };
+        CreateRoleClaimCommandHandler handler = new(_roleManager, _jwtTokenHandler, _roleSettings);
 
-    var scope = command.Resource + ":" + command.Action;
+        // Act & Assert
+        await Assert.ThrowsAsync<NoRecordException>(() =>
+            handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken)
+        );
+        A.CallTo(() => _roleManager.AddClaimAsync(A<IdentityRole>._, A<Claim>._)).MustNotHaveHappened();
+    }
 
-    IdentityRole role = new() { Id = command.RoleId, Name = "Admin" };
-    A.CallTo(() => _roleManager.FindByIdAsync(command.RoleId)).Returns(role);
+    [Fact]
+    public async Task Create_RoleClaim_On_The_Global_Admin_Role_Throws_InvalidDataException()
+    {
+        // Arrange
+        CreateRoleClaimCommand command = new()
+        {
+            RoleId = "1",
+            Resource = "resource",
+            Action = "create",
+        };
 
-    Claim scopeClaim = new("scope", scope);
-    A.CallTo(() => _jwtTokenHandler.GenerateScopeClaim(command.Resource, command.Action)).Returns(scopeClaim);
+        A.CallTo(() => _roleManager.FindByIdAsync(command.RoleId))
+            .Returns(new IdentityRole { Id = command.RoleId, Name = _roleSettings.Value.GlobalAdminRole });
 
-    List<Claim> roleClaims = [new("scope", scope)];
+        CreateRoleClaimCommandHandler handler = new(_roleManager, _jwtTokenHandler, _roleSettings);
 
-    A.CallTo(() => _roleManager.GetClaimsAsync(role)).Returns(roleClaims);
+        // Act & Assert
+        await Assert.ThrowsAsync<InvalidDataException>(() =>
+            handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken)
+        );
+        A.CallTo(() => _roleManager.AddClaimAsync(A<IdentityRole>._, A<Claim>._)).MustNotHaveHappened();
+    }
 
-    CreateRoleClaimCommandHandler handler = new(_roleManager, _jwtTokenHandler, _roleSettings);
+    [Fact]
+    public async Task Create_RoleClaim_Stores_The_Scope_In_Lowercase()
+    {
+        // Arrange
+        CreateRoleClaimCommand command = new()
+        {
+            RoleId = "1",
+            Resource = "FileManager-File",
+            Action = "Create",
+            AppName = "testapp",
+        };
 
-    // Act & Assert
-    await Assert.ThrowsAsync<RecordExistsException>(() => handler.CreateItemAsync(
-      command,
-      TestStringHelper.UserId,
-      TestContext.Current.CancellationToken));
-  }
+        IdentityRole role = new() { Id = command.RoleId, Name = "testapp:owner" };
+        A.CallTo(() => _roleManager.FindByIdAsync(command.RoleId)).Returns(role);
 
-  [Fact]
-  public async Task Create_RoleClaim_When_Role_Claim_Creation_Fails_Throws_RecordCreationException()
-  {
-    // Arrange
-    CreateRoleClaimCommand command = new() { RoleId = "1", Resource = "resource", Action = "action" };
+        Claim scopeClaim = new("scope", "filemanager-file:create");
+        A.CallTo(() => _jwtTokenHandler.GenerateScopeClaim("filemanager-file", "create")).Returns(scopeClaim);
+        A.CallTo(() => _roleManager.GetClaimsAsync(role)).Returns([]);
+        A.CallTo(() => _roleManager.AddClaimAsync(role, scopeClaim)).Returns(Task.FromResult(IdentityResult.Success));
 
-    var scope = command.Resource + ":" + command.Action;
+        CreateRoleClaimCommandHandler handler = new(_roleManager, _jwtTokenHandler, _roleSettings);
 
-    IdentityRole role = new() { Id = command.RoleId, Name = "Admin" };
-    A.CallTo(() => _roleManager.FindByIdAsync(command.RoleId)).Returns(role);
+        // Act
+        var vm = await handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken);
 
-    Claim scopeClaim = new("scope", scope);
-    A.CallTo(() => _jwtTokenHandler.GenerateScopeClaim(command.Resource, command.Action)).Returns(scopeClaim);
+        // Assert
+        Assert.Equal("filemanager-file", vm.RoleClaim.Resource);
+        Assert.Equal("create", vm.RoleClaim.Action);
+        A.CallTo(() => _roleManager.AddClaimAsync(role, scopeClaim)).MustHaveHappenedOnceExactly();
+    }
 
-    List<Claim> roleClaims = [];
+    [Fact]
+    public async Task Create_RoleClaim_When_Role_Claim_Exists_Throws_RecordExistsException()
+    {
+        // Arrange
+        CreateRoleClaimCommand command = new()
+        {
+            RoleId = "1",
+            Resource = "resource",
+            Action = "action",
+        };
 
-    A.CallTo(() => _roleManager.GetClaimsAsync(role)).Returns(roleClaims);
+        var scope = command.Resource + ":" + command.Action;
 
-    A.CallTo(() => _roleManager.AddClaimAsync(role, scopeClaim)).Returns(Task.FromResult(IdentityResult.Failed()));
+        IdentityRole role = new() { Id = command.RoleId, Name = "Admin" };
+        A.CallTo(() => _roleManager.FindByIdAsync(command.RoleId)).Returns(role);
 
-    CreateRoleClaimCommandHandler handler = new(_roleManager, _jwtTokenHandler, _roleSettings);
+        Claim scopeClaim = new("scope", scope);
+        A.CallTo(() => _jwtTokenHandler.GenerateScopeClaim(command.Resource, command.Action)).Returns(scopeClaim);
 
-    // Act & Assert
-    await Assert.ThrowsAsync<RecordCreationException>(() => handler.CreateItemAsync(
-      command,
-      TestStringHelper.UserId,
-      TestContext.Current.CancellationToken));
-  }
+        List<Claim> roleClaims = [new("scope", scope)];
 
-  [Fact]
-  public async Task Create_RoleClaim_When_Role_Claim_Creation_Succeeds_Returns_RoleClaim()
-  {
-    // Arrange
-    CreateRoleClaimCommand command = new() { RoleId = "1", Resource = "resource", Action = "action" };
+        A.CallTo(() => _roleManager.GetClaimsAsync(role)).Returns(roleClaims);
 
-    var scope = command.Resource + ":" + command.Action;
+        CreateRoleClaimCommandHandler handler = new(_roleManager, _jwtTokenHandler, _roleSettings);
 
-    IdentityRole role = new() { Id = command.RoleId, Name = "Admin" };
-    A.CallTo(() => _roleManager.FindByIdAsync(command.RoleId)).Returns(role);
+        // Act & Assert
+        await Assert.ThrowsAsync<RecordExistsException>(() =>
+            handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken)
+        );
+    }
 
-    Claim scopeClaim = new("scope", scope);
-    A.CallTo(() => _jwtTokenHandler.GenerateScopeClaim(command.Resource, command.Action)).Returns(scopeClaim);
+    [Fact]
+    public async Task Create_RoleClaim_When_Role_Claim_Creation_Fails_Throws_RecordCreationException()
+    {
+        // Arrange
+        CreateRoleClaimCommand command = new()
+        {
+            RoleId = "1",
+            Resource = "resource",
+            Action = "action",
+        };
 
-    List<Claim> roleClaims = [];
+        var scope = command.Resource + ":" + command.Action;
 
-    A.CallTo(() => _roleManager.GetClaimsAsync(role)).Returns(roleClaims);
+        IdentityRole role = new() { Id = command.RoleId, Name = "Admin" };
+        A.CallTo(() => _roleManager.FindByIdAsync(command.RoleId)).Returns(role);
 
-    A.CallTo(() => _roleManager.AddClaimAsync(role, scopeClaim)).Returns(Task.FromResult(IdentityResult.Success));
+        Claim scopeClaim = new("scope", scope);
+        A.CallTo(() => _jwtTokenHandler.GenerateScopeClaim(command.Resource, command.Action)).Returns(scopeClaim);
 
-    CreateRoleClaimCommandHandler handler = new(_roleManager, _jwtTokenHandler, _roleSettings);
+        List<Claim> roleClaims = [];
 
-    // Act
-    var vm = await handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken);
+        A.CallTo(() => _roleManager.GetClaimsAsync(role)).Returns(roleClaims);
 
-    // Assert
-    Assert.IsType<RoleClaimViewModel>(vm);
-    Assert.Equal(command.Resource, vm.RoleClaim.Resource);
-    Assert.Equal(command.Action, vm.RoleClaim.Action);
-    Assert.Equal(scope, vm.RoleClaim.Scope);
-  }
+        A.CallTo(() => _roleManager.AddClaimAsync(role, scopeClaim)).Returns(Task.FromResult(IdentityResult.Failed()));
+
+        CreateRoleClaimCommandHandler handler = new(_roleManager, _jwtTokenHandler, _roleSettings);
+
+        // Act & Assert
+        await Assert.ThrowsAsync<RecordCreationException>(() =>
+            handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken)
+        );
+    }
+
+    [Fact]
+    public async Task Create_RoleClaim_When_Role_Claim_Creation_Succeeds_Returns_RoleClaim()
+    {
+        // Arrange
+        CreateRoleClaimCommand command = new()
+        {
+            RoleId = "1",
+            Resource = "resource",
+            Action = "action",
+        };
+
+        var scope = command.Resource + ":" + command.Action;
+
+        IdentityRole role = new() { Id = command.RoleId, Name = "Admin" };
+        A.CallTo(() => _roleManager.FindByIdAsync(command.RoleId)).Returns(role);
+
+        Claim scopeClaim = new("scope", scope);
+        A.CallTo(() => _jwtTokenHandler.GenerateScopeClaim(command.Resource, command.Action)).Returns(scopeClaim);
+
+        List<Claim> roleClaims = [];
+
+        A.CallTo(() => _roleManager.GetClaimsAsync(role)).Returns(roleClaims);
+
+        A.CallTo(() => _roleManager.AddClaimAsync(role, scopeClaim)).Returns(Task.FromResult(IdentityResult.Success));
+
+        CreateRoleClaimCommandHandler handler = new(_roleManager, _jwtTokenHandler, _roleSettings);
+
+        // Act
+        var vm = await handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.IsType<RoleClaimViewModel>(vm);
+        Assert.Equal(command.Resource, vm.RoleClaim.Resource);
+        Assert.Equal(command.Action, vm.RoleClaim.Action);
+        Assert.Equal(scope, vm.RoleClaim.Scope);
+    }
 }

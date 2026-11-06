@@ -1,11 +1,9 @@
 ﻿using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Options;
-
 using PolyzenKit.Application.Core;
 using PolyzenKit.Application.Core.Interfaces;
 using PolyzenKit.Common.Exceptions;
 using PolyzenKit.Common.Settings;
-
 using UserIdentity.Application.Core.Roles.Shared;
 using UserIdentity.Application.Core.Roles.ViewModels;
 using UserIdentity.Persistence.Repositories.UserRegisteredApps;
@@ -14,42 +12,38 @@ namespace UserIdentity.Application.Core.Roles.Queries;
 
 public record GetUserRolesQuery : IBaseQuery
 {
-  public required string UserId { get; init; }
+    public required string UserId { get; init; }
 
-  public string? AppName { get; init; }
+    public string? AppName { get; init; }
 }
 
 public class GetUserRolesQueryHandler(
-  RoleManager<IdentityRole> roleManager,
-  UserManager<IdentityUser> userManager,
-  IUserRegisteredAppRepository userRegisteredAppRepository,
-  IOptions<RoleSettings> roleSettingsOptions
-  ) : IGetItemsQueryHandler<GetUserRolesQuery, UserRolesViewModel>
+    RoleManager<IdentityRole> roleManager,
+    UserManager<IdentityUser> userManager,
+    IUserRegisteredAppRepository userRegisteredAppRepository,
+    IOptions<RoleSettings> roleSettingsOptions
+) : IGetItemsQueryHandler<GetUserRolesQuery, UserRolesViewModel>
 {
-  private readonly RoleManager<IdentityRole> _roleManager = roleManager;
-  private readonly UserManager<IdentityUser> _userManager = userManager;
-  private readonly IUserRegisteredAppRepository _userRegisteredAppRepository = userRegisteredAppRepository;
-  private readonly RoleSettings _roleSettings = roleSettingsOptions.Value;
+    private readonly RoleManager<IdentityRole> _roleManager = roleManager;
+    private readonly UserManager<IdentityUser> _userManager = userManager;
+    private readonly IUserRegisteredAppRepository _userRegisteredAppRepository = userRegisteredAppRepository;
+    private readonly RoleSettings _roleSettings = roleSettingsOptions.Value;
 
-  public async Task<UserRolesViewModel> GetItemsAsync(
-    GetUserRolesQuery query,
-    CancellationToken cancellationToken = default)
-  {
+    public async Task<UserRolesViewModel> GetItemsAsync(GetUserRolesQuery query, CancellationToken cancellationToken = default)
+    {
+        var user = await _userManager.FindByIdAsync(query.UserId) ?? throw NoRecordException.ForIdentifier(query.UserId);
 
-    var user = await _userManager.FindByIdAsync(query.UserId) ?? throw NoRecordException.ForIdentifier(query.UserId);
+        if (
+            query.AppName is not null
+            && !await _userRegisteredAppRepository.IsUserRegisteredForAppAsync(query.UserId, query.AppName, cancellationToken)
+        )
+            throw NoRecordException.ForIdentifier(query.UserId);
 
-    if (query.AppName is not null
-      && !await _userRegisteredAppRepository.IsUserRegisteredForAppAsync(
-        query.UserId,
-        query.AppName,
-        cancellationToken))
-      throw NoRecordException.ForIdentifier(query.UserId);
+        var userRoles = await _userManager.GetRolesAsync(user) ?? [];
 
-    var userRoles = await _userManager.GetRolesAsync(user) ?? [];
+        if (query.AppName is not null)
+            userRoles = AppRoleNames.ForApp(userRoles, query.AppName, _roleSettings.GlobalAdminRole);
 
-    if (query.AppName is not null)
-      userRoles = AppRoleNames.ForApp(userRoles, query.AppName, _roleSettings.GlobalAdminRole);
-
-    return new UserRolesViewModel { UserRoles = userRoles };
-  }
+        return new UserRolesViewModel { UserRoles = userRoles };
+    }
 }

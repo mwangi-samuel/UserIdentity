@@ -1,19 +1,17 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
-
 using PolyzenKit.Persistence.Configurations;
-
 using UserIdentity.Domain.WaitLists;
 
 namespace UserIdentity.Persistence.Configurations;
 
 public class WaitListConfiguration : IEntityTypeConfiguration<WaitListEntity>
 {
-  public void Configure(EntityTypeBuilder<WaitListEntity> builder)
-  {
-    builder.ConfigureLongPrimaryKey();
+    public void Configure(EntityTypeBuilder<WaitListEntity> builder)
+    {
+        builder.ConfigureLongPrimaryKey();
 
-    builder.Property(e => e.UserEmail).HasMaxLength(WaitListEntity.UserEmailMaxLength);
-    builder.HasIndex(e => new { e.AppId, e.UserEmail }).IsUnique();
-  }
+        builder.Property(e => e.UserEmail).HasMaxLength(WaitListEntity.UserEmailMaxLength);
+        builder.HasIndex(e => new { e.AppId, e.UserEmail }).IsUnique();
+    }
 }

@@ -1,80 +1,85 @@
 ﻿using FakeItEasy;
-
 using PolyzenKit.Application.Interfaces;
 using PolyzenKit.Persistence.Repositories;
-
 using UserIdentity.Application.Core.Users.Commands;
 using UserIdentity.Domain.RefreshTokens;
 using UserIdentity.Persistence.Repositories.RefreshTokens;
 using UserIdentity.UnitTests.TestUtils;
-
 using Xunit;
 
 namespace UserIdentity.UnitTests.Application.Core.Users.Commands;
 
 public class LogoutUserCommandHandlerTests
 {
-  private const string RefreshToken = "SampleRefreshToken";
-  private const string RefreshTokenHash = "SampleRefreshTokenHash";
+    private const string RefreshToken = "SampleRefreshToken";
+    private const string RefreshTokenHash = "SampleRefreshTokenHash";
 
-  private readonly ITokenFactory _tokenFactory;
-  private readonly IUnitOfWork _unitOfWork;
-  private readonly IRefreshTokenRepository _refreshTokenRepository;
+    private readonly ITokenFactory _tokenFactory;
+    private readonly IUnitOfWork _unitOfWork;
+    private readonly IRefreshTokenRepository _refreshTokenRepository;
 
-  public LogoutUserCommandHandlerTests()
-  {
-    _tokenFactory = A.Fake<ITokenFactory>();
-    _unitOfWork = A.Fake<IUnitOfWork>();
-    _refreshTokenRepository = A.Fake<IRefreshTokenRepository>();
-
-    A.CallTo(() => _tokenFactory.HashToken(RefreshToken)).Returns(RefreshTokenHash);
-  }
-
-  [Fact]
-  public async Task Logout_With_Existing_Refresh_Token_Removes_Refresh_Token()
-  {
-    // Arrange
-    var command = new LogoutUserCommand { RefreshToken = RefreshToken };
-    var existingEntity = new RefreshTokenEntity
+    public LogoutUserCommandHandlerTests()
     {
-      Id = Guid.NewGuid(),
-      UserId = TestStringHelper.UserId,
-      Token = RefreshTokenHash
-    };
+        _tokenFactory = A.Fake<ITokenFactory>();
+        _unitOfWork = A.Fake<IUnitOfWork>();
+        _refreshTokenRepository = A.Fake<IRefreshTokenRepository>();
 
-    A.CallTo(() => _refreshTokenRepository.GetEntityByAlternateIdAsync(
-        A<RefreshTokenEntity>.That.Matches(e => e.UserId == TestStringHelper.UserId && e.Token == RefreshTokenHash),
-        QueryCondition.MayOrMayNotExist, A<CancellationToken>._)).Returns(existingEntity);
+        A.CallTo(() => _tokenFactory.HashToken(RefreshToken)).Returns(RefreshTokenHash);
+    }
 
-    var handler = new LogoutUserCommandHandler(_tokenFactory, _unitOfWork, _refreshTokenRepository);
+    [Fact]
+    public async Task Logout_With_Existing_Refresh_Token_Removes_Refresh_Token()
+    {
+        // Arrange
+        var command = new LogoutUserCommand { RefreshToken = RefreshToken };
+        var existingEntity = new RefreshTokenEntity
+        {
+            Id = Guid.NewGuid(),
+            UserId = TestStringHelper.UserId,
+            Token = RefreshTokenHash,
+        };
 
-    // Act
-    await handler.DeleteItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken);
+        A.CallTo(() =>
+                _refreshTokenRepository.GetEntityByAlternateIdAsync(
+                    A<RefreshTokenEntity>.That.Matches(e => e.UserId == TestStringHelper.UserId && e.Token == RefreshTokenHash),
+                    QueryCondition.MayOrMayNotExist,
+                    A<CancellationToken>._
+                )
+            )
+            .Returns(existingEntity);
 
-    // Assert
-    A.CallTo(() => _refreshTokenRepository.RemoveEntityItem(existingEntity)).MustHaveHappenedOnceExactly();
-    A.CallTo(() => _unitOfWork.SaveChangesAsync(A<CancellationToken>._)).MustHaveHappenedOnceExactly();
-  }
+        var handler = new LogoutUserCommandHandler(_tokenFactory, _unitOfWork, _refreshTokenRepository);
 
-  [Fact]
-  public async Task Logout_With_Unknown_Refresh_Token_Does_Nothing()
-  {
-    // Arrange
-    var command = new LogoutUserCommand { RefreshToken = RefreshToken };
+        // Act
+        await handler.DeleteItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken);
 
-    A.CallTo(() => _refreshTokenRepository.GetEntityByAlternateIdAsync(
-      A<RefreshTokenEntity>._,
-      QueryCondition.MayOrMayNotExist,
-      A<CancellationToken>._))
-        .Returns((RefreshTokenEntity?)null);
+        // Assert
+        A.CallTo(() => _refreshTokenRepository.RemoveEntityItem(existingEntity)).MustHaveHappenedOnceExactly();
+        A.CallTo(() => _unitOfWork.SaveChangesAsync(A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+    }
 
-    var handler = new LogoutUserCommandHandler(_tokenFactory, _unitOfWork, _refreshTokenRepository);
+    [Fact]
+    public async Task Logout_With_Unknown_Refresh_Token_Does_Nothing()
+    {
+        // Arrange
+        var command = new LogoutUserCommand { RefreshToken = RefreshToken };
 
-    // Act
-    await handler.DeleteItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken);
+        A.CallTo(() =>
+                _refreshTokenRepository.GetEntityByAlternateIdAsync(
+                    A<RefreshTokenEntity>._,
+                    QueryCondition.MayOrMayNotExist,
+                    A<CancellationToken>._
+                )
+            )
+            .Returns((RefreshTokenEntity?)null);
 
-    // Assert
-    A.CallTo(() => _refreshTokenRepository.RemoveEntityItem(A<RefreshTokenEntity>._)).MustNotHaveHappened();
-    A.CallTo(() => _unitOfWork.SaveChangesAsync(A<CancellationToken>._)).MustNotHaveHappened();
-  }
+        var handler = new LogoutUserCommandHandler(_tokenFactory, _unitOfWork, _refreshTokenRepository);
+
+        // Act
+        await handler.DeleteItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken);
+
+        // Assert
+        A.CallTo(() => _refreshTokenRepository.RemoveEntityItem(A<RefreshTokenEntity>._)).MustNotHaveHappened();
+        A.CallTo(() => _unitOfWork.SaveChangesAsync(A<CancellationToken>._)).MustNotHaveHappened();
+    }
 }

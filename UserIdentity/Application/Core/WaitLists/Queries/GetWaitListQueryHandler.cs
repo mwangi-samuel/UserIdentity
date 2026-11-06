@@ -2,7 +2,6 @@
 using PolyzenKit.Application.Core.Interfaces;
 using PolyzenKit.Common.Exceptions;
 using PolyzenKit.Persistence.Repositories;
-
 using UserIdentity.Application.Core.WaitLists.ViewModels;
 using UserIdentity.Domain.WaitLists;
 using UserIdentity.Persistence.Repositories.WaitLists;
@@ -11,35 +10,34 @@ namespace UserIdentity.Application.Core.WaitLists.Queries;
 
 public class GetWaitListQuery : IBaseQuery
 {
-  public long? WaitListId { get; set; }
+    public long? WaitListId { get; set; }
 
-  public string? UserEmail { get; set; }
+    public string? UserEmail { get; set; }
 
-  public required int AppId { get; init; }
+    public required int AppId { get; init; }
 }
 
-public class GetWaitListQueryHandler(
-  IWaitListRepository waitListRepository
-  ) : IGetItemQueryHandler<GetWaitListQuery, WaitListViewModel>
+public class GetWaitListQueryHandler(IWaitListRepository waitListRepository) : IGetItemQueryHandler<GetWaitListQuery, WaitListViewModel>
 {
-  private readonly IWaitListRepository _waitListRepository = waitListRepository;
+    private readonly IWaitListRepository _waitListRepository = waitListRepository;
 
-  public async Task<WaitListViewModel> GetItemAsync(
-    GetWaitListQuery query,
-    CancellationToken cancellationToken = default)
-  {
+    public async Task<WaitListViewModel> GetItemAsync(GetWaitListQuery query, CancellationToken cancellationToken = default)
+    {
+        var dto = query.WaitListId.HasValue
+            ? await _waitListRepository.GetEntityDtoByIdAsync(query.WaitListId!.Value, cancellationToken)
+            : WaitListDto.FromEntityDetailed(
+                (
+                    await _waitListRepository.GetEntityByAlternateIdAsync(
+                        new() { AppId = query.AppId, UserEmail = query.UserEmail! },
+                        QueryCondition.MustExist,
+                        cancellationToken
+                    )
+                )!
+            );
 
-    var dto = query.WaitListId.HasValue
-      ? await _waitListRepository.GetEntityDtoByIdAsync(query.WaitListId!.Value, cancellationToken)
-      : WaitListDto.FromEntityDetailed(
-        (await _waitListRepository.GetEntityByAlternateIdAsync(
-          new() { AppId = query.AppId, UserEmail = query.UserEmail! },
-          QueryCondition.MustExist,
-          cancellationToken))!);
+        if (dto.AppId != query.AppId)
+            throw NoRecordException.ForIdentifier($"{query.WaitListId}");
 
-    if (dto.AppId != query.AppId)
-      throw NoRecordException.ForIdentifier($"{query.WaitListId}");
-
-    return new WaitListViewModel { WaitList = dto };
-  }
+        return new WaitListViewModel { WaitList = dto };
+    }
 }

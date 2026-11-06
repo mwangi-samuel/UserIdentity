@@ -4,15 +4,14 @@ namespace UserIdentity.Persistence;
 
 public static class DbInitializer
 {
-  public static void InitializeDb(IApplicationBuilder app)
-  {
-    using var serviceScope = app.ApplicationServices.CreateScope();
-    var database = serviceScope.ServiceProvider.GetRequiredService<AppDbContext>().Database;
+    public static void InitializeDb(IApplicationBuilder app)
+    {
+        using var serviceScope = app.ApplicationServices.CreateScope();
+        var database = serviceScope.ServiceProvider.GetRequiredService<AppDbContext>().Database;
 
-    if (database.IsRelational())
-      database.Migrate();
-
-    else
-      database.EnsureCreated();
-  }
+        if (database.IsRelational())
+            database.Migrate();
+        else
+            database.EnsureCreated();
+    }
 }
