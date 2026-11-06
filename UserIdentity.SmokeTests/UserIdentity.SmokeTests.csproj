@@ -1,5 +1,4 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-
   <PropertyGroup>
     <OutputType>Exe</OutputType>
 
@@ -22,7 +21,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Include="..\UserIdentity.IntegrationTests\TestUtils\EdDsaHelper.cs" Link="EdDsaHelper.cs" />
+    <Compile
+      Include="..\UserIdentity.IntegrationTests\TestUtils\EdDsaHelper.cs"
+      Link="EdDsaHelper.cs"
+    />
   </ItemGroup>
-
 </Project>

@@ -25,6 +25,7 @@ RUN dotnet publish "UserIdentity.csproj" \
     --no-restore \
     -o /app/publish \
     /p:ExcludeEfDesign=true \
+    /p:CSharpier_Bypass=true \
     /p:SelfContained=true \
     /p:PublishTrimmed=true \
     /p:TrimMode=partial \

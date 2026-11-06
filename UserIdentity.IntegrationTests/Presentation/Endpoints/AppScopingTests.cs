@@ -1,249 +1,252 @@
 ﻿using System.Net;
-
 using Microsoft.IdentityModel.JsonWebTokens;
-
 using PolyzenKit.Common.Utilities;
-
 using UserIdentity.IntegrationTests.TestUtils;
-
 using Xunit;
 
 namespace UserIdentity.IntegrationTests.Presentation.Endpoints;
 
-public class AppScopingTests(
-  TestingWebAppFactory testingWebAppFactory,
-  ITestOutputHelper outputHelper
-  ) : BaseIntegrationTests(testingWebAppFactory, outputHelper)
+public class AppScopingTests(TestingWebAppFactory testingWebAppFactory, ITestOutputHelper outputHelper)
+    : BaseIntegrationTests(testingWebAppFactory, outputHelper)
 {
-  private const string OtherAppRole = "otherapp:admin";
-  private const string OwnerRole = "testapp:owner";
+    private const string OtherAppRole = "otherapp:admin";
+    private const string OwnerRole = "testapp:owner";
 
-  [Fact]
-  public async Task Login_To_An_App_The_User_Isnt_Registered_For_Returns_Unauthorized()
-  {
-    // Arrange
-    TestDbHelper.SeedDatabase();
-
-    var httpRequest = new HttpRequestMessage(HttpMethod.Post, ApiRequestHelper.loginUrl)
+    [Fact]
+    public async Task Login_To_An_App_The_User_Isnt_Registered_For_Returns_Unauthorized()
     {
-      Content = SerDeHelper.ConvertToHttpContent(new
-      {
-        UserName = UserSettingHelper.UserName,
-        Password = UserSettingHelper.UserPassword
-      })
-    };
-    httpRequest.AddXApiKey();
-    httpRequest.Headers.Add("X-App-Name", TestingWebAppFactory.OtherAppName);
+        // Arrange
+        TestDbHelper.SeedDatabase();
 
-    // Act
-    var response = await HttpClient.SendAsync(httpRequest, TestContext.Current.CancellationToken);
+        var httpRequest = new HttpRequestMessage(HttpMethod.Post, ApiRequestHelper.loginUrl)
+        {
+            Content = SerDeHelper.ConvertToHttpContent(
+                new { UserName = UserSettingHelper.UserName, Password = UserSettingHelper.UserPassword }
+            ),
+        };
+        httpRequest.AddXApiKey();
+        httpRequest.Headers.Add("X-App-Name", TestingWebAppFactory.OtherAppName);
 
-    // Assert
-    await response.ValidateRequestResponseAsync();
+        // Act
+        var response = await HttpClient.SendAsync(httpRequest, TestContext.Current.CancellationToken);
 
-    Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
-  }
+        // Assert
+        await response.ValidateRequestResponseAsync();
 
-  [Fact]
-  public async Task Login_Token_Carries_Only_The_Apps_Roles()
-  {
-    // Arrange
-    TestDbHelper.SeedDatabase();
-    TestDbHelper.CreateIdentityRole(OtherAppRole);
-    TestDbHelper.CreateIdentityUserRole(OtherAppRole, UserSettingHelper.UserId);
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
 
-    // Act
-    (var token, _) = await HttpClient.LoginUserAsync(UserSettingHelper.UserName, UserSettingHelper.UserPassword);
+    [Fact]
+    public async Task Login_Token_Carries_Only_The_Apps_Roles()
+    {
+        // Arrange
+        TestDbHelper.SeedDatabase();
+        TestDbHelper.CreateIdentityRole(OtherAppRole);
+        TestDbHelper.CreateIdentityUserRole(OtherAppRole, UserSettingHelper.UserId);
 
-    // Assert
-    var roles = new JsonWebToken(token).Claims.Where(c => c.Type == JwtCustomClaimNames.Roles)
-      .Select(c => c.Value)
-      .ToList();
+        // Act
+        (var token, _) = await HttpClient.LoginUserAsync(UserSettingHelper.UserName, UserSettingHelper.UserPassword);
 
-    Assert.Contains(TestDbHelper.DefaultRole, roles);
-    Assert.DoesNotContain(OtherAppRole, roles);
-  }
+        // Assert
+        var roles = new JsonWebToken(token).Claims.Where(c => c.Type == JwtCustomClaimNames.Roles).Select(c => c.Value).ToList();
 
-  [Fact]
-  public async Task Login_Token_Carries_Only_The_Apps_Role_Scopes()
-  {
-    // Arrange
-    TestDbHelper.SeedDatabase();
-    TestDbHelper.CreateIdentityRole(OwnerRole);
-    TestDbHelper.CreateIdentityUserRole(OwnerRole, UserSettingHelper.UserId);
-    TestDbHelper.UpdateRoleClaim(OwnerRole, "filemanager-file:create");
-    TestDbHelper.CreateIdentityRole(OtherAppRole);
-    TestDbHelper.CreateIdentityUserRole(OtherAppRole, UserSettingHelper.UserId);
-    TestDbHelper.UpdateRoleClaim(OtherAppRole, "commercemanager-product:all");
+        Assert.Contains(TestDbHelper.DefaultRole, roles);
+        Assert.DoesNotContain(OtherAppRole, roles);
+    }
 
-    // Act
-    (var token, _) = await HttpClient.LoginUserAsync(UserSettingHelper.UserName, UserSettingHelper.UserPassword);
+    [Fact]
+    public async Task Login_Token_Carries_Only_The_Apps_Role_Scopes()
+    {
+        // Arrange
+        TestDbHelper.SeedDatabase();
+        TestDbHelper.CreateIdentityRole(OwnerRole);
+        TestDbHelper.CreateIdentityUserRole(OwnerRole, UserSettingHelper.UserId);
+        TestDbHelper.UpdateRoleClaim(OwnerRole, "filemanager-file:create");
+        TestDbHelper.CreateIdentityRole(OtherAppRole);
+        TestDbHelper.CreateIdentityUserRole(OtherAppRole, UserSettingHelper.UserId);
+        TestDbHelper.UpdateRoleClaim(OtherAppRole, "commercemanager-product:all");
 
-    // Assert
-    var scopes = new JsonWebToken(token).Claims.Where(c => c.Type == JwtCustomClaimNames.Scope)
-      .Select(c => c.Value)
-      .ToList();
+        // Act
+        (var token, _) = await HttpClient.LoginUserAsync(UserSettingHelper.UserName, UserSettingHelper.UserPassword);
 
-    Assert.Equal("filemanager-file:create", Assert.Single(scopes));
-  }
+        // Assert
+        var scopes = new JsonWebToken(token).Claims.Where(c => c.Type == JwtCustomClaimNames.Scope).Select(c => c.Value).ToList();
 
-  [Fact]
-  public async Task App_Admins_Add_Scopes_To_Their_Apps_Roles()
-  {
-    // Arrange
-    TestDbHelper.SeedDatabase();
-    TestDbHelper.CreateIdentityRole(TestDbHelper.AdminRoles.First());
-    TestDbHelper.ConfigureIdentityUserAsAdmin();
-    var role = TestDbHelper.CreateIdentityRole(OwnerRole);
+        Assert.Equal("filemanager-file:create", Assert.Single(scopes));
+    }
 
-    // Act
-    var response = await HttpClient.SendValidAuthRequestAsync(
-      HttpMethod.Post,
-      "/api/v1/role/claim",
-      new { RoleId = role.Id, Resource = "FileManager-File", Action = "Create" });
+    [Fact]
+    public async Task App_Admins_Add_Scopes_To_Their_Apps_Roles()
+    {
+        // Arrange
+        TestDbHelper.SeedDatabase();
+        TestDbHelper.CreateIdentityRole(TestDbHelper.AdminRoles.First());
+        TestDbHelper.ConfigureIdentityUserAsAdmin();
+        var role = TestDbHelper.CreateIdentityRole(OwnerRole);
 
-    // Assert
-    await response.ValidateRequestResponseAsync();
+        // Act
+        var response = await HttpClient.SendValidAuthRequestAsync(
+            HttpMethod.Post,
+            "/api/v1/role/claim",
+            new
+            {
+                RoleId = role.Id,
+                Resource = "FileManager-File",
+                Action = "Create",
+            }
+        );
 
-    Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-    Assert.Equal("filemanager-file:create", Assert.Single(TestDbHelper.GetRoleClaims(OwnerRole)));
-  }
+        // Assert
+        await response.ValidateRequestResponseAsync();
 
-  [Fact]
-  public async Task Adding_A_Scope_To_Another_Apps_Role_As_An_App_Admin_Returns_Not_Found()
-  {
-    // Arrange
-    TestDbHelper.SeedDatabase();
-    TestDbHelper.CreateIdentityRole(TestDbHelper.AdminRoles.First());
-    TestDbHelper.ConfigureIdentityUserAsAdmin();
-    var role = TestDbHelper.CreateIdentityRole(OtherAppRole);
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        Assert.Equal("filemanager-file:create", Assert.Single(TestDbHelper.GetRoleClaims(OwnerRole)));
+    }
 
-    // Act
-    var response = await HttpClient.SendValidAuthRequestAsync(
-      HttpMethod.Post,
-      "/api/v1/role/claim",
-      new { RoleId = role.Id, Resource = "filemanager-file", Action = "create" });
+    [Fact]
+    public async Task Adding_A_Scope_To_Another_Apps_Role_As_An_App_Admin_Returns_Not_Found()
+    {
+        // Arrange
+        TestDbHelper.SeedDatabase();
+        TestDbHelper.CreateIdentityRole(TestDbHelper.AdminRoles.First());
+        TestDbHelper.ConfigureIdentityUserAsAdmin();
+        var role = TestDbHelper.CreateIdentityRole(OtherAppRole);
 
-    // Assert
-    await response.ValidateRequestResponseAsync();
+        // Act
+        var response = await HttpClient.SendValidAuthRequestAsync(
+            HttpMethod.Post,
+            "/api/v1/role/claim",
+            new
+            {
+                RoleId = role.Id,
+                Resource = "filemanager-file",
+                Action = "create",
+            }
+        );
 
-    Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
-    Assert.Empty(TestDbHelper.GetRoleClaims(OtherAppRole));
-  }
+        // Assert
+        await response.ValidateRequestResponseAsync();
 
-  [Fact]
-  public async Task Another_Apps_Role_Scopes_Are_Not_Found_For_An_App_Admin()
-  {
-    // Arrange
-    TestDbHelper.SeedDatabase();
-    TestDbHelper.CreateIdentityRole(TestDbHelper.AdminRoles.First());
-    TestDbHelper.ConfigureIdentityUserAsAdmin();
-    var role = TestDbHelper.CreateIdentityRole(OtherAppRole);
-    TestDbHelper.UpdateRoleClaim(OtherAppRole, "filemanager-file:create");
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Empty(TestDbHelper.GetRoleClaims(OtherAppRole));
+    }
 
-    // Act
-    var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Get, $"/api/v1/role/claim/{role.Id}");
+    [Fact]
+    public async Task Another_Apps_Role_Scopes_Are_Not_Found_For_An_App_Admin()
+    {
+        // Arrange
+        TestDbHelper.SeedDatabase();
+        TestDbHelper.CreateIdentityRole(TestDbHelper.AdminRoles.First());
+        TestDbHelper.ConfigureIdentityUserAsAdmin();
+        var role = TestDbHelper.CreateIdentityRole(OtherAppRole);
+        TestDbHelper.UpdateRoleClaim(OtherAppRole, "filemanager-file:create");
 
-    // Assert
-    await response.ValidateRequestResponseAsync();
+        // Act
+        var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Get, $"/api/v1/role/claim/{role.Id}");
 
-    Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
-  }
+        // Assert
+        await response.ValidateRequestResponseAsync();
 
-  [Fact]
-  public async Task Adding_A_Scope_To_The_Global_Admin_Role_Returns_Bad_Request()
-  {
-    // Arrange
-    TestDbHelper.SeedDatabase();
-    TestDbHelper.ConfigureIdentityUserAsGlobalAdmin();
-    var globalAdminRole = TestDbHelper.GetIdentityRole(KnownRoles.GlobalAdmin)!;
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
 
-    // Act
-    var response = await HttpClient.SendValidAuthRequestAsync(
-      HttpMethod.Post,
-      "/api/v1/role/claim",
-      new { RoleId = globalAdminRole.Id, Resource = "filemanager-file", Action = "create" });
+    [Fact]
+    public async Task Adding_A_Scope_To_The_Global_Admin_Role_Returns_Bad_Request()
+    {
+        // Arrange
+        TestDbHelper.SeedDatabase();
+        TestDbHelper.ConfigureIdentityUserAsGlobalAdmin();
+        var globalAdminRole = TestDbHelper.GetIdentityRole(KnownRoles.GlobalAdmin)!;
 
-    // Assert
-    await response.ValidateRequestResponseAsync();
+        // Act
+        var response = await HttpClient.SendValidAuthRequestAsync(
+            HttpMethod.Post,
+            "/api/v1/role/claim",
+            new
+            {
+                RoleId = globalAdminRole.Id,
+                Resource = "filemanager-file",
+                Action = "create",
+            }
+        );
 
-    Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-    Assert.Empty(TestDbHelper.GetRoleClaims(KnownRoles.GlobalAdmin));
-  }
+        // Assert
+        await response.ValidateRequestResponseAsync();
 
-  [Fact]
-  public async Task Registered_Apps_Are_Forbidden_To_App_Admins()
-  {
-    // Arrange
-    TestDbHelper.SeedDatabase();
-    TestDbHelper.CreateIdentityRole(TestDbHelper.AdminRoles.First());
-    TestDbHelper.ConfigureIdentityUserAsAdmin();
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Empty(TestDbHelper.GetRoleClaims(KnownRoles.GlobalAdmin));
+    }
 
-    // Act
-    var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Get, "/api/v1/registered-app");
+    [Fact]
+    public async Task Registered_Apps_Are_Forbidden_To_App_Admins()
+    {
+        // Arrange
+        TestDbHelper.SeedDatabase();
+        TestDbHelper.CreateIdentityRole(TestDbHelper.AdminRoles.First());
+        TestDbHelper.ConfigureIdentityUserAsAdmin();
 
-    // Assert
-    await response.ValidateRequestResponseAsync();
+        // Act
+        var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Get, "/api/v1/registered-app");
 
-    Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
-  }
+        // Assert
+        await response.ValidateRequestResponseAsync();
 
-  [Fact]
-  public async Task Registered_Apps_Are_Listed_For_Global_Admins()
-  {
-    // Arrange
-    TestDbHelper.SeedDatabase();
-    TestDbHelper.ConfigureIdentityUserAsGlobalAdmin();
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
 
-    // Act
-    var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Get, "/api/v1/registered-app");
+    [Fact]
+    public async Task Registered_Apps_Are_Listed_For_Global_Admins()
+    {
+        // Arrange
+        TestDbHelper.SeedDatabase();
+        TestDbHelper.ConfigureIdentityUserAsGlobalAdmin();
 
-    // Assert
-    await response.ValidateRequestResponseAsync();
+        // Act
+        var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Get, "/api/v1/registered-app");
 
-    Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-  }
+        // Assert
+        await response.ValidateRequestResponseAsync();
 
-  [Fact]
-  public async Task Creating_Another_Apps_Role_As_An_App_Admin_Returns_Bad_Request()
-  {
-    // Arrange
-    TestDbHelper.SeedDatabase();
-    TestDbHelper.CreateIdentityRole(TestDbHelper.AdminRoles.First());
-    TestDbHelper.ConfigureIdentityUserAsAdmin();
-    // Roles aren't reset between tests, and other tests here create this one
-    TestDbHelper.DeleteIdnetityRole(OtherAppRole);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
 
-    // Act
-    var response = await HttpClient.SendValidAuthRequestAsync(
-      HttpMethod.Post,
-      "/api/v1/role",
-      new { RoleName = OtherAppRole });
+    [Fact]
+    public async Task Creating_Another_Apps_Role_As_An_App_Admin_Returns_Bad_Request()
+    {
+        // Arrange
+        TestDbHelper.SeedDatabase();
+        TestDbHelper.CreateIdentityRole(TestDbHelper.AdminRoles.First());
+        TestDbHelper.ConfigureIdentityUserAsAdmin();
+        // Roles aren't reset between tests, and other tests here create this one
+        TestDbHelper.DeleteIdnetityRole(OtherAppRole);
 
-    // Assert
-    await response.ValidateRequestResponseAsync();
+        // Act
+        var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Post, "/api/v1/role", new { RoleName = OtherAppRole });
 
-    Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-    Assert.Null(TestDbHelper.GetIdentityRole(OtherAppRole));
-  }
+        // Assert
+        await response.ValidateRequestResponseAsync();
 
-  [Fact]
-  public async Task Another_Apps_Invite_Code_Is_Not_Found_For_An_App_Admin()
-  {
-    // Arrange
-    TestDbHelper.SeedDatabase();
-    TestDbHelper.CreateIdentityRole(TestDbHelper.AdminRoles.First());
-    TestDbHelper.ConfigureIdentityUserAsAdmin();
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Null(TestDbHelper.GetIdentityRole(OtherAppRole));
+    }
 
-    var testEmail = "other-app-invite@example.com";
-    TestDbHelper.CreateInviteCodeEntity(testEmail, TestingWebAppFactory.OtherAppName);
+    [Fact]
+    public async Task Another_Apps_Invite_Code_Is_Not_Found_For_An_App_Admin()
+    {
+        // Arrange
+        TestDbHelper.SeedDatabase();
+        TestDbHelper.CreateIdentityRole(TestDbHelper.AdminRoles.First());
+        TestDbHelper.ConfigureIdentityUserAsAdmin();
 
-    // Act
-    var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Get, $"/api/v1/invite-code/email/{testEmail}");
+        var testEmail = "other-app-invite@example.com";
+        TestDbHelper.CreateInviteCodeEntity(testEmail, TestingWebAppFactory.OtherAppName);
 
-    // Assert
-    await response.ValidateRequestResponseAsync();
+        // Act
+        var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Get, $"/api/v1/invite-code/email/{testEmail}");
 
-    Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
-  }
+        // Assert
+        await response.ValidateRequestResponseAsync();
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
 }

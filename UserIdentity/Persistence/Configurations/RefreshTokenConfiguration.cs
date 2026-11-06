@@ -1,34 +1,26 @@
 ﻿using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
-
 using PolyzenKit.Persistence.Configurations;
-
 using UserIdentity.Domain.RefreshTokens;
 
 namespace UserIdentity.Persistence.Configurations;
 
 public class RefreshTokenConfiguration : IEntityTypeConfiguration<RefreshTokenEntity>
 {
+    public void Configure(EntityTypeBuilder<RefreshTokenEntity> builder)
+    {
+        builder.ConfigureGuidPrimaryKey();
 
-  public void Configure(EntityTypeBuilder<RefreshTokenEntity> builder)
-  {
-    builder.ConfigureGuidPrimaryKey();
+        builder.Property(e => e.Token).HasMaxLength(200);
+        builder.HasIndex(e => e.Token);
 
-    builder.Property(e => e.Token).HasMaxLength(200);
-    builder.HasIndex(e => e.Token);
+        builder.Property(e => e.PreviousToken).HasMaxLength(200);
+        builder.HasIndex(e => e.PreviousToken);
 
-    builder.Property(e => e.PreviousToken).HasMaxLength(200);
-    builder.HasIndex(e => e.PreviousToken);
+        builder.HasOne<IdentityUser>().WithMany().HasForeignKey(e => e.UserId).IsRequired().OnDelete(DeleteBehavior.Cascade);
+        builder.HasIndex(e => e.Expires);
 
-    builder.HasOne<IdentityUser>()
-      .WithMany()
-      .HasForeignKey(e => e.UserId)
-      .IsRequired()
-      .OnDelete(DeleteBehavior.Cascade);
-    builder.HasIndex(e => e.Expires);
-
-    builder.Property(e => e.Version).IsConcurrencyToken();
-
-  }
+        builder.Property(e => e.Version).IsConcurrencyToken();
+    }
 }

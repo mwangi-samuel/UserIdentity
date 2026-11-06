@@ -2,5 +2,5 @@
 
 public record UpdatePasswordDto
 {
-  public bool PassWordUpdated { get; init; }
+    public bool PassWordUpdated { get; init; }
 }

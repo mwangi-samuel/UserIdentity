@@ -2,5 +2,5 @@
 
 public record VerifyPasswordResetDto
 {
-  public bool PasswordResetVerified { get; init; }
+    public bool PasswordResetVerified { get; init; }
 }

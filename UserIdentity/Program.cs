@@ -1,9 +1,7 @@
 ﻿using Microsoft.IdentityModel.Logging;
-
 using PolyzenKit;
 using PolyzenKit.Presentation.Endpoints;
 using PolyzenKit.Presentation.Middlewares;
-
 using UserIdentity;
 using UserIdentity.Application.Interfaces;
 using UserIdentity.Infrastructure.ExternalServices;
@@ -65,9 +63,9 @@ app.UseForwardedHeaders();
 
 if (app.Environment.IsDevelopment())
 {
-  app.MapOpenApi();
-  IdentityModelEventSource.ShowPII = true;
-  IdentityModelEventSource.LogCompleteSecurityArtifact = true;
+    app.MapOpenApi();
+    IdentityModelEventSource.ShowPII = true;
+    IdentityModelEventSource.LogCompleteSecurityArtifact = true;
 }
 
 app.UseMiddleware<ApiKeyMiddleware>();

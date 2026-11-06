@@ -1,0 +1,2 @@
+**/Persistence/Migrations/[0-9]*.cs
+**/Persistence/Migrations/*ModelSnapshot.cs

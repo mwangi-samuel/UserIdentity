@@ -2,7 +2,7 @@
 
 public record ResetPasswordDto
 {
-  public string EmailMessage { get; init; } = null!;
+    public string EmailMessage { get; init; } = null!;
 
-  public string ResetRequestId { get; init; } = null!;
+    public string ResetRequestId { get; init; } = null!;
 }

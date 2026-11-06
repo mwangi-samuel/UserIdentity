@@ -1,32 +1,30 @@
 ﻿using PolyzenKit.Common.Utilities;
-
 using UserIdentity.IntegrationTests.TestUtils;
-
 using Xunit;
 
 namespace UserIdentity.IntegrationTests.Certs;
 
 public class EdDsaCertsHelper(ITestOutputHelper testOutputHelper)
 {
-  private readonly ITestOutputHelper _testOutputHelper = testOutputHelper;
+    private readonly ITestOutputHelper _testOutputHelper = testOutputHelper;
 
-  [Fact]
-  public void Generating_Certs_Pair_Generates_And_Prints_As_Expected()
-  {
-    var privateKeyPassPhrase = RandomStrings.Generate(32, true, true);
+    [Fact]
+    public void Generating_Certs_Pair_Generates_And_Prints_As_Expected()
+    {
+        var privateKeyPassPhrase = RandomStrings.Generate(32, true, true);
 
-    var keyPair = EdDsaHelper.GenerateEd25519KeyPair();
+        var keyPair = EdDsaHelper.GenerateEd25519KeyPair();
 
-    var privateKeyPem = EdDsaHelper.ConvertToPem(keyPair.Private, privateKeyPassPhrase);
-    var publicKeyPem = EdDsaHelper.ConvertToPem(keyPair.Public);
+        var privateKeyPem = EdDsaHelper.ConvertToPem(keyPair.Private, privateKeyPassPhrase);
+        var publicKeyPem = EdDsaHelper.ConvertToPem(keyPair.Public);
 
-    _testOutputHelper.WriteLine("Private Key Pem");
-    _testOutputHelper.WriteLine(privateKeyPem);
+        _testOutputHelper.WriteLine("Private Key Pem");
+        _testOutputHelper.WriteLine(privateKeyPem);
 
-    _testOutputHelper.WriteLine("Private Key Pem Passphrase");
-    _testOutputHelper.WriteLine(privateKeyPassPhrase);
+        _testOutputHelper.WriteLine("Private Key Pem Passphrase");
+        _testOutputHelper.WriteLine(privateKeyPassPhrase);
 
-    _testOutputHelper.WriteLine("Private Key Pem");
-    _testOutputHelper.WriteLine(publicKeyPem);
-  }
+        _testOutputHelper.WriteLine("Private Key Pem");
+        _testOutputHelper.WriteLine(publicKeyPem);
+    }
 }

@@ -2,7 +2,7 @@
 
 public record AccessTokenDto
 {
-  public string? Token { get; init; }
+    public string? Token { get; init; }
 
-  public int ExpiresIn { get; init; }
+    public int ExpiresIn { get; init; }
 }

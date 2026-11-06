@@ -2,5 +2,5 @@
 
 public record ConfirmUserDto
 {
-  public bool UserConfirmed { get; init; }
+    public bool UserConfirmed { get; init; }
 }

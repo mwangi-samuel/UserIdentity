@@ -1,6 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
-
 using PolyzenKit.Infrastructure.Configurations;
 using PolyzenKit.Persistence.Settings;
 
@@ -8,19 +7,19 @@ namespace UserIdentity.Persistence;
 
 internal sealed class AppDbContextFactory : IDesignTimeDbContextFactory<AppDbContext>
 {
-  public AppDbContext CreateDbContext(string[] args)
-  {
-    var configuration = new ConfigurationBuilder()
-      .SetBasePath(AppContext.BaseDirectory)
-      .AddJsonFile("appsettings.json")
-      .AddEnvironmentVariables()
-      .Build();
+    public AppDbContext CreateDbContext(string[] args)
+    {
+        var configuration = new ConfigurationBuilder()
+            .SetBasePath(AppContext.BaseDirectory)
+            .AddJsonFile("appsettings.json")
+            .AddEnvironmentVariables()
+            .Build();
 
-    var mysqlSettings = configuration.GetRequiredSetting<MysqlSettings>();
+        var mysqlSettings = configuration.GetRequiredSetting<MysqlSettings>();
 
-    var options = new DbContextOptionsBuilder<AppDbContext>();
-    options.UseAppMysql(mysqlSettings);
+        var options = new DbContextOptionsBuilder<AppDbContext>();
+        options.UseAppMysql(mysqlSettings);
 
-    return new AppDbContext(options.Options);
-  }
+        return new AppDbContext(options.Options);
+    }
 }
