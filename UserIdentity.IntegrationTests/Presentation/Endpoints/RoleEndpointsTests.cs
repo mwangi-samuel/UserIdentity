@@ -58,7 +58,7 @@ public class RoleEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
         TestDbHelper.SeedDatabase();
 
         var additionalRolename = "testapp:additionalrole";
-        var role = TestDbHelper.CreateIdentityRole(additionalRolename);
+        _ = TestDbHelper.CreateIdentityRole(additionalRolename);
 
         // Act
         var response = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Get, _baseUri);
@@ -76,7 +76,7 @@ public class RoleEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
         TestDbHelper.SeedDatabase();
 
         var additionalRolename = "testapp:additionalrole";
-        var role = TestDbHelper.CreateIdentityRole(additionalRolename);
+        _ = TestDbHelper.CreateIdentityRole(additionalRolename);
 
         // Act
         var response = await HttpClient.SendInvalidAuthRequestAsync(HttpMethod.Get, _baseUri);

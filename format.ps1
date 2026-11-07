@@ -6,7 +6,7 @@ try {
 
     $steps = @(
         { dotnet tool restore },
-        { dotnet format style $solution },
+        { dotnet format style $solution --severity info },
         { dotnet format analyzers $solution },
         { dotnet csharpier format . },
         { dotnet build $solution -c Release -clp:ErrorsOnly }

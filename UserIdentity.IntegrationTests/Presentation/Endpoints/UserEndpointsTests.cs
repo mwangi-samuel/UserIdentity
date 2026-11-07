@@ -776,7 +776,7 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
         // Arrange
         TestDbHelper.SeedDatabase();
 
-        var requestPayload = new { UserName = UserSettingHelper.UserName, Password = UserSettingHelper.UserPassword };
+        var requestPayload = new { UserSettingHelper.UserName, Password = UserSettingHelper.UserPassword };
 
         // Act
         var response = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/login", requestPayload);
@@ -840,7 +840,7 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
     public async Task Login_Non_Existing_User_Does_Not_Log_In_User()
     {
         // Arrange
-        var requestPayload = new { UserName = UserSettingHelper.UserName, Password = UserSettingHelper.UserPassword };
+        var requestPayload = new { UserSettingHelper.UserName, Password = UserSettingHelper.UserPassword };
 
         // Act
         var response = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/login", requestPayload);
@@ -873,7 +873,7 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
         TestDbHelper.SeedDatabase();
         TestDbHelper.DeleteUserEntity(UserSettingHelper.UserId);
 
-        var requestPayload = new { UserName = UserSettingHelper.UserName, Password = UserSettingHelper.UserPassword };
+        var requestPayload = new { UserSettingHelper.UserName, Password = UserSettingHelper.UserPassword };
 
         // Act
         var response = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/login", requestPayload);
@@ -906,7 +906,7 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
         TestDbHelper.SeedDatabase();
         TestDbHelper.DeleteUserEntity(UserSettingHelper.UserId);
 
-        var requestPayload = new { UserName = UserSettingHelper.UserName, Password = UserSettingHelper.UserPassword };
+        var requestPayload = new { UserSettingHelper.UserName, Password = UserSettingHelper.UserPassword };
 
         // Act
         var response = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/login", requestPayload);
@@ -938,7 +938,7 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
         // Arrange
         TestDbHelper.SeedDatabase();
 
-        var requestPayload = new { UserName = UserSettingHelper.UserName, Password = UserSettingHelper.UserPassword + "123" };
+        var requestPayload = new { UserSettingHelper.UserName, Password = UserSettingHelper.UserPassword + "123" };
 
         // Act
         var response = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/login", requestPayload);
@@ -1145,9 +1145,9 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
         user.LockoutEnabled = true;
         TestDbHelper.UpdateIdentityUser(user);
 
-        var wrongPasswordPayload = new { UserName = UserSettingHelper.UserName, Password = UserSettingHelper.UserPassword + "123" };
+        var wrongPasswordPayload = new { UserSettingHelper.UserName, Password = UserSettingHelper.UserPassword + "123" };
 
-        var requestPayload = new { UserName = UserSettingHelper.UserName, Password = UserSettingHelper.UserPassword };
+        var requestPayload = new { UserSettingHelper.UserName, Password = UserSettingHelper.UserPassword };
 
         for (var i = 0; i < 5; i++)
             await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/login", wrongPasswordPayload);
@@ -1185,7 +1185,7 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
 
         using var httpClient = rateLimitedFactory.CreateClient();
 
-        var requestPayload = new { UserName = UserSettingHelper.UserName, Password = UserSettingHelper.UserPassword };
+        var requestPayload = new { UserSettingHelper.UserName, Password = UserSettingHelper.UserPassword };
 
         // Act
         var allowedResponses = new List<HttpResponseMessage>

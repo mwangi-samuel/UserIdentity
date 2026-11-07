@@ -330,7 +330,7 @@ public class ExchangeRefreshTokenCommandHandlerTests
     }
 
     private static ExchangeRefreshTokenCommand GetExchangeRefreshTokenCommand() =>
-        new ExchangeRefreshTokenCommand { AccessToken = AccessToken, RefreshToken = RefreshToken };
+        new() { AccessToken = AccessToken, RefreshToken = RefreshToken };
 
     private void SetUpValidAccessToken(ExchangeRefreshTokenCommand command)
     {

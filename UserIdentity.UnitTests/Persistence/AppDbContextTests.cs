@@ -125,25 +125,25 @@ public class AppDbContextTests
 
         Assert.Equal(
             entityPrefix + "user_claims",
-            entityTypes.Where(e => e.DisplayName() == nameof(IdentityUserClaim<String>) + stringType).FirstOrDefault()?.GetTableName()
+            entityTypes.Where(e => e.DisplayName() == nameof(IdentityUserClaim<>) + stringType).FirstOrDefault()?.GetTableName()
         );
         Assert.Equal(
             entityPrefix + "role_claims",
-            entityTypes.Where(e => e.DisplayName() == nameof(IdentityRoleClaim<String>) + stringType).FirstOrDefault()?.GetTableName()
+            entityTypes.Where(e => e.DisplayName() == nameof(IdentityRoleClaim<>) + stringType).FirstOrDefault()?.GetTableName()
         );
 
         Assert.Equal(
             entityPrefix + "user_logins",
-            entityTypes.Where(e => e.DisplayName() == nameof(IdentityUserLogin<String>) + stringType).FirstOrDefault()?.GetTableName()
+            entityTypes.Where(e => e.DisplayName() == nameof(IdentityUserLogin<>) + stringType).FirstOrDefault()?.GetTableName()
         );
         Assert.Equal(
             entityPrefix + "user_roles",
-            entityTypes.Where(e => e.DisplayName() == nameof(IdentityUserRole<String>) + stringType).FirstOrDefault()?.GetTableName()
+            entityTypes.Where(e => e.DisplayName() == nameof(IdentityUserRole<>) + stringType).FirstOrDefault()?.GetTableName()
         );
 
         Assert.Equal(
             entityPrefix + "user_tokens",
-            entityTypes.Where(e => e.DisplayName() == nameof(IdentityUserToken<String>) + stringType).FirstOrDefault()?.GetTableName()
+            entityTypes.Where(e => e.DisplayName() == nameof(IdentityUserToken<>) + stringType).FirstOrDefault()?.GetTableName()
         );
     }
 

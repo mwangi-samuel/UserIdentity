@@ -20,9 +20,7 @@ public class AppScopingTests(TestingWebAppFactory testingWebAppFactory, ITestOut
 
         var httpRequest = new HttpRequestMessage(HttpMethod.Post, ApiRequestHelper.loginUrl)
         {
-            Content = SerDeHelper.ConvertToHttpContent(
-                new { UserName = UserSettingHelper.UserName, Password = UserSettingHelper.UserPassword }
-            ),
+            Content = SerDeHelper.ConvertToHttpContent(new { UserSettingHelper.UserName, Password = UserSettingHelper.UserPassword }),
         };
         httpRequest.AddXApiKey();
         httpRequest.Headers.Add("X-App-Name", TestingWebAppFactory.OtherAppName);
