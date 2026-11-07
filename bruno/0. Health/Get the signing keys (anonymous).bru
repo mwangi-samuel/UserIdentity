@@ -15,7 +15,7 @@ tests {
       expect(res.getStatus()).to.equal(200);
       const keys = res.getBody().keys;
       expect(keys).to.not.be.empty;
-      expect(keys[0]).to.include({ alg: "EdDSA", kty: "OKP", crv: "Ed25519" });
+      expect(keys[0]).to.include({ alg: "Ed25519", kty: "OKP", crv: "Ed25519" });
       expect(keys[0].kid).to.not.be.empty;
       expect(keys[0].d, "only the public key is published").to.be.undefined;
   });

@@ -14,8 +14,8 @@ public class UserConfiguration : IEntityTypeConfiguration<UserEntity>
 
         builder.HasIndex(e => e.CreatedAt);
 
-        builder.Property(e => e.FirstName).HasMaxLength(20);
+        builder.Property(e => e.FirstName).HasMaxLength(UserEntity.FirstNameMaxLength);
 
-        builder.Property(e => e.LastName).HasMaxLength(20);
+        builder.Property(e => e.LastName).HasMaxLength(UserEntity.LastNameMaxLength);
     }
 }

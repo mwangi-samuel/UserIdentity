@@ -28,15 +28,18 @@ public static class UserEndpoints
             .MapPost("register", CreateUser)
             .AllowAnonymous()
             .RequireRateLimiting(RateLimitSettings.ClientIpPolicy)
+            .AddEndpointFilter<PasswordHashingFilter>()
             .Produces<AuthUserViewModel>();
         group
             .MapPost("register-for-service", CreateUserForService)
             .RequireAuthorization(new AuthorizeAttribute { Policy = AuthorizationPolicies.UserScope, Roles = KnownRoles.InternalService })
+            .AddEndpointFilter<PasswordHashingFilter>()
             .Produces<AuthUserViewModel>();
         group
             .MapPost("login", LoginUser)
             .AllowAnonymous()
             .RequireRateLimiting(RateLimitSettings.ClientIpPolicy)
+            .AddEndpointFilter<PasswordHashingFilter>()
             .Produces<AuthUserViewModel>();
         group.MapPost("refresh-token", RefreshToken).AllowAnonymous().Produces<ExchangeRefreshTokenViewModel>();
         group.MapPost("logout", LogoutUser).Produces<DeleteRecordViewModel>();
@@ -49,6 +52,7 @@ public static class UserEndpoints
             .MapPost("update-password", UpdatePassword)
             .AllowAnonymous()
             .RequireRateLimiting(RateLimitSettings.ClientIpPolicy)
+            .AddEndpointFilter<PasswordHashingFilter>()
             .Produces<UpdatePasswordViewModel>();
 
         return group;

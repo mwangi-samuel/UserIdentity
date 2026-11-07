@@ -5,14 +5,15 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Options;
 using PolyzenKit.Application.Core;
 using PolyzenKit.Application.Core.Interfaces;
-using PolyzenKit.Application.Core.Messages.Shared;
+using PolyzenKit.Application.Core.Messages.Commands;
+using PolyzenKit.Application.Core.Messages.ViewModels;
+using PolyzenKit.Application.Core.RegisteredApps.Shared;
 using PolyzenKit.Application.Interfaces;
 using PolyzenKit.Common.Enums;
 using PolyzenKit.Common.Exceptions;
 using PolyzenKit.Common.Settings;
 using PolyzenKit.Domain.Dtos;
 using PolyzenKit.Domain.Entities;
-using PolyzenKit.Domain.Entities.RegisteredApps;
 using PolyzenKit.Persistence.Repositories;
 using UserIdentity.Application.Core.Roles.Shared;
 using UserIdentity.Application.Core.Tokens.Shared;
@@ -38,21 +39,24 @@ public record RegisterUserCommand : IBaseCommand, IValidatableObject
     public RequestSource RequestSource { get; internal set; } = RequestSource.UI;
 
     [JsonIgnore]
-    public RegisteredAppEntity? RegisteredApp { get; internal set; }
+    public ActiveRegisteredApp? RegisteredApp { get; internal set; }
 
     [JsonIgnore]
     public CrudEvent Event { get; internal set; } = CrudEvent.Create;
 
-    [Required]
+    [Required, StringLength(UserEntity.FirstNameMaxLength)]
     public string FirstName { get; init; } = null!;
 
+    [StringLength(UserEntity.LastNameMaxLength)]
     public string? LastName { get; init; }
 
-    [Required]
+    [Required, StringLength(UserEntity.UserNameMaxLength)]
     public string UserName { get; init; } = null!;
 
+    [StringLength(UserEntity.PhoneNumberMaxLength)]
     public string? PhoneNumber { get; init; }
 
+    [StringLength(UserEntity.EmailMaxLength), RegularExpression(UserEntity.EmailPattern, ErrorMessage = ErrorMessages.Users.InvalidEmail)]
     public string? UserEmail { get; init; }
 
     [Required]
@@ -66,6 +70,10 @@ public record RegisterUserCommand : IBaseCommand, IValidatableObject
     {
         if (string.IsNullOrWhiteSpace(PhoneNumber) && string.IsNullOrWhiteSpace(UserEmail))
             yield return new ValidationResult(ErrorMessages.Users.PhoneNumberOrEmailRequired, [nameof(PhoneNumber), nameof(UserEmail)]);
+
+        // Login and reset look up the user name first, so an email-like user name would shadow that email's real account
+        if (UserName?.Contains('@') == true && !string.Equals(UserName, UserEmail, StringComparison.OrdinalIgnoreCase))
+            yield return new ValidationResult(ErrorMessages.Users.UserNameCannotBeAnotherEmail, [nameof(UserName)]);
     }
 }
 
@@ -84,7 +92,7 @@ public class RegisterUserCommandHandler(
     IJwtTokenHandler jwtTokenHandler,
     ITokenFactory tokenFactory,
     TimeProvider timeProvider,
-    IMessageOutbox messageOutbox,
+    ICreateItemCommandHandler<CreateOutboxMessageCommand, OutboxMessageViewModel> createOutboxMessageCommandHandler,
     IGoogleRecaptchaService googleRecaptchaService
 ) : ICreateItemCommandHandler<RegisterUserCommand, AuthUserViewModel>
 {
@@ -100,7 +108,8 @@ public class RegisterUserCommandHandler(
 
     private readonly TimeProvider _timeProvider = timeProvider;
 
-    private readonly IMessageOutbox _messageOutbox = messageOutbox;
+    private readonly ICreateItemCommandHandler<CreateOutboxMessageCommand, OutboxMessageViewModel> _createOutboxMessageCommandHandler =
+        createOutboxMessageCommandHandler;
 
     private readonly IGoogleRecaptchaService _googleRecaptchaService = googleRecaptchaService;
 
@@ -129,6 +138,10 @@ public class RegisterUserCommandHandler(
 
         var registeredAppName = command.RegisteredApp!.AppName;
 
+        // A blank email would be stored as an empty string, and the unique index allows only one of those
+        var userEmail = string.IsNullOrWhiteSpace(command.UserEmail) ? null : command.UserEmail;
+        var phoneNumber = string.IsNullOrWhiteSpace(command.PhoneNumber) ? null : command.PhoneNumber;
+
         var userDefaultRole = AppRoleNames.DefaultRole(registeredAppName, _roleSettings);
 
         // Start DB Transaction
@@ -142,14 +155,14 @@ public class RegisterUserCommandHandler(
 
         if (inviteCodeRequired || hasInviteCode)
         {
-            if (command.UserEmail == null)
+            if (userEmail == null)
                 throw new InvalidDataException(ErrorMessages.Users.EmailRequiredForInviteCode);
 
             if (!hasInviteCode)
                 throw new InvalidDataException(ErrorMessages.Users.InviteCodeRequired);
 
             inviteCodeEntity = await _inviteCodeRepository.GetEntityByAlternateIdAsync(
-                new() { AppId = command.RegisteredApp!.Id, UserEmail = command.UserEmail! },
+                new() { AppId = command.RegisteredApp!.Id, UserEmail = userEmail },
                 QueryCondition.MayOrMayNotExist,
                 cancellationToken
             );
@@ -173,14 +186,14 @@ public class RegisterUserCommandHandler(
             throw RecordExistsException.ForIdentifier(command.UserName);
 
         // Check if user exists by user email, throw RecordExistsException
-        if (command.UserEmail != null && await _userManager.FindByEmailAsync(command.UserEmail) != null)
-            throw RecordExistsException.ForIdentifier(command.UserEmail);
+        if (userEmail != null && await _userManager.FindByEmailAsync(userEmail) != null)
+            throw RecordExistsException.ForIdentifier(userEmail);
 
         var newUser = new IdentityUser
         {
-            Email = command.UserEmail,
+            Email = userEmail,
             UserName = command.UserName,
-            PhoneNumber = command.PhoneNumber,
+            PhoneNumber = phoneNumber,
             PhoneNumberConfirmed = false,
             EmailConfirmed = false,
         };
@@ -254,10 +267,18 @@ public class RegisterUserCommandHandler(
 
             var welcomeMessage = UserMessages.Welcome(newUser, userDetails, registeredAppName);
 
-            _messageOutbox.Add(UserMessages.UserUpdated, welcomeMessage);
+            await _createOutboxMessageCommandHandler.CreateItemAsync(
+                new CreateOutboxMessageCommand(UserMessages.UserUpdated, welcomeMessage),
+                newUser.Id,
+                cancellationToken
+            );
 
             if (command.RequestSource == RequestSource.UI && command.RegisteredApp.CallbackUrl != null)
-                _messageOutbox.Add(UserMessages.CallbackRequested, welcomeMessage);
+                await _createOutboxMessageCommandHandler.CreateItemAsync(
+                    new CreateOutboxMessageCommand(UserMessages.CallbackRequested, welcomeMessage),
+                    newUser.Id,
+                    cancellationToken
+                );
 
             // Commit DB Transaction
             await _unitOfWork.CommitTransactionAsync(cancellationToken);

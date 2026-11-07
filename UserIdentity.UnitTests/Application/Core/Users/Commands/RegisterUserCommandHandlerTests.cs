@@ -2,14 +2,15 @@
 using FakeItEasy;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Options;
-using PolyzenKit.Application.Core.Messages.Events;
-using PolyzenKit.Application.Core.Messages.Shared;
+using PolyzenKit.Application.Core.Interfaces;
+using PolyzenKit.Application.Core.Messages.Commands;
+using PolyzenKit.Application.Core.Messages.ViewModels;
+using PolyzenKit.Application.Core.RegisteredApps.Shared;
 using PolyzenKit.Application.Interfaces;
 using PolyzenKit.Common.Enums;
 using PolyzenKit.Common.Exceptions;
 using PolyzenKit.Common.Settings;
 using PolyzenKit.Common.Utilities;
-using PolyzenKit.Domain.Entities.RegisteredApps;
 using PolyzenKit.Persistence.Repositories;
 using UserIdentity.Application.Core.Tokens.Shared;
 using UserIdentity.Application.Core.Users.Commands;
@@ -44,7 +45,7 @@ public class RegisterUserCommandHandlerTests
     private readonly IJwtTokenHandler _jwtTokenHandler;
     private readonly ITokenFactory _tokenFactory;
     private readonly TimeProvider _timeProvider;
-    private readonly IMessageOutbox _messageOutbox;
+    private readonly ICreateItemCommandHandler<CreateOutboxMessageCommand, OutboxMessageViewModel> _createOutboxMessageCommandHandler;
     private readonly IGoogleRecaptchaService _googleRecaptchaService;
     private readonly IRoleRepository _roleRepository;
 
@@ -63,7 +64,7 @@ public class RegisterUserCommandHandlerTests
         _jwtTokenHandler = A.Fake<IJwtTokenHandler>();
         _tokenFactory = A.Fake<ITokenFactory>();
         _timeProvider = TimeProvider.System;
-        _messageOutbox = A.Fake<IMessageOutbox>();
+        _createOutboxMessageCommandHandler = A.Fake<ICreateItemCommandHandler<CreateOutboxMessageCommand, OutboxMessageViewModel>>();
         _googleRecaptchaService = A.Fake<IGoogleRecaptchaService>();
         _roleRepository = A.Fake<IRoleRepository>();
 
@@ -152,7 +153,10 @@ public class RegisterUserCommandHandlerTests
         A.CallTo(() => _userManager.FindByNameAsync(command.UserName)).MustHaveHappenedOnceExactly();
         A.CallTo(() => _userManager.FindByEmailAsync(command.UserEmail!)).MustHaveHappenedOnceExactly();
         A.CallTo(() => _userManager.CreateAsync(A<IdentityUser>._, command.UserPassword)).MustHaveHappenedOnceExactly();
-        A.CallTo(() => _messageOutbox.Add(A<string>._, A<MessageEvent>._)).MustNotHaveHappened();
+        A.CallTo(() =>
+                _createOutboxMessageCommandHandler.CreateItemAsync(A<CreateOutboxMessageCommand>._, A<string>._, A<CancellationToken>._)
+            )
+            .MustNotHaveHappened();
     }
 
     [Fact]
@@ -293,24 +297,29 @@ public class RegisterUserCommandHandlerTests
 
         // Assert
         A.CallTo(() =>
-                _messageOutbox.Add(
-                    UserMessages.UserUpdated,
-                    A<MessageEvent>.That.Matches(m =>
-                        m.Action == MessageAction.WelcomeUser
-                        && m.CorrelationId == userId
-                        && m.RegisteredApp == command.RegisteredApp!.AppName
-                        && m.Attributes[MessageAttributeKey.RecipientEmail] == command.UserEmail
-                        && m.Attributes[MessageAttributeKey.RecipientPhone] == command.PhoneNumber
-                        && m.Attributes[MessageAttributeKey.FirstName] == command.FirstName
-                        && m.Attributes[MessageAttributeKey.LastName] == command.LastName
-                        && m.Attributes[MessageAttributeKey.UserName] == command.UserName
-                        && m.Attributes[MessageAttributeKey.UserId] == userId
-                    )
+                _createOutboxMessageCommandHandler.CreateItemAsync(
+                    A<CreateOutboxMessageCommand>.That.Matches(c =>
+                        c.Name == UserMessages.UserUpdated
+                        && c.Message.Action == MessageAction.WelcomeUser
+                        && c.Message.CorrelationId == userId
+                        && c.Message.RegisteredApp == command.RegisteredApp!.AppName
+                        && c.Message.Attributes[MessageAttributeKey.RecipientEmail] == command.UserEmail
+                        && c.Message.Attributes[MessageAttributeKey.RecipientPhone] == command.PhoneNumber
+                        && c.Message.Attributes[MessageAttributeKey.FirstName] == command.FirstName
+                        && c.Message.Attributes[MessageAttributeKey.LastName] == command.LastName
+                        && c.Message.Attributes[MessageAttributeKey.UserName] == command.UserName
+                        && c.Message.Attributes[MessageAttributeKey.UserId] == userId
+                    ),
+                    A<string>._,
+                    A<CancellationToken>._
                 )
             )
             .MustHaveHappenedOnceExactly()
             .Then(A.CallTo(() => _unitOfWork.CommitTransactionAsync(A<CancellationToken>._)).MustHaveHappenedOnceExactly());
-        A.CallTo(() => _messageOutbox.Add(A<string>._, A<MessageEvent>._)).MustHaveHappenedOnceExactly();
+        A.CallTo(() =>
+                _createOutboxMessageCommandHandler.CreateItemAsync(A<CreateOutboxMessageCommand>._, A<string>._, A<CancellationToken>._)
+            )
+            .MustHaveHappenedOnceExactly();
     }
 
     [Fact]
@@ -319,7 +328,7 @@ public class RegisterUserCommandHandlerTests
         // Arrange
         var command = GetRegisterUserCommand();
         command.RequestSource = RequestSource.UI;
-        command.RegisteredApp!.CallbackUrl = "https://callback.test";
+        command.RegisteredApp = GetRegisteredApp(callbackUrl: "https://callback.test");
         SetUpSuccessfulSignUp(command);
 
         A.CallTo(() => _googleRecaptchaService.VerifyTokenAsync(A<string?>._, A<CancellationToken>._)).Returns(true);
@@ -331,13 +340,15 @@ public class RegisterUserCommandHandlerTests
 
         // Assert
         A.CallTo(() =>
-                _messageOutbox.Add(
-                    UserMessages.CallbackRequested,
-                    A<MessageEvent>.That.Matches(m =>
-                        m.Action == MessageAction.WelcomeUser
-                        && m.CorrelationId == vm.User.Id
-                        && m.RegisteredApp == command.RegisteredApp.AppName
-                    )
+                _createOutboxMessageCommandHandler.CreateItemAsync(
+                    A<CreateOutboxMessageCommand>.That.Matches(c =>
+                        c.Name == UserMessages.CallbackRequested
+                        && c.Message.Action == MessageAction.WelcomeUser
+                        && c.Message.CorrelationId == vm.User.Id
+                        && c.Message.RegisteredApp == command.RegisteredApp.AppName
+                    ),
+                    A<string>._!,
+                    A<CancellationToken>._
                 )
             )
             .MustHaveHappenedOnceExactly()
@@ -355,7 +366,7 @@ public class RegisterUserCommandHandlerTests
         // Arrange
         var command = GetRegisterUserCommand();
         command.RequestSource = requestSource;
-        command.RegisteredApp!.CallbackUrl = callbackUrl;
+        command.RegisteredApp = GetRegisteredApp(callbackUrl: callbackUrl);
         SetUpSuccessfulSignUp(command);
 
         A.CallTo(() => _googleRecaptchaService.VerifyTokenAsync(A<string?>._, A<CancellationToken>._)).Returns(true);
@@ -366,15 +377,29 @@ public class RegisterUserCommandHandlerTests
         await handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken);
 
         // Assert
-        A.CallTo(() => _messageOutbox.Add(UserMessages.UserUpdated, A<MessageEvent>._)).MustHaveHappenedOnceExactly();
-        A.CallTo(() => _messageOutbox.Add(UserMessages.CallbackRequested, A<MessageEvent>._)).MustNotHaveHappened();
+        A.CallTo(() =>
+                _createOutboxMessageCommandHandler.CreateItemAsync(
+                    A<CreateOutboxMessageCommand>.That.Matches(c => c.Name == UserMessages.UserUpdated),
+                    A<string>._!,
+                    A<CancellationToken>._
+                )
+            )
+            .MustHaveHappenedOnceExactly();
+        A.CallTo(() =>
+                _createOutboxMessageCommandHandler.CreateItemAsync(
+                    A<CreateOutboxMessageCommand>.That.Matches(c => c.Name == UserMessages.CallbackRequested),
+                    A<string>._!,
+                    A<CancellationToken>._
+                )
+            )
+            .MustNotHaveHappened();
     }
 
     [Fact]
     public async Task Create_User_With_Invite_Code_Marks_Invite_Code_Applied_By_New_User()
     {
         var command = GetRegisterUserCommand();
-        command.RegisteredApp!.RequireInviteCode = true;
+        command.RegisteredApp = GetRegisteredApp(requireInviteCode: true);
         const string inviteCode = "INVITE01";
         command.InviteCode = inviteCode;
 
@@ -421,7 +446,7 @@ public class RegisterUserCommandHandlerTests
     public async Task Create_User_With_Applied_Invite_Code_Throws_InvalidDataException()
     {
         var command = GetRegisterUserCommand();
-        command.RegisteredApp!.RequireInviteCode = true;
+        command.RegisteredApp = GetRegisteredApp(requireInviteCode: true);
         const string inviteCode = "INVITE01";
         command.InviteCode = inviteCode;
 
@@ -717,7 +742,7 @@ public class RegisterUserCommandHandlerTests
             _jwtTokenHandler,
             _tokenFactory,
             _timeProvider,
-            _messageOutbox,
+            _createOutboxMessageCommandHandler,
             _googleRecaptchaService
         );
     }
@@ -750,8 +775,19 @@ public class RegisterUserCommandHandlerTests
             PhoneNumber = "0712345678",
             UserEmail = "test.user@domain.com",
             UserPassword = "Password123",
-            RegisteredApp = new RegisteredAppEntity { Id = 1, AppName = "TestApp" },
+            RegisteredApp = GetRegisteredApp(),
             RequestSource = RequestSource.Api,
         };
     }
+
+    private static ActiveRegisteredApp GetRegisteredApp(string? callbackUrl = null, bool requireInviteCode = false) =>
+        new()
+        {
+            Id = 1,
+            AppName = "TestApp",
+            AppSecretKey = "test-secret",
+            BaseUrl = "https://app.test",
+            CallbackUrl = callbackUrl,
+            RequireInviteCode = requireInviteCode,
+        };
 }

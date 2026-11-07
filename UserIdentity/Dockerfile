@@ -15,7 +15,7 @@ RUN dotnet restore "UserIdentity/UserIdentity.csproj" \
     /p:SelfContained=true \
     /p:PublishTrimmed=true \
     /p:TrimMode=partial \
-    /p:PublishSingleFile=true 
+    /p:PublishSingleFile=true
 
 COPY ["UserIdentity/", "UserIdentity/"]
 WORKDIR "/src/UserIdentity"
@@ -36,7 +36,7 @@ RUN dotnet publish "UserIdentity.csproj" \
     /p:DebugType=none \
     /p:SatelliteResourceLanguages=en \
     /p:PublishDocumentationFiles=false \
-    /p:PublishReferencesSymbols=false 
+    /p:PublishReferencesSymbols=false
 
 FROM base AS final
 

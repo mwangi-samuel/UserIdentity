@@ -37,7 +37,7 @@ public class JwksEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
 
         Assert.Equal(5, keysetList?[0].Count);
 
-        Assert.Equal("EdDSA", keysetList?[0]["alg"]);
+        Assert.Equal("Ed25519", keysetList?[0]["alg"]);
         Assert.Equal("OKP", keysetList?[0]["kty"]);
         Assert.Equal("Ed25519", keysetList?[0]["crv"]);
         Assert.NotNull(keysetList?[0]["x"]);

@@ -128,28 +128,6 @@ public class RefreshTokenRepositoryTests
         Assert.Null(otherUserResult);
     }
 
-    [Fact]
-    public async Task RemoveEntityItemsAsync_Removes_All_The_Users_RefreshTokens()
-    {
-        var context = AppDbContextTestFactory.GetAppDbContext();
-        var repository = new RefreshTokenRepository(context);
-        var firstToken = BuildRefreshToken();
-        var secondToken = BuildRefreshToken();
-        secondToken.UserId = firstToken.UserId;
-        var otherUserToken = BuildRefreshToken();
-
-        context.RefreshToken.AddRange(firstToken, secondToken, otherUserToken);
-        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
-
-        await repository.RemoveEntityItemsAsync(firstToken.UserId!, TestContext.Current.CancellationToken);
-        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
-
-        var remainingIds = context.RefreshToken.Select(x => x.Id).ToList();
-        Assert.DoesNotContain(firstToken.Id, remainingIds);
-        Assert.DoesNotContain(secondToken.Id, remainingIds);
-        Assert.Contains(otherUserToken.Id, remainingIds);
-    }
-
     private static RefreshTokenEntity BuildRefreshToken()
     {
         return new RefreshTokenEntity

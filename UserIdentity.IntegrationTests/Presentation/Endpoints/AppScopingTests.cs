@@ -61,10 +61,10 @@ public class AppScopingTests(TestingWebAppFactory testingWebAppFactory, ITestOut
         TestDbHelper.SeedDatabase();
         TestDbHelper.CreateIdentityRole(OwnerRole);
         TestDbHelper.CreateIdentityUserRole(OwnerRole, UserSettingHelper.UserId);
-        TestDbHelper.UpdateRoleClaim(OwnerRole, "filemanager-file:create");
+        TestDbHelper.UpdateRoleClaim(OwnerRole, "media-file:create");
         TestDbHelper.CreateIdentityRole(OtherAppRole);
         TestDbHelper.CreateIdentityUserRole(OtherAppRole, UserSettingHelper.UserId);
-        TestDbHelper.UpdateRoleClaim(OtherAppRole, "commercemanager-product:all");
+        TestDbHelper.UpdateRoleClaim(OtherAppRole, "catalog-product:all");
 
         // Act
         (var token, _) = await HttpClient.LoginUserAsync(UserSettingHelper.UserName, UserSettingHelper.UserPassword);
@@ -72,7 +72,7 @@ public class AppScopingTests(TestingWebAppFactory testingWebAppFactory, ITestOut
         // Assert
         var scopes = new JsonWebToken(token).Claims.Where(c => c.Type == JwtCustomClaimNames.Scope).Select(c => c.Value).ToList();
 
-        Assert.Equal("filemanager-file:create", Assert.Single(scopes));
+        Assert.Equal("media-file:create", Assert.Single(scopes));
     }
 
     [Fact]
@@ -91,7 +91,7 @@ public class AppScopingTests(TestingWebAppFactory testingWebAppFactory, ITestOut
             new
             {
                 RoleId = role.Id,
-                Resource = "FileManager-File",
+                Resource = "Media-File",
                 Action = "Create",
             }
         );
@@ -100,7 +100,7 @@ public class AppScopingTests(TestingWebAppFactory testingWebAppFactory, ITestOut
         await response.ValidateRequestResponseAsync();
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-        Assert.Equal("filemanager-file:create", Assert.Single(TestDbHelper.GetRoleClaims(OwnerRole)));
+        Assert.Equal("media-file:create", Assert.Single(TestDbHelper.GetRoleClaims(OwnerRole)));
     }
 
     [Fact]
@@ -119,7 +119,7 @@ public class AppScopingTests(TestingWebAppFactory testingWebAppFactory, ITestOut
             new
             {
                 RoleId = role.Id,
-                Resource = "filemanager-file",
+                Resource = "media-file",
                 Action = "create",
             }
         );
@@ -139,7 +139,7 @@ public class AppScopingTests(TestingWebAppFactory testingWebAppFactory, ITestOut
         TestDbHelper.CreateIdentityRole(TestDbHelper.AdminRoles.First());
         TestDbHelper.ConfigureIdentityUserAsAdmin();
         var role = TestDbHelper.CreateIdentityRole(OtherAppRole);
-        TestDbHelper.UpdateRoleClaim(OtherAppRole, "filemanager-file:create");
+        TestDbHelper.UpdateRoleClaim(OtherAppRole, "media-file:create");
 
         // Act
         var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Get, $"/api/v1/role/claim/{role.Id}");
@@ -165,7 +165,7 @@ public class AppScopingTests(TestingWebAppFactory testingWebAppFactory, ITestOut
             new
             {
                 RoleId = globalAdminRole.Id,
-                Resource = "filemanager-file",
+                Resource = "media-file",
                 Action = "create",
             }
         );

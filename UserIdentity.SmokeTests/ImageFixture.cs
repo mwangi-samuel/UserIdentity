@@ -17,7 +17,7 @@ namespace UserIdentity.SmokeTests;
 // Runs the published image, not the build the other test projects use, so what trimming removed is really gone
 public sealed class ImageFixture : IAsyncLifetime
 {
-    public const string ApiKey = "SmokeApiKey";
+    public const string ApiKey = "SmokeApiKey-For-Tests-Only-0123456789012";
     public const string UserUpdatedSubject = "useridentity.user.updated";
 
     private const string CodeVerifiedSubject = "messagemanager.user.updated";

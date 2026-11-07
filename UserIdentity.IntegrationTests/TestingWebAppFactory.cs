@@ -27,7 +27,7 @@ public class TestingWebAppFactory : WebApplicationFactory<Program>, IAsyncLifeti
 {
     public const string OtherAppName = "OtherApp";
     public const string CallbackAppName = "CallbackApp";
-    public const string CallbackAppSecretKey = "Ca11backApp5ecretKey";
+    public const string CallbackAppSecretKey = "Ca11backApp5ecretKey-For-Tests-Only-0123";
     public const string CallbackPath = "/callback";
 
     public WireMockServer WireMockServer { get; private set; }
@@ -127,7 +127,7 @@ public class TestingWebAppFactory : WebApplicationFactory<Program>, IAsyncLifeti
         // A second app, for cross-app checks
         builder.UseSetting("RegisteredAppsSettings:RegisteredApps:1:AppName", OtherAppName);
         builder.UseSetting("RegisteredAppsSettings:RegisteredApps:1:BaseUrl", "http://localhost:3001");
-        builder.UseSetting("RegisteredAppsSettings:RegisteredApps:1:AppSecretKey", "0therApp5ecretKey");
+        builder.UseSetting("RegisteredAppsSettings:RegisteredApps:1:AppSecretKey", "0therApp5ecretKey-For-Tests-Only-0123456");
 
         // A third app, whose sign-ups through its UI are called back on WireMock
         builder.UseSetting("RegisteredAppsSettings:RegisteredApps:2:AppName", CallbackAppName);

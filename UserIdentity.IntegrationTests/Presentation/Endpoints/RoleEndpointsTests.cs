@@ -316,6 +316,23 @@ public class RoleEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
     }
 
     [Fact]
+    public async Task Create_Role_With_Name_Over_Its_Limit_Returns_Validation_Result()
+    {
+        // Arrange
+        TestDbHelper.SeedDatabase();
+        TestDbHelper.CreateIdentityRole(TestDbHelper.AdminRoles.First());
+        TestDbHelper.ConfigureIdentityUserAsAdmin();
+
+        var requestPayload = new { RoleName = "testapp:" + new string('r', RoleDto.NameMaxLength) };
+
+        // Act
+        var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Post, _baseUri, requestPayload);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
     public async Task Create_Role_With_No_Auth_Returns_Auth_Error()
     {
         // Arrange
@@ -1083,6 +1100,30 @@ public class RoleEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
         Assert.Equal(DateTime.UtcNow.Year, dateTime.Value.Year);
         Assert.Equal(DateTime.UtcNow.Month, dateTime.Value.Month);
         Assert.Equal(DateTime.UtcNow.Day, dateTime.Value.Day);
+    }
+
+    [Fact]
+    public async Task Create_Role_Claim_With_Resource_Over_Its_Limit_Returns_Validation_Result()
+    {
+        // Arrange
+        TestDbHelper.SeedDatabase();
+        TestDbHelper.CreateIdentityRole(TestDbHelper.AdminRoles.First());
+        TestDbHelper.ConfigureIdentityUserAsAdmin();
+
+        var role = TestDbHelper.CreateIdentityRole("testapp:additionalrole");
+
+        var requestPayload = new
+        {
+            RoleId = role.Id,
+            Resource = new string('r', RoleClaimDto.ResourceMaxLength + 1),
+            Action = "read",
+        };
+
+        // Act
+        var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Post, _baseUri + "/claim", requestPayload);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
     [Fact]

@@ -17,7 +17,7 @@ namespace UserIdentity.Persistence.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.13")
+                .HasAnnotation("ProductVersion", "10.0.14")
                 .HasAnnotation("Relational:MaxIdentifierLength", 64);
 
             MySqlModelBuilderExtensions.AutoIncrementColumns(modelBuilder);
@@ -365,8 +365,7 @@ namespace UserIdentity.Persistence.Migrations
                         .HasColumnName("base_url");
 
                     b.Property<string>("CallbackHeaders")
-                        .HasMaxLength(800)
-                        .HasColumnType("varchar(800)")
+                        .HasColumnType("longtext")
                         .HasColumnName("callback_headers");
 
                     b.Property<string>("CallbackUrl")

@@ -15,8 +15,16 @@ using UserIdentity.Persistence.Configurations;
 
 namespace UserIdentity.Persistence;
 
-public class AppDbContext(DbContextOptions<AppDbContext> dbContextOptions) : IdentityDbContext<IdentityUser>(dbContextOptions)
+public class AppDbContext : IdentityDbContext<IdentityUser>
 {
+    public AppDbContext(DbContextOptions<AppDbContext> dbContextOptions)
+        : base(dbContextOptions)
+    {
+        // Every handler that opens a transaction rolls all of it back on failure, so savepoints would only add statements.
+        // Set here, not per request: a pooled context returns to its state from when it was built.
+        Database.AutoSavepointsEnabled = false;
+    }
+
     public DbSet<UserEntity> AppUser => Set<UserEntity>();
 
     public DbSet<RefreshTokenEntity> RefreshToken => Set<RefreshTokenEntity>();

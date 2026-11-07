@@ -4,7 +4,6 @@ using PolyzenKit.Application.Core;
 using PolyzenKit.Application.Core.Interfaces;
 using PolyzenKit.Application.Core.RegisteredApps.Shared;
 using PolyzenKit.Common.Enums;
-using PolyzenKit.Domain.Entities.RegisteredApps;
 using UserIdentity.Application.Core.Tokens.Commands;
 using UserIdentity.Application.Core.Tokens.ViewModels;
 using UserIdentity.Application.Core.Users.Commands;
@@ -172,7 +171,13 @@ public class UserEndpointsTests
             UserEmail = "test.user@test.com",
             UserPassword = "testPassword",
         };
-        var registeredApp = new RegisteredAppEntity { Id = 1, AppName = "test-app" };
+        var registeredApp = new ActiveRegisteredApp
+        {
+            Id = 1,
+            AppName = "test-app",
+            AppSecretKey = "test-secret",
+            BaseUrl = "https://app.test",
+        };
 
         A.CallTo(() => _registeredAppResolver.GetActiveAppAsync(A<string>._, A<CancellationToken>._)).Returns(registeredApp);
         A.CallTo(() => _registerUserCommandHandler.CreateItemAsync(command, A<string>._, A<CancellationToken>._))

@@ -98,6 +98,10 @@ Register, login, reset-password, update-password and the waitlist sign-up allow 
 
 Behind a reverse proxy, set `ForwardedHeadersSettings__KnownNetworks` to the proxy's network (comma-separated CIDR ranges). Otherwise every request appears to come from the proxy, and all clients share one limit.
 
+Password hashing is limited across all clients too, because a hash takes most of a CPU for about 100 ms and would otherwise starve every other request. Login, register, `register-for-service` and update-password run at most `PasswordHashingSettings:MaxConcurrent` at a time (default 1), with up to `PasswordHashingSettings:QueueLimit` more waiting (default 32). Requests beyond that get a 429.
+
+Request bodies are limited to 64 KiB. Larger ones get a 413.
+
 ## Cleanup
 Every `CleanupSettings:IntervalInMinutes` (default 60), expired refresh tokens are deleted, and so are password reset requests a day after they expire (kept that long for the daily cap). When confirmed accounts are required, accounts still unconfirmed after `CleanupSettings:UnconfirmedUserLifetimeInDays` (default 30) are deleted too, along with their details, sessions, reset requests, app links and roles, and the invite code they used for their app can be used again.
 
@@ -108,11 +112,16 @@ Every setting has a default in `appsettings.json` that works locally. In product
 |---|---|
 | `EDDSA_PRIVATE_KEY`, `EDDSA_PUBLIC_KEY`, `KeySetOptions__PrivateKeyPassPhrase` | The Ed25519 key pair (PEM content) and the private key's passphrase |
 | `AppSecretOptions__Keys__<id>`, `AppSecretOptions__CurrentKeyId` | Base64 256-bit keys that encrypt registered apps' secrets at rest. Generate one with `openssl rand -base64 32` and keep it in a secret store: secrets encrypted with a lost key can't be recovered |
-| `ApiKeySettings__ApiKey` | The key clients send in `X-Api-Key` |
+| `ApiKeySettings__ApiKey` | The key clients send in `X-Api-Key`, at least 32 characters |
+| `ExternalServicesSettings__ExternalServices__AppCallback__DefaultHeaders__X-Api-Key` | The `X-Api-Key` header sent with app callbacks |
+| `GoogleRecaptchaSettings__Enabled`, `GoogleRecaptchaSettings__SiteKey` | Turns on the reCAPTCHA check at sign-up, which is off by default |
+| `RegisteredAppsSettings__RegisteredApps__<n>__*` | The apps to seed. Each `AppSecretKey` needs 32 to 100 characters |
 | `MysqlSettings__*` | Database connection |
 | `MessagingSettings__NatsUrl` | The NATS server, without credentials |
 | `MessagingSettings__NatsUser`, `MessagingSettings__NatsPassword` | UserIdentity's own NATS user. Keep the password in a secret store |
 | `ForwardedHeadersSettings__KnownNetworks` | The reverse proxy's networks (see [Rate Limiting](#rate-limiting)) |
+
+Keep `ExternalServicesSettings:ExternalServices:GoogleRecaptcha:TimeoutSeconds` short (default 5). Sign-up verifies the token while it holds a place in the password hashing limit, so a slow answer holds up logins.
 
 `Serilog__MinimumLevel` (default `Warning`) is the only logging setting. Logs go to the console as plain text in Development and as one JSON object per line everywhere else.
 
@@ -134,14 +143,15 @@ The `bruno` folder is a [Bruno](https://www.usebruno.com/) collection covering r
   ```
 
 ## Running the Tests
-The tests use xUnit v3 on Microsoft Testing Platform (selected in `global.json`). The unit tests call each endpoint method directly with faked handlers. The integration tests send requests to the whole app and start MySQL and NATS with Testcontainers, so Docker must be running.
+The tests use xUnit v3 on Microsoft Testing Platform (selected in `global.json`). The unit tests call each endpoint method directly with faked handlers. The integration tests send requests to the whole app and start MySQL and NATS with Testcontainers, so Docker must be running. The smoke tests build the Docker image, run it as it's published (trimmed, single file) beside MySQL and NATS, and reach it only over HTTP and NATS.
 
 ```
 dotnet test --project UserIdentity.UnitTests/UserIdentity.UnitTests.csproj
 dotnet test --project UserIdentity.IntegrationTests/UserIdentity.IntegrationTests.csproj
+dotnet test --project UserIdentity.SmokeTests/UserIdentity.SmokeTests.csproj
 ```
 
-Add `--coverlet` for a Cobertura coverage report.
+Add `--coverlet` for a Cobertura coverage report. Set `USERIDENTITY_SMOKE_IMAGE` to run the smoke tests against an image that's already built.
 
 ## Adding Migrations
 Migrations need the global `dotnet-ef` tool, version 10 (`dotnet tool install --global dotnet-ef`, or `update` if an older one is installed). MySQL must be running, since the server version is auto-detected. The tool builds the database context from `MysqlSettings` in `appsettings.json`, which `MysqlSettings__*` environment variables override, so it doesn't need the Ed25519 keys.

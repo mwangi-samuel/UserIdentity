@@ -1,6 +1,9 @@
 ﻿using System.Net;
 using System.Net.Mime;
 using System.Text;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
 using Newtonsoft.Json;
@@ -122,7 +125,8 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
 
         var jsonObject = SerDeHelper.Deserialize<JObject>(responseString);
 
-        Assert.Null(jsonObject);
+        Assert.NotNull(jsonObject);
+        Assert.Equal("Forbidden", $"{jsonObject["error"]?["message"]}");
     }
 
     [Fact]
@@ -399,6 +403,120 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
         Assert.Equal(userDetails?.Id, messageAttributes.GetAttributeValue(MessageAttributeKey.UserId));
     }
 
+    [Theory]
+    [MemberData(nameof(OverLongFields))]
+    public async Task Register_User_With_Field_Over_Its_Limit_Returns_Validation_Error(string field, string value)
+    {
+        // Arrange
+        var fields = GetSignUpFields();
+        fields[field] = value;
+
+        // Act
+        var response = await RegisterAsync(fields);
+
+        // Assert
+        await AssertSignUpRefusedAsync(response, field);
+    }
+
+    [Theory]
+    [InlineData(" ")]
+    [InlineData("not-an-email")]
+    [InlineData("a b@c")]
+    [InlineData("x@y\r\nBcc: z@y")]
+    [InlineData("x\r\nBcc:y@z")]
+    public async Task Register_User_With_Malformed_Email_Returns_Validation_Error(string userEmail)
+    {
+        // Arrange
+        var fields = GetSignUpFields();
+        fields["UserEmail"] = userEmail;
+
+        // Act
+        var response = await RegisterAsync(fields);
+
+        // Assert
+        await AssertSignUpRefusedAsync(response, "UserEmail");
+    }
+
+    [Fact]
+    public async Task Register_User_With_Another_Users_Email_As_User_Name_Leaves_That_User_Alone()
+    {
+        // Arrange
+        TestDbHelper.SeedDatabase();
+
+        var fields = GetSignUpFields();
+        fields["UserName"] = UserSettingHelper.UserEmail;
+        fields["UserEmail"] = "someone.else@example.com";
+
+        // Act
+        var response = await RegisterAsync(fields);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal(1, TestDbHelper.CountIdentityUsers());
+
+        await HttpClient.LoginUserAsync(UserSettingHelper.UserEmail, UserSettingHelper.UserPassword);
+
+        var resetResponse = await HttpClient.SendNoAuthRequestAsync(
+            HttpMethod.Post,
+            _baseUri + "/reset-password",
+            new { UserName = UserSettingHelper.UserEmail }
+        );
+        var resetRequestId = SerDeHelper
+            .Deserialize<JObject>(await resetResponse.ValidateRequestResponseAsync())
+            ?["resetPasswordDetails"]?["resetRequestId"]?.ToString();
+
+        Assert.NotNull(resetRequestId);
+
+        var message = await NatsTestHelper.FindMessageAsync(NatsTestHelper.UserUpdatedSubject, resetRequestId);
+
+        Assert.Equal(UserSettingHelper.UserEmail, message?.Attributes.GetAttributeValue(MessageAttributeKey.RecipientEmail));
+    }
+
+    [Fact]
+    public async Task Register_User_With_Own_Email_As_User_Name_In_Another_Case_Registers_User()
+    {
+        // Arrange
+        var fields = GetSignUpFields();
+        fields["UserName"] = "New.User@Example.com";
+        fields["UserEmail"] = "new.user@example.com";
+
+        // Act
+        var response = await RegisterAsync(fields);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Register_Two_Phone_Only_Users_With_Blank_Email_Registers_Both()
+    {
+        // Arrange
+        var firstFields = GetSignUpFields();
+        firstFields["UserName"] = "first.phone.user";
+        firstFields["UserEmail"] = "";
+        firstFields["PhoneNumber"] = "712121212";
+
+        var secondFields = GetSignUpFields();
+        secondFields["UserName"] = "second.phone.user";
+        secondFields["UserEmail"] = "";
+        secondFields["PhoneNumber"] = "712121213";
+
+        // Act
+        var firstResponse = await RegisterAsync(firstFields);
+        var secondResponse = await RegisterAsync(secondFields);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.Created, firstResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.Created, secondResponse.StatusCode);
+        Assert.Equal(2, TestDbHelper.CountIdentityUsers());
+
+        var secondUser = SerDeHelper
+            .Deserialize<JObject>(await secondResponse.ValidateRequestResponseAsync())
+            ?["user"]?.ToObject<UserDto>();
+
+        Assert.Null(secondUser?.Email);
+    }
+
     [Fact]
     public async Task Register_User_Message_Leaves_The_Outbox_Once_It_Is_In_The_Stream()
     {
@@ -469,7 +587,7 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
 
         Assert.Equal(requestPayload.FirstName, userDetails?.FirstName);
         Assert.Equal(requestPayload.UserName, userDetails?.UserName);
-        Assert.Equal(UserEmail, userDetails?.Email);
+        Assert.Equal(string.IsNullOrEmpty(UserEmail) ? null : UserEmail, userDetails?.Email);
         Assert.Equal(userDetails?.Id, userDetails?.CreatedBy);
         Assert.Equal(userDetails?.Id, userDetails?.UpdatedBy);
 
@@ -549,7 +667,7 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
     {
         // Arrange
         const string ownerRole = "testapp:owner";
-        const string ownerScope = "commercemanager-product:all";
+        const string ownerScope = "catalog-product:all";
         var googleRecaptchaToken = RandomStrings.Generate(90);
         var userEmail = "invited-owner@example.com";
         var userName = "invited.owner";
@@ -1354,7 +1472,7 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
 
         Assert.NotNull(resetRequestId);
 
-        // Simulate MessageManager verifying the code
+        // Simulate the message saying a code was verified
         var attributes = new Dictionary<MessageAttributeKey, string>() { { MessageAttributeKey.UserId, resetRequestId } };
 
         var messageEvent = MessageEventFactory.Create(
@@ -1409,6 +1527,42 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
         );
 
         Assert.Equal(HttpStatusCode.NotAcceptable, reuseResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task Update_Password_That_Fails_Part_Way_Leaves_Password_Sessions_And_Reset_Request_As_They_Were()
+    {
+        // Arrange
+        TestDbHelper.SeedDatabase();
+
+        // Accounts from sign-up have lockout enabled, and without it the handler's last user update returns early
+        var user = TestDbHelper.GetIdentityUser(UserSettingHelper.UserId)!;
+        user.LockoutEnabled = true;
+        TestDbHelper.UpdateIdentityUser(user);
+
+        var resetRequestId = RandomStrings.Generate(32);
+        TestDbHelper.CreatePasswordResetEntity(resetRequestId);
+
+        var originalPasswordHash = user.PasswordHash;
+
+        await using var failingFactory = _testingWebAppFactory.WithWebHostBuilder(builder =>
+            builder.ConfigureTestServices(services => services.AddScoped<IUserValidator<IdentityUser>, FailsAfterFirstCheckUserValidator>())
+        );
+
+        using var failingClient = failingFactory.CreateClient();
+
+        // Act
+        var response = await failingClient.SendNoAuthRequestAsync(
+            HttpMethod.Post,
+            _baseUri + "/update-password",
+            new { ResetRequestId = resetRequestId, NewPassword = "N3wP@ssword!" }
+        );
+
+        // Assert
+        Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
+        Assert.Equal(originalPasswordHash, TestDbHelper.GetIdentityUserWithNoTracking(UserSettingHelper.UserId)?.PasswordHash);
+        Assert.False(TestDbHelper.GetPasswordResetEntityWithNoTracking(UserSettingHelper.UserId)?.Applied);
+        Assert.Single(TestDbHelper.GetRefreshTokenEntitiesWithNoTracking(UserSettingHelper.UserId));
     }
 
     [Fact]
@@ -1538,6 +1692,66 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
         Assert.Contains("Passwords must be at least 8 characters.", $"{jsonObject["error"]?["message"]}");
 
         Assert.False(TestDbHelper.GetPasswordResetEntityWithNoTracking(UserSettingHelper.UserId)?.Applied);
+    }
+
+    // The second check comes after the password update has saved the password, the reset request and the deleted sessions
+    private sealed class FailsAfterFirstCheckUserValidator : IUserValidator<IdentityUser>
+    {
+        private int _checks;
+
+        public Task<IdentityResult> ValidateAsync(UserManager<IdentityUser> manager, IdentityUser user) =>
+            ++_checks > 1 ? throw new InvalidOperationException("Failed part way") : Task.FromResult(IdentityResult.Success);
+    }
+
+    public static TheoryData<string, string> OverLongFields =>
+        new()
+        {
+            { "FirstName", new string('a', UserEntity.FirstNameMaxLength + 1) },
+            { "LastName", new string('a', UserEntity.LastNameMaxLength + 1) },
+            { "UserName", new string('a', UserEntity.UserNameMaxLength + 1) },
+            { "PhoneNumber", new string('1', UserEntity.PhoneNumberMaxLength + 1) },
+            { "PhoneNumber", new string('1', 1_200_000) },
+            { "UserEmail", new string('a', UserEntity.EmailMaxLength) + "@example.com" },
+        };
+
+    private static Dictionary<string, string?> GetSignUpFields() =>
+        new()
+        {
+            ["FirstName"] = UserSettingHelper.FirstName,
+            ["UserName"] = UserSettingHelper.UserName,
+            ["UserEmail"] = UserSettingHelper.UserEmail,
+            ["UserPassword"] = UserSettingHelper.UserPassword,
+        };
+
+    private async Task<HttpResponseMessage> RegisterAsync(Dictionary<string, string?> fields)
+    {
+        var googleRecaptchaToken = RandomStrings.Generate(90);
+
+        SetUpGoogleRecaptchaEndpoint(googleRecaptchaToken);
+
+        return await HttpClient.SendNoAuthRequestAsync(
+            HttpMethod.Post,
+            _baseUri + "/register",
+            new Dictionary<string, string?>(fields) { ["GoogleRecaptchaToken"] = googleRecaptchaToken }
+        );
+    }
+
+    private async Task AssertSignUpRefusedAsync(HttpResponseMessage response, string field)
+    {
+        var responseString = await response.ValidateRequestResponseAsync();
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+
+        var jsonObject = SerDeHelper.Deserialize<JObject>(responseString);
+
+        Assert.NotNull(jsonObject);
+        Assert.Equal("Validation Failed", $"{jsonObject["error"]?["message"]}");
+
+        var errorList = jsonObject["error"]?["errorList"]?.ToObject<List<ValidationError>>();
+
+        Assert.True(errorList?.Any(x => x.Field == field) ?? false);
+        Assert.Equal(0, TestDbHelper.CountIdentityUsers());
+        Assert.Equal(0, TestDbHelper.CountOutboxMessages());
     }
 
     private void SetUpGoogleRecaptchaEndpoint(string googleRecaptchaToken)

@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using System.Threading.RateLimiting;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using PolyzenKit;
 using PolyzenKit.Infrastructure.Configurations;
@@ -20,10 +21,7 @@ public static class Extensions
     {
         var mysqlSettings = configuration.GetRequiredSetting<MysqlSettings>();
 
-        services.AddDbContext<DbContext, TContext>(
-            options => options.UseAppMysql(mysqlSettings),
-            optionsLifetime: ServiceLifetime.Singleton
-        );
+        services.AddDbContextPool<DbContext, TContext>(options => options.UseAppMysql(mysqlSettings));
         services.AddHealthChecks().AddDbContextCheck<TContext>("mysql");
     }
 
@@ -47,6 +45,19 @@ public static class Extensions
         var passwordResetSettings = configuration.GetRequiredSetting<PasswordResetSettings>();
 
         services.AddSingleton(Options.Create(passwordResetSettings));
+    }
+
+    public static void AddAppPasswordHashingLimit(this IServiceCollection services, IConfiguration configuration)
+    {
+        var passwordHashingSettings = configuration.GetRequiredSetting<PasswordHashingSettings>();
+
+        services.AddSingleton(_ => new ConcurrencyLimiter(
+            new ConcurrencyLimiterOptions
+            {
+                PermitLimit = passwordHashingSettings.MaxConcurrent,
+                QueueLimit = passwordHashingSettings.QueueLimit,
+            }
+        ));
     }
 
     public static void AddAppCleanups(this IServiceCollection services, IConfiguration configuration)

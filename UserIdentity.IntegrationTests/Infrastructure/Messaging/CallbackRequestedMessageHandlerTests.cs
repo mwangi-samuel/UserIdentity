@@ -49,7 +49,7 @@ public class CallbackRequestedMessageHandlerTests(TestingWebAppFactory testingWe
                 TimeSpan.FromMinutes(5)
             )
         );
-        Assert.Equal("TestApiKey", callback.Headers["X-Api-Key"].Single());
+        Assert.Equal("TestApiKey-For-Local-Use-Only-0123456789", callback.Headers["X-Api-Key"].Single());
     }
 
     [Fact]

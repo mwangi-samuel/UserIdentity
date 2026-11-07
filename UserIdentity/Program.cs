@@ -8,8 +8,13 @@ using UserIdentity.Infrastructure.ExternalServices;
 using UserIdentity.Persistence;
 using UserIdentity.Presentation.Endpoints;
 
+// No request needs more than a few KB, and at Kestrel's default of 30 MB one request can use up the service's memory
+const long MaxRequestBodyBytes = 64 * 1024;
+
 var builder = WebApplication.CreateSlimBuilder(args);
 var assembly = typeof(Program).Assembly;
+
+builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = MaxRequestBodyBytes);
 
 builder.AddAppSerilog();
 
@@ -25,6 +30,8 @@ builder.Services.AddAppEventHandlers(assembly);
 
 builder.Services.AddAppEndpoints();
 
+builder.Services.AddAppExceptionHandler();
+
 builder.Services.AddValidation();
 
 builder.Services.AddOpenApi();
@@ -36,8 +43,6 @@ builder.Services.AddAppAuthorization(builder.Configuration);
 builder.Services.AddAppApiKeySettings(builder.Configuration);
 
 builder.Services.AddAppRegisteredApps(builder.Configuration);
-
-builder.Services.AddHttpContextAccessor();
 
 builder.Services.AddAppExternalServices(builder.Configuration);
 
@@ -55,6 +60,8 @@ builder.Services.AddAppForwardedHeaders(builder.Configuration);
 
 builder.Services.AddAppRateLimiting(builder.Configuration);
 
+builder.Services.AddAppPasswordHashingLimit(builder.Configuration);
+
 builder.Services.AddAppMessaging(builder.Configuration, assembly);
 
 var app = builder.Build();
@@ -63,7 +70,7 @@ app.UseForwardedHeaders();
 
 if (app.Environment.IsDevelopment())
 {
-    app.MapOpenApi();
+    app.MapOpenApi().AllowAnonymous();
     IdentityModelEventSource.ShowPII = true;
     IdentityModelEventSource.LogCompleteSecurityArtifact = true;
 }
@@ -72,7 +79,9 @@ app.UseMiddleware<ApiKeyMiddleware>();
 
 app.UseMiddleware<RequestIdMiddleware>();
 
-app.UseMiddleware<ExceptionMiddleware>();
+app.UseExceptionHandler();
+
+app.UseStatusCodePages();
 
 app.UseHttpsRedirection();
 
@@ -90,7 +99,7 @@ app.MapJwksEndpoints();
 app.MapAppEntityEndpoints();
 app.MapRegisteredAppEndpoints();
 
-app.MapHealthChecks("/health");
+app.MapHealthChecks("/health").AllowAnonymous();
 
 DbInitializer.InitializeDb(app);
 app.AppSeedEntityNamesData();

@@ -55,8 +55,6 @@ public class RefreshTokenRepository(AppDbContext appDbContext)
 
     public async Task RemoveEntityItemsAsync(string userId, CancellationToken cancellationToken = default)
     {
-        var existingEntities = await _appDbContext.RefreshToken.Where(e => e.UserId == userId).ToListAsync(cancellationToken);
-
-        _appDbContext.RefreshToken.RemoveRange(existingEntities);
+        await _appDbContext.RefreshToken.Where(e => e.UserId == userId).ExecuteDeleteAsync(cancellationToken);
     }
 }
