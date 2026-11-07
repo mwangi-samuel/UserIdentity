@@ -185,10 +185,8 @@ public class UpdatePasswordCommandHandlerTests
         return existingEntity;
     }
 
-    private static UpdatePasswordCommand GetUpdatePasswordCommand()
-    {
-        return new UpdatePasswordCommand { ResetRequestId = ResetRequestId, NewPassword = NewPassword };
-    }
+    private static UpdatePasswordCommand GetUpdatePasswordCommand() =>
+        new UpdatePasswordCommand { ResetRequestId = ResetRequestId, NewPassword = NewPassword };
 
     private UpdatePasswordCommandHandler GetUpdatePasswordCommandHandler()
     {

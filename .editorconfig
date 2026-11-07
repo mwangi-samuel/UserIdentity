@@ -110,7 +110,7 @@ csharp_style_expression_bodied_constructors = false
 csharp_style_expression_bodied_indexers = true
 csharp_style_expression_bodied_lambdas = true
 csharp_style_expression_bodied_local_functions = false
-csharp_style_expression_bodied_methods = true
+csharp_style_expression_bodied_methods = when_on_single_line
 csharp_style_expression_bodied_operators = false
 csharp_style_expression_bodied_properties = true
 
@@ -175,7 +175,7 @@ dotnet_diagnostic.IDE0001.severity = warning
 dotnet_diagnostic.IDE0002.severity = warning
 dotnet_diagnostic.IDE0005.severity = warning
 dotnet_diagnostic.IDE0011.severity = none
-dotnet_diagnostic.IDE0022.severity = none
+dotnet_diagnostic.IDE0022.severity = warning
 # CSharpier owns layout, and its output fails this rule under warnings as errors
 dotnet_diagnostic.IDE0055.severity = none
 dotnet_diagnostic.IDE0161.severity = warning

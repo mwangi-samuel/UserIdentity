@@ -68,15 +68,10 @@ public sealed class TestDbHelper(
 
     public int CountIdentityUsers() => _appDbContext.Users.AsNoTracking().Count();
 
-    public IdentityUser? GetIdentityUser(string userId)
-    {
-        return _appDbContext.Users.FirstOrDefault(u => u.Id == userId);
-    }
+    public IdentityUser? GetIdentityUser(string userId) => _appDbContext.Users.FirstOrDefault(u => u.Id == userId);
 
-    public IdentityUser? GetIdentityUserWithNoTracking(string userId)
-    {
-        return _appDbContext.Users.AsNoTracking().FirstOrDefault(u => u.Id == userId);
-    }
+    public IdentityUser? GetIdentityUserWithNoTracking(string userId) =>
+        _appDbContext.Users.AsNoTracking().FirstOrDefault(u => u.Id == userId);
 
     public void DeleteIdentityUser(string userId)
     {
@@ -109,10 +104,7 @@ public sealed class TestDbHelper(
         _appDbContext.SaveChanges();
     }
 
-    public IdentityRole? GetIdentityRole(string roleName)
-    {
-        return _appDbContext.Roles.FirstOrDefault(r => r.Name != null && r.Name == roleName);
-    }
+    public IdentityRole? GetIdentityRole(string roleName) => _appDbContext.Roles.FirstOrDefault(r => r.Name != null && r.Name == roleName);
 
     public void DeleteIdnetityRole(string roleName)
     {
@@ -141,10 +133,7 @@ public sealed class TestDbHelper(
         return userRole;
     }
 
-    public IdentityUserRole<string> ConfigureIdentityUserAsAdmin()
-    {
-        return CreateIdentityUserRole(AdminRoles.First(), UserSettingHelper.UserId);
-    }
+    public IdentityUserRole<string> ConfigureIdentityUserAsAdmin() => CreateIdentityUserRole(AdminRoles.First(), UserSettingHelper.UserId);
 
     public IdentityUserRole<string> ConfigureIdentityUserAsGlobalAdmin()
     {
@@ -200,10 +189,7 @@ public sealed class TestDbHelper(
         return user;
     }
 
-    public UserEntity? GetUserEntity(string userId)
-    {
-        return _appDbContext.AppUser.FirstOrDefault(x => x.Id == userId);
-    }
+    public UserEntity? GetUserEntity(string userId) => _appDbContext.AppUser.FirstOrDefault(x => x.Id == userId);
 
     public void UpdateUserEntity(UserEntity user)
     {
@@ -270,15 +256,10 @@ public sealed class TestDbHelper(
         return refreshToken;
     }
 
-    public RefreshTokenEntity? GetRefreshTokenEntity(string userId)
-    {
-        return _appDbContext.RefreshToken.FirstOrDefault(r => r.UserId == userId);
-    }
+    public RefreshTokenEntity? GetRefreshTokenEntity(string userId) => _appDbContext.RefreshToken.FirstOrDefault(r => r.UserId == userId);
 
-    public List<RefreshTokenEntity> GetRefreshTokenEntitiesWithNoTracking(string userId)
-    {
-        return [.. _appDbContext.RefreshToken.AsNoTracking().Where(r => r.UserId == userId)];
-    }
+    public List<RefreshTokenEntity> GetRefreshTokenEntitiesWithNoTracking(string userId) =>
+        [.. _appDbContext.RefreshToken.AsNoTracking().Where(r => r.UserId == userId)];
 
     public void ExpireRefreshTokenEntities(string userId)
     {
@@ -384,20 +365,13 @@ public sealed class TestDbHelper(
         return entity;
     }
 
-    public InviteCodeEntity? GetInviteCodeEntity(long id)
-    {
-        return _appDbContext.InviteCode.FirstOrDefault(x => x.Id == id);
-    }
+    public InviteCodeEntity? GetInviteCodeEntity(long id) => _appDbContext.InviteCode.FirstOrDefault(x => x.Id == id);
 
-    public InviteCodeEntity? GetInviteCodeEntityWithNoTracking(long id)
-    {
-        return _appDbContext.InviteCode.AsNoTracking().FirstOrDefault(x => x.Id == id);
-    }
+    public InviteCodeEntity? GetInviteCodeEntityWithNoTracking(long id) =>
+        _appDbContext.InviteCode.AsNoTracking().FirstOrDefault(x => x.Id == id);
 
-    public InviteCodeEntity? GetInviteCodeEntityByEmail(string userEmail)
-    {
-        return _appDbContext.InviteCode.FirstOrDefault(x => x.UserEmail == userEmail);
-    }
+    public InviteCodeEntity? GetInviteCodeEntityByEmail(string userEmail) =>
+        _appDbContext.InviteCode.FirstOrDefault(x => x.UserEmail == userEmail);
 
     public void DeleteInviteCodeEntity(long id)
     {
@@ -447,15 +421,10 @@ public sealed class TestDbHelper(
         return entity;
     }
 
-    public WaitListEntity? GetWaitListEntity(long id)
-    {
-        return _appDbContext.WaitList.FirstOrDefault(x => x.Id == id);
-    }
+    public WaitListEntity? GetWaitListEntity(long id) => _appDbContext.WaitList.FirstOrDefault(x => x.Id == id);
 
-    public WaitListEntity? GetWaitListEntityByEmail(string userEmail)
-    {
-        return _appDbContext.WaitList.FirstOrDefault(x => x.UserEmail == userEmail);
-    }
+    public WaitListEntity? GetWaitListEntityByEmail(string userEmail) =>
+        _appDbContext.WaitList.FirstOrDefault(x => x.UserEmail == userEmail);
 
     public void DeleteWaitListEntity(long id)
     {
