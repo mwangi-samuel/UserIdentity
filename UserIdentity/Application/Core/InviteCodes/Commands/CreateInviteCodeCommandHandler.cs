@@ -9,6 +9,7 @@ using PolyzenKit.Persistence.Repositories;
 using UserIdentity.Application.Core.InviteCodes.ViewModels;
 using UserIdentity.Application.Core.Roles.Shared;
 using UserIdentity.Common.Errors;
+using UserIdentity.Common.Validation;
 using UserIdentity.Domain.InviteCodes;
 using UserIdentity.Persistence.Repositories.InviteCodes;
 
@@ -16,13 +17,17 @@ namespace UserIdentity.Application.Core.InviteCodes.Commands;
 
 public record CreateInviteCodeCommand : IBaseCommand
 {
-    [Required, EmailAddress, StringLength(InviteCodeEntity.UserEmailMaxLength)]
+    [
+        Required,
+        StringLength(InviteCodeLimits.UserEmailMaxLength),
+        RegularExpression(ValidationPatterns.Email, ErrorMessage = ErrorMessages.Users.InvalidEmail)
+    ]
     public string UserEmail { get; init; } = null!;
 
-    [Required, StringLength(InviteCodeEntity.InviteCodeMaxLength, MinimumLength = InviteCodeEntity.InviteCodeMinLength)]
+    [Required, StringLength(InviteCodeLimits.InviteCodeMaxLength, MinimumLength = InviteCodeLimits.InviteCodeMinLength)]
     public string InviteCode { get; init; } = null!;
 
-    [StringLength(InviteCodeEntity.RoleMaxLength)]
+    [StringLength(InviteCodeLimits.RoleMaxLength)]
     public string? Role { get; init; }
 
     [JsonIgnore]

@@ -24,7 +24,7 @@ public record CreateRoleClaimCommand : IBaseCommand
     [Required]
     public string RoleId { get; init; } = null!;
 
-    [Required, StringLength(RoleClaimDto.ResourceMaxLength)]
+    [Required, StringLength(RoleClaimLimits.ResourceMaxLength)]
     public string Resource { get; init; } = null!;
 
     [Required]

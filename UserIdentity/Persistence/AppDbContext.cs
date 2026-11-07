@@ -48,6 +48,7 @@ public class AppDbContext : IdentityDbContext<IdentityUser>
         base.OnModelCreating(builder);
 
         builder.ApplyConfiguration(new IdentityUserConfiguration());
+        builder.ApplyConfiguration(new IdentityRoleConfiguration());
         builder.ApplyConfiguration(new UserConfiguration());
         builder.ApplyConfiguration(new RefreshTokenConfiguration());
         builder.ApplyConfiguration(new AppEntityConfiguration());
