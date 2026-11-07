@@ -270,13 +270,15 @@ public class WaitListEndpointsTests(TestingWebAppFactory testingWebAppFactory, I
         Assert.NotEqual("attacker", savedEntity.UpdatedBy);
     }
 
-    [Fact]
-    public async Task Create_WaitList_With_A_Malformed_Email_Returns_BadRequest_With_Error_List()
+    [Theory]
+    [InlineData("not-an-email")]
+    [InlineData("a b@c.com")]
+    public async Task Create_WaitList_With_A_Malformed_Email_Returns_BadRequest_With_Error_List(string userEmail)
     {
         // Arrange
         TestDbHelper.SeedDatabase();
 
-        var requestPayload = new { UserEmail = "not-an-email" };
+        var requestPayload = new { UserEmail = userEmail };
 
         // Act
         var response = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri, requestPayload);
@@ -290,7 +292,7 @@ public class WaitListEndpointsTests(TestingWebAppFactory testingWebAppFactory, I
 
         Assert.NotNull(errorList);
         Assert.Contains(errorList, error => error.Field == "UserEmail");
-        Assert.Null(TestDbHelper.GetWaitListEntityByEmail("not-an-email"));
+        Assert.Null(TestDbHelper.GetWaitListEntityByEmail(userEmail));
     }
 
     #endregion

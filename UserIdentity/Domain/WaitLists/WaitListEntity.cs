@@ -7,8 +7,6 @@ namespace UserIdentity.Domain.WaitLists;
 
 public class WaitListEntity : BaseAuditableEntity<long>
 {
-    public const int UserEmailMaxLength = 255;
-
     public string UserEmail { get; set; } = null!;
 
     public int AppId { get; set; }

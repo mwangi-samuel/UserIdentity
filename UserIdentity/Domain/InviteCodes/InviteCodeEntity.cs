@@ -7,11 +7,6 @@ namespace UserIdentity.Domain.InviteCodes;
 
 public class InviteCodeEntity : BaseAuditableEntity<long>
 {
-    public const int InviteCodeMinLength = 10;
-    public const int InviteCodeMaxLength = 255;
-    public const int UserEmailMaxLength = 255;
-    public const int RoleMaxLength = 256;
-
     public string InviteCode { get; set; } = null!;
 
     public string UserEmail { get; set; } = null!;

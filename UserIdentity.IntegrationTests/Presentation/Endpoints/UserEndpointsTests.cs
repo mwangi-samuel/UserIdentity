@@ -1706,12 +1706,12 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
     public static TheoryData<string, string> OverLongFields =>
         new()
         {
-            { "FirstName", new string('a', UserEntity.FirstNameMaxLength + 1) },
-            { "LastName", new string('a', UserEntity.LastNameMaxLength + 1) },
-            { "UserName", new string('a', UserEntity.UserNameMaxLength + 1) },
-            { "PhoneNumber", new string('1', UserEntity.PhoneNumberMaxLength + 1) },
+            { "FirstName", new string('a', UserLimits.FirstNameMaxLength + 1) },
+            { "LastName", new string('a', UserLimits.LastNameMaxLength + 1) },
+            { "UserName", new string('a', UserLimits.UserNameMaxLength + 1) },
+            { "PhoneNumber", new string('1', UserLimits.PhoneNumberMaxLength + 1) },
             { "PhoneNumber", new string('1', 1_200_000) },
-            { "UserEmail", new string('a', UserEntity.EmailMaxLength) + "@example.com" },
+            { "UserEmail", new string('a', UserLimits.EmailMaxLength) + "@example.com" },
         };
 
     private static Dictionary<string, string?> GetSignUpFields() =>

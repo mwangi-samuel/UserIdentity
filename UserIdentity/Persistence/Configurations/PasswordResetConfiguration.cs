@@ -12,7 +12,7 @@ public class PasswordResetConfiguration : IEntityTypeConfiguration<PasswordReset
     {
         builder.ConfigureGuidPrimaryKey();
 
-        builder.Property(e => e.RequestId).HasMaxLength(200);
+        builder.Property(e => e.RequestId).HasMaxLength(PasswordResetLimits.RequestIdMaxLength);
         builder.HasIndex(e => e.RequestId).IsUnique();
 
         builder.HasOne<IdentityUser>().WithMany().HasForeignKey(e => e.UserId).OnDelete(DeleteBehavior.Cascade);

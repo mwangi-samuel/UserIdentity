@@ -22,6 +22,7 @@ using UserIdentity.Application.Core.Users.ViewModels;
 using UserIdentity.Application.Interfaces;
 using UserIdentity.Common.Enums;
 using UserIdentity.Common.Errors;
+using UserIdentity.Common.Validation;
 using UserIdentity.Domain.InviteCodes;
 using UserIdentity.Domain.UserRegisteredApps;
 using UserIdentity.Domain.Users;
@@ -44,19 +45,19 @@ public record RegisterUserCommand : IBaseCommand, IValidatableObject
     [JsonIgnore]
     public CrudEvent Event { get; internal set; } = CrudEvent.Create;
 
-    [Required, StringLength(UserEntity.FirstNameMaxLength)]
+    [Required, StringLength(UserLimits.FirstNameMaxLength)]
     public string FirstName { get; init; } = null!;
 
-    [StringLength(UserEntity.LastNameMaxLength)]
+    [StringLength(UserLimits.LastNameMaxLength)]
     public string? LastName { get; init; }
 
-    [Required, StringLength(UserEntity.UserNameMaxLength)]
+    [Required, StringLength(UserLimits.UserNameMaxLength)]
     public string UserName { get; init; } = null!;
 
-    [StringLength(UserEntity.PhoneNumberMaxLength)]
+    [StringLength(UserLimits.PhoneNumberMaxLength)]
     public string? PhoneNumber { get; init; }
 
-    [StringLength(UserEntity.EmailMaxLength), RegularExpression(UserEntity.EmailPattern, ErrorMessage = ErrorMessages.Users.InvalidEmail)]
+    [StringLength(UserLimits.EmailMaxLength), RegularExpression(ValidationPatterns.Email, ErrorMessage = ErrorMessages.Users.InvalidEmail)]
     public string? UserEmail { get; init; }
 
     [Required]

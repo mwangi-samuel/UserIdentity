@@ -4,6 +4,8 @@ using PolyzenKit.Application.Core;
 using PolyzenKit.Application.Core.Interfaces;
 using PolyzenKit.Persistence.Repositories;
 using UserIdentity.Application.Core.WaitLists.ViewModels;
+using UserIdentity.Common.Errors;
+using UserIdentity.Common.Validation;
 using UserIdentity.Domain.WaitLists;
 using UserIdentity.Persistence.Repositories.WaitLists;
 
@@ -11,7 +13,11 @@ namespace UserIdentity.Application.Core.WaitLists.Commands;
 
 public record CreateWaitListCommand : IBaseCommand
 {
-    [Required, EmailAddress, StringLength(WaitListEntity.UserEmailMaxLength)]
+    [
+        Required,
+        StringLength(WaitListLimits.UserEmailMaxLength),
+        RegularExpression(ValidationPatterns.Email, ErrorMessage = ErrorMessages.Users.InvalidEmail)
+    ]
     public string UserEmail { get; init; } = null!;
 
     [JsonIgnore]

@@ -292,6 +292,26 @@ public class InviteCodeEndpointsTests(TestingWebAppFactory testingWebAppFactory,
         Assert.Null(TestDbHelper.GetInviteCodeEntityByEmail(userEmail));
     }
 
+    [Theory]
+    [InlineData("not-an-email")]
+    [InlineData("a b@c.com")]
+    public async Task Create_InviteCode_With_A_Malformed_Email_Returns_BadRequest(string userEmail)
+    {
+        // Arrange
+        TestDbHelper.SeedDatabase();
+        TestDbHelper.CreateIdentityRole(TestDbHelper.AdminRoles.First());
+        TestDbHelper.ConfigureIdentityUserAsAdmin();
+
+        // Act
+        var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Post, _baseUri, new { inviteCode = "BADEMAIL01", userEmail });
+
+        // Assert
+        await response.ValidateRequestResponseAsync();
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Null(TestDbHelper.GetInviteCodeEntityByEmail(userEmail));
+    }
+
     #endregion
 
     #region GetInviteCodes Tests

@@ -120,6 +120,10 @@ public class TestingWebAppFactory : WebApplicationFactory<Program>, IAsyncLifeti
             $"{nameof(ExternalServicesSettings)}:{nameof(ExternalServicesSettings.ExternalServices)}:GoogleRecaptcha:BaseUrl",
             WireMockServer.Urls[0]
         );
+        builder.UseSetting(
+            $"{nameof(ExternalServicesSettings)}:{nameof(ExternalServicesSettings.ExternalServices)}:GoogleRecaptcha:TimeoutSeconds",
+            "60"
+        );
 
         // Override Rate Limit Settings
         builder.UseSetting($"{nameof(RateLimitSettings)}:{nameof(RateLimitSettings.Enabled)}", "false");

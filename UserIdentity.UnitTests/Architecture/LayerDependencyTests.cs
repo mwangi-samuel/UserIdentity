@@ -28,7 +28,7 @@ public class LayerDependencyTests
         "Application",
         @"UserIdentity\.(Infrastructure|Presentation)|PolyzenKit\.(Infrastructure|Presentation)|Microsoft\.EntityFrameworkCore(?!\.DbUpdateConcurrencyException\b)|\bAppDbContext\b|\bnew\s+\w+Repository\s*\("
     )]
-    [InlineData("Persistence", @"UserIdentity\.(Infrastructure|Presentation)")]
+    [InlineData("Persistence", @"UserIdentity\.(Application|Infrastructure|Presentation)")]
     [InlineData("Infrastructure", @"UserIdentity\.(Persistence|Presentation)")]
     [InlineData("Presentation", @"UserIdentity\.(Infrastructure|Persistence)")]
     public void Layers_KeepTheirDeclaredDependencies(string layer, string forbidden)

@@ -323,7 +323,7 @@ public class RoleEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
         TestDbHelper.CreateIdentityRole(TestDbHelper.AdminRoles.First());
         TestDbHelper.ConfigureIdentityUserAsAdmin();
 
-        var requestPayload = new { RoleName = "testapp:" + new string('r', RoleDto.NameMaxLength) };
+        var requestPayload = new { RoleName = "testapp:" + new string('r', RoleLimits.NameMaxLength) };
 
         // Act
         var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Post, _baseUri, requestPayload);
@@ -1115,7 +1115,7 @@ public class RoleEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
         var requestPayload = new
         {
             RoleId = role.Id,
-            Resource = new string('r', RoleClaimDto.ResourceMaxLength + 1),
+            Resource = new string('r', RoleClaimLimits.ResourceMaxLength + 1),
             Action = "read",
         };
 

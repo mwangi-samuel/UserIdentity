@@ -14,7 +14,7 @@ namespace UserIdentity.Application.Core.Roles.Commands;
 
 public record CreateRoleCommand : IBaseCommand
 {
-    [Required, StringLength(RoleDto.NameMaxLength)]
+    [Required, StringLength(RoleLimits.NameMaxLength)]
     public string RoleName { get; init; } = null!;
 
     [JsonIgnore]
