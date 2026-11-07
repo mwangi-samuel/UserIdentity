@@ -119,7 +119,7 @@ public class ResetPasswordCommandHandler(
 
         await _createOutboxMessageCommandHandler.CreateItemAsync(
             new CreateOutboxMessageCommand(
-                UserMessages.UserUpdated,
+                UserMessages.PasswordResetRequested,
                 UserMessages.PasswordReset(resetRequestId, existingUser, userEntity, command.RegisteredApp!.AppName)
             ),
             existingUser.Id,

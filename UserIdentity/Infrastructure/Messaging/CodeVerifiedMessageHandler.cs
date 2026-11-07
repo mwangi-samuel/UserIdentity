@@ -5,7 +5,7 @@ using UserIdentity.Application.Core.Users.Events;
 
 namespace UserIdentity.Infrastructure.Messaging;
 
-[MessageSubject("messagemanager.user.updated")]
+[MessageSubject("messagemanager.code.verified")]
 public class CodeVerifiedMessageHandler(IEventHandler<CodeVerifiedEvent> codeVerifiedEventHandler) : IMessageHandler
 {
     private readonly IEventHandler<CodeVerifiedEvent> _codeVerifiedEventHandler = codeVerifiedEventHandler;

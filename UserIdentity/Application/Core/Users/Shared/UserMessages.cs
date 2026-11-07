@@ -8,7 +8,9 @@ namespace UserIdentity.Application.Core.Users.Shared;
 
 public static class UserMessages
 {
-    public const string UserUpdated = "user.updated";
+    public const string UserRegistered = "user.registered";
+
+    public const string PasswordResetRequested = "password-reset.requested";
 
     public const string CallbackRequested = "callback.requested";
 

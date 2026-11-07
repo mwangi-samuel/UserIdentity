@@ -269,7 +269,7 @@ public class RegisterUserCommandHandler(
             var welcomeMessage = UserMessages.Welcome(newUser, userDetails, registeredAppName);
 
             await _createOutboxMessageCommandHandler.CreateItemAsync(
-                new CreateOutboxMessageCommand(UserMessages.UserUpdated, welcomeMessage),
+                new CreateOutboxMessageCommand(UserMessages.UserRegistered, welcomeMessage),
                 newUser.Id,
                 cancellationToken
             );

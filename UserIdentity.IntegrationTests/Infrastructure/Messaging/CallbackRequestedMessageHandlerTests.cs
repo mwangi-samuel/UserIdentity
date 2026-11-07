@@ -82,7 +82,7 @@ public class CallbackRequestedMessageHandlerTests(TestingWebAppFactory testingWe
         var userId = await RegisterAsync(RegisteredApp.AppName);
 
         // Assert
-        Assert.NotNull(await NatsTestHelper.FindMessageAsync(NatsTestHelper.UserUpdatedSubject, userId));
+        Assert.NotNull(await NatsTestHelper.FindMessageAsync(NatsTestHelper.UserRegisteredSubject, userId));
 
         await Eventually.HoldsAsync(() => TestDbHelper.CountOutboxMessages() == 0);
 
