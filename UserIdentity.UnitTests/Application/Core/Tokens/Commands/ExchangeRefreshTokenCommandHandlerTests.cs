@@ -329,10 +329,8 @@ public class ExchangeRefreshTokenCommandHandlerTests
         A.CallTo(() => _tokenFactory.GenerateToken(A<int>._)).MustNotHaveHappened();
     }
 
-    private static ExchangeRefreshTokenCommand GetExchangeRefreshTokenCommand()
-    {
-        return new ExchangeRefreshTokenCommand { AccessToken = AccessToken, RefreshToken = RefreshToken };
-    }
+    private static ExchangeRefreshTokenCommand GetExchangeRefreshTokenCommand() =>
+        new ExchangeRefreshTokenCommand { AccessToken = AccessToken, RefreshToken = RefreshToken };
 
     private void SetUpValidAccessToken(ExchangeRefreshTokenCommand command)
     {

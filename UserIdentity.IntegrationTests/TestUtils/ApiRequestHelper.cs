@@ -48,25 +48,14 @@ internal static class ApiRequestHelper
         return httpReuest;
     }
 
-    public static void AddAuthHeader(this HttpRequestMessage httpRequest, string authToken)
-    {
+    public static void AddAuthHeader(this HttpRequestMessage httpRequest, string authToken) =>
         httpRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", authToken);
-    }
 
-    public static void AddXApiKey(this HttpRequestMessage httpRequest, string xApiKey)
-    {
-        httpRequest.Headers.Add("X-Api-Key", xApiKey);
-    }
+    public static void AddXApiKey(this HttpRequestMessage httpRequest, string xApiKey) => httpRequest.Headers.Add("X-Api-Key", xApiKey);
 
-    public static void AddXApiKey(this HttpRequestMessage httpRequest)
-    {
-        httpRequest.AddXApiKey(ApiKey);
-    }
+    public static void AddXApiKey(this HttpRequestMessage httpRequest) => httpRequest.AddXApiKey(ApiKey);
 
-    public static void AddXAppName(this HttpRequestMessage httpRequest)
-    {
-        httpRequest.Headers.Add("X-App-Name", AppName);
-    }
+    public static void AddXAppName(this HttpRequestMessage httpRequest) => httpRequest.Headers.Add("X-App-Name", AppName);
 
     public static async Task<HttpRequestMessage> CreateAuthorizedHttpRequestMessageAsync(
         this HttpClient httpClient,

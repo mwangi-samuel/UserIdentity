@@ -36,10 +36,7 @@ public class PasswordResetRepository(AppDbContext dbContext)
         string userId,
         DateTime createdAfter,
         CancellationToken cancellationToken = default
-    )
-    {
-        return await _dbContext.PasswordReset.CountAsync(e => e.UserId == userId && e.CreatedAt > createdAfter, cancellationToken);
-    }
+    ) => await _dbContext.PasswordReset.CountAsync(e => e.UserId == userId && e.CreatedAt > createdAfter, cancellationToken);
 
     public async Task<int> DeleteEntityItemsExpiredBeforeAsync(
         DateTime expiredBefore,

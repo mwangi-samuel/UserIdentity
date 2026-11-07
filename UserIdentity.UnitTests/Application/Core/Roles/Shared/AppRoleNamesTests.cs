@@ -13,11 +13,9 @@ public class AppRoleNamesTests
     [InlineData("otherapp:admin", "TestApp", false)]
     [InlineData("testapp", "TestApp", false)]
     [InlineData(null, "TestApp", false)]
-    public void IsAppRole_Matches_Only_The_Apps_Prefix(string? roleName, string appName, bool expected)
-    {
+    public void IsAppRole_Matches_Only_The_Apps_Prefix(string? roleName, string appName, bool expected) =>
         // Act & Assert
         Assert.Equal(expected, AppRoleNames.IsAppRole(roleName, appName));
-    }
 
     [Theory]
     [InlineData("testapp:admin", "TestApp", "superuser", true)]
@@ -41,11 +39,9 @@ public class AppRoleNamesTests
     }
 
     [Fact]
-    public void Prefix_Is_The_Lower_Case_App_Name_And_The_Separator()
-    {
+    public void Prefix_Is_The_Lower_Case_App_Name_And_The_Separator() =>
         // Act & Assert
         Assert.Equal("testapp:", AppRoleNames.Prefix(" TestApp "));
-    }
 
     [Fact]
     public void DefaultRole_Is_The_Apps_Lower_Case_Default_Role()

@@ -53,8 +53,6 @@ public class RefreshTokenRepository(AppDbContext appDbContext)
             .ExecuteDeleteAsync(cancellationToken);
     }
 
-    public async Task RemoveEntityItemsAsync(string userId, CancellationToken cancellationToken = default)
-    {
+    public async Task RemoveEntityItemsAsync(string userId, CancellationToken cancellationToken = default) =>
         await _appDbContext.RefreshToken.Where(e => e.UserId == userId).ExecuteDeleteAsync(cancellationToken);
-    }
 }

@@ -6,8 +6,5 @@ namespace UserIdentity.Persistence.Configurations;
 
 public class UserRegisteredAppConfiguration : IEntityTypeConfiguration<UserRegisteredAppEntity>
 {
-    public void Configure(EntityTypeBuilder<UserRegisteredAppEntity> builder)
-    {
-        builder.HasKey(e => e.Id);
-    }
+    public void Configure(EntityTypeBuilder<UserRegisteredAppEntity> builder) => builder.HasKey(e => e.Id);
 }

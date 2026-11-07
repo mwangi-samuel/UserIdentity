@@ -15,8 +15,5 @@ internal static class SerDeHelper
         return httpContent;
     }
 
-    public static T? Deserialize<T>(string jsonString)
-    {
-        return JsonConvert.DeserializeObject<T>(jsonString);
-    }
+    public static T? Deserialize<T>(string jsonString) => JsonConvert.DeserializeObject<T>(jsonString);
 }
