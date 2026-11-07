@@ -136,7 +136,7 @@ public class ResetPasswordCommandHandlerTests
         A.CallTo(() =>
                 _createOutboxMessageCommandHandler.CreateItemAsync(
                     A<CreateOutboxMessageCommand>.That.Matches(c =>
-                        c.Name == UserMessages.UserUpdated
+                        c.Name == UserMessages.PasswordResetRequested
                         && c.Message.Action == MessageAction.PasswordReset
                         && c.Message.CorrelationId == ResetRequestId
                         && c.Message.RegisteredApp == _registeredApp.AppName

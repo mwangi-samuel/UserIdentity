@@ -18,9 +18,10 @@ namespace UserIdentity.SmokeTests;
 public sealed class ImageFixture : IAsyncLifetime
 {
     public const string ApiKey = "SmokeApiKey-For-Tests-Only-0123456789012";
-    public const string UserUpdatedSubject = "useridentity.user.updated";
+    public const string UserRegisteredSubject = "useridentity.user.registered";
+    public const string PasswordResetRequestedSubject = "useridentity.password-reset.requested";
 
-    private const string CodeVerifiedSubject = "messagemanager.user.updated";
+    private const string CodeVerifiedSubject = "messagemanager.code.verified";
     private const string ImageVariable = "USERIDENTITY_SMOKE_IMAGE";
     private const string LocalImage = "useridentity:smoke";
     private const string DatabaseName = "useridentity";

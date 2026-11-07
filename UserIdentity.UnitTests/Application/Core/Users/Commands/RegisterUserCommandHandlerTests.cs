@@ -299,7 +299,7 @@ public class RegisterUserCommandHandlerTests
         A.CallTo(() =>
                 _createOutboxMessageCommandHandler.CreateItemAsync(
                     A<CreateOutboxMessageCommand>.That.Matches(c =>
-                        c.Name == UserMessages.UserUpdated
+                        c.Name == UserMessages.UserRegistered
                         && c.Message.Action == MessageAction.WelcomeUser
                         && c.Message.CorrelationId == userId
                         && c.Message.RegisteredApp == command.RegisteredApp!.AppName
@@ -379,7 +379,7 @@ public class RegisterUserCommandHandlerTests
         // Assert
         A.CallTo(() =>
                 _createOutboxMessageCommandHandler.CreateItemAsync(
-                    A<CreateOutboxMessageCommand>.That.Matches(c => c.Name == UserMessages.UserUpdated),
+                    A<CreateOutboxMessageCommand>.That.Matches(c => c.Name == UserMessages.UserRegistered),
                     A<string>._!,
                     A<CancellationToken>._
                 )

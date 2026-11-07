@@ -386,7 +386,7 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
         VerifyGoogleRecaptchaEndpoint();
 
         // Confirm the message reached the stream
-        var message = await NatsTestHelper.FindMessageAsync(NatsTestHelper.UserUpdatedSubject, userDetails!.Id);
+        var message = await NatsTestHelper.FindMessageAsync(NatsTestHelper.UserRegisteredSubject, userDetails!.Id);
 
         Assert.NotNull(message);
         Assert.Equal(RegisteredApp.AppName, message.RegisteredApp);
@@ -467,7 +467,7 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
 
         Assert.NotNull(resetRequestId);
 
-        var message = await NatsTestHelper.FindMessageAsync(NatsTestHelper.UserUpdatedSubject, resetRequestId);
+        var message = await NatsTestHelper.FindMessageAsync(NatsTestHelper.PasswordResetRequestedSubject, resetRequestId);
 
         Assert.Equal(UserSettingHelper.UserEmail, message?.Attributes.GetAttributeValue(MessageAttributeKey.RecipientEmail));
     }
@@ -541,7 +541,7 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
         var userId = SerDeHelper.Deserialize<JObject>(await response.ValidateRequestResponseAsync())?["user"]?["id"]?.ToString();
 
         Assert.NotNull(userId);
-        Assert.NotNull(await NatsTestHelper.FindMessageAsync(NatsTestHelper.UserUpdatedSubject, userId));
+        Assert.NotNull(await NatsTestHelper.FindMessageAsync(NatsTestHelper.UserRegisteredSubject, userId));
 
         await Eventually.HoldsAsync(() => TestDbHelper.CountOutboxMessages() == 0);
     }
@@ -600,7 +600,7 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
         VerifyGoogleRecaptchaEndpoint();
 
         // Confirm the message reached the stream
-        var message = await NatsTestHelper.FindMessageAsync(NatsTestHelper.UserUpdatedSubject, userDetails!.Id);
+        var message = await NatsTestHelper.FindMessageAsync(NatsTestHelper.UserRegisteredSubject, userDetails!.Id);
 
         Assert.NotNull(message);
         Assert.Equal(RegisteredApp.AppName, message.RegisteredApp);

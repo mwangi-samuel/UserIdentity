@@ -15,7 +15,7 @@
 - `AddAppCleanups` registers PolyzenKit periodic deletes for expired refresh tokens, expired password resets and unconfirmed users (`CleanupSettings`). The expiry cleanups delete in batches of 100 with `ExecuteDeleteAsync`. The unconfirmed-user cleanup does nothing unless `RequireConfirmedAccount` is on; it frees the invite of the user's own app and deletes the Identity user, and foreign keys with cascading deletes remove the details, app links, refresh tokens and reset requests. Nothing is soft-deleted, so queries don't filter on `IsDeleted`.
 
 ## Messaging
-- Sign-up and password reset add `UserMessages` to PolyzenKit's outbox (`ICreateItemCommandHandler<CreateOutboxMessageCommand, OutboxMessageViewModel>`) before their save or commit, on `useridentity.user.updated`.
+- Sign-up and password reset add `UserMessages` to PolyzenKit's outbox (`ICreateItemCommandHandler<CreateOutboxMessageCommand, OutboxMessageViewModel>`) before their save or commit: sign-up on `useridentity.user.registered` (`WelcomeUser`), password reset on `useridentity.password-reset.requested` (`PasswordReset`). Subjects name what happened, so each event type has its own.
 - `Infrastructure/Messaging` holds the two message handlers: one turns the message saying a code was verified into `CodeVerifiedEvent` (confirm the user, or verify the reset request), and `CallbackRequestedMessageHandler` turns `useridentity.callback.requested` into `UserRegisteredEvent`, which calls the app's callback. Only UserIdentity reads that subject; sign-up adds it only for UI sign-ups to apps with a `CallbackUrl`.
 - Handlers let exceptions through so PolyzenKit retries the message; `NoRecordException` and `InvalidDataException` drop it.
 

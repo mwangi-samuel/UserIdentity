@@ -84,7 +84,7 @@ public class ImageSmokeTests(ImageFixture fixture) : IClassFixture<ImageFixture>
 
         // Act
         var user = await client.RegisterAsync(_cancellationToken);
-        var welcome = await _fixture.FindMessageAsync(ImageFixture.UserUpdatedSubject, user.Id, _cancellationToken);
+        var welcome = await _fixture.FindMessageAsync(ImageFixture.UserRegisteredSubject, user.Id, _cancellationToken);
         var sessionBeforeConfirming = await client.LogInAsync(user.UserName, ServiceClient.Password, _cancellationToken);
 
         await ConfirmAsync(client, user);
@@ -130,7 +130,7 @@ public class ImageSmokeTests(ImageFixture fixture) : IClassFixture<ImageFixture>
         var resetResponse = await client.PostAsync("/api/v1/user/reset-password", new { userName = user.UserName }, _cancellationToken);
         var resetBody = await ServiceClient.ReadAsync(resetResponse, HttpStatusCode.OK, _cancellationToken);
         var resetRequestId = $"{resetBody["resetPasswordDetails"]!["resetRequestId"]}";
-        var message = await _fixture.FindMessageAsync(ImageFixture.UserUpdatedSubject, resetRequestId, _cancellationToken);
+        var message = await _fixture.FindMessageAsync(ImageFixture.PasswordResetRequestedSubject, resetRequestId, _cancellationToken);
 
         await _fixture.PublishCodeVerifiedAsync(resetRequestId, "PasswordReset", _cancellationToken);
 

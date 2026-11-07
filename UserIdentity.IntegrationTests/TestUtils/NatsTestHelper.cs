@@ -13,7 +13,8 @@ namespace UserIdentity.IntegrationTests.TestUtils;
 public sealed class NatsTestHelper(INatsJSContext jetStream)
 {
     public const string UserIdentityStream = "USERIDENTITY";
-    public const string UserUpdatedSubject = "useridentity.user.updated";
+    public const string UserRegisteredSubject = "useridentity.user.registered";
+    public const string PasswordResetRequestedSubject = "useridentity.password-reset.requested";
     public const string CallbackRequestedSubject = "useridentity.callback.requested";
     public static readonly string CodeVerifiedSubject = typeof(CodeVerifiedMessageHandler)
         .GetCustomAttribute<MessageSubjectAttribute>()!
