@@ -19,9 +19,6 @@ public class RefreshTokenConfigurationTests
         refreshTokenConfiguration.Configure(builder);
 
         // Assert
-        Assert.True(entityType.ConfirmMaxColumnLength(nameof(RefreshTokenEntity.Token), 200));
-        Assert.True(entityType.ConfirmMaxColumnLength(nameof(RefreshTokenEntity.PreviousToken), 200));
-
         Assert.True(entityType.ConfirmColumnHasIndex(nameof(RefreshTokenEntity.Token)));
         Assert.True(entityType.ConfirmColumnHasIndex(nameof(RefreshTokenEntity.PreviousToken)));
         Assert.True(entityType.ConfirmCascadingForeignKey<IdentityUser>(nameof(RefreshTokenEntity.UserId)));

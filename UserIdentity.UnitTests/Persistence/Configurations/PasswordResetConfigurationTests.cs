@@ -18,8 +18,6 @@ public class PasswordResetConfigurationTests
         passwordResetConfiguration.Configure(builder);
 
         // Assert
-        Assert.True(entityType.ConfirmMaxColumnLength(nameof(PasswordResetEntity.RequestId), 200));
-
         Assert.True(entityType.ConfirmColumnHasIndex(nameof(PasswordResetEntity.RequestId)));
         Assert.True(entityType.ConfirmCascadingForeignKey<IdentityUser>(nameof(PasswordResetEntity.UserId)));
     }

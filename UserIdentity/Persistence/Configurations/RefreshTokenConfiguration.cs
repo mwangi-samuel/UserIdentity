@@ -12,15 +12,10 @@ public class RefreshTokenConfiguration : IEntityTypeConfiguration<RefreshTokenEn
     {
         builder.ConfigureGuidPrimaryKey();
 
-        builder.Property(e => e.Token).HasMaxLength(RefreshTokenLimits.TokenMaxLength);
         builder.HasIndex(e => e.Token);
-
-        builder.Property(e => e.PreviousToken).HasMaxLength(RefreshTokenLimits.PreviousTokenMaxLength);
         builder.HasIndex(e => e.PreviousToken);
 
         builder.HasOne<IdentityUser>().WithMany().HasForeignKey(e => e.UserId).IsRequired().OnDelete(DeleteBehavior.Cascade);
         builder.HasIndex(e => e.Expires);
-
-        builder.Property(e => e.Version).IsConcurrencyToken();
     }
 }
