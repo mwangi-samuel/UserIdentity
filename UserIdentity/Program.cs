@@ -101,7 +101,7 @@ app.MapRegisteredAppEndpoints();
 
 app.MapHealthChecks("/health").AllowAnonymous();
 
-DbInitializer.InitializeDb(app);
+await app.AppMigrateDatabaseAsync();
 await app.AppSeedEntityNamesDataAsync();
 await app.AppSeedRegisteredAppsDataAsync(builder.Configuration);
 
