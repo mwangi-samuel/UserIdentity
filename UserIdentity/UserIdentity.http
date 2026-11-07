@@ -1,0 +1,202 @@
+@UserIdentity_HostAddress = http://localhost:5050
+@ApiKey = TestApiKey-For-Local-Use-Only-0123456789
+@AppName = testapp
+@AdminUserName = admin
+@AdminPassword = Adm1n@P@ss
+@GlobalAdminUserName = globaladmin
+@GlobalAdminPassword = Gl0b@lAdm1n
+@UserPassword = P@ssW1rd
+
+GET {{UserIdentity_HostAddress}}/health
+
+###
+
+POST {{UserIdentity_HostAddress}}/api/v1/user/register
+X-Api-Key: {{ApiKey}}
+X-App-Name: {{AppName}}
+Content-Type: application/json
+
+{
+  "firstName": "Admin",
+  "lastName": "User",
+  "userName": "{{AdminUserName}}",
+  "userEmail": "admin@example.com",
+  "userPassword": "{{AdminPassword}}"
+}
+
+###
+
+POST {{UserIdentity_HostAddress}}/api/v1/user/register
+X-Api-Key: {{ApiKey}}
+X-App-Name: {{AppName}}
+Content-Type: application/json
+
+{
+  "firstName": "Global",
+  "lastName": "Admin",
+  "userName": "{{GlobalAdminUserName}}",
+  "userEmail": "globaladmin@example.com",
+  "userPassword": "{{GlobalAdminPassword}}"
+}
+
+###
+
+# Confirm both admins and give them their roles first (Readme, API Requests)
+# @name adminLogin
+POST {{UserIdentity_HostAddress}}/api/v1/user/login
+X-Api-Key: {{ApiKey}}
+X-App-Name: {{AppName}}
+Content-Type: application/json
+
+{
+  "userName": "{{AdminUserName}}",
+  "password": "{{AdminPassword}}"
+}
+
+###
+
+# @name globalAdminLogin
+POST {{UserIdentity_HostAddress}}/api/v1/user/login
+X-Api-Key: {{ApiKey}}
+X-App-Name: {{AppName}}
+Content-Type: application/json
+
+{
+  "userName": "{{GlobalAdminUserName}}",
+  "password": "{{GlobalAdminPassword}}"
+}
+
+###
+
+# @name user
+POST {{UserIdentity_HostAddress}}/api/v1/user/register
+X-Api-Key: {{ApiKey}}
+X-App-Name: {{AppName}}
+Content-Type: application/json
+
+{
+  "firstName": "Test",
+  "lastName": "User",
+  "userName": "user{{$timestamp}}",
+  "userEmail": "user{{$timestamp}}@example.com",
+  "userPassword": "{{UserPassword}}"
+}
+
+###
+
+# @name role
+POST {{UserIdentity_HostAddress}}/api/v1/role
+X-Api-Key: {{ApiKey}}
+Authorization: Bearer {{adminLogin.response.body.$.userToken.accessToken.token}}
+Content-Type: application/json
+
+{
+  "roleName": "{{AppName}}:editor{{$timestamp}}"
+}
+
+###
+
+POST {{UserIdentity_HostAddress}}/api/v1/role/claim
+X-Api-Key: {{ApiKey}}
+Authorization: Bearer {{adminLogin.response.body.$.userToken.accessToken.token}}
+Content-Type: application/json
+
+{
+  "roleId": "{{role.response.body.$.role.id}}",
+  "resource": "catalog-product",
+  "action": "read"
+}
+
+###
+
+POST {{UserIdentity_HostAddress}}/api/v1/role/user
+X-Api-Key: {{ApiKey}}
+Authorization: Bearer {{adminLogin.response.body.$.userToken.accessToken.token}}
+Content-Type: application/json
+
+{
+  "userId": "{{user.response.body.$.user.id}}",
+  "roleId": "{{role.response.body.$.role.id}}"
+}
+
+###
+
+# @name invite
+POST {{UserIdentity_HostAddress}}/api/v1/invite-code
+X-Api-Key: {{ApiKey}}
+Authorization: Bearer {{adminLogin.response.body.$.userToken.accessToken.token}}
+Content-Type: application/json
+
+{
+  "inviteCode": "INVITE{{$timestamp}}",
+  "userEmail": "invitee{{$timestamp}}@example.com",
+  "role": "{{role.response.body.$.role.name}}"
+}
+
+###
+
+POST {{UserIdentity_HostAddress}}/api/v1/user/register
+X-Api-Key: {{ApiKey}}
+X-App-Name: {{AppName}}
+Content-Type: application/json
+
+{
+  "firstName": "Invited",
+  "lastName": "User",
+  "userName": "invitee{{$timestamp}}",
+  "userEmail": "{{invite.response.body.$.inviteCode.userEmail}}",
+  "userPassword": "{{UserPassword}}",
+  "inviteCode": "{{invite.response.body.$.inviteCode.inviteCode}}"
+}
+
+###
+
+POST {{UserIdentity_HostAddress}}/api/v1/wait-list
+X-Api-Key: {{ApiKey}}
+X-App-Name: {{AppName}}
+Content-Type: application/json
+
+{
+  "userEmail": "waiting{{$timestamp}}@example.com"
+}
+
+###
+
+GET {{UserIdentity_HostAddress}}/api/v1/registered-app
+X-Api-Key: {{ApiKey}}
+Authorization: Bearer {{globalAdminLogin.response.body.$.userToken.accessToken.token}}
+
+###
+
+POST {{UserIdentity_HostAddress}}/api/v1/user/reset-password
+X-Api-Key: {{ApiKey}}
+X-App-Name: {{AppName}}
+Content-Type: application/json
+
+{
+  "userName": "{{user.response.body.$.user.userName}}"
+}
+
+###
+
+# Send once per login: sending a replaced refresh token again ends the session
+# @name adminRefresh
+POST {{UserIdentity_HostAddress}}/api/v1/user/refresh-token
+X-Api-Key: {{ApiKey}}
+Content-Type: application/json
+
+{
+  "accessToken": "{{adminLogin.response.body.$.userToken.accessToken.token}}",
+  "refreshToken": "{{adminLogin.response.body.$.userToken.refreshToken}}"
+}
+
+###
+
+POST {{UserIdentity_HostAddress}}/api/v1/user/logout
+X-Api-Key: {{ApiKey}}
+Authorization: Bearer {{adminRefresh.response.body.$.userToken.accessToken.token}}
+Content-Type: application/json
+
+{
+  "refreshToken": "{{adminRefresh.response.body.$.userToken.refreshToken}}"
+}

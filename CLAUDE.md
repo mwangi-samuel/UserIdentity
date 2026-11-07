@@ -31,7 +31,7 @@
 
 ## Commands
 - Add a migration: run `dotnet ef migrations add <Name> --project UserIdentity/UserIdentity.csproj --output-dir Persistence/Migrations`. The tool builds the context with `Persistence/AppDbContextFactory`, which reads `MysqlSettings` from `appsettings.json` and environment variables and applies the same options as the app (`UseAppMysql`). It needs a reachable MySQL (`ServerVersion.AutoDetect`), but no keys.
-- When adding or changing endpoints, update `Readme.md` and the Bruno collection. Scripts save state with `bru.setVar`, not `bru.setEnvVar`.
+- When adding or changing endpoints, update `Readme.md`, and `UserIdentity/UserIdentity.http` when the endpoint is one of its flows. It holds only the main flows and uses only syntax that both Visual Studio and VS Code's REST Client support: file variables, `# @name` with `{{name.response.body.$...}}`, and `{{$timestamp}}` for unique names.
 
 ## Tests
 - Tests use FakeItEasy, not Moq.

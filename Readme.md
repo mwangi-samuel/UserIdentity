@@ -127,20 +127,19 @@ Keep `ExternalServicesSettings:ExternalServices:GoogleRecaptcha:TimeoutSeconds` 
 
 Settings are checked at startup. An invalid setting stops the app with every failure listed, such as `ValidForSeconds: The field ValidForSeconds must be between 1 and 2147483647.`
 
-## API Collections
-The `bruno` folder is a [Bruno](https://www.usebruno.com/) collection covering registration, admin login and token refresh, users, roles and scopes, invite codes, the wait list, registered apps, password reset requests and logout. Open it in Bruno or its VS Code extension (**Open Collection**).
+## API Requests
+`UserIdentity/UserIdentity.http` holds the main flows for sending by hand: registering and logging in the admins, registering a user, a role with a scope, an invite that grants the role, the wait list, registered apps, a password reset request, a refresh and a logout. Open it in Visual Studio 2022 (17.8 or later), or in VS Code with the [REST Client](https://marketplace.visualstudio.com/items?itemName=humao.rest-client) extension, and select **Send Request** above a request. The tests are the automated checks.
 
-- No environment needs selecting: the settings (URL, API key, app name and the admins' details) are collection variables in `bruno/collection.bru`. To point at another stack, create an environment with the same variable names; its values replace the collection's.
-- Tokens and ids are saved as runtime variables, so they never end up in the repo, and they're cleared when Bruno restarts. After a restart, run folder **2. Admin login** again before sending admin requests by hand.
-- The stack doesn't deliver confirmation codes, so folder **1. Admin setup** describes the SQL commands that confirm the admins and give them their roles. Other new accounts stay unconfirmed, and a password reset can't be completed.
-- In the Collection Runner, run folders 0 and 1, run the SQL commands, then run folders 2 to 8 in one run. A run stays under the default rate limit of 10 requests a minute per endpoint.
-- From the command line, with `npm install -g @usebruno/cli`:
+- No environment needs selecting: the settings (URL, API key, app name and the admins' details) are variables at the top of the file.
+- Requests that use an earlier response, such as an admin's token or the new role's id, need that request sent first.
+- New users, roles, invites and wait list entries are named after the current time, so the requests can be sent again. Registering the admins again answers 400, since they exist.
+- The stack doesn't deliver confirmation codes, so after registering the admins, confirm them and give them their roles from the repo root, then log in:
   ```
-  cd bruno
-  bru run "0. Health" "1. Admin setup"
-  # run the SQL commands from folder 1
-  bru run "2. Admin login" "3. Accounts" "4. Roles and scopes" "5. Invite codes" "6. Wait list and apps" "7. Password reset" "8. Session end"
+  docker compose exec -T db mysql -uroot -proot useridentity -e "UPDATE users SET email_confirmed = 1 WHERE normalized_user_name IN ('ADMIN', 'GLOBALADMIN')"
+  Get-Content .sql\add_admin_user_role.sql | docker compose exec -T db mysql -uroot -proot --init-command="SET @username='admin', @app_name='testapp'"
+  Get-Content .sql\add_admin_user_role.sql | docker compose exec -T db mysql -uroot -proot --init-command="SET @username='globaladmin', @role_name='global:admin'"
   ```
+  Other new accounts stay unconfirmed, and a password reset can't be completed.
 
 ## Running the Tests
 The tests use xUnit v3 on Microsoft Testing Platform (selected in `global.json`). The unit tests call each endpoint method directly with faked handlers. The integration tests send requests to the whole app and start MySQL and NATS with Testcontainers, so Docker must be running. The smoke tests build the Docker image, run it as it's published (trimmed, single file) beside MySQL and NATS, and reach it only over HTTP and NATS.
