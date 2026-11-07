@@ -1,4 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations.Schema;
+﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
 using PolyzenKit.Domain.Entities;
 using PolyzenKit.Domain.Entities.RegisteredApps;
@@ -7,6 +8,7 @@ namespace UserIdentity.Domain.WaitLists;
 
 public class WaitListEntity : BaseAuditableEntity<long>
 {
+    [MaxLength(WaitListLimits.UserEmailMaxLength)]
     public string UserEmail { get; set; } = null!;
 
     public int AppId { get; set; }
