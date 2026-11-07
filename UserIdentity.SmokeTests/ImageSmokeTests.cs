@@ -6,7 +6,7 @@ namespace UserIdentity.SmokeTests;
 
 public class ImageSmokeTests(ImageFixture fixture) : IClassFixture<ImageFixture>
 {
-    private const string ProductScopeResource = "commercemanager-product";
+    private const string ProductScopeResource = "catalog-product";
 
     // The cleanups run on a one-minute timer
     private static readonly TimeSpan _cleanupWait = TimeSpan.FromSeconds(90);
@@ -29,6 +29,24 @@ public class ImageSmokeTests(ImageFixture fixture) : IClassFixture<ImageFixture>
         var body = await ServiceClient.ReadAsync(response, HttpStatusCode.OK, _cancellationToken);
         Assert.Equal("Ed25519", $"{body["keys"]![0]!["crv"]}");
         Assert.NotEmpty($"{body["keys"]![0]!["x"]}");
+    }
+
+    [Fact]
+    public async Task OversizedBody_IsRejected_AndTheServiceStaysUp()
+    {
+        // Arrange
+        using var client = new ServiceClient(_fixture.ServiceUrl);
+        var oversizedLogin = new { userName = new string('a', 1024 * 1024), password = ServiceClient.Password };
+        var normalLogin = new { userName = "nobody", password = ServiceClient.Password };
+
+        // Act
+        var oversized = await client.PostAsync("/api/v1/user/login", oversizedLogin, _cancellationToken);
+        var afterwards = await client.PostAsync("/api/v1/user/login", normalLogin, _cancellationToken);
+
+        // Assert
+        var body = await ServiceClient.ReadAsync(oversized, HttpStatusCode.RequestEntityTooLarge, _cancellationToken);
+        Assert.Equal("Payload Too Large", $"{body["error"]!["message"]}");
+        Assert.Equal(HttpStatusCode.Unauthorized, afterwards.StatusCode);
     }
 
     [Fact]

@@ -2,13 +2,12 @@
 using System.Security.Claims;
 using System.Text.Json;
 using FakeItEasy;
-using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Time.Testing;
+using PolyzenKit.Application.Core.RegisteredApps.Shared;
 using PolyzenKit.Application.Interfaces;
 using PolyzenKit.Common.Settings;
 using PolyzenKit.Common.Utilities;
-using PolyzenKit.Domain.Entities.RegisteredApps;
 using PolyzenKit.Infrastructure.ExternalServices;
 using UserIdentity.Application.Core.Users.Events;
 using UserIdentity.Infrastructure.ExternalServices;
@@ -24,7 +23,7 @@ public sealed class AppCallbackServiceTests : IDisposable
 
     private readonly IHttpRequestSender _httpRequestSender;
     private readonly IJwtTokenHandler _jwtTokenHandler;
-    private readonly IHttpContextAccessor _httpContextAccessor;
+    private readonly IRequestIdAccessor _requestIdAccessor;
     private readonly IOptions<RoleSettings> _roleSettingsOptions;
     private readonly FakeTimeProvider _timeProvider;
     private readonly HttpRequestMessage _requestMessage;
@@ -33,8 +32,7 @@ public sealed class AppCallbackServiceTests : IDisposable
     {
         _httpRequestSender = A.Fake<IHttpRequestSender>();
         _jwtTokenHandler = A.Fake<IJwtTokenHandler>();
-        _httpContextAccessor = A.Fake<IHttpContextAccessor>();
-        _httpContextAccessor.HttpContext = new DefaultHttpContext();
+        _requestIdAccessor = A.Fake<IRequestIdAccessor>();
         _roleSettingsOptions = Options.Create(
             new RoleSettings
             {
@@ -114,7 +112,7 @@ public sealed class AppCallbackServiceTests : IDisposable
     }
 
     private AppCallbackService GetAppCallbackService() =>
-        new(_httpRequestSender, _jwtTokenHandler, _httpContextAccessor, _roleSettingsOptions, _timeProvider);
+        new(_httpRequestSender, _jwtTokenHandler, _requestIdAccessor, _roleSettingsOptions, _timeProvider);
 
     [Fact]
     public async Task SendCallbackRequestAsync_Sends_The_New_Users_Details_As_An_Unconfirmed_Create()
@@ -155,8 +153,7 @@ public sealed class AppCallbackServiceTests : IDisposable
             .Returns(("service-token", 60));
 
         var service = GetAppCallbackService();
-        var app = GetApp();
-        app.ForwardServiceToken = true;
+        var app = GetApp(forwardServiceToken: true);
 
         await service.SendCallbackRequestAsync(app, GetUser(), TestContext.Current.CancellationToken);
 
@@ -188,7 +185,7 @@ public sealed class AppCallbackServiceTests : IDisposable
     [Fact]
     public async Task SendCallbackRequestAsync_Outside_A_Request_Sends_A_New_Request_Id()
     {
-        _httpContextAccessor.HttpContext = null;
+        A.CallTo(() => _requestIdAccessor.RequestId).Returns(null);
         var service = GetAppCallbackService();
 
         await service.SendCallbackRequestAsync(GetApp(), GetUser(), TestContext.Current.CancellationToken);
@@ -196,12 +193,15 @@ public sealed class AppCallbackServiceTests : IDisposable
         Assert.False(string.IsNullOrWhiteSpace(Assert.Single(_requestMessage.Headers.GetValues(CustomHeaderNames.RequestId))));
     }
 
-    private static RegisteredAppEntity GetApp(Dictionary<string, string>? callbackHeaders = null) =>
+    private static ActiveRegisteredApp GetApp(Dictionary<string, string>? callbackHeaders = null, bool forwardServiceToken = false) =>
         new()
         {
+            Id = 1,
             AppName = "TestApp",
             AppSecretKey = AppSecretKey,
+            BaseUrl = "https://app.test",
             CallbackUrl = "https://callback.test/cb",
+            ForwardServiceToken = forwardServiceToken,
             CallbackHeaders = callbackHeaders,
         };
 

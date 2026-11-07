@@ -265,7 +265,7 @@ __pycache__/
 [Ll]ogs/
 
 
-# Ignore .env file 
+# Ignore .env file
 .env
 
 # Ignore docker mounts

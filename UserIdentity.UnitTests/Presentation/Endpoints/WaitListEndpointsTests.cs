@@ -3,7 +3,6 @@ using FakeItEasy;
 using PolyzenKit.Application.Core.Interfaces;
 using PolyzenKit.Application.Core.RegisteredApps.Shared;
 using PolyzenKit.Common.Enums;
-using PolyzenKit.Domain.Entities.RegisteredApps;
 using UserIdentity.Application.Core.WaitLists.Commands;
 using UserIdentity.Application.Core.WaitLists.Queries;
 using UserIdentity.Application.Core.WaitLists.ViewModels;
@@ -127,7 +126,13 @@ public class WaitListEndpointsTests
 
         var command = new CreateWaitListCommand { UserEmail = "new@example.com" };
 
-        var registeredApp = new RegisteredAppEntity { Id = appId, AppName = appName };
+        var registeredApp = new ActiveRegisteredApp
+        {
+            Id = appId,
+            AppName = appName,
+            AppSecretKey = "test-secret",
+            BaseUrl = "https://app.test",
+        };
 
         var waitListVM = new WaitListViewModel
         {
@@ -183,7 +188,13 @@ public class WaitListEndpointsTests
 
         var command = new CreateWaitListCommand { UserEmail = "anonymous@example.com" };
 
-        var registeredApp = new RegisteredAppEntity { Id = appId, AppName = appName };
+        var registeredApp = new ActiveRegisteredApp
+        {
+            Id = appId,
+            AppName = appName,
+            AppSecretKey = "test-secret",
+            BaseUrl = "https://app.test",
+        };
 
         var waitListVM = new WaitListViewModel
         {

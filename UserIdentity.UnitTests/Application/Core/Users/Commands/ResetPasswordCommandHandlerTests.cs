@@ -2,12 +2,13 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Time.Testing;
-using PolyzenKit.Application.Core.Messages.Events;
-using PolyzenKit.Application.Core.Messages.Shared;
+using PolyzenKit.Application.Core.Interfaces;
+using PolyzenKit.Application.Core.Messages.Commands;
+using PolyzenKit.Application.Core.Messages.ViewModels;
+using PolyzenKit.Application.Core.RegisteredApps.Shared;
 using PolyzenKit.Application.Interfaces;
 using PolyzenKit.Common.Enums;
 using PolyzenKit.Common.Exceptions;
-using PolyzenKit.Domain.Entities.RegisteredApps;
 using PolyzenKit.Persistence.Repositories;
 using UserIdentity.Application.Core.Users.Commands;
 using UserIdentity.Application.Core.Users.Shared;
@@ -34,11 +35,17 @@ public class ResetPasswordCommandHandlerTests
     private readonly IUnitOfWork _unitOfWork;
     private readonly IUserRepository _userRepository;
     private readonly IPasswordResetRepository _passwordResetRepository;
-    private readonly IMessageOutbox _messageOutbox;
+    private readonly ICreateItemCommandHandler<CreateOutboxMessageCommand, OutboxMessageViewModel> _createOutboxMessageCommandHandler;
     private readonly IUserRegisteredAppRepository _userRegisteredAppRepository = A.Fake<IUserRegisteredAppRepository>();
 
     private readonly DateTime _fixedNow = new(2024, 01, 01, 10, 0, 0, DateTimeKind.Utc);
-    private readonly RegisteredAppEntity _registeredApp = new() { Id = 1, AppName = "TestApp" };
+    private readonly ActiveRegisteredApp _registeredApp = new()
+    {
+        Id = 1,
+        AppName = "TestApp",
+        AppSecretKey = "test-secret",
+        BaseUrl = "https://app.test",
+    };
 
     public ResetPasswordCommandHandlerTests()
     {
@@ -49,7 +56,7 @@ public class ResetPasswordCommandHandlerTests
         _unitOfWork = A.Fake<IUnitOfWork>();
         _userRepository = A.Fake<IUserRepository>();
         _passwordResetRepository = A.Fake<IPasswordResetRepository>();
-        _messageOutbox = A.Fake<IMessageOutbox>();
+        _createOutboxMessageCommandHandler = A.Fake<ICreateItemCommandHandler<CreateOutboxMessageCommand, OutboxMessageViewModel>>();
 
         _timeProvider.SetUtcNow(_fixedNow);
         A.CallTo(() => _tokenFactory.GenerateToken(32)).Returns(ResetRequestId);
@@ -78,7 +85,10 @@ public class ResetPasswordCommandHandlerTests
         Assert.Equal(ResetPasswordCommandHandler.DefaultResetPasswordMessage, vm.ResetPasswordDetails.EmailMessage);
         A.CallTo(() => _passwordResetRepository.CreateEntityItem(A<PasswordResetEntity>._)).MustNotHaveHappened();
         A.CallTo(() => _unitOfWork.SaveChangesAsync(A<CancellationToken>._)).MustNotHaveHappened();
-        A.CallTo(() => _messageOutbox.Add(A<string>._, A<MessageEvent>._)).MustNotHaveHappened();
+        A.CallTo(() =>
+                _createOutboxMessageCommandHandler.CreateItemAsync(A<CreateOutboxMessageCommand>._, A<string>._, A<CancellationToken>._)
+            )
+            .MustNotHaveHappened();
     }
 
     [Fact]
@@ -124,17 +134,19 @@ public class ResetPasswordCommandHandlerTests
         A.CallTo(() => _unitOfWork.SaveChangesAsync(A<CancellationToken>._)).MustHaveHappenedOnceExactly();
 
         A.CallTo(() =>
-                _messageOutbox.Add(
-                    UserMessages.UserUpdated,
-                    A<MessageEvent>.That.Matches(m =>
-                        m.Action == MessageAction.PasswordReset
-                        && m.CorrelationId == ResetRequestId
-                        && m.RegisteredApp == _registeredApp.AppName
-                        && m.Attributes[MessageAttributeKey.UserId] == existingIdentityUser.Id
-                        && m.Attributes[MessageAttributeKey.RecipientEmail] == existingIdentityUser.Email
-                        && m.Attributes[MessageAttributeKey.RecipientPhone] == existingIdentityUser.PhoneNumber
-                        && m.Attributes[MessageAttributeKey.FirstName] == existingEntity.FirstName
-                    )
+                _createOutboxMessageCommandHandler.CreateItemAsync(
+                    A<CreateOutboxMessageCommand>.That.Matches(c =>
+                        c.Name == UserMessages.UserUpdated
+                        && c.Message.Action == MessageAction.PasswordReset
+                        && c.Message.CorrelationId == ResetRequestId
+                        && c.Message.RegisteredApp == _registeredApp.AppName
+                        && c.Message.Attributes[MessageAttributeKey.UserId] == existingIdentityUser.Id
+                        && c.Message.Attributes[MessageAttributeKey.RecipientEmail] == existingIdentityUser.Email
+                        && c.Message.Attributes[MessageAttributeKey.RecipientPhone] == existingIdentityUser.PhoneNumber
+                        && c.Message.Attributes[MessageAttributeKey.FirstName] == existingEntity.FirstName
+                    ),
+                    A<string>._,
+                    A<CancellationToken>._
                 )
             )
             .MustHaveHappenedOnceExactly()
@@ -166,7 +178,10 @@ public class ResetPasswordCommandHandlerTests
         // Assert
         Assert.Equal(ResetRequestId, vm.ResetPasswordDetails.ResetRequestId);
         A.CallTo(() => _passwordResetRepository.CreateEntityItem(A<PasswordResetEntity>._)).MustNotHaveHappened();
-        A.CallTo(() => _messageOutbox.Add(A<string>._, A<MessageEvent>._)).MustNotHaveHappened();
+        A.CallTo(() =>
+                _createOutboxMessageCommandHandler.CreateItemAsync(A<CreateOutboxMessageCommand>._, A<string>._, A<CancellationToken>._)
+            )
+            .MustNotHaveHappened();
     }
 
     [Fact]
@@ -196,7 +211,10 @@ public class ResetPasswordCommandHandlerTests
         // Assert
         Assert.Equal(ResetRequestId, vm.ResetPasswordDetails.ResetRequestId);
         A.CallTo(() => _passwordResetRepository.CreateEntityItem(A<PasswordResetEntity>._)).MustNotHaveHappened();
-        A.CallTo(() => _messageOutbox.Add(A<string>._, A<MessageEvent>._)).MustNotHaveHappened();
+        A.CallTo(() =>
+                _createOutboxMessageCommandHandler.CreateItemAsync(A<CreateOutboxMessageCommand>._, A<string>._, A<CancellationToken>._)
+            )
+            .MustNotHaveHappened();
     }
 
     [Fact]
@@ -219,7 +237,10 @@ public class ResetPasswordCommandHandlerTests
         // Assert
         Assert.Equal(ResetRequestId, vm.ResetPasswordDetails.ResetRequestId);
         A.CallTo(() => _passwordResetRepository.CreateEntityItem(A<PasswordResetEntity>._)).MustNotHaveHappened();
-        A.CallTo(() => _messageOutbox.Add(A<string>._, A<MessageEvent>._)).MustNotHaveHappened();
+        A.CallTo(() =>
+                _createOutboxMessageCommandHandler.CreateItemAsync(A<CreateOutboxMessageCommand>._, A<string>._, A<CancellationToken>._)
+            )
+            .MustNotHaveHappened();
     }
 
     [Fact]
@@ -243,7 +264,10 @@ public class ResetPasswordCommandHandlerTests
         // Assert
         Assert.Equal(ResetRequestId, vm.ResetPasswordDetails.ResetRequestId);
         A.CallTo(() => _passwordResetRepository.CreateEntityItem(A<PasswordResetEntity>._)).MustNotHaveHappened();
-        A.CallTo(() => _messageOutbox.Add(A<string>._, A<MessageEvent>._)).MustNotHaveHappened();
+        A.CallTo(() =>
+                _createOutboxMessageCommandHandler.CreateItemAsync(A<CreateOutboxMessageCommand>._, A<string>._, A<CancellationToken>._)
+            )
+            .MustNotHaveHappened();
     }
 
     private ResetPasswordCommand GetResetPasswordCommand(string userName)
@@ -272,7 +296,7 @@ public class ResetPasswordCommandHandlerTests
             _unitOfWork,
             _userRepository,
             _passwordResetRepository,
-            _messageOutbox,
+            _createOutboxMessageCommandHandler,
             _userRegisteredAppRepository
         );
     }

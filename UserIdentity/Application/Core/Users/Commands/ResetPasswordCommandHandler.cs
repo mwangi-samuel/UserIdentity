@@ -4,10 +4,11 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Options;
 using PolyzenKit.Application.Core;
 using PolyzenKit.Application.Core.Interfaces;
-using PolyzenKit.Application.Core.Messages.Shared;
+using PolyzenKit.Application.Core.Messages.Commands;
+using PolyzenKit.Application.Core.Messages.ViewModels;
+using PolyzenKit.Application.Core.RegisteredApps.Shared;
 using PolyzenKit.Application.Interfaces;
 using PolyzenKit.Common.Exceptions;
-using PolyzenKit.Domain.Entities.RegisteredApps;
 using PolyzenKit.Persistence.Repositories;
 using UserIdentity.Application.Core.Users.Shared;
 using UserIdentity.Application.Core.Users.ViewModels;
@@ -22,7 +23,7 @@ namespace UserIdentity.Application.Core.Users.Commands;
 public record ResetPasswordCommand : IBaseCommand
 {
     [JsonIgnore]
-    public RegisteredAppEntity? RegisteredApp { get; internal set; }
+    public ActiveRegisteredApp? RegisteredApp { get; internal set; }
 
     [Required]
     public string UserName { get; init; } = null!;
@@ -36,7 +37,7 @@ public class ResetPasswordCommandHandler(
     IUnitOfWork unitOfWork,
     IUserRepository userRepository,
     IPasswordResetRepository passwordResetRepository,
-    IMessageOutbox messageOutbox,
+    ICreateItemCommandHandler<CreateOutboxMessageCommand, OutboxMessageViewModel> createOutboxMessageCommandHandler,
     IUserRegisteredAppRepository userRegisteredAppRepository
 )
     : BaseAuditableItemCommandHandler<Guid, PasswordResetEntity, IPasswordResetRepository>(
@@ -51,7 +52,8 @@ public class ResetPasswordCommandHandler(
     private readonly ITokenFactory _tokenFactory = tokenFactory;
     private readonly IUserRepository _userRepository = userRepository;
     private readonly IUserRegisteredAppRepository _userRegisteredAppRepository = userRegisteredAppRepository;
-    private readonly IMessageOutbox _messageOutbox = messageOutbox;
+    private readonly ICreateItemCommandHandler<CreateOutboxMessageCommand, OutboxMessageViewModel> _createOutboxMessageCommandHandler =
+        createOutboxMessageCommandHandler;
 
     public const string DefaultResetPasswordMessage =
         "If an account matches the details provided, you will receive a code to reset your password.";
@@ -115,9 +117,13 @@ public class ResetPasswordCommandHandler(
             Expires = TimeProvider.GetUtcNow().UtcDateTime.AddSeconds(_passwordResetSettings.ValidForSeconds),
         };
 
-        _messageOutbox.Add(
-            UserMessages.UserUpdated,
-            UserMessages.PasswordReset(resetRequestId, existingUser, userEntity, command.RegisteredApp!.AppName)
+        await _createOutboxMessageCommandHandler.CreateItemAsync(
+            new CreateOutboxMessageCommand(
+                UserMessages.UserUpdated,
+                UserMessages.PasswordReset(resetRequestId, existingUser, userEntity, command.RegisteredApp!.AppName)
+            ),
+            existingUser.Id,
+            cancellationToken
         );
 
         await CreateEntityItemAsync(passwordResetEntity, existingUser.Id, cancellationToken);

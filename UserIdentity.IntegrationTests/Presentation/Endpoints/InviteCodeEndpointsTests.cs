@@ -359,7 +359,7 @@ public class InviteCodeEndpointsTests(TestingWebAppFactory testingWebAppFactory,
         Assert.NotNull(errorList);
         var error = Assert.Single(errorList);
         Assert.Equal("page", error.Field);
-        Assert.Equal("The field page must be between 1 and 21474836.", error.Message);
+        Assert.Equal("The field page must be between 1 and 10000.", error.Message);
     }
 
     [Fact]

@@ -1,4 +1,4 @@
-﻿using PolyzenKit.Domain.Entities.RegisteredApps;
+﻿using PolyzenKit.Application.Core.RegisteredApps.Shared;
 using UserIdentity.Application.Core.Users.Events;
 
 namespace UserIdentity.Application.Interfaces;
@@ -6,7 +6,7 @@ namespace UserIdentity.Application.Interfaces;
 public interface IAppCallbackService
 {
     Task SendCallbackRequestAsync(
-        RegisteredAppEntity registeredApp,
+        ActiveRegisteredApp registeredApp,
         UserRegisteredEvent user,
         CancellationToken cancellationToken = default
     );

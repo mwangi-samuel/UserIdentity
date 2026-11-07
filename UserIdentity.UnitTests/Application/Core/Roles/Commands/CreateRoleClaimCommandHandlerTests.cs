@@ -106,7 +106,7 @@ public class CreateRoleClaimCommandHandlerTests
         CreateRoleClaimCommand command = new()
         {
             RoleId = "1",
-            Resource = "FileManager-File",
+            Resource = "Media-File",
             Action = "Create",
             AppName = "testapp",
         };
@@ -114,8 +114,8 @@ public class CreateRoleClaimCommandHandlerTests
         IdentityRole role = new() { Id = command.RoleId, Name = "testapp:owner" };
         A.CallTo(() => _roleManager.FindByIdAsync(command.RoleId)).Returns(role);
 
-        Claim scopeClaim = new("scope", "filemanager-file:create");
-        A.CallTo(() => _jwtTokenHandler.GenerateScopeClaim("filemanager-file", "create")).Returns(scopeClaim);
+        Claim scopeClaim = new("scope", "media-file:create");
+        A.CallTo(() => _jwtTokenHandler.GenerateScopeClaim("media-file", "create")).Returns(scopeClaim);
         A.CallTo(() => _roleManager.GetClaimsAsync(role)).Returns([]);
         A.CallTo(() => _roleManager.AddClaimAsync(role, scopeClaim)).Returns(Task.FromResult(IdentityResult.Success));
 
@@ -125,7 +125,7 @@ public class CreateRoleClaimCommandHandlerTests
         var vm = await handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken);
 
         // Assert
-        Assert.Equal("filemanager-file", vm.RoleClaim.Resource);
+        Assert.Equal("media-file", vm.RoleClaim.Resource);
         Assert.Equal("create", vm.RoleClaim.Action);
         A.CallTo(() => _roleManager.AddClaimAsync(role, scopeClaim)).MustHaveHappenedOnceExactly();
     }

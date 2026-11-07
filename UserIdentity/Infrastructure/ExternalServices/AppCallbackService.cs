@@ -1,9 +1,9 @@
 ﻿using Microsoft.Extensions.Options;
+using PolyzenKit.Application.Core.RegisteredApps.Shared;
 using PolyzenKit.Application.Interfaces;
 using PolyzenKit.Common.Enums;
 using PolyzenKit.Common.Settings;
 using PolyzenKit.Common.Utilities;
-using PolyzenKit.Domain.Entities.RegisteredApps;
 using PolyzenKit.Infrastructure.ExternalServices;
 using UserIdentity.Application.Core.Users.Events;
 using UserIdentity.Application.Interfaces;
@@ -13,10 +13,10 @@ namespace UserIdentity.Infrastructure.ExternalServices;
 public class AppCallbackService(
     IHttpRequestSender httpRequestSender,
     IJwtTokenHandler jwtTokenHandler,
-    IHttpContextAccessor httpContextAccessor,
+    IRequestIdAccessor requestIdAccessor,
     IOptions<RoleSettings> roleSettingsOptions,
     TimeProvider timeProvider
-) : BaseExternalService(jwtTokenHandler, httpContextAccessor, roleSettingsOptions), IAppCallbackService
+) : BaseExternalService(jwtTokenHandler, requestIdAccessor, roleSettingsOptions), IAppCallbackService
 {
     private readonly IHttpRequestSender _httpRequestSender = httpRequestSender;
     private readonly TimeProvider _timeProvider = timeProvider;
@@ -24,7 +24,7 @@ public class AppCallbackService(
     private const string targetServiceName = "AppCallback";
 
     public async Task SendCallbackRequestAsync(
-        RegisteredAppEntity registeredApp,
+        ActiveRegisteredApp registeredApp,
         UserRegisteredEvent user,
         CancellationToken cancellationToken = default
     )

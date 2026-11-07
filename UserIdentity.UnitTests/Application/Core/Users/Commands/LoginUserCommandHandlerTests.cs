@@ -3,9 +3,9 @@ using System.Security.Claims;
 using FakeItEasy;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Options;
+using PolyzenKit.Application.Core.RegisteredApps.Shared;
 using PolyzenKit.Application.Interfaces;
 using PolyzenKit.Common.Settings;
-using PolyzenKit.Domain.Entities.RegisteredApps;
 using PolyzenKit.Persistence.Repositories;
 using UserIdentity.Application.Core.Tokens.Shared;
 using UserIdentity.Application.Core.Users.Commands;
@@ -38,7 +38,13 @@ public class LoginUserCommandHandlerTests
     private readonly IRefreshTokenRepository _refreshTokenRepository = A.Fake<IRefreshTokenRepository>();
     private readonly TimeProvider _timeProvider = TimeProvider.System;
 
-    private readonly RegisteredAppEntity _registeredApp = new() { AppName = "TestApp" };
+    private readonly ActiveRegisteredApp _registeredApp = new()
+    {
+        Id = 1,
+        AppName = "TestApp",
+        AppSecretKey = "test-secret",
+        BaseUrl = "https://app.test",
+    };
 
     [Fact]
     public async Task Login_With_Non_Existent_User_In_UserManager_Throws_InvalidCredentialException()

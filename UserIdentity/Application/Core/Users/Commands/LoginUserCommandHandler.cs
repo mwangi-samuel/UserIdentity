@@ -5,9 +5,9 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Options;
 using PolyzenKit.Application.Core;
 using PolyzenKit.Application.Core.Interfaces;
+using PolyzenKit.Application.Core.RegisteredApps.Shared;
 using PolyzenKit.Application.Interfaces;
 using PolyzenKit.Common.Settings;
-using PolyzenKit.Domain.Entities.RegisteredApps;
 using PolyzenKit.Persistence.Repositories;
 using UserIdentity.Application.Core.Tokens.Shared;
 using UserIdentity.Application.Core.Tokens.ViewModels;
@@ -21,7 +21,7 @@ namespace UserIdentity.Application.Core.Users.Commands;
 public record LoginUserCommand : IBaseCommand
 {
     [JsonIgnore]
-    public RegisteredAppEntity? RegisteredApp { get; internal set; }
+    public ActiveRegisteredApp? RegisteredApp { get; internal set; }
 
     public int AppId { get; set; }
 

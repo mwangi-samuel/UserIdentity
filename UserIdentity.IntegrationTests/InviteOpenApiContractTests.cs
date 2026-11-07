@@ -93,7 +93,7 @@ public class InviteOpenApiContractTests
                 services.RemoveAll<DbContextOptions<AppDbContext>>();
                 services.RemoveAll<IDbContextOptionsConfiguration<AppDbContext>>();
                 services.RemoveAll<IHostedService>();
-                services.AddDbContext<AppDbContext>(options => options.UseInMemoryDatabase(_database));
+                services.AddDbContextPool<AppDbContext>(options => options.UseInMemoryDatabase(_database));
                 services.AddScoped<DbContext>(provider => provider.GetRequiredService<AppDbContext>());
             });
         }

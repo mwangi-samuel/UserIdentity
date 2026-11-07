@@ -64,7 +64,7 @@ public class ProgramTests(TestingWebAppFactory testingWebAppFactory, ITestOutput
         TestDbHelper.SeedDatabase();
         TestDbHelper.ConfigureIdentityUserAsGlobalAdmin();
 
-        var requestPayload = new { AppSecretKey = "S3TAG00dSeC8E7", BaseUrl = "http://localhost:3001" };
+        var requestPayload = new { AppSecretKey = "S3TAG00dSeC8E7-For-Local-Use-Only-012345", BaseUrl = "http://localhost:3001" };
 
         // Act
         var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Post, "/api/v1/registered-app", requestPayload);

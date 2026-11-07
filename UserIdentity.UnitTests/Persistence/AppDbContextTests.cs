@@ -15,6 +15,16 @@ namespace UserIdentity.UnitTests.Persistence;
 public class AppDbContextTests
 {
     [Fact]
+    public void Constructor_Turns_Off_Automatic_Savepoints()
+    {
+        // Act
+        using var context = AppDbContextTestFactory.GetAppDbContext();
+
+        // Assert
+        Assert.False(context.Database.AutoSavepointsEnabled);
+    }
+
+    [Fact]
     public void OnModelCreating_Should_Update_Model()
     {
         // Arrange

@@ -66,6 +66,8 @@ public sealed class TestDbHelper(
         _appDbContext.SaveChanges();
     }
 
+    public int CountIdentityUsers() => _appDbContext.Users.AsNoTracking().Count();
+
     public IdentityUser? GetIdentityUser(string userId)
     {
         return _appDbContext.Users.FirstOrDefault(u => u.Id == userId);

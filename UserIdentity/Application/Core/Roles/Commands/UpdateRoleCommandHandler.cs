@@ -16,7 +16,7 @@ public record UpdateRoleCommand : IBaseCommand
 {
     public string RoleId { get; internal set; } = string.Empty;
 
-    [Required]
+    [Required, StringLength(RoleDto.NameMaxLength)]
     public string RoleName { get; init; } = null!;
 
     [JsonIgnore]
