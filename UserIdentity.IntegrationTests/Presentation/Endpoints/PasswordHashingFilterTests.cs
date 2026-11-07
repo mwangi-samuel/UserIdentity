@@ -1,7 +1,6 @@
 using System.Net;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
@@ -122,7 +121,7 @@ public class PasswordHashingFilterTests(TestingWebAppFactory testingWebAppFactor
 
         httpRequest.Headers.Add(ClientAddressHeader, clientAddress);
         httpRequest.Content = SerDeHelper.ConvertToHttpContent(
-            new { UserName = UserSettingHelper.UserName, Password = UserSettingHelper.UserPassword }
+            new { UserSettingHelper.UserName, Password = UserSettingHelper.UserPassword }
         );
 
         return httpClient.SendAsync(httpRequest);
@@ -155,7 +154,7 @@ public class PasswordHashingFilterTests(TestingWebAppFactory testingWebAppFactor
             app =>
             {
                 app.Use(
-                    (HttpContext context, RequestDelegate nextMiddleware) =>
+                    (context, nextMiddleware) =>
                     {
                         if (IPAddress.TryParse(context.Request.Headers[ClientAddressHeader], out var clientAddress))
                             context.Connection.RemoteIpAddress = clientAddress;

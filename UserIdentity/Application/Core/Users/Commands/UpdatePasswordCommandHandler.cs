@@ -100,5 +100,5 @@ public class UpdatePasswordCommandHandler(
     }
 
     private static UpdatePasswordViewModel GetUpdatePasswordViewModel(bool passwordUpdated) =>
-        new UpdatePasswordViewModel { UpdatePasswordResult = new UpdatePasswordDto { PassWordUpdated = passwordUpdated } };
+        new() { UpdatePasswordResult = new UpdatePasswordDto { PassWordUpdated = passwordUpdated } };
 }

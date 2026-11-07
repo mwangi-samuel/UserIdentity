@@ -270,8 +270,7 @@ public class ResetPasswordCommandHandlerTests
             .MustNotHaveHappened();
     }
 
-    private ResetPasswordCommand GetResetPasswordCommand(string userName) =>
-        new ResetPasswordCommand { UserName = userName, RegisteredApp = _registeredApp };
+    private ResetPasswordCommand GetResetPasswordCommand(string userName) => new() { UserName = userName, RegisteredApp = _registeredApp };
 
     private static IdentityUser GetIdentityUser()
     {
