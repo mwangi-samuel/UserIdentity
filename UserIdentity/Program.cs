@@ -8,7 +8,6 @@ using UserIdentity.Infrastructure.ExternalServices;
 using UserIdentity.Persistence;
 using UserIdentity.Presentation.Endpoints;
 
-// No request needs more than a few KB, and at Kestrel's default of 30 MB one request can use up the service's memory
 const long MaxRequestBodyBytes = 64 * 1024;
 
 var builder = WebApplication.CreateSlimBuilder(args);

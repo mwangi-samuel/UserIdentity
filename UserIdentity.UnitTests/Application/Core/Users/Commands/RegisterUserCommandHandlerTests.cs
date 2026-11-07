@@ -323,15 +323,13 @@ public class RegisterUserCommandHandlerTests
     }
 
     [Fact]
-    public async Task Create_User_From_The_Apps_UI_With_A_Callback_Url_Adds_A_Callback_Message()
+    public async Task Create_User_For_A_Service_With_A_Callback_Url_Adds_A_Callback_Message()
     {
         // Arrange
         var command = GetRegisterUserCommand();
-        command.RequestSource = RequestSource.UI;
+        command.RequestSource = RequestSource.Api;
         command.RegisteredApp = GetRegisteredApp(callbackUrl: "https://callback.test");
         SetUpSuccessfulSignUp(command);
-
-        A.CallTo(() => _googleRecaptchaService.VerifyTokenAsync(A<string?>._, A<CancellationToken>._)).Returns(true);
 
         var handler = GetRegisterUserCommandHandler();
 
@@ -356,9 +354,9 @@ public class RegisterUserCommandHandlerTests
     }
 
     [Theory]
-    [InlineData(RequestSource.Api, "https://callback.test")]
-    [InlineData(RequestSource.UI, null)]
-    public async Task Create_User_For_A_Service_Or_An_App_Without_A_Callback_Url_Adds_No_Callback_Message(
+    [InlineData(RequestSource.UI, "https://callback.test")]
+    [InlineData(RequestSource.Api, null)]
+    public async Task Create_User_From_The_Apps_UI_Or_For_An_App_Without_A_Callback_Url_Adds_No_Callback_Message(
         RequestSource requestSource,
         string? callbackUrl
     )
