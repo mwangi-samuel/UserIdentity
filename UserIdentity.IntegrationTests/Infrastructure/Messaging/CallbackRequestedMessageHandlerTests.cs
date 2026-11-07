@@ -1,8 +1,11 @@
 ﻿using System.Net;
 using System.Text;
 using System.Text.Json;
+using Microsoft.Extensions.DependencyInjection;
 using Newtonsoft.Json.Linq;
+using PolyzenKit.Application.Interfaces;
 using PolyzenKit.Common.Utilities;
+using UserIdentity.Common.Enums;
 using UserIdentity.IntegrationTests.TestUtils;
 using WireMock.Logging;
 using WireMock.RequestBuilders;
@@ -16,17 +19,18 @@ public class CallbackRequestedMessageHandlerTests(TestingWebAppFactory testingWe
     : BaseIntegrationTests(testingWebAppFactory, outputHelper)
 {
     private const string RecaptchaToken = "callback-recaptcha-token";
+    private const string ServiceName = "testservice";
 
     private readonly WireMockServer _wireMock = testingWebAppFactory.WireMockServer;
 
     [Fact]
-    public async Task Sign_Up_Through_The_Apps_UI_Sends_One_Signed_Callback()
+    public async Task Sign_Up_For_A_Service_Sends_One_Signed_Callback()
     {
         // Arrange
         SetUpWireMock(failFirstCallback: false);
 
         // Act
-        var userId = await RegisterAsync(TestingWebAppFactory.CallbackAppName);
+        var userId = await RegisterAsync(TestingWebAppFactory.CallbackAppName, RequestSource.Api);
 
         // Assert
         var callbacks = await WaitForCallbacksAsync(1);
@@ -59,7 +63,7 @@ public class CallbackRequestedMessageHandlerTests(TestingWebAppFactory testingWe
         SetUpWireMock(failFirstCallback: true);
 
         // Act
-        await RegisterAsync(TestingWebAppFactory.CallbackAppName);
+        await RegisterAsync(TestingWebAppFactory.CallbackAppName, RequestSource.Api);
 
         // Assert
         var callbacks = await WaitForCallbacksAsync(2);
@@ -73,15 +77,33 @@ public class CallbackRequestedMessageHandlerTests(TestingWebAppFactory testingWe
     }
 
     [Fact]
+    public async Task Sign_Up_Through_The_Apps_UI_Adds_No_Callback_Message()
+    {
+        // Arrange
+        SetUpWireMock(failFirstCallback: false);
+
+        // Act
+        var userId = await RegisterAsync(TestingWebAppFactory.CallbackAppName, RequestSource.UI);
+
+        // Assert
+        await AssertNoCallbackAsync(userId);
+    }
+
+    [Fact]
     public async Task Sign_Up_For_An_App_Without_A_Callback_Url_Adds_No_Callback_Message()
     {
         // Arrange
         SetUpWireMock(failFirstCallback: false);
 
         // Act
-        var userId = await RegisterAsync(RegisteredApp.AppName);
+        var userId = await RegisterAsync(RegisteredApp.AppName, RequestSource.Api);
 
         // Assert
+        await AssertNoCallbackAsync(userId);
+    }
+
+    private async Task AssertNoCallbackAsync(string userId)
+    {
         Assert.NotNull(await NatsTestHelper.FindMessageAsync(NatsTestHelper.UserRegisteredSubject, userId));
 
         await Eventually.HoldsAsync(() => TestDbHelper.CountOutboxMessages() == 0);
@@ -120,11 +142,16 @@ public class CallbackRequestedMessageHandlerTests(TestingWebAppFactory testingWe
             .RespondWith(Response.Create().WithStatusCode(HttpStatusCode.OK));
     }
 
-    private async Task<string> RegisterAsync(string appName)
+    private async Task<string> RegisterAsync(string appName, RequestSource requestSource)
     {
-        var request = ApiRequestHelper.CreateHttpRequestMessage(HttpMethod.Post, "/api/v1/user/register");
+        var uri = requestSource == RequestSource.Api ? "/api/v1/user/register-for-service" : "/api/v1/user/register";
+        var request = ApiRequestHelper.CreateHttpRequestMessage(HttpMethod.Post, uri);
         request.Headers.Remove("X-App-Name");
         request.Headers.Add("X-App-Name", appName);
+
+        if (requestSource == RequestSource.Api)
+            request.AddAuthHeader(CreateServiceToken(appName));
+
         request.Content = SerDeHelper.ConvertToHttpContent(
             new
             {
@@ -143,6 +170,16 @@ public class CallbackRequestedMessageHandlerTests(TestingWebAppFactory testingWe
 
         return SerDeHelper.Deserialize<JObject>(responseString)?["user"]?["id"]?.ToString()
             ?? throw new InvalidOperationException("The sign-up returned no user id");
+    }
+
+    private string CreateServiceToken(string appName)
+    {
+        var jwtTokenHandler = ServiceProvider.GetRequiredService<IJwtTokenHandler>();
+        var scope = jwtTokenHandler.GenerateScopeClaim("useridentity-user", ScopeActions.Create);
+
+        (var token, _) = jwtTokenHandler.CreateToken(ServiceName, ServiceName, appName, [KnownRoles.InternalService], [scope.Value]);
+
+        return token;
     }
 
     private List<ILogEntry> CallbackLogEntries() =>

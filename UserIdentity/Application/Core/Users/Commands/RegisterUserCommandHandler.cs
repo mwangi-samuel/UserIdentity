@@ -274,7 +274,7 @@ public class RegisterUserCommandHandler(
                 cancellationToken
             );
 
-            if (command.RequestSource == RequestSource.UI && command.RegisteredApp.CallbackUrl != null)
+            if (command.RequestSource == RequestSource.Api && command.RegisteredApp.CallbackUrl != null)
                 await _createOutboxMessageCommandHandler.CreateItemAsync(
                     new CreateOutboxMessageCommand(UserMessages.CallbackRequested, welcomeMessage),
                     newUser.Id,

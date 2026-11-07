@@ -16,7 +16,7 @@
 
 ## Messaging
 - Sign-up and password reset add `UserMessages` to PolyzenKit's outbox (`ICreateItemCommandHandler<CreateOutboxMessageCommand, OutboxMessageViewModel>`) before their save or commit: sign-up on `useridentity.user.registered` (`WelcomeUser`), password reset on `useridentity.password-reset.requested` (`PasswordReset`). Subjects name what happened, so each event type has its own.
-- `Infrastructure/Messaging` holds the two message handlers: one turns the message saying a code was verified into `CodeVerifiedEvent` (confirm the user, or verify the reset request), and `CallbackRequestedMessageHandler` turns `useridentity.callback.requested` into `UserRegisteredEvent`, which calls the app's callback. Only UserIdentity reads that subject; sign-up adds it only for UI sign-ups to apps with a `CallbackUrl`.
+- `Infrastructure/Messaging` holds the two message handlers: one turns the message saying a code was verified into `CodeVerifiedEvent` (confirm the user, or verify the reset request), and `CallbackRequestedMessageHandler` turns `useridentity.callback.requested` into `UserRegisteredEvent`, which calls the app's callback. Only UserIdentity reads that subject; sign-up adds it only for `register-for-service` sign-ups to apps with a `CallbackUrl`.
 - Handlers let exceptions through so PolyzenKit retries the message; `NoRecordException` and `InvalidDataException` drop it.
 
 ## Apps and roles
