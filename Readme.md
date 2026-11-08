@@ -124,7 +124,7 @@ Every setting has a default in `appsettings.json` that works locally. In product
 
 Keep `ExternalServicesSettings:ExternalServices:GoogleRecaptcha:TimeoutSeconds` short (default 5). Sign-up verifies the token while it holds a place in the password hashing limit, so a slow answer holds up logins.
 
-`Serilog__MinimumLevel` (default `Warning`) is the only logging setting. Logs go to the console as plain text in Development and as one JSON object per line everywhere else.
+`Serilog:MinimumLevel:Default` (`Warning`) sets the log level, and `Serilog:MinimumLevel:Override` sets EF Core's (`Error`). From the environment, set the level with `Serilog__MinimumLevel__Default`, since a plain `Serilog__MinimumLevel` is ignored. Logs go to the console as plain text in Development and as one JSON object per line everywhere else.
 
 Settings are checked at startup. An invalid setting stops the app with every failure listed, such as `ValidForSeconds: The field ValidForSeconds must be between 1 and 2147483647.`
 
