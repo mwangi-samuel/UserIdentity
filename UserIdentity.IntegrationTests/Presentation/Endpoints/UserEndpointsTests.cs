@@ -965,6 +965,89 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
     }
 
     [Fact]
+    public async Task Login_Ticket_From_Sign_Up_Starts_A_Session_Once_The_User_Is_Confirmed_And_Only_Once()
+    {
+        // Arrange
+        var googleRecaptchaToken = RandomStrings.Generate(90);
+        var requestPayload = new
+        {
+            UserSettingHelper.FirstName,
+            UserSettingHelper.UserName,
+            UserSettingHelper.UserEmail,
+            UserSettingHelper.UserPassword,
+            googleRecaptchaToken,
+        };
+
+        SetUpGoogleRecaptchaEndpoint(googleRecaptchaToken);
+
+        var registerResponse = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/register", requestPayload);
+        var registered = SerDeHelper.Deserialize<JObject>(await registerResponse.ValidateRequestResponseAsync());
+        var userId = $"{registered?["user"]?["id"]}";
+        var ticketPayload = new { Ticket = $"{registered?["loginTicket"]}" };
+
+        // Act
+        var beforeConfirming = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/login-ticket", ticketPayload);
+
+        await NatsTestHelper.PublishCodeVerifiedAsync(
+            MessageEventFactory.Create(
+                userId,
+                RegisteredApp.AppName,
+                new Dictionary<MessageAttributeKey, string> { { MessageAttributeKey.UserId, userId } },
+                MessageAction.WelcomeUser,
+                CrudEvent.Update
+            )
+        );
+        await Eventually.HoldsAsync(() => TestDbHelper.GetIdentityUserWithNoTracking(userId)?.EmailConfirmed == true);
+
+        var afterConfirming = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/login-ticket", ticketPayload);
+        var reused = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/login-ticket", ticketPayload);
+
+        // Assert
+        Assert.False(string.IsNullOrEmpty(ticketPayload.Ticket));
+        Assert.Equal(HttpStatusCode.NotAcceptable, beforeConfirming.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, afterConfirming.StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, reused.StatusCode);
+
+        var session = SerDeHelper.Deserialize<JObject>(await afterConfirming.ValidateRequestResponseAsync());
+        var accessToken = $"{session?["userToken"]?["accessToken"]?["token"]}";
+
+        Assert.Equal(userId, new JsonWebToken(accessToken).Subject);
+        Assert.False(string.IsNullOrEmpty($"{session?["userToken"]?["refreshToken"]}"));
+    }
+
+    [Fact]
+    public async Task Login_Ticket_Is_Refused_For_Another_App()
+    {
+        // Arrange
+        TestDbHelper.SeedDatabase();
+
+        var user = TestDbHelper.GetIdentityUser(UserSettingHelper.UserId)!;
+        user.EmailConfirmed = false;
+        TestDbHelper.UpdateIdentityUser(user);
+
+        var loginResponse = await HttpClient.SendNoAuthRequestAsync(
+            HttpMethod.Post,
+            _baseUri + "/login",
+            new { UserSettingHelper.UserName, Password = UserSettingHelper.UserPassword }
+        );
+        var ticket = $"{SerDeHelper.Deserialize<JObject>(await loginResponse.ValidateRequestResponseAsync())?["loginTicket"]}";
+
+        var httpRequest = new HttpRequestMessage(HttpMethod.Post, _baseUri + "/login-ticket")
+        {
+            Content = SerDeHelper.ConvertToHttpContent(new { Ticket = ticket }),
+        };
+        httpRequest.AddXApiKey();
+        httpRequest.Headers.Add("X-App-Name", TestingWebAppFactory.OtherAppName);
+
+        // Act
+        var response = await HttpClient.SendAsync(httpRequest, TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.False(string.IsNullOrEmpty(ticket));
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
     public async Task Refresh_Valid_User_Token_Refreshes_User_token()
     {
         // Arrange

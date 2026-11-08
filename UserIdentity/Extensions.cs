@@ -40,6 +40,13 @@ public static class Extensions
         services.AddSingleton(Options.Create(refreshTokenSettings));
     }
 
+    public static void AddAppLoginTicketSettings(this IServiceCollection services, IConfiguration configuration)
+    {
+        var loginTicketSettings = configuration.GetRequiredSetting<LoginTicketSettings>();
+
+        services.AddSingleton(Options.Create(loginTicketSettings));
+    }
+
     public static void AddAppPasswordResetSettings(this IServiceCollection services, IConfiguration configuration)
     {
         var passwordResetSettings = configuration.GetRequiredSetting<PasswordResetSettings>();
@@ -69,6 +76,7 @@ public static class Extensions
         var interval = TimeSpan.FromMinutes(cleanupSettings.IntervalInMinutes);
 
         services.AddAppPeriodicDeleteCommand<DeleteExpiredRefreshTokensCommand>(interval);
+        services.AddAppPeriodicDeleteCommand<DeleteExpiredLoginTicketsCommand>(interval);
         services.AddAppPeriodicDeleteCommand<DeleteExpiredPasswordResetsCommand>(interval);
         services.AddAppPeriodicDeleteCommand<DeleteUnconfirmedUsersCommand>(interval);
     }

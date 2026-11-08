@@ -42,6 +42,7 @@ public static class UserEndpoints
             .AddEndpointFilter<PasswordHashingFilter>()
             .Produces<AuthUserViewModel>();
         group.MapPost("refresh-token", RefreshToken).AllowAnonymous().Produces<ExchangeRefreshTokenViewModel>();
+        group.MapPost("login-ticket", ExchangeLoginTicket).AllowAnonymous().Produces<AuthUserViewModel>();
         group.MapPost("logout", LogoutUser).Produces<DeleteRecordViewModel>();
         group
             .MapPost("reset-password", ResetPassword)
@@ -109,6 +110,29 @@ public static class UserEndpoints
         ApiRequest request,
         IRegisteredAppResolver registeredAppResolver,
         ICreateItemCommandHandler<LoginUserCommand, AuthUserViewModel> handler,
+        CancellationToken cancellationToken
+    )
+    {
+        command.RegisteredApp = await request.GetRegisteredAppAsync(registeredAppResolver, cancellationToken);
+
+        var vm = await handler.CreateItemAsync(command, request.LoggedInUserId, cancellationToken);
+
+        vm.ResolveEditDeleteRights(request.UserScopeClaims, request.ScopeResource, true);
+
+        return ViewModelResults.Status(
+            vm,
+            StatusCodes.Status200OK,
+            RequestStatus.Successful,
+            ItemStatusMessage.FetchItemSuccessful,
+            "Login successful"
+        );
+    }
+
+    internal static async Task<JsonHttpResult<AuthUserViewModel>> ExchangeLoginTicket(
+        ExchangeLoginTicketCommand command,
+        ApiRequest request,
+        IRegisteredAppResolver registeredAppResolver,
+        ICreateItemCommandHandler<ExchangeLoginTicketCommand, AuthUserViewModel> handler,
         CancellationToken cancellationToken
     )
     {

@@ -10,6 +10,7 @@ public static class ErrorMessages
         public const string InvalidRecaptchaToken = "Invalid GoogleRecaptchaToken provided";
         public const string EmailRequiredForInviteCode = "An email is required when signing up with an invite code.";
         public const string InviteCodeRequired = "A valid invite code is required when signing up.";
+        public const string AccountNotConfirmed = "The account isn't confirmed yet.";
 
         public static string InviteRoleMissing(string role) => $"The role {role} granted by the invite code doesn't exist.";
     }

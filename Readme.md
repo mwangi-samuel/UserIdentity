@@ -82,6 +82,7 @@ Apps should recompute the signature over the raw request body, compare it in con
 
 ## Sessions
 - Login and registration return a short-lived access token and a refresh token. A session lasts `RefreshTokenSettings:ValidForSeconds` (default 30 days) and each refresh extends it. Only hashes of refresh tokens are stored.
+- When the account isn't confirmed yet, registration from the app (not `register-for-service`) and login return a `loginTicket` instead, so the app can sign the user in once they confirm without asking for the password again. `POST /api/v1/user/login-ticket` with the `X-App-Name` header and `{ "ticket": "..." }` returns the same body as login. It answers 406 while the account is still unconfirmed, so the app can try again a moment later (the confirmation arrives over NATS JetStream shortly after the code is verified), and 401 for an unknown, used or expired ticket, or one from another app. A ticket works once and expires after `LoginTicketSettings:ValidForSeconds` (default 1 hour). Only its hash is stored.
 - Each refresh returns a new refresh token, and the one sent can't be used again. If a replaced refresh token is sent again, UserIdentity treats it as copied and ends that session. Clients must keep the newest refresh token, and must not send the same refresh token twice at once (for example, from two tabs): the second of two simultaneous refreshes gets a 409.
 - `POST /api/v1/user/logout` with the access token and `{ "refreshToken": "..." }` ends that session. The access token keeps working until it expires.
 - Five wrong passwords in a row lock an account for five minutes. A locked account gets the same response as a wrong password.
@@ -103,7 +104,7 @@ Password hashing is limited across all clients too, because a hash takes most of
 Request bodies are limited to 64 KiB. Larger ones get a 413.
 
 ## Cleanup
-Every `CleanupSettings:IntervalInMinutes` (default 60), expired refresh tokens are deleted, and so are password reset requests a day after they expire (kept that long for the daily cap). When confirmed accounts are required, accounts still unconfirmed after `CleanupSettings:UnconfirmedUserLifetimeInDays` (default 30) are deleted too, along with their details, sessions, reset requests, app links and roles, and the invite code they used for their app can be used again.
+Every `CleanupSettings:IntervalInMinutes` (default 60), expired refresh tokens and login tickets are deleted, and so are password reset requests a day after they expire (kept that long for the daily cap). When confirmed accounts are required, accounts still unconfirmed after `CleanupSettings:UnconfirmedUserLifetimeInDays` (default 30) are deleted too, along with their details, sessions, login tickets, reset requests, app links and roles, and the invite code they used for their app can be used again.
 
 ## Settings
 Every setting has a default in `appsettings.json` that works locally. In production, set at least these:

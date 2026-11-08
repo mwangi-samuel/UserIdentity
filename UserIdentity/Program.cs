@@ -51,6 +51,8 @@ builder.Services.AddGoogleRecaptcha(builder.Configuration);
 
 builder.Services.AddAppRefreshTokenSettings(builder.Configuration);
 
+builder.Services.AddAppLoginTicketSettings(builder.Configuration);
+
 builder.Services.AddAppPasswordResetSettings(builder.Configuration);
 
 builder.Services.AddAppCleanups(builder.Configuration);

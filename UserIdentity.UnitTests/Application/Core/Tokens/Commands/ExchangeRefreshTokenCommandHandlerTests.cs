@@ -1,17 +1,15 @@
-﻿using System.Security.Claims;
-using FakeItEasy;
+﻿using FakeItEasy;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
+using PolyzenKit.Application.Core.Interfaces;
 using PolyzenKit.Application.Interfaces;
-using PolyzenKit.Common.Settings;
 using PolyzenKit.Persistence.Repositories;
 using UserIdentity.Application.Core.Tokens.Commands;
 using UserIdentity.Application.Core.Tokens.Shared;
 using UserIdentity.Application.Core.Tokens.ViewModels;
 using UserIdentity.Domain.RefreshTokens;
 using UserIdentity.Persistence.Repositories.RefreshTokens;
-using UserIdentity.Persistence.Repositories.Roles;
 using UserIdentity.Persistence.Repositories.UserRegisteredApps;
 using UserIdentity.UnitTests.TestUtils;
 using Xunit;
@@ -25,8 +23,6 @@ public class ExchangeRefreshTokenCommandHandlerTests
     private const string RefreshToken = "SamplevalidRefreshToken";
     private const string RefreshTokenHash = "SamplevalidRefreshTokenHash";
 
-    private static readonly string[] TestAppAdminRoles = ["testapp:admin"];
-
     private readonly IOptions<RefreshTokenSettings> _refreshTokenSettings;
     private readonly IJwtTokenHandler _jwtTokenHandler;
     private readonly ITokenFactory _tokenFactory;
@@ -34,7 +30,9 @@ public class ExchangeRefreshTokenCommandHandlerTests
     private readonly IRefreshTokenRepository _refreshTokenRepository;
     private readonly TimeProvider _timeProvider;
 
-    private readonly IRoleRepository _roleRepository = A.Fake<IRoleRepository>();
+    private readonly ICreateItemCommandHandler<CreateAccessTokenCommand, AccessTokenViewModel> _createAccessTokenCommandHandler = A.Fake<
+        ICreateItemCommandHandler<CreateAccessTokenCommand, AccessTokenViewModel>
+    >();
     private readonly IUserRegisteredAppRepository _userRegisteredAppRepository = A.Fake<IUserRegisteredAppRepository>();
 
     public ExchangeRefreshTokenCommandHandlerTests()
@@ -213,7 +211,6 @@ public class ExchangeRefreshTokenCommandHandlerTests
 
         var originalVersion = Guid.NewGuid();
         dbRefreshToken.Version = originalVersion;
-        HashSet<string> scopes = ["useridentity-user:read"];
         var updatedRefreshToken = RefreshToken + "updated";
         var updatedRefreshTokenHash = RefreshTokenHash + "updated";
 
@@ -232,31 +229,21 @@ public class ExchangeRefreshTokenCommandHandlerTests
             )
             .Returns(dbRefreshToken);
 
-        A.CallTo(() => _roleRepository.GetUserRoleNamesAsync(TestStringHelper.UserId, A<CancellationToken>._))
-            .Returns(["otherapp:admin", "testapp:admin"]);
-
-        // Only the token's app's roles go into the new token
         A.CallTo(() =>
-                _roleRepository.GetScopesAsync(
-                    A<IReadOnlyCollection<string>>.That.Matches(roles => roles.SequenceEqual(TestAppAdminRoles)),
+                _createAccessTokenCommandHandler.CreateItemAsync(
+                    new CreateAccessTokenCommand(TestStringHelper.UserId, TestStringHelper.UserName, "TestApp"),
+                    A<string>._,
                     A<CancellationToken>._
                 )
             )
-            .Returns(scopes);
+            .Returns(
+                new AccessTokenViewModel
+                {
+                    AccessToken = new AccessTokenDto { Token = newAccesToken, ExpiresIn = newAccesstokenExpiresIn },
+                }
+            );
         A.CallTo(() => _tokenFactory.GenerateToken(32)).Returns(updatedRefreshToken);
         A.CallTo(() => _tokenFactory.HashToken(updatedRefreshToken)).Returns(updatedRefreshTokenHash);
-
-        A.CallTo(() =>
-                _jwtTokenHandler.CreateToken(
-                    TestStringHelper.UserId,
-                    TestStringHelper.UserName,
-                    "TestApp",
-                    A<HashSet<string>>.That.Matches(r => r.SetEquals(TestAppAdminRoles)),
-                    scopes,
-                    A<HashSet<Claim>?>._
-                )
-            )
-            .Returns((newAccesToken, newAccesstokenExpiresIn));
 
         var hanndler = GetExchangeRefreshTokenCommandHandler();
 
@@ -352,17 +339,9 @@ public class ExchangeRefreshTokenCommandHandlerTests
             _tokenFactory,
             _unitOfWork,
             _refreshTokenRepository,
-            _roleRepository,
             _timeProvider,
             _userRegisteredAppRepository,
-            Options.Create(
-                new RoleSettings
-                {
-                    ServiceName = "UserIdentity",
-                    AdminRoles = "admin",
-                    DefaultRole = "user",
-                }
-            )
+            _createAccessTokenCommandHandler
         );
     }
 }

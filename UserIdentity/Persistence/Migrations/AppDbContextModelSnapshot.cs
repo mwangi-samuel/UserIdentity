@@ -505,6 +505,73 @@ namespace UserIdentity.Persistence.Migrations
                     b.ToTable("invite_codes", (string)null);
                 });
 
+            modelBuilder.Entity("UserIdentity.Domain.LoginTickets.LoginTicketEntity", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)")
+                        .HasColumnName("id");
+
+                    b.Property<int>("AppId")
+                        .HasColumnType("int")
+                        .HasColumnName("app_id");
+
+                    b.Property<DateTime?>("CreatedAt")
+                        .HasColumnType("datetime(6)")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTime>("Expires")
+                        .HasColumnType("datetime(6)")
+                        .HasColumnName("expires");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("tinyint(1)")
+                        .HasColumnName("is_deleted");
+
+                    b.Property<string>("Ticket")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)")
+                        .HasColumnName("ticket");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)")
+                        .HasColumnName("updated_by");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("varchar(255)")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_login_tickets");
+
+                    b.HasIndex("AppId")
+                        .HasDatabaseName("ix_login_tickets_app_id");
+
+                    b.HasIndex("Expires")
+                        .HasDatabaseName("ix_login_tickets_expires");
+
+                    b.HasIndex("Ticket")
+                        .IsUnique()
+                        .HasDatabaseName("ix_login_tickets_ticket");
+
+                    b.HasIndex("UserId")
+                        .HasDatabaseName("ix_login_tickets_user_id");
+
+                    b.ToTable("login_tickets", (string)null);
+                });
+
             modelBuilder.Entity("UserIdentity.Domain.PasswordResets.PasswordResetEntity", b =>
                 {
                     b.Property<Guid>("Id")
@@ -858,6 +925,23 @@ namespace UserIdentity.Persistence.Migrations
                         .HasConstraintName("fk_invite_codes_registered_apps_app_id");
 
                     b.Navigation("App");
+                });
+
+            modelBuilder.Entity("UserIdentity.Domain.LoginTickets.LoginTicketEntity", b =>
+                {
+                    b.HasOne("PolyzenKit.Domain.Entities.RegisteredApps.RegisteredAppEntity", null)
+                        .WithMany()
+                        .HasForeignKey("AppId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_login_tickets_registered_apps_app_id");
+
+                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_login_tickets_asp_net_users_user_id");
                 });
 
             modelBuilder.Entity("UserIdentity.Domain.PasswordResets.PasswordResetEntity", b =>

@@ -6,14 +6,11 @@ using Microsoft.Extensions.Options;
 using PolyzenKit.Application.Core;
 using PolyzenKit.Application.Core.Interfaces;
 using PolyzenKit.Application.Core.RegisteredApps.Shared;
-using PolyzenKit.Application.Interfaces;
-using PolyzenKit.Common.Settings;
 using PolyzenKit.Persistence.Repositories;
-using UserIdentity.Application.Core.Tokens.Shared;
+using UserIdentity.Application.Core.Tokens.Commands;
 using UserIdentity.Application.Core.Tokens.ViewModels;
+using UserIdentity.Application.Core.Users.Shared;
 using UserIdentity.Application.Core.Users.ViewModels;
-using UserIdentity.Persistence.Repositories.RefreshTokens;
-using UserIdentity.Persistence.Repositories.Roles;
 using UserIdentity.Persistence.Repositories.Users;
 
 namespace UserIdentity.Application.Core.Users.Commands;
@@ -34,31 +31,21 @@ public record LoginUserCommand : IBaseCommand
 
 public class LoginUserCommandHandler(
     IOptions<IdentityOptions> identityOptions,
-    IOptions<RoleSettings> roleSettingsOptions,
-    IOptions<RefreshTokenSettings> refreshTokenSettingsOptions,
-    IJwtTokenHandler jwtTokenHandler,
-    ITokenFactory tokenFactory,
     UserManager<IdentityUser> userManager,
     IUnitOfWork unitOfWork,
     IUserRepository userRepository,
-    IRoleRepository roleRepository,
-    IRefreshTokenRepository refreshTokenRepository,
-    TimeProvider timeProvider
+    ICreateItemCommandHandler<StartSessionCommand, AccessTokenViewModel> startSessionCommandHandler,
+    ICreateItemCommandHandler<CreateLoginTicketCommand, LoginTicketViewModel> createLoginTicketCommandHandler
 ) : ICreateItemCommandHandler<LoginUserCommand, AuthUserViewModel>
 {
     private readonly IdentityOptions _identityOptions = identityOptions.Value;
     private readonly UserManager<IdentityUser> _userManager = userManager;
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
     private readonly IUserRepository _userRepository = userRepository;
-    private readonly UserTokenIssuer _userTokenIssuer = new(
-        roleRepository,
-        refreshTokenRepository,
-        jwtTokenHandler,
-        tokenFactory,
-        timeProvider,
-        roleSettingsOptions.Value,
-        refreshTokenSettingsOptions.Value
-    );
+    private readonly ICreateItemCommandHandler<StartSessionCommand, AccessTokenViewModel> _startSessionCommandHandler =
+        startSessionCommandHandler;
+    private readonly ICreateItemCommandHandler<CreateLoginTicketCommand, LoginTicketViewModel> _createLoginTicketCommandHandler =
+        createLoginTicketCommandHandler;
 
     public async Task<AuthUserViewModel> CreateItemAsync(
         LoginUserCommand command,
@@ -87,22 +74,31 @@ public class LoginUserCommandHandler(
             await _userRepository.GetUserDtoAsync(user.Id, appName, cancellationToken)
             ?? throw new InvalidCredentialException($"User {user.Id} has no profile for app {appName}");
 
-        // We only include the accessToken in the payload, when user is confirmed.
-        var isConfirmed = !_identityOptions.SignIn.RequireConfirmedAccount || user.EmailConfirmed || user.PhoneNumberConfirmed;
+        var isConfirmed = AccountConfirmation.IsConfirmed(_identityOptions, user);
         AccessTokenViewModel? userToken = null;
+        LoginTicketViewModel? loginTicket = null;
 
         if (isConfirmed)
-        {
-            userToken = await _userTokenIssuer.StartSessionAsync(user.Id, user.UserName!, appName, cancellationToken);
+            userToken = await _startSessionCommandHandler.CreateItemAsync(
+                new StartSessionCommand(user.Id, user.UserName!, appName),
+                user.Id,
+                cancellationToken
+            );
+        else
+            loginTicket = await _createLoginTicketCommandHandler.CreateItemAsync(
+                new CreateLoginTicketCommand(user.Id, command.RegisteredApp.Id),
+                user.Id,
+                cancellationToken
+            );
 
-            await _unitOfWork.SaveChangesAsync(cancellationToken);
-        }
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return new AuthUserViewModel
         {
             User = userDto,
             UserToken = userToken,
             IsConfirmed = isConfirmed,
+            LoginTicket = loginTicket?.Ticket,
         };
     }
 }
