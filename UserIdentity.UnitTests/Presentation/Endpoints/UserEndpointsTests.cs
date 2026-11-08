@@ -317,6 +317,49 @@ public class UserEndpointsTests
     }
 
     [Fact]
+    public async Task Exchange_Login_Ticket_Starts_A_Session_For_The_Requests_App()
+    {
+        // Arrange
+        ExchangeLoginTicketCommand command = new() { Ticket = "login-ticket" };
+        var registeredApp = new ActiveRegisteredApp
+        {
+            Id = 1,
+            AppName = "test-app",
+            AppSecretKey = "test-secret",
+            BaseUrl = "https://app.test",
+        };
+        var handler = A.Fake<ICreateItemCommandHandler<ExchangeLoginTicketCommand, AuthUserViewModel>>();
+
+        A.CallTo(() => _registeredAppResolver.GetActiveAppAsync(A<string>._, A<CancellationToken>._)).Returns(registeredApp);
+        A.CallTo(() => handler.CreateItemAsync(command, A<string>._, A<CancellationToken>._))
+            .Returns(
+                new AuthUserViewModel
+                {
+                    User = new UserDto { Id = "user-id" },
+                    IsConfirmed = true,
+                    UserToken = new AccessTokenViewModel { RefreshToken = "refresh-token" },
+                }
+            );
+
+        var request = ApiRequestFactory.Create("user", appName: "test-app");
+
+        // Act
+        var result = await UserEndpoints.ExchangeLoginTicket(
+            command,
+            request,
+            _registeredAppResolver,
+            handler,
+            TestContext.Current.CancellationToken
+        );
+
+        // Assert
+        Assert.Equal((int)HttpStatusCode.OK, result.StatusCode);
+        Assert.Same(registeredApp, command.RegisteredApp);
+        Assert.Equal("refresh-token", result.Value?.UserToken?.RefreshToken);
+        Assert.Contains("Login successful", result.Value?.StatusMessage);
+    }
+
+    [Fact]
     public async Task Logout_User_Logs_Out_User()
     {
         // Arrange

@@ -6,14 +6,12 @@ using PolyzenKit.Application.Core;
 using PolyzenKit.Application.Core.Interfaces;
 using PolyzenKit.Application.Interfaces;
 using PolyzenKit.Common.Extensions;
-using PolyzenKit.Common.Settings;
 using PolyzenKit.Domain.Entities;
 using PolyzenKit.Persistence.Repositories;
 using UserIdentity.Application.Core.Tokens.Shared;
 using UserIdentity.Application.Core.Tokens.ViewModels;
 using UserIdentity.Domain.RefreshTokens;
 using UserIdentity.Persistence.Repositories.RefreshTokens;
-using UserIdentity.Persistence.Repositories.Roles;
 using UserIdentity.Persistence.Repositories.UserRegisteredApps;
 
 namespace UserIdentity.Application.Core.Tokens.Commands;
@@ -33,10 +31,9 @@ public class ExchangeRefreshTokenCommandHandler(
     ITokenFactory tokenFactory,
     IUnitOfWork unitOfWork,
     IRefreshTokenRepository refreshTokenRepository,
-    IRoleRepository roleRepository,
     TimeProvider timeProvider,
     IUserRegisteredAppRepository userRegisteredAppRepository,
-    IOptions<RoleSettings> roleSettingsOptions
+    ICreateItemCommandHandler<CreateAccessTokenCommand, AccessTokenViewModel> createAccessTokenCommandHandler
 ) : IUpdateItemCommandHandler<ExchangeRefreshTokenCommand, ExchangeRefreshTokenViewModel>
 {
     private readonly RefreshTokenSettings _refreshTokenSettings = refreshTokenSettingsOptions.Value;
@@ -48,15 +45,8 @@ public class ExchangeRefreshTokenCommandHandler(
     private readonly TimeProvider _timeProvider = timeProvider;
 
     private readonly IUserRegisteredAppRepository _userRegisteredAppRepository = userRegisteredAppRepository;
-    private readonly UserTokenIssuer _userTokenIssuer = new(
-        roleRepository,
-        refreshTokenRepository,
-        jwtTokenHandler,
-        tokenFactory,
-        timeProvider,
-        roleSettingsOptions.Value,
-        refreshTokenSettingsOptions.Value
-    );
+    private readonly ICreateItemCommandHandler<CreateAccessTokenCommand, AccessTokenViewModel> _createAccessTokenCommandHandler =
+        createAccessTokenCommandHandler;
 
     public async Task<ExchangeRefreshTokenViewModel> UpdateItemAsync(
         ExchangeRefreshTokenCommand command,
@@ -117,7 +107,11 @@ public class ExchangeRefreshTokenCommandHandler(
             throw new SecurityTokenException("Invalid refresh token provided");
         }
 
-        var accessToken = await _userTokenIssuer.CreateAccessTokenAsync(tokenUserId, tokenUserName, azp, cancellationToken);
+        var accessToken = await _createAccessTokenCommandHandler.CreateItemAsync(
+            new CreateAccessTokenCommand(tokenUserId, tokenUserName, azp),
+            tokenUserId,
+            cancellationToken
+        );
 
         var updateRefreshToken = _tokenFactory.GenerateToken();
 
@@ -133,7 +127,7 @@ public class ExchangeRefreshTokenCommandHandler(
 
         return new ExchangeRefreshTokenViewModel
         {
-            UserToken = new AccessTokenViewModel { AccessToken = accessToken, RefreshToken = updateRefreshToken },
+            UserToken = new AccessTokenViewModel { AccessToken = accessToken.AccessToken, RefreshToken = updateRefreshToken },
             EditEnabled = false,
             DeleteEnabled = false,
         };

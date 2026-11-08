@@ -9,4 +9,5 @@ public record AuthUserViewModel : ItemDetailBaseViewModel
     public UserDto User { get; init; } = null!;
     public bool IsConfirmed { get; init; }
     public AccessTokenViewModel? UserToken { get; init; }
+    public string? LoginTicket { get; init; }
 }

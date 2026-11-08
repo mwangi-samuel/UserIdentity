@@ -6,6 +6,7 @@ using PolyzenKit.Domain.Entities.OutboxMessages;
 using PolyzenKit.Domain.Entities.RegisteredApps;
 using PolyzenKit.Persistence.Configurations;
 using UserIdentity.Domain.InviteCodes;
+using UserIdentity.Domain.LoginTickets;
 using UserIdentity.Domain.PasswordResets;
 using UserIdentity.Domain.RefreshTokens;
 using UserIdentity.Domain.UserRegisteredApps;
@@ -41,6 +42,8 @@ public class AppDbContext : IdentityDbContext<IdentityUser>
 
     public DbSet<PasswordResetEntity> PasswordReset => Set<PasswordResetEntity>();
 
+    public DbSet<LoginTicketEntity> LoginTicket => Set<LoginTicketEntity>();
+
     public DbSet<OutboxMessageEntity> OutboxMessage => Set<OutboxMessageEntity>();
 
     protected override void OnModelCreating(ModelBuilder builder)
@@ -57,6 +60,7 @@ public class AppDbContext : IdentityDbContext<IdentityUser>
         builder.ApplyConfiguration(new WaitListConfiguration());
         builder.ApplyConfiguration(new InviteCodeConfiguration());
         builder.ApplyConfiguration(new PasswordResetConfiguration());
+        builder.ApplyConfiguration(new LoginTicketConfiguration());
         builder.ApplyConfiguration(new OutboxMessageConfiguration());
 
         builder.Entity<UserEntity>().ToTable("user_details");
@@ -67,6 +71,7 @@ public class AppDbContext : IdentityDbContext<IdentityUser>
         builder.Entity<WaitListEntity>().ToTable("wait_lists");
         builder.Entity<InviteCodeEntity>().ToTable("invite_codes");
         builder.Entity<PasswordResetEntity>().ToTable("password_resets");
+        builder.Entity<LoginTicketEntity>().ToTable("login_tickets");
         builder.Entity<OutboxMessageEntity>().ToTable("outbox_messages");
 
         builder.Entity<IdentityUser>().ToTable("users");

@@ -8,7 +8,6 @@ using PolyzenKit.Application.Core.Interfaces;
 using PolyzenKit.Application.Core.Messages.Commands;
 using PolyzenKit.Application.Core.Messages.ViewModels;
 using PolyzenKit.Application.Core.RegisteredApps.Shared;
-using PolyzenKit.Application.Interfaces;
 using PolyzenKit.Common.Enums;
 using PolyzenKit.Common.Exceptions;
 using PolyzenKit.Common.Settings;
@@ -16,7 +15,8 @@ using PolyzenKit.Domain.Dtos;
 using PolyzenKit.Domain.Entities;
 using PolyzenKit.Persistence.Repositories;
 using UserIdentity.Application.Core.Roles.Shared;
-using UserIdentity.Application.Core.Tokens.Shared;
+using UserIdentity.Application.Core.Tokens.Commands;
+using UserIdentity.Application.Core.Tokens.ViewModels;
 using UserIdentity.Application.Core.Users.Shared;
 using UserIdentity.Application.Core.Users.ViewModels;
 using UserIdentity.Application.Interfaces;
@@ -27,8 +27,6 @@ using UserIdentity.Domain.InviteCodes;
 using UserIdentity.Domain.UserRegisteredApps;
 using UserIdentity.Domain.Users;
 using UserIdentity.Persistence.Repositories.InviteCodes;
-using UserIdentity.Persistence.Repositories.RefreshTokens;
-using UserIdentity.Persistence.Repositories.Roles;
 using UserIdentity.Persistence.Repositories.UserRegisteredApps;
 using UserIdentity.Persistence.Repositories.Users;
 
@@ -81,19 +79,16 @@ public record RegisterUserCommand : IBaseCommand, IValidatableObject
 public class RegisterUserCommandHandler(
     IOptions<RoleSettings> roleSettingsOptions,
     IOptions<IdentityOptions> identityOptions,
-    IOptions<RefreshTokenSettings> refreshTokenSettingsOptions,
     UserManager<IdentityUser> userManager,
     RoleManager<IdentityRole> roleManager,
     IUnitOfWork unitOfWork,
     IUserRepository userRepository,
-    IRefreshTokenRepository refreshTokenRepository,
     IUserRegisteredAppRepository userRegisteredAppRepository,
     IInviteCodeRepository inviteCodeRepository,
-    IRoleRepository roleRepository,
-    IJwtTokenHandler jwtTokenHandler,
-    ITokenFactory tokenFactory,
     TimeProvider timeProvider,
     ICreateItemCommandHandler<CreateOutboxMessageCommand, OutboxMessageViewModel> createOutboxMessageCommandHandler,
+    ICreateItemCommandHandler<StartSessionCommand, AccessTokenViewModel> startSessionCommandHandler,
+    ICreateItemCommandHandler<CreateLoginTicketCommand, LoginTicketViewModel> createLoginTicketCommandHandler,
     IGoogleRecaptchaService googleRecaptchaService
 ) : ICreateItemCommandHandler<RegisterUserCommand, AuthUserViewModel>
 {
@@ -112,17 +107,13 @@ public class RegisterUserCommandHandler(
     private readonly ICreateItemCommandHandler<CreateOutboxMessageCommand, OutboxMessageViewModel> _createOutboxMessageCommandHandler =
         createOutboxMessageCommandHandler;
 
-    private readonly IGoogleRecaptchaService _googleRecaptchaService = googleRecaptchaService;
+    private readonly ICreateItemCommandHandler<StartSessionCommand, AccessTokenViewModel> _startSessionCommandHandler =
+        startSessionCommandHandler;
 
-    private readonly UserTokenIssuer _userTokenIssuer = new(
-        roleRepository,
-        refreshTokenRepository,
-        jwtTokenHandler,
-        tokenFactory,
-        timeProvider,
-        roleSettingsOptions.Value,
-        refreshTokenSettingsOptions.Value
-    );
+    private readonly ICreateItemCommandHandler<CreateLoginTicketCommand, LoginTicketViewModel> _createLoginTicketCommandHandler =
+        createLoginTicketCommandHandler;
+
+    private readonly IGoogleRecaptchaService _googleRecaptchaService = googleRecaptchaService;
 
     public async Task<AuthUserViewModel> CreateItemAsync(
         RegisterUserCommand command,
@@ -259,12 +250,24 @@ public class RegisterUserCommandHandler(
 
             _userRegisteredAppRepository.CreateEntityItem(userRegisteredApp);
 
-            // We only include the accessToken in the payload, when user is confirmed.
-            var isConfirmed = !_identityOptions.SignIn.RequireConfirmedAccount || newUser.EmailConfirmed || newUser.PhoneNumberConfirmed;
+            var isConfirmed = AccountConfirmation.IsConfirmed(_identityOptions, newUser);
 
             var userToken = isConfirmed
-                ? await _userTokenIssuer.StartSessionAsync(newUser.Id, command.UserName, registeredAppName, cancellationToken)
+                ? await _startSessionCommandHandler.CreateItemAsync(
+                    new StartSessionCommand(newUser.Id, command.UserName, registeredAppName),
+                    newUser.Id,
+                    cancellationToken
+                )
                 : null;
+
+            var loginTicket =
+                !isConfirmed && command.RequestSource == RequestSource.UI
+                    ? await _createLoginTicketCommandHandler.CreateItemAsync(
+                        new CreateLoginTicketCommand(newUser.Id, command.RegisteredApp.Id),
+                        newUser.Id,
+                        cancellationToken
+                    )
+                    : null;
 
             var welcomeMessage = UserMessages.Welcome(newUser, userDetails, registeredAppName);
 
@@ -302,6 +305,7 @@ public class RegisterUserCommandHandler(
                 User = userDto,
                 IsConfirmed = isConfirmed,
                 UserToken = userToken,
+                LoginTicket = loginTicket?.Ticket,
             };
         }
         catch

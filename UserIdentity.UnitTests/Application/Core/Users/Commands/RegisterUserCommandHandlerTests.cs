@@ -1,28 +1,24 @@
-﻿using System.Security.Claims;
-using FakeItEasy;
+﻿using FakeItEasy;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Options;
 using PolyzenKit.Application.Core.Interfaces;
 using PolyzenKit.Application.Core.Messages.Commands;
 using PolyzenKit.Application.Core.Messages.ViewModels;
 using PolyzenKit.Application.Core.RegisteredApps.Shared;
-using PolyzenKit.Application.Interfaces;
 using PolyzenKit.Common.Enums;
 using PolyzenKit.Common.Exceptions;
 using PolyzenKit.Common.Settings;
 using PolyzenKit.Common.Utilities;
 using PolyzenKit.Persistence.Repositories;
-using UserIdentity.Application.Core.Tokens.Shared;
+using UserIdentity.Application.Core.Tokens.Commands;
+using UserIdentity.Application.Core.Tokens.ViewModels;
 using UserIdentity.Application.Core.Users.Commands;
 using UserIdentity.Application.Core.Users.Shared;
 using UserIdentity.Application.Interfaces;
 using UserIdentity.Common.Enums;
 using UserIdentity.Domain.InviteCodes;
-using UserIdentity.Domain.RefreshTokens;
 using UserIdentity.Domain.Users;
 using UserIdentity.Persistence.Repositories.InviteCodes;
-using UserIdentity.Persistence.Repositories.RefreshTokens;
-using UserIdentity.Persistence.Repositories.Roles;
 using UserIdentity.Persistence.Repositories.UserRegisteredApps;
 using UserIdentity.Persistence.Repositories.Users;
 using UserIdentity.UnitTests.TestUtils;
@@ -34,39 +30,33 @@ public class RegisterUserCommandHandlerTests
 {
     private readonly IOptions<RoleSettings> _roleSettings;
     private readonly IOptions<IdentityOptions> _identityOptions;
-    private readonly IOptions<RefreshTokenSettings> _refreshTokenSettings;
     private readonly UserManager<IdentityUser> _userManager;
     private readonly RoleManager<IdentityRole> _roleManager;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IUserRepository _userRepository;
-    private readonly IRefreshTokenRepository _refreshTokenRepository;
     private readonly IUserRegisteredAppRepository _userRegisteredAppRepository;
     private readonly IInviteCodeRepository _inviteCodeRepository;
-    private readonly IJwtTokenHandler _jwtTokenHandler;
-    private readonly ITokenFactory _tokenFactory;
     private readonly TimeProvider _timeProvider;
     private readonly ICreateItemCommandHandler<CreateOutboxMessageCommand, OutboxMessageViewModel> _createOutboxMessageCommandHandler;
     private readonly IGoogleRecaptchaService _googleRecaptchaService;
-    private readonly IRoleRepository _roleRepository;
+    private readonly ICreateItemCommandHandler<StartSessionCommand, AccessTokenViewModel> _startSessionCommandHandler;
+    private readonly ICreateItemCommandHandler<CreateLoginTicketCommand, LoginTicketViewModel> _createLoginTicketCommandHandler;
 
     public RegisterUserCommandHandlerTests()
     {
         _roleSettings = A.Fake<IOptions<RoleSettings>>();
         _identityOptions = A.Fake<IOptions<IdentityOptions>>();
-        _refreshTokenSettings = Options.Create(new RefreshTokenSettings { ValidForSeconds = 2592000 });
         _userManager = IdentityFakes.UserManager();
         _roleManager = A.Fake<RoleManager<IdentityRole>>();
         _unitOfWork = A.Fake<IUnitOfWork>();
         _userRepository = A.Fake<IUserRepository>();
-        _refreshTokenRepository = A.Fake<IRefreshTokenRepository>();
         _userRegisteredAppRepository = A.Fake<IUserRegisteredAppRepository>();
         _inviteCodeRepository = A.Fake<IInviteCodeRepository>();
-        _jwtTokenHandler = A.Fake<IJwtTokenHandler>();
-        _tokenFactory = A.Fake<ITokenFactory>();
         _timeProvider = TimeProvider.System;
         _createOutboxMessageCommandHandler = A.Fake<ICreateItemCommandHandler<CreateOutboxMessageCommand, OutboxMessageViewModel>>();
         _googleRecaptchaService = A.Fake<IGoogleRecaptchaService>();
-        _roleRepository = A.Fake<IRoleRepository>();
+        _startSessionCommandHandler = A.Fake<ICreateItemCommandHandler<StartSessionCommand, AccessTokenViewModel>>();
+        _createLoginTicketCommandHandler = A.Fake<ICreateItemCommandHandler<CreateLoginTicketCommand, LoginTicketViewModel>>();
 
         A.CallTo(() => _unitOfWork.BeginTransactionAsync(A<CancellationToken>._)).Returns(Task.CompletedTask);
         A.CallTo(() => _unitOfWork.CommitTransactionAsync(A<CancellationToken>._)).Returns(Task.CompletedTask);
@@ -189,14 +179,14 @@ public class RegisterUserCommandHandlerTests
     {
         var command = GetRegisterUserCommand();
         var defaultRole = new IdentityRole(GetDefaultRoleName());
-        var refreshToken = "refresh-token";
-        var refreshTokenHash = "refresh-token-hash";
-        var accessToken = "access-token";
-        var expiresIn = 1200;
+        var session = new AccessTokenViewModel
+        {
+            AccessToken = new AccessTokenDto { Token = "access-token", ExpiresIn = 1200 },
+            RefreshToken = "refresh-token",
+        };
 
         string? userId = null;
         IdentityUser? createdUser = null;
-        HashSet<string> scopes = ["role-claim-value"];
 
         A.CallTo(() => _roleManager.FindByNameAsync(defaultRole.Name!)).Returns(defaultRole);
         A.CallTo(() => _userManager.FindByNameAsync(command.UserName)).Returns((IdentityUser?)null);
@@ -212,22 +202,16 @@ public class RegisterUserCommandHandlerTests
             .Returns(IdentityResult.Success);
         A.CallTo(() => _userManager.AddToRoleAsync(A<IdentityUser>._, defaultRole.Name!)).Returns(IdentityResult.Success);
         A.CallTo(() => _userRepository.CreateEntityItem(A<UserEntity>.That.Matches(u => u.FirstName == command.FirstName))).DoesNothing();
-        A.CallTo(() => _roleRepository.GetUserRoleNamesAsync(A<string>._, A<CancellationToken>._)).Returns([defaultRole.Name!]);
-        A.CallTo(() => _roleRepository.GetScopesAsync(A<IReadOnlyCollection<string>>._, A<CancellationToken>._)).Returns(scopes);
         A.CallTo(() =>
-                _jwtTokenHandler.CreateToken(
+                _startSessionCommandHandler.CreateItemAsync(
+                    A<StartSessionCommand>.That.Matches(c =>
+                        c.UserId == userId && c.UserName == command.UserName && c.AppName == command.RegisteredApp!.AppName
+                    ),
                     A<string>._,
-                    A<string>._,
-                    A<string>._,
-                    A<HashSet<string>>._,
-                    A<HashSet<string>>._,
-                    A<HashSet<Claim>?>._
+                    A<CancellationToken>._
                 )
             )
-            .Returns((accessToken, expiresIn));
-        A.CallTo(() => _tokenFactory.GenerateToken(32)).Returns(refreshToken);
-        A.CallTo(() => _tokenFactory.HashToken(refreshToken)).Returns(refreshTokenHash);
-        A.CallTo(() => _refreshTokenRepository.CreateEntityItem(A<RefreshTokenEntity>._)).DoesNothing();
+            .Returns(session);
         A.CallTo(() => _unitOfWork.CommitTransactionAsync(A<CancellationToken>._)).DoesNothing();
 
         var handler = GetRegisterUserCommandHandler();
@@ -239,10 +223,8 @@ public class RegisterUserCommandHandlerTests
         Assert.Equal(command.FirstName, vm.User.FirstName);
         Assert.Equal(command.LastName, vm.User.LastName);
         Assert.Equal(command.UserEmail, vm.User.Email);
-        Assert.NotNull(vm.UserToken);
-        Assert.Equal(refreshToken, vm.UserToken?.RefreshToken);
-        Assert.Equal(accessToken, vm.UserToken?.AccessToken?.Token);
-        Assert.Equal(expiresIn, vm.UserToken?.AccessToken?.ExpiresIn);
+        Assert.Same(session, vm.UserToken);
+        Assert.Null(vm.LoginTicket);
 
         A.CallTo(() => _roleManager.FindByNameAsync(defaultRole.Name!)).MustHaveHappenedOnceExactly();
         A.CallTo(() => _userManager.FindByNameAsync(command.UserName)).MustHaveHappenedOnceExactly();
@@ -251,27 +233,49 @@ public class RegisterUserCommandHandlerTests
         A.CallTo(() => _userManager.AddToRoleAsync(A<IdentityUser>._, defaultRole.Name!)).MustHaveHappenedOnceExactly();
         A.CallTo(() => _userRepository.CreateEntityItem(A<UserEntity>.That.Matches(u => u.FirstName == command.FirstName)))
             .MustHaveHappenedOnceExactly();
-        A.CallTo(() => _roleRepository.GetUserRoleNamesAsync(userId!, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
-        A.CallTo(() =>
-                _jwtTokenHandler.CreateToken(
-                    userId!,
-                    command.UserName,
-                    command.RegisteredApp!.AppName,
-                    A<HashSet<string>>.That.IsSameSequenceAs(new[] { defaultRole.Name! }),
-                    scopes,
-                    A<HashSet<Claim>?>._
-                )
-            )
-            .MustHaveHappenedOnceExactly();
-        A.CallTo(() => _tokenFactory.GenerateToken(32)).MustHaveHappenedOnceExactly();
-        A.CallTo(() => _refreshTokenRepository.CreateEntityItem(A<RefreshTokenEntity>._)).MustHaveHappenedOnceExactly();
-        A.CallTo(() =>
-                _refreshTokenRepository.CreateEntityItem(
-                    A<RefreshTokenEntity>.That.Matches(rt => rt.Token == refreshTokenHash && rt.Expires > DateTime.UtcNow.AddDays(29))
-                )
-            )
-            .MustHaveHappenedOnceExactly();
+        A.CallTo(() => _createLoginTicketCommandHandler.CreateItemAsync(A<CreateLoginTicketCommand>._, A<string>._, A<CancellationToken>._))
+            .MustNotHaveHappened();
         A.CallTo(() => _unitOfWork.CommitTransactionAsync(A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+    }
+
+    [Theory]
+    [InlineData(RequestSource.UI, true)]
+    [InlineData(RequestSource.Api, false)]
+    public async Task Create_Unconfirmed_User_Gets_A_Login_Ticket_Only_From_The_Apps_UI(RequestSource requestSource, bool getsTicket)
+    {
+        // Arrange
+        var command = GetRegisterUserCommand();
+        command.RequestSource = requestSource;
+        SetUpSuccessfulSignUp(command);
+
+        var identityOptions = new IdentityOptions();
+        identityOptions.SignIn.RequireConfirmedAccount = true;
+
+        A.CallTo(() => _googleRecaptchaService.VerifyTokenAsync(A<string?>._, A<CancellationToken>._)).Returns(true);
+        A.CallTo(() =>
+                _createLoginTicketCommandHandler.CreateItemAsync(A<CreateLoginTicketCommand>._, A<string>._!, A<CancellationToken>._)
+            )
+            .Returns(new LoginTicketViewModel { Ticket = "login-ticket" });
+
+        var handler = GetRegisterUserCommandHandler(Options.Create(identityOptions));
+
+        // Act
+        var vm = await handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.False(vm.IsConfirmed);
+        Assert.Null(vm.UserToken);
+        Assert.Equal(getsTicket ? "login-ticket" : null, vm.LoginTicket);
+        A.CallTo(() =>
+                _createLoginTicketCommandHandler.CreateItemAsync(
+                    A<CreateLoginTicketCommand>.That.Matches(c => c.UserId == vm.User.Id && c.AppId == command.RegisteredApp!.Id),
+                    A<string>._!,
+                    A<CancellationToken>._
+                )
+            )
+            .MustHaveHappened(getsTicket ? 1 : 0, Times.Exactly);
+        A.CallTo(() => _startSessionCommandHandler.CreateItemAsync(A<StartSessionCommand>._, A<string>._!, A<CancellationToken>._))
+            .MustNotHaveHappened();
     }
 
     [Fact]
@@ -723,24 +727,21 @@ public class RegisterUserCommandHandlerTests
         A.CallTo(() => _googleRecaptchaService.VerifyTokenAsync(A<string?>._, A<CancellationToken>._)).MustNotHaveHappened();
     }
 
-    private RegisterUserCommandHandler GetRegisterUserCommandHandler()
+    private RegisterUserCommandHandler GetRegisterUserCommandHandler(IOptions<IdentityOptions>? identityOptions = null)
     {
         return new RegisterUserCommandHandler(
             _roleSettings,
-            _identityOptions,
-            _refreshTokenSettings,
+            identityOptions ?? _identityOptions,
             _userManager,
             _roleManager,
             _unitOfWork,
             _userRepository,
-            _refreshTokenRepository,
             _userRegisteredAppRepository,
             _inviteCodeRepository,
-            _roleRepository,
-            _jwtTokenHandler,
-            _tokenFactory,
             _timeProvider,
             _createOutboxMessageCommandHandler,
+            _startSessionCommandHandler,
+            _createLoginTicketCommandHandler,
             _googleRecaptchaService
         );
     }

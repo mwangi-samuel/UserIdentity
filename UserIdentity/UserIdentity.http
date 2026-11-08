@@ -11,6 +11,7 @@ GET {{UserIdentity_HostAddress}}/health
 
 ###
 
+# @name adminRegister
 POST {{UserIdentity_HostAddress}}/api/v1/user/register
 X-Api-Key: {{ApiKey}}
 X-App-Name: {{AppName}}
@@ -37,6 +38,18 @@ Content-Type: application/json
   "userName": "{{GlobalAdminUserName}}",
   "userEmail": "globaladmin@example.com",
   "userPassword": "{{GlobalAdminPassword}}"
+}
+
+###
+
+# Once the admin is confirmed, the ticket from sign-up starts one session without the password
+POST {{UserIdentity_HostAddress}}/api/v1/user/login-ticket
+X-Api-Key: {{ApiKey}}
+X-App-Name: {{AppName}}
+Content-Type: application/json
+
+{
+  "ticket": "{{adminRegister.response.body.$.loginTicket}}"
 }
 
 ###
