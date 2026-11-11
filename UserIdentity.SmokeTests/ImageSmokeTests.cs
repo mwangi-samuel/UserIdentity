@@ -32,20 +32,44 @@ public class ImageSmokeTests(ImageFixture fixture) : IClassFixture<ImageFixture>
     }
 
     [Fact]
-    public async Task OversizedBody_IsRejected_AndTheServiceStaysUp()
+    public async Task OversizedBodies_AreRejected_WhileOtherRequestsAreServed()
     {
         // Arrange
         using var client = new ServiceClient(_fixture.ServiceUrl);
-        var oversizedLogin = new { userName = new string('a', 1024 * 1024), password = ServiceClient.Password };
         var normalLogin = new { userName = "nobody", password = ServiceClient.Password };
+        var oversizedLogins = new[] { 65 * 1024, 1024 * 1024, 9024 * 1024 }
+            .Select(length => new { userName = new string('a', length), password = ServiceClient.Password })
+            .ToArray();
 
         // Act
-        var oversized = await client.PostAsync("/api/v1/user/login", oversizedLogin, _cancellationToken);
+        var normalCalls = Enumerable
+            .Range(0, 6)
+            .Select(_ => client.PostAsync("/api/v1/user/login", normalLogin, _cancellationToken))
+            .ToArray();
+        var oversizedCalls = Enumerable
+            .Range(0, 9)
+            .Select(index =>
+                client.PostWithExpectContinueAsync(
+                    "/api/v1/user/login",
+                    oversizedLogins[index % oversizedLogins.Length],
+                    _cancellationToken
+                )
+            )
+            .ToArray();
+
+        var oversized = await Task.WhenAll(oversizedCalls);
+        var normal = await Task.WhenAll(normalCalls);
         var afterwards = await client.PostAsync("/api/v1/user/login", normalLogin, _cancellationToken);
 
         // Assert
-        var body = await ServiceClient.ReadAsync(oversized, HttpStatusCode.RequestEntityTooLarge, _cancellationToken);
-        Assert.Equal("Payload Too Large", $"{body["error"]!["message"]}");
+        foreach (var response in oversized)
+        {
+            var body = await ServiceClient.ReadAsync(response, HttpStatusCode.RequestEntityTooLarge, _cancellationToken);
+
+            Assert.Equal("Payload Too Large", $"{body["error"]!["message"]}");
+        }
+
+        Assert.All(normal, response => Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode));
         Assert.Equal(HttpStatusCode.Unauthorized, afterwards.StatusCode);
     }
 
