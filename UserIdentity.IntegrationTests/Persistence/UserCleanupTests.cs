@@ -4,6 +4,7 @@ using PolyzenKit.Application.Core;
 using PolyzenKit.Application.Core.Interfaces;
 using UserIdentity.Application.Core.Tokens.Commands;
 using UserIdentity.Application.Core.Users.Commands;
+using UserIdentity.Application.Core.Users.Shared;
 using UserIdentity.Domain.InviteCodes;
 using UserIdentity.Domain.RefreshTokens;
 using UserIdentity.IntegrationTests.TestUtils;
@@ -94,9 +95,7 @@ public class UserCleanupTests(TestingWebAppFactory testingWebAppFactory, ITestOu
         var context = ServiceProvider.GetRequiredService<AppDbContext>();
 
         context.RefreshToken.AddRange(
-            Enumerable
-                .Range(0, DeleteExpiredRefreshTokensCommandHandler.BatchSize + 20)
-                .Select(index => BuildRefreshToken(now.AddMinutes(-index - 1)))
+            Enumerable.Range(0, CleanupBatch.Size + 20).Select(index => BuildRefreshToken(now.AddMinutes(-index - 1)))
         );
         context.RefreshToken.AddRange(Enumerable.Range(0, 3).Select(index => BuildRefreshToken(now.AddDays(index + 1))));
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
@@ -119,7 +118,7 @@ public class UserCleanupTests(TestingWebAppFactory testingWebAppFactory, ITestOu
         TestDbHelper.CreateIdentityUser();
         var now = DateTime.UtcNow;
 
-        for (var index = 0; index < DeleteExpiredPasswordResetsCommandHandler.BatchSize + 20; index++)
+        for (var index = 0; index < CleanupBatch.Size + 20; index++)
             TestDbHelper.CreatePasswordResetEntity($"old-request-{index}", expires: now.AddDays(-2));
 
         var recentlyExpired = TestDbHelper.CreatePasswordResetEntity("recently-expired", expires: now.AddHours(-1));

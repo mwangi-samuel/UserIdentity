@@ -1,5 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
-using System.Text.Json.Serialization;
+﻿using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Options;
 using PolyzenKit.Application.Core;
@@ -8,7 +7,6 @@ using PolyzenKit.Application.Interfaces;
 using PolyzenKit.Common.Exceptions;
 using PolyzenKit.Common.Extensions;
 using PolyzenKit.Common.Settings;
-using PolyzenKit.Common.Utilities;
 using UserIdentity.Application.Core.Roles.Shared;
 using UserIdentity.Application.Core.Roles.ViewModels;
 using UserIdentity.Common.Errors;
@@ -16,21 +14,8 @@ using UserIdentity.Domain.RoleClaims;
 
 namespace UserIdentity.Application.Core.Roles.Commands;
 
-public record CreateRoleClaimCommand : IBaseCommand
+public record CreateRoleClaimCommand : RoleClaimInput, IBaseCommand
 {
-    public const string ActionPattern =
-        $"(?i)^({ScopeActions.Create}|{ScopeActions.Read}|{ScopeActions.Edit}|{ScopeActions.Delete}|{ScopeActions.Download}|{ScopeActions.All})$";
-
-    [Required]
-    public string RoleId { get; init; } = null!;
-
-    [Required, StringLength(RoleClaimLimits.ResourceMaxLength)]
-    public string Resource { get; init; } = null!;
-
-    [Required]
-    [RegularExpression(ActionPattern, ErrorMessage = "Action must be create, read, edit, delete, download or all")]
-    public string Action { get; set; } = null!;
-
     [JsonIgnore]
     public string? AppName { get; internal set; }
 }
@@ -51,11 +36,7 @@ public class CreateRoleClaimCommandHandler(
         CancellationToken cancellationToken = default
     )
     {
-        // Confirm role exists
-        var role = await _roleManager.FindByIdAsync(command.RoleId) ?? throw NoRecordException.ForIdentifier(command.RoleId);
-
-        if (command.AppName is not null && !AppRoleNames.IsAppRole(role.Name, command.AppName))
-            throw NoRecordException.ForIdentifier(command.RoleId);
+        var role = await AppRoleNames.GetAppRoleAsync(_roleManager, command.RoleId, command.AppName);
 
         // The global admin role is in every app's tokens, so its scopes would apply in every app
         if (AppRoleNames.IsGlobalAdminRole(role.Name, _roleSettings.GlobalAdminRole))

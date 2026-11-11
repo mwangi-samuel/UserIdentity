@@ -1,6 +1,7 @@
 ﻿using FakeItEasy;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Time.Testing;
 using PolyzenKit.Application.Core.Interfaces;
 using PolyzenKit.Application.Core.Messages.Commands;
 using PolyzenKit.Application.Core.Messages.ViewModels;
@@ -14,7 +15,6 @@ using UserIdentity.Application.Core.Tokens.Commands;
 using UserIdentity.Application.Core.Tokens.ViewModels;
 using UserIdentity.Application.Core.Users.Commands;
 using UserIdentity.Application.Core.Users.Shared;
-using UserIdentity.Application.Interfaces;
 using UserIdentity.Common.Enums;
 using UserIdentity.Domain.InviteCodes;
 using UserIdentity.Domain.Users;
@@ -36,10 +36,11 @@ public class RegisterUserCommandHandlerTests
     private readonly IUserRepository _userRepository;
     private readonly IUserRegisteredAppRepository _userRegisteredAppRepository;
     private readonly IInviteCodeRepository _inviteCodeRepository;
-    private readonly TimeProvider _timeProvider;
+    private static readonly DateTime _now = new(2026, 11, 11, 12, 0, 0, DateTimeKind.Utc);
+
+    private readonly FakeTimeProvider _timeProvider = new();
     private readonly ICreateItemCommandHandler<CreateOutboxMessageCommand, OutboxMessageViewModel> _createOutboxMessageCommandHandler;
-    private readonly IGoogleRecaptchaService _googleRecaptchaService;
-    private readonly ICreateItemCommandHandler<StartSessionCommand, AccessTokenViewModel> _startSessionCommandHandler;
+    private readonly ICreateItemCommandHandler<StartSessionCommand, UserTokenViewModel> _startSessionCommandHandler;
     private readonly ICreateItemCommandHandler<CreateLoginTicketCommand, LoginTicketViewModel> _createLoginTicketCommandHandler;
 
     public RegisterUserCommandHandlerTests()
@@ -52,10 +53,9 @@ public class RegisterUserCommandHandlerTests
         _userRepository = A.Fake<IUserRepository>();
         _userRegisteredAppRepository = A.Fake<IUserRegisteredAppRepository>();
         _inviteCodeRepository = A.Fake<IInviteCodeRepository>();
-        _timeProvider = TimeProvider.System;
+        _timeProvider.SetUtcNow(_now);
         _createOutboxMessageCommandHandler = A.Fake<ICreateItemCommandHandler<CreateOutboxMessageCommand, OutboxMessageViewModel>>();
-        _googleRecaptchaService = A.Fake<IGoogleRecaptchaService>();
-        _startSessionCommandHandler = A.Fake<ICreateItemCommandHandler<StartSessionCommand, AccessTokenViewModel>>();
+        _startSessionCommandHandler = A.Fake<ICreateItemCommandHandler<StartSessionCommand, UserTokenViewModel>>();
         _createLoginTicketCommandHandler = A.Fake<ICreateItemCommandHandler<CreateLoginTicketCommand, LoginTicketViewModel>>();
 
         A.CallTo(() => _unitOfWork.BeginTransactionAsync(A<CancellationToken>._)).Returns(Task.CompletedTask);
@@ -159,7 +159,7 @@ public class RegisterUserCommandHandlerTests
         A.CallTo(() => _userManager.FindByNameAsync(command.UserName)).Returns((IdentityUser?)null);
         A.CallTo(() => _userManager.FindByEmailAsync(command.UserEmail!)).Returns((IdentityUser?)null);
         A.CallTo(() => _userManager.CreateAsync(A<IdentityUser>._, command.UserPassword)).Returns(IdentityResult.Success);
-        A.CallTo(() => _userManager.AddToRoleAsync(A<IdentityUser>._, defaultRole.Name!)).Returns(IdentityResult.Failed());
+        A.CallTo(() => _userManager.AddToRolesAsync(A<IdentityUser>._, A<IEnumerable<string>>._)).Returns(IdentityResult.Failed());
 
         var handler = GetRegisterUserCommandHandler();
 
@@ -171,7 +171,9 @@ public class RegisterUserCommandHandlerTests
         A.CallTo(() => _userManager.FindByNameAsync(command.UserName)).MustHaveHappenedOnceExactly();
         A.CallTo(() => _userManager.FindByEmailAsync(command.UserEmail!)).MustHaveHappenedOnceExactly();
         A.CallTo(() => _userManager.CreateAsync(A<IdentityUser>._, command.UserPassword)).MustHaveHappenedOnceExactly();
-        A.CallTo(() => _userManager.AddToRoleAsync(A<IdentityUser>._, defaultRole.Name!)).MustHaveHappenedOnceExactly();
+        string[] expectedRoles = [defaultRole.Name!];
+        A.CallTo(() => _userManager.AddToRolesAsync(A<IdentityUser>._, A<IEnumerable<string>>.That.IsSameSequenceAs(expectedRoles)))
+            .MustHaveHappenedOnceExactly();
     }
 
     [Fact]
@@ -179,10 +181,13 @@ public class RegisterUserCommandHandlerTests
     {
         var command = GetRegisterUserCommand();
         var defaultRole = new IdentityRole(GetDefaultRoleName());
-        var session = new AccessTokenViewModel
+        var session = new UserTokenViewModel
         {
-            AccessToken = new AccessTokenDto { Token = "access-token", ExpiresIn = 1200 },
-            RefreshToken = "refresh-token",
+            UserToken = new UserTokenDto
+            {
+                AccessToken = new AccessTokenDto { Token = "access-token", ExpiresIn = 1200 },
+                RefreshToken = "refresh-token",
+            },
         };
 
         string? userId = null;
@@ -200,12 +205,12 @@ public class RegisterUserCommandHandlerTests
                 }
             )
             .Returns(IdentityResult.Success);
-        A.CallTo(() => _userManager.AddToRoleAsync(A<IdentityUser>._, defaultRole.Name!)).Returns(IdentityResult.Success);
+        A.CallTo(() => _userManager.AddToRolesAsync(A<IdentityUser>._, A<IEnumerable<string>>._)).Returns(IdentityResult.Success);
         A.CallTo(() => _userRepository.CreateEntityItem(A<UserEntity>.That.Matches(u => u.FirstName == command.FirstName))).DoesNothing();
         A.CallTo(() =>
                 _startSessionCommandHandler.CreateItemAsync(
                     A<StartSessionCommand>.That.Matches(c =>
-                        c.UserId == userId && c.UserName == command.UserName && c.AppName == command.RegisteredApp!.AppName
+                        c.UserId == userId && c.UserName == command.UserName && c.AppName == command.RegisteredApp.AppName
                     ),
                     A<string>._,
                     A<CancellationToken>._
@@ -218,19 +223,22 @@ public class RegisterUserCommandHandlerTests
 
         var vm = await handler.CreateItemAsync(command, userId!, TestContext.Current.CancellationToken);
 
-        Assert.NotNull(vm.User);
         Assert.Equal(userId, vm.User.Id);
         Assert.Equal(command.FirstName, vm.User.FirstName);
         Assert.Equal(command.LastName, vm.User.LastName);
         Assert.Equal(command.UserEmail, vm.User.Email);
-        Assert.Same(session, vm.UserToken);
+        Assert.Equal(_now, vm.User.CreatedAt);
+        Assert.Equal(_now, vm.User.UpdatedAt);
+        Assert.Same(session.UserToken, vm.UserToken);
         Assert.Null(vm.LoginTicket);
 
         A.CallTo(() => _roleManager.FindByNameAsync(defaultRole.Name!)).MustHaveHappenedOnceExactly();
         A.CallTo(() => _userManager.FindByNameAsync(command.UserName)).MustHaveHappenedOnceExactly();
         A.CallTo(() => _userManager.FindByEmailAsync(command.UserEmail!)).MustHaveHappenedOnceExactly();
         A.CallTo(() => _userManager.CreateAsync(A<IdentityUser>._, command.UserPassword)).MustHaveHappenedOnceExactly();
-        A.CallTo(() => _userManager.AddToRoleAsync(A<IdentityUser>._, defaultRole.Name!)).MustHaveHappenedOnceExactly();
+        string[] expectedRoles = [defaultRole.Name!];
+        A.CallTo(() => _userManager.AddToRolesAsync(A<IdentityUser>._, A<IEnumerable<string>>.That.IsSameSequenceAs(expectedRoles)))
+            .MustHaveHappenedOnceExactly();
         A.CallTo(() => _userRepository.CreateEntityItem(A<UserEntity>.That.Matches(u => u.FirstName == command.FirstName)))
             .MustHaveHappenedOnceExactly();
         A.CallTo(() => _createLoginTicketCommandHandler.CreateItemAsync(A<CreateLoginTicketCommand>._, A<string>._, A<CancellationToken>._))
@@ -251,7 +259,6 @@ public class RegisterUserCommandHandlerTests
         var identityOptions = new IdentityOptions();
         identityOptions.SignIn.RequireConfirmedAccount = true;
 
-        A.CallTo(() => _googleRecaptchaService.VerifyTokenAsync(A<string?>._, A<CancellationToken>._)).Returns(true);
         A.CallTo(() =>
                 _createLoginTicketCommandHandler.CreateItemAsync(A<CreateLoginTicketCommand>._, A<string>._!, A<CancellationToken>._)
             )
@@ -268,7 +275,7 @@ public class RegisterUserCommandHandlerTests
         Assert.Equal(getsTicket ? "login-ticket" : null, vm.LoginTicket);
         A.CallTo(() =>
                 _createLoginTicketCommandHandler.CreateItemAsync(
-                    A<CreateLoginTicketCommand>.That.Matches(c => c.UserId == vm.User.Id && c.AppId == command.RegisteredApp!.Id),
+                    A<CreateLoginTicketCommand>.That.Matches(c => c.UserId == vm.User.Id && c.AppId == command.RegisteredApp.Id),
                     A<string>._!,
                     A<CancellationToken>._
                 )
@@ -292,7 +299,7 @@ public class RegisterUserCommandHandlerTests
         A.CallTo(() => _userManager.CreateAsync(A<IdentityUser>._, command.UserPassword))
             .Invokes((IdentityUser u, string _) => userId = u.Id)
             .Returns(IdentityResult.Success);
-        A.CallTo(() => _userManager.AddToRoleAsync(A<IdentityUser>._, defaultRole.Name!)).Returns(IdentityResult.Success);
+        A.CallTo(() => _userManager.AddToRolesAsync(A<IdentityUser>._, A<IEnumerable<string>>._)).Returns(IdentityResult.Success);
 
         var handler = GetRegisterUserCommandHandler();
 
@@ -306,7 +313,7 @@ public class RegisterUserCommandHandlerTests
                         c.Name == UserMessages.UserRegistered
                         && c.Message.Action == MessageAction.WelcomeUser
                         && c.Message.CorrelationId == userId
-                        && c.Message.RegisteredApp == command.RegisteredApp!.AppName
+                        && c.Message.RegisteredApp == command.RegisteredApp.AppName
                         && c.Message.Attributes[MessageAttributeKey.RecipientEmail] == command.UserEmail
                         && c.Message.Attributes[MessageAttributeKey.RecipientPhone] == command.PhoneNumber
                         && c.Message.Attributes[MessageAttributeKey.FirstName] == command.FirstName
@@ -371,8 +378,6 @@ public class RegisterUserCommandHandlerTests
         command.RegisteredApp = GetRegisteredApp(callbackUrl: callbackUrl);
         SetUpSuccessfulSignUp(command);
 
-        A.CallTo(() => _googleRecaptchaService.VerifyTokenAsync(A<string?>._, A<CancellationToken>._)).Returns(true);
-
         var handler = GetRegisterUserCommandHandler();
 
         // Act
@@ -403,7 +408,7 @@ public class RegisterUserCommandHandlerTests
         var command = GetRegisterUserCommand();
         command.RegisteredApp = GetRegisteredApp(requireInviteCode: true);
         const string inviteCode = "INVITE01";
-        command.InviteCode = inviteCode;
+        command = command with { InviteCode = inviteCode };
 
         var defaultRole = new IdentityRole(GetDefaultRoleName());
         var inviteCodeEntity = new InviteCodeEntity
@@ -429,7 +434,7 @@ public class RegisterUserCommandHandlerTests
         A.CallTo(() => _userManager.CreateAsync(A<IdentityUser>._, command.UserPassword))
             .Invokes((IdentityUser u, string _) => userId = u.Id)
             .Returns(IdentityResult.Success);
-        A.CallTo(() => _userManager.AddToRoleAsync(A<IdentityUser>._, defaultRole.Name!)).Returns(IdentityResult.Success);
+        A.CallTo(() => _userManager.AddToRolesAsync(A<IdentityUser>._, A<IEnumerable<string>>._)).Returns(IdentityResult.Success);
 
         var handler = GetRegisterUserCommandHandler();
 
@@ -438,7 +443,7 @@ public class RegisterUserCommandHandlerTests
         Assert.True(inviteCodeEntity.Applied);
         Assert.NotNull(userId);
         Assert.Equal(userId, inviteCodeEntity.UpdatedBy);
-        Assert.NotNull(inviteCodeEntity.UpdatedAt);
+        Assert.Equal(_now, inviteCodeEntity.UpdatedAt);
 
         A.CallTo(() => _inviteCodeRepository.UpdateEntityItem(inviteCodeEntity)).MustHaveHappenedOnceExactly();
         A.CallTo(() => _unitOfWork.CommitTransactionAsync(A<CancellationToken>._)).MustHaveHappenedOnceExactly();
@@ -450,7 +455,7 @@ public class RegisterUserCommandHandlerTests
         var command = GetRegisterUserCommand();
         command.RegisteredApp = GetRegisteredApp(requireInviteCode: true);
         const string inviteCode = "INVITE01";
-        command.InviteCode = inviteCode;
+        command = command with { InviteCode = inviteCode };
 
         var inviteCodeEntity = new InviteCodeEntity
         {
@@ -486,7 +491,7 @@ public class RegisterUserCommandHandlerTests
         var command = GetRegisterUserCommand();
         const string inviteCode = "INVITE01";
         const string inviteRole = "testapp:owner";
-        command.InviteCode = inviteCode.ToLowerInvariant();
+        command = command with { InviteCode = inviteCode.ToLowerInvariant() };
 
         var defaultRole = new IdentityRole(GetDefaultRoleName());
         var inviteCodeEntity = new InviteCodeEntity
@@ -500,7 +505,7 @@ public class RegisterUserCommandHandlerTests
 
         A.CallTo(() =>
                 _inviteCodeRepository.GetEntityByAlternateIdAsync(
-                    A<InviteCodeEntity>.That.Matches(e => e.UserEmail == command.UserEmail && e.AppId == command.RegisteredApp!.Id),
+                    A<InviteCodeEntity>.That.Matches(e => e.UserEmail == command.UserEmail && e.AppId == command.RegisteredApp.Id),
                     QueryCondition.MayOrMayNotExist,
                     A<CancellationToken>._
                 )
@@ -511,7 +516,7 @@ public class RegisterUserCommandHandlerTests
         A.CallTo(() => _userManager.FindByNameAsync(command.UserName)).Returns((IdentityUser?)null);
         A.CallTo(() => _userManager.FindByEmailAsync(command.UserEmail!)).Returns((IdentityUser?)null);
         A.CallTo(() => _userManager.CreateAsync(A<IdentityUser>._, command.UserPassword)).Returns(IdentityResult.Success);
-        A.CallTo(() => _userManager.AddToRoleAsync(A<IdentityUser>._, A<string>._)).Returns(IdentityResult.Success);
+        A.CallTo(() => _userManager.AddToRolesAsync(A<IdentityUser>._, A<IEnumerable<string>>._)).Returns(IdentityResult.Success);
 
         var handler = GetRegisterUserCommandHandler();
 
@@ -522,8 +527,9 @@ public class RegisterUserCommandHandlerTests
         Assert.Equal(command.UserEmail, vm.User.Email);
         Assert.True(inviteCodeEntity.Applied);
 
-        A.CallTo(() => _userManager.AddToRoleAsync(A<IdentityUser>._, inviteRole)).MustHaveHappenedOnceExactly();
-        A.CallTo(() => _userManager.AddToRoleAsync(A<IdentityUser>._, defaultRole.Name!)).MustHaveHappenedOnceExactly();
+        string[] expectedRoles = [defaultRole.Name!, inviteRole];
+        A.CallTo(() => _userManager.AddToRolesAsync(A<IdentityUser>._, A<IEnumerable<string>>.That.IsSameSequenceAs(expectedRoles)))
+            .MustHaveHappenedOnceExactly();
         A.CallTo(() => _inviteCodeRepository.UpdateEntityItem(inviteCodeEntity)).MustHaveHappenedOnceExactly();
         A.CallTo(() => _unitOfWork.CommitTransactionAsync(A<CancellationToken>._)).MustHaveHappenedOnceExactly();
     }
@@ -533,7 +539,7 @@ public class RegisterUserCommandHandlerTests
     {
         // Arrange
         var command = GetRegisterUserCommand();
-        command.InviteCode = "WRONGCODE";
+        command = command with { InviteCode = "WRONGCODE" };
 
         var inviteCodeEntity = new InviteCodeEntity
         {
@@ -572,7 +578,7 @@ public class RegisterUserCommandHandlerTests
     {
         // Arrange
         var command = GetRegisterUserCommand();
-        command.InviteCode = "ABCDEFGHJK";
+        command = command with { InviteCode = "ABCDEFGHJK" };
 
         var inviteCodeEntity = inviteState switch
         {
@@ -609,6 +615,8 @@ public class RegisterUserCommandHandlerTests
 
         Assert.Equal("A valid invite code is required when signing up.", exception.Message);
         A.CallTo(() => _userManager.CreateAsync(A<IdentityUser>._, A<string>._)).MustNotHaveHappened();
+        A.CallTo(() => _unitOfWork.RollbackTransactionAsync(A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+        A.CallTo(() => _unitOfWork.CommitTransactionAsync(A<CancellationToken>._)).MustNotHaveHappened();
     }
 
     [Fact]
@@ -617,7 +625,7 @@ public class RegisterUserCommandHandlerTests
         // Arrange
         var command = GetRegisterUserCommand();
         const string inviteRole = "testapp:owner";
-        command.InviteCode = "INVITE01";
+        command = command with { InviteCode = "INVITE01" };
 
         var defaultRole = new IdentityRole(GetDefaultRoleName());
         var inviteCodeEntity = new InviteCodeEntity
@@ -642,7 +650,7 @@ public class RegisterUserCommandHandlerTests
         A.CallTo(() => _userManager.FindByNameAsync(command.UserName)).Returns((IdentityUser?)null);
         A.CallTo(() => _userManager.FindByEmailAsync(command.UserEmail!)).Returns((IdentityUser?)null);
         A.CallTo(() => _userManager.CreateAsync(A<IdentityUser>._, command.UserPassword)).Returns(IdentityResult.Success);
-        A.CallTo(() => _userManager.AddToRoleAsync(A<IdentityUser>._, defaultRole.Name!)).Returns(IdentityResult.Success);
+        A.CallTo(() => _userManager.AddToRolesAsync(A<IdentityUser>._, A<IEnumerable<string>>._)).Returns(IdentityResult.Success);
 
         var handler = GetRegisterUserCommandHandler();
 
@@ -651,7 +659,7 @@ public class RegisterUserCommandHandlerTests
             handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken)
         );
 
-        A.CallTo(() => _userManager.AddToRoleAsync(A<IdentityUser>._, inviteRole)).MustNotHaveHappened();
+        A.CallTo(() => _userManager.AddToRolesAsync(A<IdentityUser>._, A<IEnumerable<string>>._)).MustNotHaveHappened();
         A.CallTo(() => _unitOfWork.RollbackTransactionAsync(A<CancellationToken>._)).MustHaveHappenedOnceExactly();
         A.CallTo(() => _unitOfWork.CommitTransactionAsync(A<CancellationToken>._)).MustNotHaveHappened();
     }
@@ -663,7 +671,7 @@ public class RegisterUserCommandHandlerTests
     {
         // Arrange
         var command = GetRegisterUserCommand();
-        command.InviteCode = inviteCode;
+        command = command with { InviteCode = inviteCode };
 
         var defaultRole = new IdentityRole(GetDefaultRoleName());
 
@@ -671,7 +679,7 @@ public class RegisterUserCommandHandlerTests
         A.CallTo(() => _userManager.FindByNameAsync(command.UserName)).Returns((IdentityUser?)null);
         A.CallTo(() => _userManager.FindByEmailAsync(command.UserEmail!)).Returns((IdentityUser?)null);
         A.CallTo(() => _userManager.CreateAsync(A<IdentityUser>._, command.UserPassword)).Returns(IdentityResult.Success);
-        A.CallTo(() => _userManager.AddToRoleAsync(A<IdentityUser>._, defaultRole.Name!)).Returns(IdentityResult.Success);
+        A.CallTo(() => _userManager.AddToRolesAsync(A<IdentityUser>._, A<IEnumerable<string>>._)).Returns(IdentityResult.Success);
 
         var handler = GetRegisterUserCommandHandler();
 
@@ -686,45 +694,9 @@ public class RegisterUserCommandHandlerTests
             )
             .MustNotHaveHappened();
         A.CallTo(() => _inviteCodeRepository.UpdateEntityItem(A<InviteCodeEntity>._)).MustNotHaveHappened();
-        A.CallTo(() => _userManager.AddToRoleAsync(A<IdentityUser>._, A<string>._)).MustHaveHappenedOnceExactly();
-    }
-
-    [Fact]
-    public async Task Create_User_From_UI_When_Recaptcha_Fails_Throws_InvalidDataException()
-    {
-        // Arrange
-        var command = GetRegisterUserCommand();
-        command.RequestSource = RequestSource.UI;
-        command.GoogleRecaptchaToken = "recaptcha-token";
-
-        A.CallTo(() => _googleRecaptchaService.VerifyTokenAsync("recaptcha-token", A<CancellationToken>._)).Returns(false);
-
-        var handler = GetRegisterUserCommandHandler();
-
-        // Act & Assert
-        await Assert.ThrowsAsync<InvalidDataException>(() =>
-            handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken)
-        );
-        A.CallTo(() => _unitOfWork.BeginTransactionAsync(A<CancellationToken>._)).MustNotHaveHappened();
-    }
-
-    [Fact]
-    public async Task Create_User_From_Api_Does_Not_Verify_Recaptcha()
-    {
-        // Arrange
-        var command = GetRegisterUserCommand();
-        var defaultRole = new IdentityRole(GetDefaultRoleName());
-
-        A.CallTo(() => _roleManager.FindByNameAsync(defaultRole.Name!)).Returns(defaultRole);
-        A.CallTo(() => _userManager.FindByNameAsync(command.UserName)).Returns(new IdentityUser());
-
-        var handler = GetRegisterUserCommandHandler();
-
-        // Act & Assert
-        await Assert.ThrowsAsync<RecordExistsException>(() =>
-            handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken)
-        );
-        A.CallTo(() => _googleRecaptchaService.VerifyTokenAsync(A<string?>._, A<CancellationToken>._)).MustNotHaveHappened();
+        string[] expectedRoles = [defaultRole.Name!];
+        A.CallTo(() => _userManager.AddToRolesAsync(A<IdentityUser>._, A<IEnumerable<string>>.That.IsSameSequenceAs(expectedRoles)))
+            .MustHaveHappenedOnceExactly();
     }
 
     private RegisterUserCommandHandler GetRegisterUserCommandHandler(IOptions<IdentityOptions>? identityOptions = null)
@@ -741,8 +713,7 @@ public class RegisterUserCommandHandlerTests
             _timeProvider,
             _createOutboxMessageCommandHandler,
             _startSessionCommandHandler,
-            _createLoginTicketCommandHandler,
-            _googleRecaptchaService
+            _createLoginTicketCommandHandler
         );
     }
 
@@ -754,14 +725,14 @@ public class RegisterUserCommandHandlerTests
         A.CallTo(() => _userManager.FindByNameAsync(command.UserName)).Returns((IdentityUser?)null);
         A.CallTo(() => _userManager.FindByEmailAsync(command.UserEmail!)).Returns((IdentityUser?)null);
         A.CallTo(() => _userManager.CreateAsync(A<IdentityUser>._, command.UserPassword)).Returns(IdentityResult.Success);
-        A.CallTo(() => _userManager.AddToRoleAsync(A<IdentityUser>._, defaultRole.Name!)).Returns(IdentityResult.Success);
+        A.CallTo(() => _userManager.AddToRolesAsync(A<IdentityUser>._, A<IEnumerable<string>>._)).Returns(IdentityResult.Success);
     }
 
     private string GetDefaultRoleName()
     {
         var settings = _roleSettings.Value;
         var command = GetRegisterUserCommand();
-        return $"{command.RegisteredApp!.AppName.Trim().ToLowerInvariant()}{Separators.ServiceRole}{settings.DefaultRole.Trim().ToLowerInvariant()}";
+        return $"{command.RegisteredApp.AppName.Trim().ToLowerInvariant()}{Separators.ServiceRole}{settings.DefaultRole.Trim().ToLowerInvariant()}";
     }
 
     private static RegisterUserCommand GetRegisterUserCommand()

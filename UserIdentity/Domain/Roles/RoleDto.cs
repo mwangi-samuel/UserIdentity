@@ -2,6 +2,6 @@
 
 public record RoleDto
 {
-    public string Id { get; init; } = null!;
-    public string Name { get; init; } = null!;
+    public required string Id { get; init; }
+    public required string Name { get; init; }
 }

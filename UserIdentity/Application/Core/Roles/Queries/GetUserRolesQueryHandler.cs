@@ -18,13 +18,11 @@ public record GetUserRolesQuery : IBaseQuery
 }
 
 public class GetUserRolesQueryHandler(
-    RoleManager<IdentityRole> roleManager,
     UserManager<IdentityUser> userManager,
     IUserRegisteredAppRepository userRegisteredAppRepository,
     IOptions<RoleSettings> roleSettingsOptions
 ) : IGetItemsQueryHandler<GetUserRolesQuery, UserRolesViewModel>
 {
-    private readonly RoleManager<IdentityRole> _roleManager = roleManager;
     private readonly UserManager<IdentityUser> _userManager = userManager;
     private readonly IUserRegisteredAppRepository _userRegisteredAppRepository = userRegisteredAppRepository;
     private readonly RoleSettings _roleSettings = roleSettingsOptions.Value;
@@ -41,9 +39,11 @@ public class GetUserRolesQueryHandler(
 
         var userRoles = await _userManager.GetRolesAsync(user) ?? [];
 
-        if (query.AppName is not null)
-            userRoles = AppRoleNames.ForApp(userRoles, query.AppName, _roleSettings.GlobalAdminRole);
-
-        return new UserRolesViewModel { UserRoles = userRoles };
+        return new UserRolesViewModel
+        {
+            UserRoles = query.AppName is null
+                ? [.. userRoles]
+                : AppRoleNames.ForApp(userRoles, query.AppName, _roleSettings.GlobalAdminRole),
+        };
     }
 }

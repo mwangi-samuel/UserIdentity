@@ -215,8 +215,6 @@ public class AppScopingTests(TestingWebAppFactory testingWebAppFactory, ITestOut
         TestDbHelper.SeedDatabase();
         TestDbHelper.CreateIdentityRole(TestDbHelper.AdminRoles.First());
         TestDbHelper.ConfigureIdentityUserAsAdmin();
-        // Roles aren't reset between tests, and other tests here create this one
-        TestDbHelper.DeleteIdnetityRole(OtherAppRole);
 
         // Act
         var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Post, "/api/v1/role", new { RoleName = OtherAppRole });
@@ -226,6 +224,88 @@ public class AppScopingTests(TestingWebAppFactory testingWebAppFactory, ITestOut
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         Assert.Null(TestDbHelper.GetIdentityRole(OtherAppRole));
+    }
+
+    [Fact]
+    public async Task Another_Apps_User_Is_Not_Found_For_An_App_Admin()
+    {
+        // Arrange
+        SeedAppAdmin();
+        var otherAppUserId = TestDbHelper.CreateUserOfApp(TestingWebAppFactory.OtherAppName);
+
+        // Act
+        var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Get, $"/api/v1/user/{otherAppUserId}");
+
+        // Assert
+        await response.ValidateRequestResponseAsync();
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Another_Apps_Users_Roles_Are_Not_Found_For_An_App_Admin()
+    {
+        // Arrange
+        SeedAppAdmin();
+        var otherAppUserId = TestDbHelper.CreateUserOfApp(TestingWebAppFactory.OtherAppName);
+
+        // Act
+        var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Get, $"/api/v1/role/user/{otherAppUserId}");
+
+        // Assert
+        await response.ValidateRequestResponseAsync();
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Updating_Another_Apps_Role_As_An_App_Admin_Returns_Not_Found()
+    {
+        // Arrange
+        SeedAppAdmin();
+        var role = TestDbHelper.CreateIdentityRole(OtherAppRole);
+
+        // Act
+        var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Put, $"/api/v1/role/{role.Id}", new { RoleName = OwnerRole });
+
+        // Assert
+        await response.ValidateRequestResponseAsync();
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.NotNull(TestDbHelper.GetIdentityRole(OtherAppRole));
+    }
+
+    [Fact]
+    public async Task Deleting_Another_Apps_Role_As_An_App_Admin_Returns_Not_Found()
+    {
+        // Arrange
+        SeedAppAdmin();
+        var role = TestDbHelper.CreateIdentityRole(OtherAppRole);
+
+        // Act
+        var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Delete, $"/api/v1/role/{role.Id}");
+
+        // Assert
+        await response.ValidateRequestResponseAsync();
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.NotNull(TestDbHelper.GetIdentityRole(OtherAppRole));
+    }
+
+    [Fact]
+    public async Task Another_Apps_Wait_List_Entry_Is_Not_Found_For_An_App_Admin()
+    {
+        // Arrange
+        SeedAppAdmin();
+        var entry = TestDbHelper.CreateWaitListEntity("other-app-wait-list@example.com", TestingWebAppFactory.OtherAppName);
+
+        // Act
+        var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Get, $"/api/v1/wait-list/{entry.Id}");
+
+        // Assert
+        await response.ValidateRequestResponseAsync();
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
     [Fact]
@@ -246,5 +326,12 @@ public class AppScopingTests(TestingWebAppFactory testingWebAppFactory, ITestOut
         await response.ValidateRequestResponseAsync();
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    private void SeedAppAdmin()
+    {
+        TestDbHelper.SeedDatabase();
+        TestDbHelper.CreateIdentityRole(TestDbHelper.AdminRoles.First());
+        TestDbHelper.ConfigureIdentityUserAsAdmin();
     }
 }

@@ -3,6 +3,7 @@ using FakeItEasy;
 using PolyzenKit.Application.Core;
 using PolyzenKit.Application.Core.Interfaces;
 using PolyzenKit.Common.Enums;
+using PolyzenKit.Common.Utilities;
 using UserIdentity.Application.Core.Roles.Commands;
 using UserIdentity.Application.Core.Roles.Queries;
 using UserIdentity.Application.Core.Roles.ViewModels;
@@ -27,6 +28,11 @@ public class RoleEndpointsTests
     private readonly IGetItemsQueryHandler<GetRoleClaimsQuery, RoleClaimsViewModel> _getRoleClaimsQueryHandler;
     private readonly IDeleteItemCommandHandler<DeleteRoleClaimCommand, DeleteRecordViewModel> _deleteRoleClaimCommandHandler;
 
+    private readonly RoleViewModel _roleViewModel = new()
+    {
+        Role = new RoleDto { Id = "role-id", Name = "testapp:owner" },
+    };
+
     public RoleEndpointsTests()
     {
         _createRoleCommandHandler = A.Fake<ICreateItemCommandHandler<CreateRoleCommand, RoleViewModel>>();
@@ -39,265 +45,203 @@ public class RoleEndpointsTests
         _createRoleClaimCommandHandler = A.Fake<ICreateItemCommandHandler<CreateRoleClaimCommand, RoleClaimViewModel>>();
         _getRoleClaimsQueryHandler = A.Fake<IGetItemsQueryHandler<GetRoleClaimsQuery, RoleClaimsViewModel>>();
         _deleteRoleClaimCommandHandler = A.Fake<IDeleteItemCommandHandler<DeleteRoleClaimCommand, DeleteRecordViewModel>>();
+
+        A.CallTo(() => _getRolesQueryHandler.GetItemsAsync(A<GetRolesQuery>._, A<CancellationToken>._))
+            .Returns(new RolesViewModel { Roles = [] });
+        A.CallTo(() => _getRoleQueryHandler.GetItemAsync(A<GetRoleQuery>._, A<CancellationToken>._)).Returns(_roleViewModel);
+        A.CallTo(() => _createRoleCommandHandler.CreateItemAsync(A<CreateRoleCommand>._, A<string>._, A<CancellationToken>._))
+            .Returns(_roleViewModel);
+        A.CallTo(() => _updateRoleCommandHandler.UpdateItemAsync(A<UpdateRoleCommand>._, A<string>._, A<CancellationToken>._))
+            .Returns(_roleViewModel);
+        A.CallTo(() => _deleteRoleCommandHandler.DeleteItemAsync(A<DeleteRoleCommand>._, A<string>._, A<CancellationToken>._))
+            .Returns(new DeleteRecordViewModel());
+        A.CallTo(() => _getUserRolesQueryHandler.GetItemsAsync(A<GetUserRolesQuery>._, A<CancellationToken>._))
+            .Returns(new UserRolesViewModel { UserRoles = [] });
+        A.CallTo(() => _createUserRoleCommandHandler.CreateItemAsync(A<CreateUserRoleCommand>._, A<string>._, A<CancellationToken>._))
+            .Returns(new UserRolesViewModel { UserRoles = [] });
+        A.CallTo(() => _createRoleClaimCommandHandler.CreateItemAsync(A<CreateRoleClaimCommand>._, A<string>._, A<CancellationToken>._))
+            .Returns(
+                new RoleClaimViewModel
+                {
+                    RoleClaim = new RoleClaimDto
+                    {
+                        Resource = "resource",
+                        Action = "read",
+                        Scope = "resource:read",
+                    },
+                }
+            );
+        A.CallTo(() => _getRoleClaimsQueryHandler.GetItemsAsync(A<GetRoleClaimsQuery>._, A<CancellationToken>._))
+            .Returns(new RoleClaimsViewModel { RoleClaims = [] });
+        A.CallTo(() => _deleteRoleClaimCommandHandler.DeleteItemAsync(A<DeleteRoleClaimCommand>._, A<string>._, A<CancellationToken>._))
+            .Returns(new DeleteRecordViewModel());
     }
 
     [Fact]
-    public async Task Get_Roles_Returns_Roles()
+    public async Task Get_Roles_Passes_The_Callers_App()
     {
         // Arrange
-        var query = new GetRolesQuery { AppName = "testapp" };
-
-        var rolesVM = new RolesViewModel
-        {
-            Roles =
-            [
-                new RoleDto { Id = Guid.NewGuid().ToString(), Name = "Admin" },
-                new RoleDto { Id = Guid.NewGuid().ToString(), Name = "User" },
-            ],
-        };
-
-        // Act
-        A.CallTo(() => _getRolesQueryHandler.GetItemsAsync(query, A<CancellationToken>._)).Returns(rolesVM);
-
         var request = ApiRequestFactory.Create("role");
 
+        // Act
         var result = await RoleEndpoints.GetRolesAsync(request, _getRolesQueryHandler, TestContext.Current.CancellationToken);
-        var vm = result.Value;
 
         // Assert
         Assert.Equal((int)HttpStatusCode.OK, result.StatusCode);
+        Assert.False(result.Value?.DownloadEnabled);
+        Assert.False(result.Value?.CreateEnabled);
+        Assert.Equal(RequestStatus.Successful.ToText(), result.Value?.RequestStatus);
+        Assert.Equal(ItemStatusMessage.FetchItemsSuccessful.ToText(), result.Value?.StatusMessage);
 
-        Assert.NotNull(vm);
-        Assert.Equal(rolesVM.Roles.Count, vm?.Roles.Count);
-
-        var allRecordsExist = false;
-
-        foreach (var role in rolesVM.Roles)
-        {
-            allRecordsExist = vm?.Roles.Where(x => x.Id == role.Id && x.Name == role.Name).Any() ?? false;
-        }
-
-        Assert.True(allRecordsExist);
-
-        Assert.False(vm?.DownloadEnabled);
-        Assert.False(vm?.CreateEnabled);
-
-        Assert.Contains(RequestStatus.Successful.ToText(), vm?.RequestStatus);
-        Assert.Contains(ItemStatusMessage.FetchItemsSuccessful.ToText(), vm?.StatusMessage);
+        A.CallTo(() => _getRolesQueryHandler.GetItemsAsync(new GetRolesQuery { AppName = "testapp" }, A<CancellationToken>._))
+            .MustHaveHappenedOnceExactly();
     }
 
     [Fact]
-    public async Task Get_Role_Returns_Role()
+    public async Task Get_Roles_For_A_Global_Admin_Passes_No_App_Name()
     {
         // Arrange
-        var roleId = Guid.NewGuid().ToString();
-        var query = new GetRoleQuery { RoleId = roleId, AppName = "testapp" };
-
-        var roleVM = new RoleViewModel
-        {
-            Role = new RoleDto { Id = roleId, Name = "Admin" },
-        };
+        var request = ApiRequestFactory.Create("role", userId: TestStringHelper.UserId, roles: [KnownRoles.GlobalAdmin]);
 
         // Act
-        A.CallTo(() => _getRoleQueryHandler.GetItemAsync(query, A<CancellationToken>._)).Returns(roleVM);
+        await RoleEndpoints.GetRolesAsync(request, _getRolesQueryHandler, TestContext.Current.CancellationToken);
 
+        // Assert
+        A.CallTo(() => _getRolesQueryHandler.GetItemsAsync(new GetRolesQuery { AppName = null }, A<CancellationToken>._))
+            .MustHaveHappenedOnceExactly();
+    }
+
+    [Fact]
+    public async Task Get_Role_Passes_The_Callers_App()
+    {
+        // Arrange
         var request = ApiRequestFactory.Create("role");
 
-        var result = await RoleEndpoints.GetRoleAsync(roleId, request, _getRoleQueryHandler, TestContext.Current.CancellationToken);
-        var vm = result.Value;
+        // Act
+        var result = await RoleEndpoints.GetRoleAsync("role-id", request, _getRoleQueryHandler, TestContext.Current.CancellationToken);
 
         // Assert
         Assert.Equal((int)HttpStatusCode.OK, result.StatusCode);
+        Assert.False(result.Value?.EditEnabled);
+        Assert.False(result.Value?.DeleteEnabled);
+        Assert.Equal(ItemStatusMessage.FetchItemSuccessful.ToText(), result.Value?.StatusMessage);
 
-        Assert.NotNull(vm);
-        Assert.Equal(roleVM.Role.Id, vm?.Role.Id);
-        Assert.Equal(roleVM.Role.Name, vm?.Role.Name);
-
-        Assert.False(vm?.EditEnabled);
-        Assert.False(vm?.DeleteEnabled);
-
-        Assert.Contains(RequestStatus.Successful.ToText(), vm?.RequestStatus);
-        Assert.Contains(ItemStatusMessage.FetchItemSuccessful.ToText(), vm?.StatusMessage);
+        A.CallTo(() =>
+                _getRoleQueryHandler.GetItemAsync(new GetRoleQuery { RoleId = "role-id", AppName = "testapp" }, A<CancellationToken>._)
+            )
+            .MustHaveHappenedOnceExactly();
     }
 
     [Fact]
-    public async Task Create_Role_Creates_Role()
+    public async Task Create_Role_Passes_The_Callers_App_And_Returns_Created()
     {
         // Arrange
-
-        var command = new CreateRoleCommand { RoleName = "Admin" };
-
-        var roleVM = new RoleViewModel
-        {
-            Role = new RoleDto { Id = Guid.NewGuid().ToString(), Name = "Admin" },
-        };
-
-        // Act
-        A.CallTo(() => _createRoleCommandHandler.CreateItemAsync(command, TestStringHelper.UserId, A<CancellationToken>._))
-            .Returns(roleVM);
-
+        var command = new CreateRoleCommand { RoleName = "testapp:owner" };
         var request = ApiRequestFactory.Create("role", userId: TestStringHelper.UserId);
 
+        // Act
         var result = await RoleEndpoints.CreateRoleAsync(
             command,
             request,
             _createRoleCommandHandler,
             TestContext.Current.CancellationToken
         );
-        var vm = result.Value;
 
         // Assert
         Assert.Equal((int)HttpStatusCode.Created, result.StatusCode);
+        Assert.Equal("testapp", command.AppName);
+        Assert.Equal(ItemStatusMessage.CreateItemSuccessful.ToText(), result.Value?.StatusMessage);
 
-        Assert.NotNull(vm);
-        Assert.Equal(roleVM.Role.Id, vm?.Role.Id);
-        Assert.Equal(roleVM.Role.Name, vm?.Role.Name);
-
-        Assert.False(vm?.EditEnabled);
-        Assert.False(vm?.DeleteEnabled);
-
-        Assert.Contains(RequestStatus.Successful.ToText(), vm?.RequestStatus);
-        Assert.Contains(ItemStatusMessage.CreateItemSuccessful.ToText(), vm?.StatusMessage);
+        A.CallTo(() => _createRoleCommandHandler.CreateItemAsync(command, TestStringHelper.UserId, A<CancellationToken>._))
+            .MustHaveHappenedOnceExactly();
     }
 
     [Fact]
-    public async Task Update_Role_Updates_Role()
+    public async Task Update_Role_Passes_The_Route_Role_And_The_Callers_App()
     {
         // Arrange
-
-        var roleId = Guid.NewGuid().ToString();
-
-        var command = new UpdateRoleCommand { RoleId = roleId, RoleName = "Admin" };
-
-        var roleVM = new RoleViewModel
-        {
-            Role = new RoleDto { Id = roleId, Name = "Admin" },
-        };
-
-        // Act
-        A.CallTo(() => _updateRoleCommandHandler.UpdateItemAsync(command, TestStringHelper.UserId, A<CancellationToken>._))
-            .Returns(roleVM);
-
+        var command = new UpdateRoleCommand { RoleName = "testapp:owner" };
         var request = ApiRequestFactory.Create("role", userId: TestStringHelper.UserId);
 
+        // Act
         var result = await RoleEndpoints.UpdateRoleAsync(
-            roleId,
+            "role-id",
             command,
             request,
             _updateRoleCommandHandler,
             TestContext.Current.CancellationToken
         );
-        var vm = result.Value;
 
         // Assert
         Assert.Equal((int)HttpStatusCode.OK, result.StatusCode);
-
-        Assert.NotNull(vm);
-        Assert.Equal(roleVM.Role.Id, vm?.Role.Id);
-        Assert.Equal(roleVM.Role.Name, vm?.Role.Name);
-
-        Assert.False(vm?.EditEnabled);
-        Assert.False(vm?.DeleteEnabled);
-
-        Assert.Contains(RequestStatus.Successful.ToText(), vm?.RequestStatus);
-        Assert.Contains(ItemStatusMessage.UpdateItemSuccessful.ToText(), vm?.StatusMessage);
+        Assert.Equal("role-id", command.RoleId);
+        Assert.Equal("testapp", command.AppName);
+        Assert.Equal(ItemStatusMessage.UpdateItemSuccessful.ToText(), result.Value?.StatusMessage);
     }
 
     [Fact]
-    public async Task Delete_Role_Deletes_Role()
+    public async Task Delete_Role_Passes_The_Callers_App()
     {
         // Arrange
-        var roleId = Guid.NewGuid().ToString();
-        var command = new DeleteRoleCommand { RoleId = roleId };
-        var deleteSuccesMessage = "Item deleted successfully";
-
-        var deleteRoleVM = new DeleteRecordViewModel { };
+        var request = ApiRequestFactory.Create("role", userId: TestStringHelper.UserId);
 
         // Act
-        A.CallTo(() => _deleteRoleCommandHandler.DeleteItemAsync(command, TestStringHelper.UserId, A<CancellationToken>._))
-            .Returns(deleteRoleVM);
-
-        var request = ApiRequestFactory.Create("role");
-
-        var result = await RoleEndpoints.DeleteRoleAsync(roleId, request, _deleteRoleCommandHandler, TestContext.Current.CancellationToken);
-        var vm = result.Value;
+        var result = await RoleEndpoints.DeleteRoleAsync(
+            "role-id",
+            request,
+            _deleteRoleCommandHandler,
+            TestContext.Current.CancellationToken
+        );
 
         // Assert
         Assert.Equal((int)HttpStatusCode.OK, result.StatusCode);
+        Assert.Equal(ItemStatusMessage.DeleteItemSuccessful.ToText(), result.Value?.StatusMessage);
 
-        Assert.NotNull(vm);
-
-        Assert.Contains(RequestStatus.Successful.ToText(), vm?.RequestStatus);
-        Assert.Contains(deleteSuccesMessage, vm?.StatusMessage);
+        A.CallTo(() =>
+                _deleteRoleCommandHandler.DeleteItemAsync(
+                    new DeleteRoleCommand { RoleId = "role-id", AppName = "testapp" },
+                    TestStringHelper.UserId,
+                    A<CancellationToken>._
+                )
+            )
+            .MustHaveHappenedOnceExactly();
     }
 
     [Fact]
-    public async Task Get_User_Roles_Returns_User_Roles()
+    public async Task Get_User_Roles_Passes_The_Callers_App()
     {
         // Arrange
-        var userId = Guid.NewGuid().ToString();
-        var query = new GetUserRolesQuery { UserId = userId, AppName = "testapp" };
-
-        var userRolesVM = new UserRolesViewModel { UserRoles = ["Admin", "User"] };
-
-        // Act
-        A.CallTo(() => _getUserRolesQueryHandler.GetItemsAsync(query, A<CancellationToken>._)).Returns(userRolesVM);
-
         var request = ApiRequestFactory.Create("role");
 
+        // Act
         var result = await RoleEndpoints.GetUserRolesAsync(
-            userId,
+            "user-id",
             request,
             _getUserRolesQueryHandler,
             TestContext.Current.CancellationToken
         );
 
-        var vm = result.Value;
-
         // Assert
         Assert.Equal((int)HttpStatusCode.OK, result.StatusCode);
+        Assert.Equal(ItemStatusMessage.FetchItemsSuccessful.ToText(), result.Value?.StatusMessage);
 
-        Assert.NotNull(vm);
-        Assert.Equal(userRolesVM.UserRoles.Count, vm?.UserRoles.Count);
-
-        var allRolesExist = false;
-
-        foreach (var role in userRolesVM.UserRoles)
-        {
-            if (vm?.UserRoles.Contains(role) != true)
-            {
-                allRolesExist = false;
-                break;
-            }
-            else
-            {
-                allRolesExist = true;
-            }
-        }
-
-        Assert.True(allRolesExist);
-
-        Assert.Contains(RequestStatus.Successful.ToText(), vm?.RequestStatus);
-        Assert.Contains(ItemStatusMessage.FetchItemsSuccessful.ToText(), vm?.StatusMessage);
+        A.CallTo(() =>
+                _getUserRolesQueryHandler.GetItemsAsync(
+                    new GetUserRolesQuery { UserId = "user-id", AppName = "testapp" },
+                    A<CancellationToken>._
+                )
+            )
+            .MustHaveHappenedOnceExactly();
     }
 
     [Fact]
-    public async Task Create_User_Role_Creates_User_Role()
+    public async Task Create_User_Role_Passes_The_Callers_App_And_Returns_Created()
     {
         // Arrange
-        var userId = Guid.NewGuid().ToString();
-        var roleId = Guid.NewGuid().ToString();
-
-        var command = new CreateUserRoleCommand { UserId = userId, RoleId = roleId };
-
-        var userRolesVM = new UserRolesViewModel { UserRoles = ["Admin", "User"] };
-
-        // Act
-        A.CallTo(() => _createUserRoleCommandHandler.CreateItemAsync(command, TestStringHelper.UserId, A<CancellationToken>._))
-            .Returns(userRolesVM);
-
+        var command = new CreateUserRoleCommand { UserId = "user-id", RoleId = "role-id" };
         var request = ApiRequestFactory.Create("role", userId: TestStringHelper.UserId);
 
+        // Act
         var result = await RoleEndpoints.CreateUserRoleAsync(
             command,
             request,
@@ -305,66 +249,49 @@ public class RoleEndpointsTests
             TestContext.Current.CancellationToken
         );
 
-        var vm = result.Value;
-
         // Assert
         Assert.Equal((int)HttpStatusCode.Created, result.StatusCode);
-
-        Assert.NotNull(vm);
-        Assert.Equal(userRolesVM.UserRoles.Count, vm?.UserRoles.Count);
-
-        var allRolesExist = false;
-
-        foreach (var role in userRolesVM.UserRoles)
-        {
-            if (vm?.UserRoles.Contains(role) != true)
-            {
-                allRolesExist = false;
-                break;
-            }
-            else
-            {
-                allRolesExist = true;
-            }
-        }
-
-        Assert.True(allRolesExist);
-
-        Assert.Contains(RequestStatus.Successful.ToText(), vm?.RequestStatus);
-        Assert.Contains(ItemStatusMessage.CreateItemSuccessful.ToText(), vm?.StatusMessage);
+        Assert.Equal("testapp", command.AppName);
+        Assert.False(result.Value?.CreateEnabled);
+        Assert.False(result.Value?.DownloadEnabled);
+        Assert.Equal(RequestStatus.Successful.ToText(), result.Value?.RequestStatus);
+        Assert.Equal(ItemStatusMessage.CreateItemSuccessful.ToText(), result.Value?.StatusMessage);
     }
 
     [Fact]
-    public async Task Create_Role_Claim_Creates_Role_Claim()
+    public async Task Create_User_Role_Grants_Rights_To_A_Global_Admin()
     {
         // Arrange
-        var roleId = Guid.NewGuid().ToString();
-        var resource = "Resource";
-        var action = "Action";
-
-        var command = new CreateRoleClaimCommand
-        {
-            RoleId = roleId,
-            Resource = resource,
-            Action = action,
-        };
-
-        var roleClaimVM = new RoleClaimViewModel
-        {
-            RoleClaim = new RoleClaimDto
-            {
-                Resource = resource,
-                Action = action,
-                Scope = resource + ":" + action,
-            },
-        };
+        var command = new CreateUserRoleCommand { UserId = "user-id", RoleId = "role-id" };
+        var request = ApiRequestFactory.Create("role", userId: TestStringHelper.UserId, roles: [KnownRoles.GlobalAdmin]);
 
         // Act
-        A.CallTo(() => _createRoleClaimCommandHandler.CreateItemAsync(command, TestStringHelper.UserId, A<CancellationToken>._))
-            .Returns(roleClaimVM);
+        var result = await RoleEndpoints.CreateUserRoleAsync(
+            command,
+            request,
+            _createUserRoleCommandHandler,
+            TestContext.Current.CancellationToken
+        );
 
+        // Assert
+        Assert.Null(command.AppName);
+        Assert.True(result.Value?.CreateEnabled);
+        Assert.True(result.Value?.DownloadEnabled);
+    }
+
+    [Fact]
+    public async Task Create_Role_Claim_Passes_The_Callers_App_And_Returns_Created()
+    {
+        // Arrange
+        var command = new CreateRoleClaimCommand
+        {
+            RoleId = "role-id",
+            Resource = "resource",
+            Action = "read",
+        };
         var request = ApiRequestFactory.Create("role", userId: TestStringHelper.UserId);
 
+        // Act
         var result = await RoleEndpoints.CreateRoleClaimAsync(
             command,
             request,
@@ -372,103 +299,52 @@ public class RoleEndpointsTests
             TestContext.Current.CancellationToken
         );
 
-        var vm = result.Value;
-
         // Assert
         Assert.Equal((int)HttpStatusCode.Created, result.StatusCode);
-
-        Assert.NotNull(vm);
-
-        Assert.Equal(roleClaimVM.RoleClaim.Resource, vm?.RoleClaim.Resource);
-        Assert.Equal(roleClaimVM.RoleClaim.Action, vm?.RoleClaim.Action);
-        Assert.Equal(roleClaimVM.RoleClaim.Scope, vm?.RoleClaim.Scope);
+        Assert.Equal("testapp", command.AppName);
+        Assert.Equal(ItemStatusMessage.CreateItemSuccessful.ToText(), result.Value?.StatusMessage);
     }
 
     [Fact]
-    public async Task Get_Role_Claims_Returns_Role_Claims()
+    public async Task Get_Role_Claims_Passes_The_Callers_App()
     {
         // Arrange
-        var roleId = Guid.NewGuid().ToString();
-        var query = new GetRoleClaimsQuery { RoleId = roleId, AppName = "testapp" };
-
-        var roleClaimsVM = new RoleClaimsViewModel
-        {
-            RoleClaims =
-            [
-                new RoleClaimDto
-                {
-                    Resource = "Resource",
-                    Action = "Action",
-                    Scope = "Resource:Action",
-                },
-            ],
-        };
-
-        // Act
-        A.CallTo(() => _getRoleClaimsQueryHandler.GetItemsAsync(query, A<CancellationToken>._)).Returns(roleClaimsVM);
-
         var request = ApiRequestFactory.Create("role", userId: TestStringHelper.UserId);
 
+        // Act
         var result = await RoleEndpoints.GetRoleClaimsAsync(
-            roleId,
+            "role-id",
             request,
             _getRoleClaimsQueryHandler,
             TestContext.Current.CancellationToken
         );
 
-        var vm = result.Value;
-
         // Assert
         Assert.Equal((int)HttpStatusCode.OK, result.StatusCode);
+        Assert.Equal(ItemStatusMessage.FetchItemsSuccessful.ToText(), result.Value?.StatusMessage);
 
-        Assert.NotNull(vm);
-        Assert.Equal(roleClaimsVM.RoleClaims.Count, vm?.RoleClaims.Count);
-
-        var allClaimsExist = false;
-
-        foreach (var claim in roleClaimsVM.RoleClaims)
-        {
-            if (vm?.RoleClaims.Contains(claim) != true)
-            {
-                allClaimsExist = false;
-                break;
-            }
-            else
-            {
-                allClaimsExist = true;
-            }
-        }
-
-        Assert.True(allClaimsExist);
-
-        Assert.Contains(RequestStatus.Successful.ToText(), vm?.RequestStatus);
-        Assert.Contains(ItemStatusMessage.FetchItemsSuccessful.ToText(), vm?.StatusMessage);
+        A.CallTo(() =>
+                _getRoleClaimsQueryHandler.GetItemsAsync(
+                    new GetRoleClaimsQuery { RoleId = "role-id", AppName = "testapp" },
+                    A<CancellationToken>._
+                )
+            )
+            .MustHaveHappenedOnceExactly();
     }
 
     [Fact]
-    public async Task Delte_Role_Claims_Deletes_Role_Claims()
+    public async Task Delete_Role_Claim_Passes_The_Callers_App()
     {
         // Arrange
-        var roleId = Guid.NewGuid().ToString();
-        var resource = "Resource";
-        var action = "Action";
-        var deleteMessage = "Item deleted successfully";
-
         var command = new DeleteRoleClaimCommand
         {
-            RoleId = roleId,
-            Resource = resource,
-            Action = action,
+            RoleId = "role-id",
+            Resource = "resource",
+            Action = "read",
         };
-
-        var deleteRoleClaimVM = new DeleteRecordViewModel { };
-
-        // Act
-        A.CallTo(() => _deleteRoleClaimCommandHandler.DeleteItemAsync(command, TestStringHelper.UserId, A<CancellationToken>._))
-            .Returns(deleteRoleClaimVM);
-
         var request = ApiRequestFactory.Create("role", userId: TestStringHelper.UserId);
 
+        // Act
         var result = await RoleEndpoints.DeleteRoleClaimAsync(
             command,
             request,
@@ -476,14 +352,9 @@ public class RoleEndpointsTests
             TestContext.Current.CancellationToken
         );
 
-        var vm = result.Value;
-
         // Assert
         Assert.Equal((int)HttpStatusCode.OK, result.StatusCode);
-
-        Assert.NotNull(vm);
-
-        Assert.Contains(RequestStatus.Successful.ToText(), vm?.RequestStatus);
-        Assert.Contains(deleteMessage, vm?.StatusMessage);
+        Assert.Equal("testapp", command.AppName);
+        Assert.Equal(ItemStatusMessage.DeleteItemSuccessful.ToText(), result.Value?.StatusMessage);
     }
 }

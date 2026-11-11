@@ -1,6 +1,7 @@
 ﻿using PolyzenKit.Application.Core;
 using PolyzenKit.Application.Core.Interfaces;
 using UserIdentity.Application.Core.Users.Shared;
+using UserIdentity.Domain.PasswordResets;
 using UserIdentity.Persistence.Repositories.PasswordResets;
 
 namespace UserIdentity.Application.Core.Users.Commands;
@@ -10,8 +11,6 @@ public record DeleteExpiredPasswordResetsCommand : IBaseCommand;
 public class DeleteExpiredPasswordResetsCommandHandler(IPasswordResetRepository passwordResetRepository, TimeProvider timeProvider)
     : IDeleteItemCommandHandler<DeleteExpiredPasswordResetsCommand, DeleteRecordViewModel>
 {
-    public const int BatchSize = 100;
-
     private readonly IPasswordResetRepository _passwordResetRepository = passwordResetRepository;
     private readonly TimeProvider _timeProvider = timeProvider;
 
@@ -21,13 +20,17 @@ public class DeleteExpiredPasswordResetsCommandHandler(IPasswordResetRepository 
         CancellationToken cancellationToken = default
     )
     {
-        var expiredBefore = _timeProvider.GetUtcNow().UtcDateTime - PasswordResetSettings.RequestCountWindow;
+        var expiredBefore = _timeProvider.GetUtcNow().UtcDateTime - PasswordResetLimits.RequestCountWindow;
         int deleted;
 
         do
         {
-            deleted = await _passwordResetRepository.DeleteEntityItemsExpiredBeforeAsync(expiredBefore, BatchSize, cancellationToken);
-        } while (deleted == BatchSize);
+            deleted = await _passwordResetRepository.DeleteEntityItemsExpiredBeforeAsync(
+                expiredBefore,
+                CleanupBatch.Size,
+                cancellationToken
+            );
+        } while (deleted == CleanupBatch.Size);
 
         return new DeleteRecordViewModel();
     }

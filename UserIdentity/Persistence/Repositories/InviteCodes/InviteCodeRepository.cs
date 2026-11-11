@@ -32,6 +32,17 @@ public class InviteCodeRepository(AppDbContext dbContext) : EntityRepository<Inv
             ?? throw NoRecordException.ForIdentifier($"{id}");
     }
 
+    public async Task<InviteCodeDto?> GetEntityDtoByEmailAsync(int appId, string userEmail, CancellationToken cancellationToken = default)
+    {
+        return await _dbContext
+            .InviteCode.Where(e => e.AppId == appId && e.UserEmail == userEmail)
+            .Select(InviteCodeDto.Detailed)
+            .SingleOrDefaultAsync(cancellationToken);
+    }
+
+    public async Task<List<InviteCodeEntity>> GetUnusedEntityItemsByRoleAsync(string role, CancellationToken cancellationToken = default) =>
+        await _dbContext.InviteCode.Where(invite => !invite.Applied && invite.Role == role).ToListAsync(cancellationToken);
+
     public async Task<List<InviteCodeEntity>> GetAppliedEntityItemsForUserAsync(
         string userId,
         CancellationToken cancellationToken = default

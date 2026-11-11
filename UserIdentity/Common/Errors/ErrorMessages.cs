@@ -18,6 +18,8 @@ public static class ErrorMessages
     public static class Roles
     {
         public const string GlobalAdminRoleScopes = "Scopes can't be added to the global admin role";
+        public const string GrantedByUnusedInvites = "A role that unused invite codes grant can't be deleted";
+        public const string InvalidScopeAction = "Action must be create, read, edit, delete, download or all";
 
         public static string NameOutsideApp(string appPrefix) => $"Role names must start with {appPrefix}";
     }

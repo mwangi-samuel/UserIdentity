@@ -1,8 +1,10 @@
-﻿using System.Net;
+﻿using System.Data.Common;
+using System.Net;
 using System.Net.Mime;
 using System.Text;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.TestHost;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
@@ -17,9 +19,11 @@ using PolyzenKit.Presentation.Settings;
 using PolyzenKit.Presentation.Validation;
 using UserIdentity.Application.Core.Tokens.ViewModels;
 using UserIdentity.Application.Core.Users.ViewModels;
+using UserIdentity.Domain.InviteCodes;
 using UserIdentity.Domain.Users;
 using UserIdentity.Infrastructure.ExternalServices;
 using UserIdentity.IntegrationTests.TestUtils;
+using UserIdentity.Persistence;
 using WireMock.RequestBuilders;
 using WireMock.ResponseBuilders;
 using WireMock.Server;
@@ -108,6 +112,50 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
     }
 
     [Fact]
+    public async Task Login_Runs_Five_Sql_Commands()
+    {
+        // Arrange
+        TestDbHelper.SeedDatabase();
+
+        var requestId = Guid.NewGuid().ToString("N");
+        var request = ApiRequestHelper.CreateHttpRequestMessage(HttpMethod.Post, _baseUri + "/login");
+        request.Headers.Add("X-Request-Id", requestId);
+        request.Content = SerDeHelper.ConvertToHttpContent(new { UserSettingHelper.UserName, Password = UserSettingHelper.UserPassword });
+
+        // Act
+        var response = await HttpClient.SendAsync(request, TestContext.Current.CancellationToken);
+
+        // Assert
+        await response.ValidateRequestResponseAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(5, _testingWebAppFactory.SqlCommandCounter.CountFor(requestId));
+    }
+
+    [Fact]
+    public async Task Refresh_Token_Runs_Three_Sql_Commands()
+    {
+        // Arrange
+        TestDbHelper.SeedDatabase();
+
+        (var userToken, var refreshToken) = await HttpClient.LoginUserAsync(UserSettingHelper.UserName, UserSettingHelper.UserPassword);
+
+        var requestId = Guid.NewGuid().ToString("N");
+        var request = ApiRequestHelper.CreateHttpRequestMessage(HttpMethod.Post, _baseUri + "/refresh-token");
+        request.Headers.Add("X-Request-Id", requestId);
+        request.Content = SerDeHelper.ConvertToHttpContent(new { AccessToken = userToken, RefreshToken = refreshToken });
+
+        // Act
+        var response = await HttpClient.SendAsync(request, TestContext.Current.CancellationToken);
+
+        // Assert
+        await response.ValidateRequestResponseAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(3, _testingWebAppFactory.SqlCommandCounter.CountFor(requestId));
+    }
+
+    [Fact]
     public async Task Get_Non_Existing_User_Returns_Forbidden_Error_For_Unauthorized_User()
     {
         // Arrange
@@ -156,12 +204,7 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
 
         Assert.Equal($"No record exists for the provided identifier - {nonExistingUserId}", $"{jsonObject["error"]?["message"]}");
 
-        var dateTime = (DateTime?)jsonObject["error"]?["timestamp"];
-
-        Assert.NotNull(dateTime);
-        Assert.Equal(DateTime.UtcNow.Year, dateTime.Value.Year);
-        Assert.Equal(DateTime.UtcNow.Month, dateTime.Value.Month);
-        Assert.Equal(DateTime.UtcNow.Day, dateTime.Value.Day);
+        AssertErrorTimestamp(jsonObject);
     }
 
     [Fact]
@@ -194,12 +237,7 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
 
         Assert.Equal($"No record exists for the provided identifier - {UserSettingHelper.UserId}", $"{jsonObject["error"]?["message"]}");
 
-        var dateTime = (DateTime?)jsonObject["error"]?["timestamp"];
-
-        Assert.NotNull(dateTime);
-        Assert.Equal(DateTime.UtcNow.Year, dateTime.Value.Year);
-        Assert.Equal(DateTime.UtcNow.Month, dateTime.Value.Month);
-        Assert.Equal(DateTime.UtcNow.Day, dateTime.Value.Day);
+        AssertErrorTimestamp(jsonObject);
     }
 
     [Fact]
@@ -236,12 +274,7 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
 
         Assert.Equal($"No record exists for the provided identifier - {nonExistingUserId}", $"{jsonObject["error"]?["message"]}");
 
-        var dateTime = (DateTime?)jsonObject["error"]?["timestamp"];
-
-        Assert.NotNull(dateTime);
-        Assert.Equal(DateTime.UtcNow.Year, dateTime.Value.Year);
-        Assert.Equal(DateTime.UtcNow.Month, dateTime.Value.Month);
-        Assert.Equal(DateTime.UtcNow.Day, dateTime.Value.Day);
+        AssertErrorTimestamp(jsonObject);
     }
 
     [Fact]
@@ -272,12 +305,7 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
 
         Assert.Equal("Validation Failed", $"{jsonObject["error"]?["message"]}");
 
-        var dateTime = (DateTime?)jsonObject["error"]?["timestamp"];
-
-        Assert.NotNull(dateTime);
-        Assert.Equal(DateTime.UtcNow.Year, dateTime.Value.Year);
-        Assert.Equal(DateTime.UtcNow.Month, dateTime.Value.Month);
-        Assert.Equal(DateTime.UtcNow.Day, dateTime.Value.Day);
+        AssertErrorTimestamp(jsonObject);
 
         var errorList = jsonObject["error"]?["errorList"]?.ToObject<List<ValidationError>>();
 
@@ -316,12 +344,7 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
 
         Assert.Equal("Validation Failed", $"{jsonObject["error"]?["message"]}");
 
-        var dateTime = (DateTime?)jsonObject["error"]?["timestamp"];
-
-        Assert.NotNull(dateTime);
-        Assert.Equal(DateTime.UtcNow.Year, dateTime.Value.Year);
-        Assert.Equal(DateTime.UtcNow.Month, dateTime.Value.Month);
-        Assert.Equal(DateTime.UtcNow.Day, dateTime.Value.Day);
+        AssertErrorTimestamp(jsonObject);
 
         var errorList = jsonObject["error"]?["errorList"]?.ToObject<List<ValidationError>>();
 
@@ -377,7 +400,7 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
         Assert.Equal(userDetails?.Id, userDetails?.CreatedBy);
         Assert.Equal(userDetails?.Id, userDetails?.UpdatedBy);
 
-        var userToken = jsonObject["userToken"]?.ToObject<AccessTokenViewModel>();
+        var userToken = jsonObject["userToken"]?.ToObject<UserTokenDto>();
 
         Assert.Null(userToken);
 
@@ -591,7 +614,7 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
         Assert.Equal(userDetails?.Id, userDetails?.CreatedBy);
         Assert.Equal(userDetails?.Id, userDetails?.UpdatedBy);
 
-        var userToken = jsonObject["userToken"]?.ToObject<AccessTokenViewModel>();
+        var userToken = jsonObject["userToken"]?.ToObject<UserTokenDto>();
 
         Assert.Null(userToken);
 
@@ -654,12 +677,7 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
 
         Assert.Equal($"A record identified with - {requestPayload.UserName} - exists", $"{jsonObject["error"]?["message"]}");
 
-        var dateTime = (DateTime?)jsonObject["error"]?["timestamp"];
-
-        Assert.NotNull(dateTime);
-        Assert.Equal(DateTime.UtcNow.Year, dateTime.Value.Year);
-        Assert.Equal(DateTime.UtcNow.Month, dateTime.Value.Month);
-        Assert.Equal(DateTime.UtcNow.Day, dateTime.Value.Day);
+        AssertErrorTimestamp(jsonObject);
     }
 
     [Fact]
@@ -800,7 +818,7 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
         Assert.Equal(userDetails?.Id, userDetails?.CreatedBy);
         Assert.Equal(userDetails?.Id, userDetails?.UpdatedBy);
 
-        var userToken = jsonObject["userToken"]?.ToObject<AccessTokenViewModel>();
+        var userToken = jsonObject["userToken"]?.ToObject<UserTokenDto>();
 
         Assert.NotNull(userToken);
         Assert.IsType<AccessTokenDto>(userToken.AccessToken);
@@ -858,12 +876,7 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
 
         Assert.Equal("Provided credentials are invalid", $"{jsonObject["error"]?["message"]}");
 
-        var dateTime = (DateTime?)jsonObject["error"]?["timestamp"];
-
-        Assert.NotNull(dateTime);
-        Assert.Equal(DateTime.UtcNow.Year, dateTime.Value.Year);
-        Assert.Equal(DateTime.UtcNow.Month, dateTime.Value.Month);
-        Assert.Equal(DateTime.UtcNow.Day, dateTime.Value.Day);
+        AssertErrorTimestamp(jsonObject);
     }
 
     [Fact]
@@ -891,12 +904,7 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
 
         Assert.Equal("Provided credentials are invalid", $"{jsonObject["error"]?["message"]}");
 
-        var dateTime = (DateTime?)jsonObject["error"]?["timestamp"];
-
-        Assert.NotNull(dateTime);
-        Assert.Equal(DateTime.UtcNow.Year, dateTime.Value.Year);
-        Assert.Equal(DateTime.UtcNow.Month, dateTime.Value.Month);
-        Assert.Equal(DateTime.UtcNow.Day, dateTime.Value.Day);
+        AssertErrorTimestamp(jsonObject);
     }
 
     [Fact]
@@ -924,12 +932,7 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
 
         Assert.Equal("Provided credentials are invalid", $"{jsonObject["error"]?["message"]}");
 
-        var dateTime = (DateTime?)jsonObject["error"]?["timestamp"];
-
-        Assert.NotNull(dateTime);
-        Assert.Equal(DateTime.UtcNow.Year, dateTime.Value.Year);
-        Assert.Equal(DateTime.UtcNow.Month, dateTime.Value.Month);
-        Assert.Equal(DateTime.UtcNow.Day, dateTime.Value.Day);
+        AssertErrorTimestamp(jsonObject);
     }
 
     [Fact]
@@ -956,12 +959,7 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
 
         Assert.Equal("Provided credentials are invalid", $"{jsonObject["error"]?["message"]}");
 
-        var dateTime = (DateTime?)jsonObject["error"]?["timestamp"];
-
-        Assert.NotNull(dateTime);
-        Assert.Equal(DateTime.UtcNow.Year, dateTime.Value.Year);
-        Assert.Equal(DateTime.UtcNow.Month, dateTime.Value.Month);
-        Assert.Equal(DateTime.UtcNow.Day, dateTime.Value.Day);
+        AssertErrorTimestamp(jsonObject);
     }
 
     [Fact]
@@ -1075,7 +1073,7 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
         Assert.Equal("Request Successful", $"{jsonObject["requestStatus"]}");
         Assert.Equal("Refresh token generated successfully", $"{jsonObject["statusMessage"]}");
 
-        var userTokenVM = jsonObject["userToken"]?.ToObject<AccessTokenViewModel>();
+        var userTokenVM = jsonObject["userToken"]?.ToObject<UserTokenDto>();
 
         Assert.NotNull(userTokenVM);
         Assert.IsType<AccessTokenDto>(userTokenVM.AccessToken);
@@ -1115,12 +1113,7 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
 
         Assert.Equal("An invalid access token was provided", $"{jsonObject["error"]?["message"]}");
 
-        var dateTime = (DateTime?)jsonObject["error"]?["timestamp"];
-
-        Assert.NotNull(dateTime);
-        Assert.Equal(DateTime.UtcNow.Year, dateTime.Value.Year);
-        Assert.Equal(DateTime.UtcNow.Month, dateTime.Value.Month);
-        Assert.Equal(DateTime.UtcNow.Day, dateTime.Value.Day);
+        AssertErrorTimestamp(jsonObject);
     }
 
     [Fact]
@@ -1154,12 +1147,7 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
 
         Assert.Equal("An invalid access token was provided", $"{jsonObject["error"]?["message"]}");
 
-        var dateTime = (DateTime?)jsonObject["error"]?["timestamp"];
-
-        Assert.NotNull(dateTime);
-        Assert.Equal(DateTime.UtcNow.Year, dateTime.Value.Year);
-        Assert.Equal(DateTime.UtcNow.Month, dateTime.Value.Month);
-        Assert.Equal(DateTime.UtcNow.Day, dateTime.Value.Day);
+        AssertErrorTimestamp(jsonObject);
     }
 
     [Fact]
@@ -1191,12 +1179,7 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
 
         Assert.Equal("An invalid access token was provided", $"{jsonObject["error"]?["message"]}");
 
-        var dateTime = (DateTime?)jsonObject["error"]?["timestamp"];
-
-        Assert.NotNull(dateTime);
-        Assert.Equal(DateTime.UtcNow.Year, dateTime.Value.Year);
-        Assert.Equal(DateTime.UtcNow.Month, dateTime.Value.Month);
-        Assert.Equal(DateTime.UtcNow.Day, dateTime.Value.Day);
+        AssertErrorTimestamp(jsonObject);
     }
 
     [Fact]
@@ -1296,6 +1279,33 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
         Assert.Equal("Too many requests, try again later", $"{jsonObject["error"]?["message"]}");
     }
 
+    [Theory]
+    [InlineData("/api/v1/user/register")]
+    [InlineData("/api/v1/wait-list")]
+    [InlineData("/api/v1/user/reset-password")]
+    public async Task Anonymous_Endpoint_Beyond_Rate_Limit_Returns_Too_Many_Requests(string uri)
+    {
+        // Arrange
+        await using var rateLimitedFactory = _testingWebAppFactory.WithWebHostBuilder(builder =>
+        {
+            builder.UseSetting($"{nameof(RateLimitSettings)}:{nameof(RateLimitSettings.Enabled)}", "true");
+            builder.UseSetting($"{nameof(RateLimitSettings)}:{nameof(RateLimitSettings.PermitLimit)}", "1");
+            builder.UseSetting($"{nameof(RateLimitSettings)}:{nameof(RateLimitSettings.WindowSeconds)}", "60");
+        });
+
+        using var httpClient = rateLimitedFactory.CreateClient();
+
+        var allowedResponse = await httpClient.SendNoAuthRequestAsync(HttpMethod.Post, uri, new { });
+
+        // Act
+        var response = await httpClient.SendNoAuthRequestAsync(HttpMethod.Post, uri, new { });
+
+        // Assert
+        Assert.NotEqual(HttpStatusCode.TooManyRequests, allowedResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.TooManyRequests, response.StatusCode);
+        Assert.True(response.Headers.Contains("Retry-After"));
+    }
+
     [Fact]
     public async Task Refresh_User_Token_With_Expired_Refresh_Token_Does_Not_Refresh_User_Token()
     {
@@ -1345,7 +1355,7 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
 
         var userTokenVM = SerDeHelper
             .Deserialize<JObject>(await firstResponse.ValidateRequestResponseAsync())
-            ?["userToken"]?.ToObject<AccessTokenViewModel>();
+            ?["userToken"]?.ToObject<UserTokenDto>();
 
         Assert.NotNull(userTokenVM?.RefreshToken);
 
@@ -1442,12 +1452,7 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
 
         Assert.Equal("Validation Failed", $"{jsonObject["error"]?["message"]}");
 
-        var dateTime = (DateTime?)jsonObject["error"]?["timestamp"];
-
-        Assert.NotNull(dateTime);
-        Assert.Equal(DateTime.UtcNow.Year, dateTime.Value.Year);
-        Assert.Equal(DateTime.UtcNow.Month, dateTime.Value.Month);
-        Assert.Equal(DateTime.UtcNow.Day, dateTime.Value.Day);
+        AssertErrorTimestamp(jsonObject);
 
         var errorList = jsonObject["error"]?["errorList"]?.ToObject<List<ValidationError>>();
 
@@ -1488,6 +1493,39 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
         Assert.Equal(new TokenFactory().HashToken(resetPasswordDto.ResetRequestId), passwordResetEntity.RequestId);
         Assert.False(passwordResetEntity.Verified);
         Assert.False(passwordResetEntity.Applied);
+    }
+
+    [Fact]
+    public async Task Reset_Password_Requests_Sent_At_Once_Store_One_Request_And_Send_One_Message()
+    {
+        // Arrange
+        TestDbHelper.SeedDatabase();
+
+        // Act
+        var responses = await Task.WhenAll(
+            Enumerable
+                .Range(0, 5)
+                .Select(_ =>
+                    HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/reset-password", new { UserSettingHelper.UserName })
+                )
+        );
+
+        // Assert
+        Assert.All(responses, response => Assert.Equal(HttpStatusCode.OK, response.StatusCode));
+
+        var resetRequestIds = await Task.WhenAll(
+            responses.Select(async response =>
+                $"{SerDeHelper.Deserialize<JObject>(await response.ValidateRequestResponseAsync())?["resetPasswordDetails"]?["resetRequestId"]}"
+            )
+        );
+        var messages = await Task.WhenAll(
+            resetRequestIds.Select(resetRequestId =>
+                NatsTestHelper.FindMessageAsync(NatsTestHelper.PasswordResetRequestedSubject, resetRequestId)
+            )
+        );
+
+        Assert.Equal(1, TestDbHelper.CountPasswordResetEntities(UserSettingHelper.UserId));
+        Assert.Single(messages, message => message is not null);
     }
 
     [Fact]
@@ -1570,6 +1608,12 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
 
         await Eventually.HoldsAsync(() => TestDbHelper.GetPasswordResetEntityWithNoTracking(UserSettingHelper.UserId)?.Verified == true);
 
+        var lockedOutUser = TestDbHelper.GetIdentityUser(UserSettingHelper.UserId)!;
+        lockedOutUser.LockoutEnabled = true;
+        lockedOutUser.LockoutEnd = DateTimeOffset.UtcNow.AddMinutes(5);
+        lockedOutUser.AccessFailedCount = 3;
+        TestDbHelper.UpdateIdentityUser(lockedOutUser);
+
         var newPassword = "N3wP@ssword!";
 
         // Act
@@ -1589,9 +1633,14 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
 
         Assert.Equal("Request Successful", $"{jsonObject["requestStatus"]}");
         Assert.Equal("Password updated successfully", $"{jsonObject["statusMessage"]}");
-        Assert.True(jsonObject["updatePasswordResult"]?.ToObject<UpdatePasswordDto>()?.PassWordUpdated);
+        Assert.True(jsonObject["updatePasswordResult"]?.ToObject<UpdatePasswordDto>()?.PasswordUpdated);
 
         Assert.True(TestDbHelper.GetPasswordResetEntityWithNoTracking(UserSettingHelper.UserId)?.Applied);
+
+        var updatedUser = TestDbHelper.GetIdentityUserWithNoTracking(UserSettingHelper.UserId);
+
+        Assert.Null(updatedUser?.LockoutEnd);
+        Assert.Equal(0, updatedUser?.AccessFailedCount);
 
         await HttpClient.LoginUserAsync(UserSettingHelper.UserName, newPassword);
 
@@ -1618,18 +1667,15 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
         // Arrange
         TestDbHelper.SeedDatabase();
 
-        // Accounts from sign-up have lockout enabled, and without it the handler's last user update returns early
-        var user = TestDbHelper.GetIdentityUser(UserSettingHelper.UserId)!;
-        user.LockoutEnabled = true;
-        TestDbHelper.UpdateIdentityUser(user);
-
         var resetRequestId = RandomStrings.Generate(32);
         TestDbHelper.CreatePasswordResetEntity(resetRequestId);
 
-        var originalPasswordHash = user.PasswordHash;
+        var originalPasswordHash = TestDbHelper.GetIdentityUserWithNoTracking(UserSettingHelper.UserId)?.PasswordHash;
 
         await using var failingFactory = _testingWebAppFactory.WithWebHostBuilder(builder =>
-            builder.ConfigureTestServices(services => services.AddScoped<IUserValidator<IdentityUser>, FailsAfterFirstCheckUserValidator>())
+            builder.ConfigureTestServices(services =>
+                services.ConfigureDbContext<AppDbContext>((_, options) => options.AddInterceptors(new FailsDeletingSessionsInterceptor()))
+            )
         );
 
         using var failingClient = failingFactory.CreateClient();
@@ -1670,12 +1716,7 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
 
         Assert.Equal("Validation Failed", $"{jsonObject["error"]?["message"]}");
 
-        var dateTime = (DateTime?)jsonObject["error"]?["timestamp"];
-
-        Assert.NotNull(dateTime);
-        Assert.Equal(DateTime.UtcNow.Year, dateTime.Value.Year);
-        Assert.Equal(DateTime.UtcNow.Month, dateTime.Value.Month);
-        Assert.Equal(DateTime.UtcNow.Day, dateTime.Value.Day);
+        AssertErrorTimestamp(jsonObject);
 
         var errorList = jsonObject["error"]?["errorList"]?.ToObject<List<ValidationError>>();
 
@@ -1710,7 +1751,7 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
         var updatePasswordDto = jsonObject["updatePasswordResult"]?.ToObject<UpdatePasswordDto>();
 
         Assert.NotNull(updatePasswordDto);
-        Assert.False(updatePasswordDto?.PassWordUpdated);
+        Assert.False(updatePasswordDto?.PasswordUpdated);
     }
 
     [Theory]
@@ -1743,7 +1784,7 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
         Assert.NotNull(jsonObject);
 
         Assert.Equal("Password update failed", $"{jsonObject["statusMessage"]}");
-        Assert.False(jsonObject["updatePasswordResult"]?.ToObject<UpdatePasswordDto>()?.PassWordUpdated);
+        Assert.False(jsonObject["updatePasswordResult"]?.ToObject<UpdatePasswordDto>()?.PasswordUpdated);
 
         await HttpClient.LoginUserAsync(UserSettingHelper.UserName, UserSettingHelper.UserPassword);
     }
@@ -1777,13 +1818,18 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
         Assert.False(TestDbHelper.GetPasswordResetEntityWithNoTracking(UserSettingHelper.UserId)?.Applied);
     }
 
-    // The second check comes after the password update has saved the password, the reset request and the deleted sessions
-    private sealed class FailsAfterFirstCheckUserValidator : IUserValidator<IdentityUser>
+    private sealed class FailsDeletingSessionsInterceptor : DbCommandInterceptor
     {
-        private int _checks;
-
-        public Task<IdentityResult> ValidateAsync(UserManager<IdentityUser> manager, IdentityUser user) =>
-            ++_checks > 1 ? throw new InvalidOperationException("Failed part way") : Task.FromResult(IdentityResult.Success);
+        public override ValueTask<InterceptionResult<int>> NonQueryExecutingAsync(
+            DbCommand command,
+            CommandEventData eventData,
+            InterceptionResult<int> result,
+            CancellationToken cancellationToken = default
+        ) =>
+            command.CommandText.StartsWith("DELETE", StringComparison.OrdinalIgnoreCase)
+            && command.CommandText.Contains("refresh_tokens", StringComparison.Ordinal)
+                ? throw new InvalidOperationException("Failed part way")
+                : ValueTask.FromResult(result);
     }
 
     public static TheoryData<string, string> OverLongFields =>
@@ -1795,6 +1841,7 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
             { "PhoneNumber", new string('1', UserLimits.PhoneNumberMaxLength + 1) },
             { "PhoneNumber", new string('1', 1_200_000) },
             { "UserEmail", new string('a', UserLimits.EmailMaxLength) + "@example.com" },
+            { "InviteCode", new string('A', InviteCodeLimits.InviteCodeMaxLength + 1) },
         };
 
     private static Dictionary<string, string?> GetSignUpFields() =>

@@ -11,7 +11,13 @@ namespace UserIdentity.UnitTests.TestUtils;
 
 internal static class ApiRequestFactory
 {
-    public static ApiRequest Create(string entityName, string? userId = null, string? appName = null, string? authorizedParty = "testapp")
+    public static ApiRequest Create(
+        string entityName,
+        string? userId = null,
+        string? appName = null,
+        string? authorizedParty = "testapp",
+        string[]? roles = null
+    )
     {
         List<Claim> claims = [];
 
@@ -20,6 +26,9 @@ internal static class ApiRequestFactory
 
         if (authorizedParty is not null)
             claims.Add(new Claim(JwtRegisteredClaimNames.Azp, authorizedParty));
+
+        foreach (var role in roles ?? [])
+            claims.Add(new Claim(JwtCustomClaimNames.Roles, role));
 
         var httpContext = new DefaultHttpContext
         {

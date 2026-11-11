@@ -6,15 +6,15 @@ namespace UserIdentity.Domain.RefreshTokens;
 public class RefreshTokenEntity : BaseAuditableEntity<Guid>
 {
     [MaxLength(RefreshTokenLimits.TokenMaxLength)]
-    public string? Token { get; internal set; }
+    public string Token { get; set; } = null!;
 
     [MaxLength(RefreshTokenLimits.PreviousTokenMaxLength)]
-    public string? PreviousToken { get; internal set; }
+    public string? PreviousToken { get; set; }
 
-    public DateTime Expires { get; internal set; }
+    public DateTime Expires { get; set; }
 
-    public string? UserId { get; internal set; }
+    public string UserId { get; set; } = null!;
 
     [ConcurrencyCheck]
-    public Guid Version { get; internal set; }
+    public Guid Version { get; set; }
 }

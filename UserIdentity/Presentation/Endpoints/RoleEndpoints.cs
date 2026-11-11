@@ -2,7 +2,6 @@
 using Microsoft.AspNetCore.Mvc;
 using PolyzenKit.Application.Core;
 using PolyzenKit.Application.Core.Interfaces;
-using PolyzenKit.Common.Enums;
 using PolyzenKit.Common.Utilities;
 using PolyzenKit.Presentation.Endpoints;
 using UserIdentity.Application.Core.Roles.Commands;
@@ -55,7 +54,7 @@ public static class RoleEndpoints
         CancellationToken cancellationToken
     )
     {
-        var vm = await handler.GetItemsAsync(new GetRolesQuery { AppName = AdminAppName(request) }, cancellationToken);
+        var vm = await handler.GetItemsAsync(new GetRolesQuery { AppName = AdminApp.GetName(request) }, cancellationToken);
 
         return ViewModelResults.GetItems(request, vm);
     }
@@ -67,7 +66,7 @@ public static class RoleEndpoints
         CancellationToken cancellationToken
     )
     {
-        var vm = await handler.GetItemAsync(new GetRoleQuery { RoleId = roleId, AppName = AdminAppName(request) }, cancellationToken);
+        var vm = await handler.GetItemAsync(new GetRoleQuery { RoleId = roleId, AppName = AdminApp.GetName(request) }, cancellationToken);
 
         return ViewModelResults.GetItem(request, vm);
     }
@@ -79,7 +78,7 @@ public static class RoleEndpoints
         CancellationToken cancellationToken
     )
     {
-        command.AppName = AdminAppName(request);
+        command.AppName = AdminApp.GetName(request);
 
         var vm = await handler.CreateItemAsync(command, request.LoggedInUserId, cancellationToken);
 
@@ -95,7 +94,7 @@ public static class RoleEndpoints
     )
     {
         command.RoleId = roleId;
-        command.AppName = AdminAppName(request);
+        command.AppName = AdminApp.GetName(request);
 
         var vm = await handler.UpdateItemAsync(command, request.LoggedInUserId, cancellationToken);
 
@@ -110,7 +109,7 @@ public static class RoleEndpoints
     )
     {
         var vm = await handler.DeleteItemAsync(
-            new DeleteRoleCommand { RoleId = roleId, AppName = AdminAppName(request) },
+            new DeleteRoleCommand { RoleId = roleId, AppName = AdminApp.GetName(request) },
             request.LoggedInUserId,
             cancellationToken
         );
@@ -125,7 +124,10 @@ public static class RoleEndpoints
         CancellationToken cancellationToken
     )
     {
-        var vm = await handler.GetItemsAsync(new GetUserRolesQuery { UserId = userId, AppName = AdminAppName(request) }, cancellationToken);
+        var vm = await handler.GetItemsAsync(
+            new GetUserRolesQuery { UserId = userId, AppName = AdminApp.GetName(request) },
+            cancellationToken
+        );
 
         return ViewModelResults.GetItems(request, vm);
     }
@@ -137,13 +139,11 @@ public static class RoleEndpoints
         CancellationToken cancellationToken
     )
     {
-        command.AppName = AdminAppName(request);
+        command.AppName = AdminApp.GetName(request);
 
         var vm = await handler.CreateItemAsync(command, request.LoggedInUserId, cancellationToken);
 
-        vm.ResolveCreateDownloadRights(request.UserScopeClaims, request.ScopeResource, request.IsAdmin || request.IsGlobalAdmin);
-
-        return ViewModelResults.Status(vm, StatusCodes.Status201Created, RequestStatus.Successful, ItemStatusMessage.CreateItemSuccessful);
+        return ViewModelResults.CreateItems(request, vm, request.IsGlobalAdmin);
     }
 
     internal static async Task<JsonHttpResult<RoleClaimViewModel>> CreateRoleClaimAsync(
@@ -153,7 +153,7 @@ public static class RoleEndpoints
         CancellationToken cancellationToken
     )
     {
-        command.AppName = AdminAppName(request);
+        command.AppName = AdminApp.GetName(request);
 
         var vm = await handler.CreateItemAsync(command, request.LoggedInUserId, cancellationToken);
 
@@ -168,7 +168,7 @@ public static class RoleEndpoints
     )
     {
         var vm = await handler.GetItemsAsync(
-            new GetRoleClaimsQuery { RoleId = roleId, AppName = AdminAppName(request) },
+            new GetRoleClaimsQuery { RoleId = roleId, AppName = AdminApp.GetName(request) },
             cancellationToken
         );
 
@@ -182,12 +182,10 @@ public static class RoleEndpoints
         CancellationToken cancellationToken
     )
     {
-        command.AppName = AdminAppName(request);
+        command.AppName = AdminApp.GetName(request);
 
         var vm = await handler.DeleteItemAsync(command, request.LoggedInUserId, cancellationToken);
 
         return ViewModelResults.DeleteItem(vm);
     }
-
-    private static string? AdminAppName(ApiRequest request) => request.IsGlobalAdmin ? null : request.AuthorizedParty;
 }

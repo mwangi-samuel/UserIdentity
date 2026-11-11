@@ -35,11 +35,22 @@ public class UserRepository(AppDbContext appDbContext) : EntityRepository<UserEn
                         CreatedAt = details.CreatedAt,
                         UpdatedBy = details.UpdatedBy,
                         UpdatedAt = details.UpdatedAt,
-                        IsDeleted = details.IsDeleted,
                     }
             )
             .SingleOrDefaultAsync(cancellationToken);
     }
+
+    public async Task<UserEntity?> GetEntityItemForUpdateAsync(string userId, CancellationToken cancellationToken = default)
+    {
+        var entities = await _appDbContext
+            .AppUser.FromSql($"SELECT * FROM user_details WHERE id = {userId} FOR UPDATE")
+            .AsNoTracking()
+            .ToListAsync(cancellationToken);
+
+        return entities.SingleOrDefault();
+    }
+
+    public void ClearTrackedEntities() => _appDbContext.ChangeTracker.Clear();
 
     public async Task<List<UserEntity>> GetUnconfirmedEntityItemsCreatedBeforeAsync(
         DateTime createdBefore,

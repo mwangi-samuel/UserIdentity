@@ -306,6 +306,10 @@ namespace UserIdentity.Persistence.Migrations
                     b.HasKey("Id")
                         .HasName("pk_app_entities");
 
+                    b.HasIndex("EntityName")
+                        .IsUnique()
+                        .HasDatabaseName("ix_app_entities_entity_name");
+
                     b.ToTable("app_entities", (string)null);
                 });
 
@@ -491,8 +495,8 @@ namespace UserIdentity.Persistence.Migrations
 
                     b.Property<string>("UserEmail")
                         .IsRequired()
-                        .HasMaxLength(255)
-                        .HasColumnType("varchar(255)")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)")
                         .HasColumnName("user_email");
 
                     b.HasKey("Id")
@@ -670,6 +674,7 @@ namespace UserIdentity.Persistence.Migrations
                         .HasColumnName("previous_token");
 
                     b.Property<string>("Token")
+                        .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("varchar(200)")
                         .HasColumnName("token");
@@ -700,9 +705,11 @@ namespace UserIdentity.Persistence.Migrations
                         .HasDatabaseName("ix_refresh_tokens_expires");
 
                     b.HasIndex("PreviousToken")
+                        .IsUnique()
                         .HasDatabaseName("ix_refresh_tokens_previous_token");
 
                     b.HasIndex("Token")
+                        .IsUnique()
                         .HasDatabaseName("ix_refresh_tokens_token");
 
                     b.HasIndex("UserId")
@@ -713,8 +720,9 @@ namespace UserIdentity.Persistence.Migrations
 
             modelBuilder.Entity("UserIdentity.Domain.UserRegisteredApps.UserRegisteredAppEntity", b =>
                 {
-                    b.Property<string>("Id")
-                        .HasColumnType("varchar(255)")
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)")
                         .HasColumnName("id");
 
                     b.Property<int>("AppId")
@@ -756,6 +764,10 @@ namespace UserIdentity.Persistence.Migrations
 
                     b.HasIndex("UserId")
                         .HasDatabaseName("ix_user_registered_apps_user_id");
+
+                    b.HasIndex("UserId", "AppId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_user_registered_apps_user_id_app_id");
 
                     b.ToTable("user_registered_apps", (string)null);
                 });
@@ -844,8 +856,8 @@ namespace UserIdentity.Persistence.Migrations
 
                     b.Property<string>("UserEmail")
                         .IsRequired()
-                        .HasMaxLength(255)
-                        .HasColumnType("varchar(255)")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)")
                         .HasColumnName("user_email");
 
                     b.HasKey("Id")

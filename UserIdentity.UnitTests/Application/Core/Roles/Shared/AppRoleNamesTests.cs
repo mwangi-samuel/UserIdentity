@@ -32,7 +32,7 @@ public class AppRoleNamesTests
     )
     {
         // Arrange
-        var roleSettings = new RoleSettings { ServiceName = "UserIdentity", AdminRoles = adminRoles };
+        var roleSettings = new RoleSettings { ServiceName = "useridentity", AdminRoles = adminRoles };
 
         // Act & Assert
         Assert.Equal(expected, AppRoleNames.IsAppAdminRole(roleName, appName, roleSettings));
@@ -47,7 +47,7 @@ public class AppRoleNamesTests
     public void DefaultRole_Is_The_Apps_Lower_Case_Default_Role()
     {
         // Arrange
-        var roleSettings = new RoleSettings { ServiceName = "UserIdentity", DefaultRole = " Shopper " };
+        var roleSettings = new RoleSettings { ServiceName = "useridentity", DefaultRole = " Shopper " };
 
         // Act & Assert
         Assert.Equal("testapp:shopper", AppRoleNames.DefaultRole("TestApp", roleSettings));

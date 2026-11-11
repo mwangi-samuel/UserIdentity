@@ -2,7 +2,6 @@
 using PolyzenKit.Application.Core;
 using PolyzenKit.Application.Core.Interfaces;
 using PolyzenKit.Application.Interfaces;
-using PolyzenKit.Common.Exceptions;
 using UserIdentity.Application.Core.Roles.Shared;
 using UserIdentity.Application.Core.Roles.ViewModels;
 using UserIdentity.Domain.RoleClaims;
@@ -24,10 +23,7 @@ public class GetRoleClaimsQueryHandler(RoleManager<IdentityRole> roleManager, IJ
 
     public async Task<RoleClaimsViewModel> GetItemsAsync(GetRoleClaimsQuery query, CancellationToken cancellationToken = default)
     {
-        var role = await _roleManager.FindByIdAsync(query.RoleId) ?? throw NoRecordException.ForIdentifier(query.RoleId);
-
-        if (query.AppName is not null && !AppRoleNames.IsAppRole(role.Name, query.AppName))
-            throw NoRecordException.ForIdentifier(query.RoleId);
+        var role = await AppRoleNames.GetAppRoleAsync(_roleManager, query.RoleId, query.AppName);
 
         var roleClaims = await _roleManager.GetClaimsAsync(role);
 

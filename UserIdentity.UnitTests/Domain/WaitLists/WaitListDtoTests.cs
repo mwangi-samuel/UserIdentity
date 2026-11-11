@@ -19,20 +19,6 @@ public class WaitListDtoTests
     };
 
     [Fact]
-    public void FromEntityBasic_Copies_The_Entry_Without_Audit_Fields()
-    {
-        // Act
-        var dto = WaitListDto.FromEntityBasic(_entity);
-
-        // Assert
-        Assert.Equal(3, dto.Id);
-        Assert.Equal("shopper@example.com", dto.UserEmail);
-        Assert.Equal(1, dto.AppId);
-        Assert.Null(dto.AppName);
-        Assert.Null(dto.CreatedBy);
-    }
-
-    [Fact]
     public void FromEntityDetailed_Adds_The_App_Name_And_Audit_Fields()
     {
         // Act

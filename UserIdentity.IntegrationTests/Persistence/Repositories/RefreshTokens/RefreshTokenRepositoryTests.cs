@@ -12,7 +12,7 @@ public class RefreshTokenRepositoryTests(TestingWebAppFactory testingWebAppFacto
     : BaseIntegrationTests(testingWebAppFactory, outputHelper)
 {
     [Fact]
-    public async Task RemoveEntityItemsAsync_Removes_All_The_Users_RefreshTokens()
+    public async Task DeleteEntityItemsAsync_Removes_All_The_Users_RefreshTokens()
     {
         // Arrange
         TestDbHelper.SeedDatabase();
@@ -34,7 +34,7 @@ public class RefreshTokenRepositoryTests(TestingWebAppFactory testingWebAppFacto
         var repository = ServiceProvider.GetRequiredService<IRefreshTokenRepository>();
 
         // Act
-        await repository.RemoveEntityItemsAsync(UserSettingHelper.UserId, TestContext.Current.CancellationToken);
+        await repository.DeleteEntityItemsAsync(UserSettingHelper.UserId, TestContext.Current.CancellationToken);
 
         // Assert
         Assert.Empty(TestDbHelper.GetRefreshTokenEntitiesWithNoTracking(UserSettingHelper.UserId));

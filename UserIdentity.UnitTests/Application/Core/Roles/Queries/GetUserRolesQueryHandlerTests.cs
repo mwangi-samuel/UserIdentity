@@ -4,7 +4,6 @@ using Microsoft.Extensions.Options;
 using PolyzenKit.Common.Exceptions;
 using PolyzenKit.Common.Settings;
 using UserIdentity.Application.Core.Roles.Queries;
-using UserIdentity.Application.Core.Roles.ViewModels;
 using UserIdentity.Persistence.Repositories.UserRegisteredApps;
 using UserIdentity.UnitTests.TestUtils;
 using Xunit;
@@ -13,13 +12,12 @@ namespace UserIdentity.UnitTests.Application.Core.Roles.Queries;
 
 public class GetUserRolesQueryHandlerTests
 {
-    private readonly RoleManager<IdentityRole> _roleManager;
     private readonly UserManager<IdentityUser> _userManager;
     private readonly IUserRegisteredAppRepository _userRegisteredAppRepository;
     private readonly IOptions<RoleSettings> _roleSettings = Options.Create(
         new RoleSettings
         {
-            ServiceName = "UserIdentity",
+            ServiceName = "useridentity",
             AdminRoles = "admin",
             DefaultRole = "user",
         }
@@ -27,7 +25,6 @@ public class GetUserRolesQueryHandlerTests
 
     public GetUserRolesQueryHandlerTests()
     {
-        _roleManager = A.Fake<RoleManager<IdentityRole>>();
         _userManager = IdentityFakes.UserManager();
         _userRegisteredAppRepository = A.Fake<IUserRegisteredAppRepository>();
     }
@@ -43,18 +40,13 @@ public class GetUserRolesQueryHandlerTests
         A.CallTo(() => _userManager.FindByIdAsync(query.UserId)).Returns(user);
         A.CallTo(() => _userManager.GetRolesAsync(user)).Returns(userRoles);
 
-        GetUserRolesQueryHandler handler = new(_roleManager, _userManager, _userRegisteredAppRepository, _roleSettings);
+        GetUserRolesQueryHandler handler = new(_userManager, _userRegisteredAppRepository, _roleSettings);
 
         // Act
         var vm = await handler.GetItemsAsync(query, TestContext.Current.CancellationToken);
 
         // Assert
-        Assert.IsType<UserRolesViewModel>(vm);
-        Assert.Equal(userRoles.Count, vm.UserRoles.Count);
         Assert.Equal(userRoles, vm.UserRoles);
-
-        foreach (var item in vm.UserRoles)
-            Assert.Contains(item, userRoles);
     }
 
     [Fact]
@@ -68,13 +60,12 @@ public class GetUserRolesQueryHandlerTests
         A.CallTo(() => _userManager.FindByIdAsync(query.UserId)).Returns(user);
         A.CallTo(() => _userManager.GetRolesAsync(user)).Returns(userRoles!);
 
-        GetUserRolesQueryHandler handler = new(_roleManager, _userManager, _userRegisteredAppRepository, _roleSettings);
+        GetUserRolesQueryHandler handler = new(_userManager, _userRegisteredAppRepository, _roleSettings);
 
         // Act
         var vm = await handler.GetItemsAsync(query, TestContext.Current.CancellationToken);
 
         // Assert
-        Assert.IsType<UserRolesViewModel>(vm);
         Assert.Empty(vm.UserRoles);
     }
 
@@ -87,9 +78,9 @@ public class GetUserRolesQueryHandlerTests
 
         A.CallTo(() => _userManager.FindByIdAsync(query.UserId)).Returns(user);
 
-        GetUserRolesQueryHandler handler = new(_roleManager, _userManager, _userRegisteredAppRepository, _roleSettings);
+        GetUserRolesQueryHandler handler = new(_userManager, _userRegisteredAppRepository, _roleSettings);
 
-        // Act &  Assert
+        // Act & Assert
         await Assert.ThrowsAsync<NoRecordException>(() => handler.GetItemsAsync(query, TestContext.Current.CancellationToken));
     }
 
@@ -104,7 +95,7 @@ public class GetUserRolesQueryHandlerTests
         A.CallTo(() => _userManager.GetRolesAsync(user)).Returns(["testapp:user", "otherapp:admin", "global:admin", "Administrator"]);
         A.CallTo(() => _userRegisteredAppRepository.IsUserRegisteredForAppAsync("1", "TestApp", A<CancellationToken>._)).Returns(true);
 
-        GetUserRolesQueryHandler handler = new(_roleManager, _userManager, _userRegisteredAppRepository, _roleSettings);
+        GetUserRolesQueryHandler handler = new(_userManager, _userRegisteredAppRepository, _roleSettings);
 
         // Act
         var vm = await handler.GetItemsAsync(query, TestContext.Current.CancellationToken);
@@ -122,7 +113,7 @@ public class GetUserRolesQueryHandlerTests
         A.CallTo(() => _userManager.FindByIdAsync(query.UserId)).Returns(new IdentityUser { Id = "1", UserName = "test" });
         A.CallTo(() => _userRegisteredAppRepository.IsUserRegisteredForAppAsync("1", "TestApp", A<CancellationToken>._)).Returns(false);
 
-        GetUserRolesQueryHandler handler = new(_roleManager, _userManager, _userRegisteredAppRepository, _roleSettings);
+        GetUserRolesQueryHandler handler = new(_userManager, _userRegisteredAppRepository, _roleSettings);
 
         // Act & Assert
         await Assert.ThrowsAsync<NoRecordException>(() => handler.GetItemsAsync(query, TestContext.Current.CancellationToken));

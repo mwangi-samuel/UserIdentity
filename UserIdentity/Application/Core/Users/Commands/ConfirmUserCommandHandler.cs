@@ -1,5 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
-using Microsoft.AspNetCore.Identity;
+﻿using Microsoft.AspNetCore.Identity;
 using PolyzenKit.Application.Core;
 using PolyzenKit.Application.Core.Interfaces;
 using PolyzenKit.Common.Exceptions;
@@ -9,8 +8,7 @@ namespace UserIdentity.Application.Core.Users.Commands;
 
 public record ConfirmUserCommand : IBaseCommand
 {
-    [Required]
-    public string UserId { get; set; } = null!;
+    public required string UserId { get; init; }
 }
 
 public class ConfirmUserCommandHandler(UserManager<IdentityUser> userManager)
@@ -33,6 +31,6 @@ public class ConfirmUserCommandHandler(UserManager<IdentityUser> userManager)
         if (!confirmResult.Succeeded)
             throw new RecordUpdateException(string.Join(", ", confirmResult.Errors.Select(e => e.Description)));
 
-        return new ConfirmUserViewModel { ConfirmUserResult = new ConfirmUserDto { UserConfirmed = confirmResult.Succeeded } };
+        return new ConfirmUserViewModel();
     }
 }

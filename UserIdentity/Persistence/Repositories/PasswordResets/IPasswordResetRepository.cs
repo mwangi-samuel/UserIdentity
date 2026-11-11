@@ -5,9 +5,11 @@ namespace UserIdentity.Persistence.Repositories.PasswordResets;
 
 public interface IPasswordResetRepository : IEntityRepository<PasswordResetEntity, Guid>, IItemEntityRepository<PasswordResetEntity, Guid>
 {
-    Task<PasswordResetEntity?> GetLatestEntityItemAsync(string userId, CancellationToken cancellationToken = default);
-
-    Task<int> CountEntityItemsCreatedAfterAsync(string userId, DateTime createdAfter, CancellationToken cancellationToken = default);
+    Task<(DateTime? LatestCreatedAt, int CountCreatedAfter)> GetRequestHistoryAsync(
+        string userId,
+        DateTime countCreatedAfter,
+        CancellationToken cancellationToken = default
+    );
 
     Task<int> DeleteEntityItemsExpiredBeforeAsync(DateTime expiredBefore, int count, CancellationToken cancellationToken = default);
 }

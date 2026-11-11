@@ -1,5 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
-using PolyzenKit.Application.Core;
+﻿using PolyzenKit.Application.Core;
 using PolyzenKit.Application.Core.Interfaces;
 using PolyzenKit.Application.Interfaces;
 using PolyzenKit.Persistence.Repositories;
@@ -11,8 +10,7 @@ namespace UserIdentity.Application.Core.Users.Commands;
 
 public record VerifyPasswordResetCommand : IBaseCommand
 {
-    [Required]
-    public string ResetRequestId { get; set; } = null!;
+    public required string ResetRequestId { get; init; }
 }
 
 public class VerifyPasswordResetCommandHandler(
@@ -46,9 +44,6 @@ public class VerifyPasswordResetCommandHandler(
 
         await UpdateEntityItemAsync(existingEntity, existingEntity.UserId, cancellationToken);
 
-        return new VerifyPasswordResetViewModel
-        {
-            VerifyPasswordResetResult = new VerifyPasswordResetDto { PasswordResetVerified = existingEntity.Verified },
-        };
+        return new VerifyPasswordResetViewModel();
     }
 }

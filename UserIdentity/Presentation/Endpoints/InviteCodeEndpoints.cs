@@ -10,6 +10,7 @@ using PolyzenKit.Presentation.Endpoints;
 using UserIdentity.Application.Core.InviteCodes.Commands;
 using UserIdentity.Application.Core.InviteCodes.Queries;
 using UserIdentity.Application.Core.InviteCodes.ViewModels;
+using UserIdentity.Domain.InviteCodes;
 
 namespace UserIdentity.Presentation.Endpoints;
 
@@ -19,23 +20,23 @@ public static class InviteCodeEndpoints
     {
         var group = endpoints.MapApiGroup("InviteCode").RequireAuthorization(AuthorizationPolicies.AdminOrGlobalAdmin);
 
-        group.MapGet("", GetInviteCodes).Produces<InviteCodesViewModel>();
-        group.MapGet("{id}", GetInviteCode).Produces<InviteCodeViewModel>();
-        group.MapGet("email/{email}", GetInviteCodeByEmail).Produces<InviteCodeViewModel>();
-        group.MapPost("", CreateInviteCode).Produces<InviteCodeViewModel>();
-        group.MapDelete("{id}", DeleteInviteCode).Produces<DeleteRecordViewModel>();
+        group.MapGet("", GetInviteCodesAsync).Produces<InviteCodesViewModel>();
+        group.MapGet("{inviteCodeId}", GetInviteCodeAsync).Produces<InviteCodeViewModel>();
+        group.MapGet("email/{email}", GetInviteCodeByEmailAsync).Produces<InviteCodeViewModel>();
+        group.MapPost("", CreateInviteCodeAsync).Produces<InviteCodeViewModel>();
+        group.MapDelete("{inviteCodeId}", DeleteInviteCodeAsync).Produces<DeleteRecordViewModel>();
 
         return group;
     }
 
-    internal static async Task<JsonHttpResult<InviteCodesViewModel>> GetInviteCodes(
+    internal static async Task<JsonHttpResult<InviteCodesViewModel>> GetInviteCodesAsync(
         ApiRequest request,
         IRegisteredAppResolver registeredAppResolver,
         IGetItemsQueryHandler<GetInviteCodesQuery, InviteCodesViewModel> handler,
         CancellationToken cancellationToken,
-        [FromQuery, Range(1, Paging.MaxPage)] int page = 1,
-        [FromQuery, Range(1, Paging.MaxPageSize)] int pageSize = Paging.DefaultPageSize,
-        [FromQuery, MaxLength(100)] string? search = null,
+        [FromQuery, Range(1, PagingLimits.MaxPage)] int page = 1,
+        [FromQuery, Range(1, PagingLimits.MaxPageSize)] int pageSize = PagingLimits.DefaultPageSize,
+        [FromQuery, MaxLength(InviteCodeLimits.SearchMaxLength)] string? search = null,
         [FromQuery] bool? applied = null
     )
     {
@@ -55,8 +56,8 @@ public static class InviteCodeEndpoints
         return ViewModelResults.GetItems(request, vm);
     }
 
-    internal static async Task<JsonHttpResult<InviteCodeViewModel>> GetInviteCode(
-        long id,
+    internal static async Task<JsonHttpResult<InviteCodeViewModel>> GetInviteCodeAsync(
+        long inviteCodeId,
         ApiRequest request,
         IRegisteredAppResolver registeredAppResolver,
         IGetItemQueryHandler<GetInviteCodeQuery, InviteCodeViewModel> handler,
@@ -65,12 +66,15 @@ public static class InviteCodeEndpoints
     {
         var registeredApp = await AdminApp.GetAsync(request, registeredAppResolver, cancellationToken);
 
-        var vm = await handler.GetItemAsync(new GetInviteCodeQuery { InviteCodeId = id, AppId = registeredApp.Id }, cancellationToken);
+        var vm = await handler.GetItemAsync(
+            new GetInviteCodeQuery { InviteCodeId = inviteCodeId, AppId = registeredApp.Id },
+            cancellationToken
+        );
 
         return ViewModelResults.GetItem(request, vm, true);
     }
 
-    internal static async Task<JsonHttpResult<InviteCodeViewModel>> GetInviteCodeByEmail(
+    internal static async Task<JsonHttpResult<InviteCodeViewModel>> GetInviteCodeByEmailAsync(
         string email,
         ApiRequest request,
         IRegisteredAppResolver registeredAppResolver,
@@ -85,7 +89,7 @@ public static class InviteCodeEndpoints
         return ViewModelResults.GetItem(request, vm, true);
     }
 
-    internal static async Task<JsonHttpResult<InviteCodeViewModel>> CreateInviteCode(
+    internal static async Task<JsonHttpResult<InviteCodeViewModel>> CreateInviteCodeAsync(
         CreateInviteCodeCommand command,
         ApiRequest request,
         IRegisteredAppResolver registeredAppResolver,
@@ -103,8 +107,8 @@ public static class InviteCodeEndpoints
         return ViewModelResults.CreateItem(request, vm, true);
     }
 
-    internal static async Task<JsonHttpResult<DeleteRecordViewModel>> DeleteInviteCode(
-        long id,
+    internal static async Task<JsonHttpResult<DeleteRecordViewModel>> DeleteInviteCodeAsync(
+        long inviteCodeId,
         ApiRequest request,
         IRegisteredAppResolver registeredAppResolver,
         IDeleteItemCommandHandler<DeleteInviteCodeCommand, DeleteRecordViewModel> handler,
@@ -114,7 +118,7 @@ public static class InviteCodeEndpoints
         var registeredApp = await AdminApp.GetAsync(request, registeredAppResolver, cancellationToken);
 
         var vm = await handler.DeleteItemAsync(
-            new DeleteInviteCodeCommand { InviteCodeId = id, AppId = registeredApp.Id },
+            new DeleteInviteCodeCommand { InviteCodeId = inviteCodeId, AppId = registeredApp.Id },
             request.LoggedInUserId,
             cancellationToken
         );

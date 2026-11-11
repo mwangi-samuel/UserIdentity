@@ -6,4 +6,7 @@ namespace UserIdentity.Persistence.Repositories.WaitLists;
 public interface IWaitListRepository
     : IEntityRepository<WaitListEntity, long>,
         IItemEntityRepository<WaitListEntity, long>,
-        IItemEntityDtoRepository<WaitListDto, long> { }
+        IItemEntityDtoRepository<WaitListDto, long>
+{
+    Task<WaitListDto?> GetEntityDtoByEmailAsync(int appId, string userEmail, CancellationToken cancellationToken = default);
+}

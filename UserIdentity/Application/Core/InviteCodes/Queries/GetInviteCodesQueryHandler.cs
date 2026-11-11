@@ -16,7 +16,7 @@ public record GetInviteCodesQuery : IBaseQuery
 
     public int Page { get; init; } = 1;
 
-    public int PageSize { get; init; } = Paging.DefaultPageSize;
+    public int PageSize { get; init; } = PagingLimits.DefaultPageSize;
 }
 
 public class GetInviteCodesQueryHandler(IInviteCodeRepository inviteCodeRepository)

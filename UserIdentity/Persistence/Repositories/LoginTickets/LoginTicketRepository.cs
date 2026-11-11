@@ -7,8 +7,6 @@ namespace UserIdentity.Persistence.Repositories.LoginTickets;
 
 public class LoginTicketRepository(AppDbContext dbContext) : EntityRepository<LoginTicketEntity, Guid>(dbContext), ILoginTicketRepository
 {
-    private readonly AppDbContext _dbContext = dbContext;
-
     public async Task<LoginTicketEntity?> GetEntityByAlternateIdAsync(
         LoginTicketEntity entity,
         QueryCondition queryCondition,
@@ -17,10 +15,7 @@ public class LoginTicketRepository(AppDbContext dbContext) : EntityRepository<Lo
     {
         var ticket = ObjectExtensions.RequireNonNullValue(entity.Ticket, nameof(entity.Ticket));
 
-        var existingEntity = await _dbContext.LoginTicket.SingleOrDefaultAsync(
-            e => e.Ticket == ticket && e.AppId == entity.AppId,
-            cancellationToken
-        );
+        var existingEntity = await DbSet.SingleOrDefaultAsync(e => e.Ticket == ticket && e.AppId == entity.AppId, cancellationToken);
 
         return queryCondition.Apply(existingEntity, ticket);
     }
@@ -29,10 +24,5 @@ public class LoginTicketRepository(AppDbContext dbContext) : EntityRepository<Lo
         DateTime expiredBefore,
         int count,
         CancellationToken cancellationToken = default
-    ) =>
-        await _dbContext
-            .LoginTicket.Where(e => e.Expires <= expiredBefore)
-            .OrderBy(e => e.Expires)
-            .Take(count)
-            .ExecuteDeleteAsync(cancellationToken);
+    ) => await DbSet.Where(e => e.Expires <= expiredBefore).OrderBy(e => e.Expires).Take(count).ExecuteDeleteAsync(cancellationToken);
 }

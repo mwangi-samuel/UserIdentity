@@ -73,6 +73,9 @@ public class UpdatePasswordCommandHandler(
         {
             var resetPasswordToken = await _userManager.GeneratePasswordResetTokenAsync(userDetails);
 
+            userDetails.LockoutEnd = null;
+            userDetails.AccessFailedCount = 0;
+
             var resetPasswordResult = await _userManager.ResetPasswordAsync(userDetails, resetPasswordToken, command.NewPassword);
 
             if (!resetPasswordResult.Succeeded)
@@ -82,10 +85,7 @@ public class UpdatePasswordCommandHandler(
 
             await UpdateEntityItemAsync(existingEntity, userDetails.Id, cancellationToken);
 
-            await _refreshTokenRepository.RemoveEntityItemsAsync(userDetails.Id, cancellationToken);
-
-            await _userManager.SetLockoutEndDateAsync(userDetails, null);
-            await _userManager.ResetAccessFailedCountAsync(userDetails);
+            await _refreshTokenRepository.DeleteEntityItemsAsync(userDetails.Id, cancellationToken);
 
             // Commit DB Transaction
             await UnitOfWork.CommitTransactionAsync(cancellationToken);
@@ -100,5 +100,5 @@ public class UpdatePasswordCommandHandler(
     }
 
     private static UpdatePasswordViewModel GetUpdatePasswordViewModel(bool passwordUpdated) =>
-        new() { UpdatePasswordResult = new UpdatePasswordDto { PassWordUpdated = passwordUpdated } };
+        new() { UpdatePasswordResult = new UpdatePasswordDto { PasswordUpdated = passwordUpdated } };
 }

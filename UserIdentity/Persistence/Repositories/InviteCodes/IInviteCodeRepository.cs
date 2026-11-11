@@ -9,6 +9,10 @@ public interface IInviteCodeRepository
         IItemEntityRepository<InviteCodeEntity, long>,
         IItemEntityDtoRepository<InviteCodeDto, long>
 {
+    Task<InviteCodeDto?> GetEntityDtoByEmailAsync(int appId, string userEmail, CancellationToken cancellationToken = default);
+
+    Task<List<InviteCodeEntity>> GetUnusedEntityItemsByRoleAsync(string role, CancellationToken cancellationToken = default);
+
     Task<List<InviteCodeEntity>> GetAppliedEntityItemsForUserAsync(string userId, CancellationToken cancellationToken = default);
 
     Task<PagedList<InviteCodeDto>> SearchEntityDtosByAppIdAsync(

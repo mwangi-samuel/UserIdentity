@@ -7,21 +7,6 @@ public class InviteCodeDto : InviteCodeEntity, IBaseAuditableEntityDto<long>
 {
     public string? AppName { get; set; }
 
-    public static Expression<Func<InviteCodeEntity, InviteCodeDto>> Basic =>
-        entity => new InviteCodeDto
-        {
-            Id = entity.Id,
-            InviteCode = entity.InviteCode,
-            UserEmail = entity.UserEmail,
-            Applied = entity.Applied,
-            Role = entity.Role,
-            AppId = entity.AppId,
-        };
-
-    private static readonly Func<InviteCodeEntity, InviteCodeDto> _compiledBasic = Basic.Compile();
-
-    public static InviteCodeDto FromEntityBasic(InviteCodeEntity entity) => _compiledBasic(entity);
-
     public static Expression<Func<InviteCodeEntity, InviteCodeDto>> Detailed =>
         entity => new InviteCodeDto
         {

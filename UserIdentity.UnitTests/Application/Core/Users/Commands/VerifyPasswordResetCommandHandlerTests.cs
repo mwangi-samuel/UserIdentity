@@ -4,7 +4,6 @@ using PolyzenKit.Application.Interfaces;
 using PolyzenKit.Common.Exceptions;
 using PolyzenKit.Persistence.Repositories;
 using UserIdentity.Application.Core.Users.Commands;
-using UserIdentity.Application.Core.Users.ViewModels;
 using UserIdentity.Domain.PasswordResets;
 using UserIdentity.Persistence.Repositories.PasswordResets;
 using UserIdentity.UnitTests.TestUtils;
@@ -35,6 +34,7 @@ public class VerifyPasswordResetCommandHandlerTests
     [Fact]
     public async Task UpdateItemAsync_WhenRequestNotFound_ThrowsNoRecordException()
     {
+        // Arrange
         A.CallTo(() =>
                 _passwordResetRepository.GetEntityByAlternateIdAsync(
                     A<PasswordResetEntity>._,
@@ -46,6 +46,7 @@ public class VerifyPasswordResetCommandHandlerTests
 
         var handler = new VerifyPasswordResetCommandHandler(_tokenFactory, _unitOfWork, _passwordResetRepository, _timeProvider);
 
+        // Act & Assert
         await Assert.ThrowsAsync<NoRecordException>(() =>
             handler.UpdateItemAsync(
                 new VerifyPasswordResetCommand { ResetRequestId = ResetRequestId },
@@ -60,6 +61,7 @@ public class VerifyPasswordResetCommandHandlerTests
     [Fact]
     public async Task UpdateItemAsync_WhenRequestExists_MarksRequestVerified()
     {
+        // Arrange
         var existingEntity = new PasswordResetEntity
         {
             Id = Guid.NewGuid(),
@@ -79,14 +81,14 @@ public class VerifyPasswordResetCommandHandlerTests
 
         var handler = new VerifyPasswordResetCommandHandler(_tokenFactory, _unitOfWork, _passwordResetRepository, _timeProvider);
 
-        var vm = await handler.UpdateItemAsync(
+        // Act
+        await handler.UpdateItemAsync(
             new VerifyPasswordResetCommand { ResetRequestId = ResetRequestId },
             TestStringHelper.UserId,
             TestContext.Current.CancellationToken
         );
 
-        Assert.IsType<VerifyPasswordResetViewModel>(vm);
-        Assert.True(vm.VerifyPasswordResetResult.PasswordResetVerified);
+        // Assert
         Assert.True(existingEntity.Verified);
         Assert.Equal(existingEntity.UserId, existingEntity.UpdatedBy);
         A.CallTo(() => _passwordResetRepository.UpdateEntityItem(existingEntity)).MustHaveHappenedOnceExactly();

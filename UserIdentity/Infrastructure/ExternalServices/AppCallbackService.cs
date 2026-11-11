@@ -21,7 +21,7 @@ public class AppCallbackService(
     private readonly IHttpRequestSender _httpRequestSender = httpRequestSender;
     private readonly TimeProvider _timeProvider = timeProvider;
 
-    private const string targetServiceName = "AppCallback";
+    private const string TargetServiceName = "AppCallback";
 
     public async Task SendCallbackRequestAsync(
         ActiveRegisteredApp registeredApp,
@@ -68,6 +68,6 @@ public class AppCallbackService(
         // The app verifies the body with its secret (see HmacSignature.IsValid).
         await requestMessage.WithHmacSignatureAsync(registeredApp.AppSecretKey, _timeProvider, cancellationToken);
 
-        await _httpRequestSender.SendRequestAsync(targetServiceName, requestMessage, cancellationToken);
+        await _httpRequestSender.SendRequestAsync(TargetServiceName, requestMessage, cancellationToken);
     }
 }

@@ -2,9 +2,9 @@
 
 public record RoleClaimDto
 {
-    public string Resource { get; init; } = null!;
+    public required string Resource { get; init; }
 
-    public string Action { get; init; } = null!;
+    public required string Action { get; init; }
 
-    public string Scope { get; init; } = null!;
+    public required string Scope { get; init; }
 }

@@ -17,11 +17,11 @@ public class AppDbContextOptionsTests(TestingWebAppFactory testingWebAppFactory,
     public void UseAppMysql_Adds_The_Unique_Violation_Interceptor_And_Snake_Case_Names()
     {
         // Arrange
-        var mysqlSettings = Configuration.GetRequiredSetting<MysqlSettings>();
+        var databaseSettings = Configuration.GetRequiredSetting<DatabaseSettings>();
         var builder = new DbContextOptionsBuilder<AppDbContext>();
 
         // Act
-        builder.UseAppMysql(mysqlSettings);
+        builder.UseAppMysql(databaseSettings);
 
         // Assert
         var interceptors = builder.Options.FindExtension<CoreOptionsExtension>()?.Interceptors;

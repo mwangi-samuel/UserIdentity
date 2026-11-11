@@ -6,7 +6,7 @@ using UserIdentity.Domain.Users;
 
 namespace UserIdentity.Domain.UserRegisteredApps;
 
-public class UserRegisteredAppEntity : BaseAuditableEntity<string>
+public class UserRegisteredAppEntity : BaseAuditableEntity<Guid>
 {
     public int AppId { get; set; }
 

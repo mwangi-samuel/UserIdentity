@@ -49,10 +49,7 @@ public class CreateUserRoleCommandHandler(
         )
             throw NoRecordException.ForIdentifier(command.UserId);
 
-        var role = await _roleManager.FindByIdAsync(command.RoleId) ?? throw NoRecordException.ForIdentifier(command.RoleId);
-
-        if (command.AppName is not null && !AppRoleNames.IsAppRole(role.Name, command.AppName))
-            throw NoRecordException.ForIdentifier(command.RoleId);
+        var role = await AppRoleNames.GetAppRoleAsync(_roleManager, command.RoleId, command.AppName);
 
         var userRoleExists = await _userManager.IsInRoleAsync(user, role.Name!);
 

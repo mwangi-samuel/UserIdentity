@@ -22,7 +22,7 @@ namespace UserIdentity.Application.Core.Tokens.Commands;
 public record ExchangeLoginTicketCommand : IBaseCommand
 {
     [JsonIgnore]
-    public ActiveRegisteredApp? RegisteredApp { get; internal set; }
+    public ActiveRegisteredApp RegisteredApp { get; internal set; } = null!;
 
     [Required]
     public string Ticket { get; init; } = null!;
@@ -35,7 +35,7 @@ public class ExchangeLoginTicketCommandHandler(
     IUnitOfWork unitOfWork,
     IUserRepository userRepository,
     ILoginTicketRepository loginTicketRepository,
-    ICreateItemCommandHandler<StartSessionCommand, AccessTokenViewModel> startSessionCommandHandler,
+    ICreateItemCommandHandler<StartSessionCommand, UserTokenViewModel> startSessionCommandHandler,
     TimeProvider timeProvider
 ) : ICreateItemCommandHandler<ExchangeLoginTicketCommand, AuthUserViewModel>
 {
@@ -45,7 +45,7 @@ public class ExchangeLoginTicketCommandHandler(
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
     private readonly IUserRepository _userRepository = userRepository;
     private readonly ILoginTicketRepository _loginTicketRepository = loginTicketRepository;
-    private readonly ICreateItemCommandHandler<StartSessionCommand, AccessTokenViewModel> _startSessionCommandHandler =
+    private readonly ICreateItemCommandHandler<StartSessionCommand, UserTokenViewModel> _startSessionCommandHandler =
         startSessionCommandHandler;
     private readonly TimeProvider _timeProvider = timeProvider;
 
@@ -55,7 +55,7 @@ public class ExchangeLoginTicketCommandHandler(
         CancellationToken cancellationToken = default
     )
     {
-        var registeredApp = command.RegisteredApp!;
+        var registeredApp = command.RegisteredApp;
 
         var loginTicket =
             await _loginTicketRepository.GetEntityByAlternateIdAsync(
@@ -83,7 +83,7 @@ public class ExchangeLoginTicketCommandHandler(
 
         _loginTicketRepository.RemoveEntityItem(loginTicket);
 
-        var userToken = await _startSessionCommandHandler.CreateItemAsync(
+        var session = await _startSessionCommandHandler.CreateItemAsync(
             new StartSessionCommand(user.Id, user.UserName!, registeredApp.AppName),
             user.Id,
             cancellationToken
@@ -94,7 +94,7 @@ public class ExchangeLoginTicketCommandHandler(
         return new AuthUserViewModel
         {
             User = userDto,
-            UserToken = userToken,
+            UserToken = session.UserToken,
             IsConfirmed = true,
         };
     }

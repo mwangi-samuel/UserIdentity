@@ -8,12 +8,11 @@ using PolyzenKit.Application.Core.Messages.Commands;
 using PolyzenKit.Application.Core.Messages.ViewModels;
 using PolyzenKit.Application.Core.RegisteredApps.Shared;
 using PolyzenKit.Application.Interfaces;
-using PolyzenKit.Common.Exceptions;
+using PolyzenKit.Domain.Entities;
 using PolyzenKit.Persistence.Repositories;
 using UserIdentity.Application.Core.Users.Shared;
 using UserIdentity.Application.Core.Users.ViewModels;
 using UserIdentity.Domain.PasswordResets;
-using UserIdentity.Domain.Users;
 using UserIdentity.Persistence.Repositories.PasswordResets;
 using UserIdentity.Persistence.Repositories.UserRegisteredApps;
 using UserIdentity.Persistence.Repositories.Users;
@@ -23,7 +22,7 @@ namespace UserIdentity.Application.Core.Users.Commands;
 public record ResetPasswordCommand : IBaseCommand
 {
     [JsonIgnore]
-    public ActiveRegisteredApp? RegisteredApp { get; internal set; }
+    public ActiveRegisteredApp RegisteredApp { get; internal set; } = null!;
 
     [Required]
     public string UserName { get; init; } = null!;
@@ -78,55 +77,64 @@ public class ResetPasswordCommandHandler(
             existingUser is null
             || !await _userRegisteredAppRepository.IsUserRegisteredForAppAsync(
                 existingUser.Id,
-                command.RegisteredApp!.AppName,
+                command.RegisteredApp.AppName,
                 cancellationToken
             )
         )
             return vm;
 
-        var latestEntity = await Repository.GetLatestEntityItemAsync(existingUser.Id, cancellationToken);
-
-        if (latestEntity?.CreatedAt > TimeProvider.GetUtcNow().UtcDateTime.AddSeconds(-_passwordResetSettings.RequestCooldownSeconds))
-            return vm;
-
-        // Each request gets its own code and attempts, so the requests per day cap the guesses per day
-        var requestsInWindow = await Repository.CountEntityItemsCreatedAfterAsync(
-            existingUser.Id,
-            TimeProvider.GetUtcNow().UtcDateTime - PasswordResetSettings.RequestCountWindow,
-            cancellationToken
-        );
-
-        if (requestsInWindow >= _passwordResetSettings.MaxRequestsPerDay)
-            return vm;
-
-        UserEntity userEntity;
+        await UnitOfWork.BeginTransactionAsync(cancellationToken);
 
         try
         {
-            userEntity = await _userRepository.GetEntityItemAsync(existingUser.Id, cancellationToken);
+            var userEntity = await _userRepository.GetEntityItemForUpdateAsync(existingUser.Id, cancellationToken);
+            var now = TimeProvider.GetUtcNow().UtcDateTime;
+
+            (var latestCreatedAt, var requestsInWindow) = await Repository.GetRequestHistoryAsync(
+                existingUser.Id,
+                now - PasswordResetLimits.RequestCountWindow,
+                cancellationToken
+            );
+
+            // Each request gets its own code and attempts, so the requests per day cap the guesses per day
+            if (
+                userEntity is null
+                || latestCreatedAt > now.AddSeconds(-_passwordResetSettings.RequestCooldownSeconds)
+                || requestsInWindow >= _passwordResetSettings.MaxRequestsPerDay
+            )
+            {
+                await UnitOfWork.RollbackTransactionAsync(CancellationToken.None);
+
+                return vm;
+            }
+
+            var passwordResetEntity = new PasswordResetEntity
+            {
+                RequestId = _tokenFactory.HashToken(resetRequestId),
+                UserId = existingUser.Id,
+                Expires = now.AddSeconds(_passwordResetSettings.ValidForSeconds),
+            };
+
+            passwordResetEntity.SetEntityAuditFields(existingUser.Id, now);
+
+            await _createOutboxMessageCommandHandler.CreateItemAsync(
+                new CreateOutboxMessageCommand(
+                    UserMessages.PasswordResetRequested,
+                    UserMessages.PasswordReset(resetRequestId, existingUser, userEntity, command.RegisteredApp.AppName)
+                ),
+                existingUser.Id,
+                cancellationToken
+            );
+
+            Repository.CreateEntityItem(passwordResetEntity);
+
+            await UnitOfWork.CommitTransactionAsync(cancellationToken);
         }
-        catch (NoRecordException)
+        catch
         {
-            return vm;
+            await UnitOfWork.RollbackTransactionAsync(CancellationToken.None);
+            throw;
         }
-
-        var passwordResetEntity = new PasswordResetEntity
-        {
-            RequestId = _tokenFactory.HashToken(resetRequestId),
-            UserId = existingUser.Id,
-            Expires = TimeProvider.GetUtcNow().UtcDateTime.AddSeconds(_passwordResetSettings.ValidForSeconds),
-        };
-
-        await _createOutboxMessageCommandHandler.CreateItemAsync(
-            new CreateOutboxMessageCommand(
-                UserMessages.PasswordResetRequested,
-                UserMessages.PasswordReset(resetRequestId, existingUser, userEntity, command.RegisteredApp!.AppName)
-            ),
-            existingUser.Id,
-            cancellationToken
-        );
-
-        await CreateEntityItemAsync(passwordResetEntity, existingUser.Id, cancellationToken);
 
         return vm;
     }

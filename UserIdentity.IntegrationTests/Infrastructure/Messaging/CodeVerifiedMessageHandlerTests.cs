@@ -34,6 +34,32 @@ public class CodeVerifiedMessageHandlerTests(TestingWebAppFactory testingWebAppF
     }
 
     [Fact]
+    public async Task Welcome_User_Message_Delivered_Twice_Keeps_The_User_Confirmed()
+    {
+        // Arrange
+        var user = TestDbHelper.CreateIdentityUser();
+        user.EmailConfirmed = false;
+        TestDbHelper.UpdateIdentityUser(user);
+
+        var messageEvent = MessageEventFactory.Create(
+            user.Id,
+            RegisteredApp.AppName,
+            new Dictionary<MessageAttributeKey, string>(),
+            MessageAction.WelcomeUser,
+            CrudEvent.Update
+        );
+
+        // Act
+        await NatsTestHelper.PublishCodeVerifiedAsync(messageEvent);
+        var secondDelivery = await NatsTestHelper.PublishCodeVerifiedAsync(messageEvent);
+
+        // Assert
+        await Eventually.HoldsAsync(() => NatsTestHelper.IsCodeVerifiedAcknowledgedAsync(secondDelivery));
+
+        Assert.True(TestDbHelper.GetIdentityUserWithNoTracking(user.Id)?.EmailConfirmed);
+    }
+
+    [Fact]
     public async Task Password_Reset_Message_Marks_The_Reset_Request_Verified()
     {
         // Arrange

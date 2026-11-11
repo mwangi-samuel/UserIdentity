@@ -3,6 +3,8 @@ using PolyzenKit.Application.Core;
 using PolyzenKit.Application.Core.Interfaces;
 using PolyzenKit.Common.Exceptions;
 using UserIdentity.Application.Core.Roles.Shared;
+using UserIdentity.Common.Errors;
+using UserIdentity.Persistence.Repositories.InviteCodes;
 
 namespace UserIdentity.Application.Core.Roles.Commands;
 
@@ -13,10 +15,11 @@ public record DeleteRoleCommand : IBaseCommand
     public string? AppName { get; init; }
 }
 
-public class DeleteRoleCommandHandler(RoleManager<IdentityRole> roleManager)
+public class DeleteRoleCommandHandler(RoleManager<IdentityRole> roleManager, IInviteCodeRepository inviteCodeRepository)
     : IDeleteItemCommandHandler<DeleteRoleCommand, DeleteRecordViewModel>
 {
     private readonly RoleManager<IdentityRole> _roleManager = roleManager;
+    private readonly IInviteCodeRepository _inviteCodeRepository = inviteCodeRepository;
 
     public async Task<DeleteRecordViewModel> DeleteItemAsync(
         DeleteRoleCommand command,
@@ -24,10 +27,10 @@ public class DeleteRoleCommandHandler(RoleManager<IdentityRole> roleManager)
         CancellationToken cancellationToken = default
     )
     {
-        var role = await _roleManager.FindByIdAsync(command.RoleId) ?? throw NoRecordException.ForIdentifier(command.RoleId);
+        var role = await AppRoleNames.GetAppRoleAsync(_roleManager, command.RoleId, command.AppName);
 
-        if (command.AppName is not null && !AppRoleNames.IsAppRole(role.Name, command.AppName))
-            throw NoRecordException.ForIdentifier(command.RoleId);
+        if ((await _inviteCodeRepository.GetUnusedEntityItemsByRoleAsync(role.Name!, cancellationToken)).Count > 0)
+            throw new IllegalOperationException(ErrorMessages.Roles.GrantedByUnusedInvites);
 
         var deleteRoleResult = await _roleManager.DeleteAsync(role);
 

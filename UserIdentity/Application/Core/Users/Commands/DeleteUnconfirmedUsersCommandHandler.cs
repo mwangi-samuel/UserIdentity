@@ -2,6 +2,7 @@
 using Microsoft.Extensions.Options;
 using PolyzenKit.Application.Core;
 using PolyzenKit.Application.Core.Interfaces;
+using PolyzenKit.Domain.Entities;
 using PolyzenKit.Persistence.Repositories;
 using UserIdentity.Application.Core.Users.Shared;
 using UserIdentity.Domain.Users;
@@ -22,8 +23,6 @@ public class DeleteUnconfirmedUsersCommandHandler(
     TimeProvider timeProvider
 ) : IDeleteItemCommandHandler<DeleteUnconfirmedUsersCommand, DeleteRecordViewModel>
 {
-    public const int BatchSize = 100;
-
     private readonly UserManager<IdentityUser> _userManager = userManager;
     private readonly IdentityOptions _identityOptions = identityOptions.Value;
     private readonly CleanupSettings _cleanupSettings = cleanupSettings.Value;
@@ -47,18 +46,27 @@ public class DeleteUnconfirmedUsersCommandHandler(
 
         do
         {
-            entities = await _userRepository.GetUnconfirmedEntityItemsCreatedBeforeAsync(createdBefore, BatchSize, cancellationToken);
+            entities = await _userRepository.GetUnconfirmedEntityItemsCreatedBeforeAsync(
+                createdBefore,
+                CleanupBatch.Size,
+                cancellationToken
+            );
 
             foreach (var entity in entities)
-                await DeleteUserAsync(entity, cancellationToken);
-        } while (entities.Count == BatchSize);
+                await DeleteUserAsync(entity, userId, cancellationToken);
+        } while (entities.Count == CleanupBatch.Size);
 
         return new DeleteRecordViewModel();
     }
 
     // One transaction per user, so a failure leaves the other users' deletes in place
-    private async Task DeleteUserAsync(UserEntity entity, CancellationToken cancellationToken)
+    private async Task DeleteUserAsync(UserEntity entity, string userId, CancellationToken cancellationToken)
     {
+        var identityUser = await _userManager.FindByIdAsync(entity.Id);
+
+        if (identityUser is null || AccountConfirmation.IsConfirmed(_identityOptions, identityUser))
+            return;
+
         await _unitOfWork.BeginTransactionAsync(cancellationToken);
 
         try
@@ -66,26 +74,31 @@ public class DeleteUnconfirmedUsersCommandHandler(
             foreach (var inviteCode in await _inviteCodeRepository.GetAppliedEntityItemsForUserAsync(entity.Id, cancellationToken))
             {
                 inviteCode.Applied = false;
+                inviteCode.UpdateEntityAuditFields(userId, _timeProvider.GetUtcNow().UtcDateTime);
+
                 _inviteCodeRepository.UpdateEntityItem(inviteCode);
             }
 
             await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-            var identityUser = await _userManager.FindByIdAsync(entity.Id);
+            var result = await _userManager.DeleteAsync(identityUser);
 
-            if (identityUser is not null)
+            if (result.Errors.Any(error => error.Code == nameof(IdentityErrorDescriber.ConcurrencyFailure)))
             {
-                var result = await _userManager.DeleteAsync(identityUser);
+                await _unitOfWork.RollbackTransactionAsync(CancellationToken.None);
+                _userRepository.ClearTrackedEntities();
 
-                if (!result.Succeeded)
-                    throw new InvalidOperationException(string.Join(" ", result.Errors.Select(e => e.Description)));
+                return;
             }
+
+            if (!result.Succeeded)
+                throw new InvalidOperationException(string.Join(" ", result.Errors.Select(e => e.Description)));
 
             await _unitOfWork.CommitTransactionAsync(cancellationToken);
         }
         catch
         {
-            await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+            await _unitOfWork.RollbackTransactionAsync(CancellationToken.None);
             throw;
         }
     }

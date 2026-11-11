@@ -1,9 +1,7 @@
 ﻿using PolyzenKit.Application.Core;
 using PolyzenKit.Application.Core.Interfaces;
 using PolyzenKit.Common.Exceptions;
-using PolyzenKit.Persistence.Repositories;
 using UserIdentity.Application.Core.InviteCodes.ViewModels;
-using UserIdentity.Domain.InviteCodes;
 using UserIdentity.Persistence.Repositories.InviteCodes;
 
 namespace UserIdentity.Application.Core.InviteCodes.Queries;
@@ -26,15 +24,8 @@ public class GetInviteCodeQueryHandler(IInviteCodeRepository inviteCodeRepositor
     {
         var dto = query.InviteCodeId.HasValue
             ? await _inviteCodeRepository.GetEntityDtoByIdAsync(query.InviteCodeId!.Value, cancellationToken)
-            : InviteCodeDto.FromEntityDetailed(
-                (
-                    await _inviteCodeRepository.GetEntityByAlternateIdAsync(
-                        new() { AppId = query.AppId, UserEmail = query.UserEmail! },
-                        QueryCondition.MustExist,
-                        cancellationToken
-                    )
-                )!
-            );
+            : await _inviteCodeRepository.GetEntityDtoByEmailAsync(query.AppId, query.UserEmail!, cancellationToken)
+                ?? throw NoRecordException.ForIdentifier(query.UserEmail!);
 
         if (dto.AppId != query.AppId)
             throw NoRecordException.ForIdentifier($"{query.InviteCodeId}");

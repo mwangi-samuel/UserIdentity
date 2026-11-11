@@ -36,7 +36,7 @@ public sealed class AppCallbackServiceTests : IDisposable
         _roleSettingsOptions = Options.Create(
             new RoleSettings
             {
-                ServiceName = "UserIdentity",
+                ServiceName = "useridentity",
                 AdminRoles = string.Empty,
                 DefaultRole = "user",
             }
@@ -60,10 +60,13 @@ public sealed class AppCallbackServiceTests : IDisposable
     [Fact]
     public async Task SendCallbackRequestAsync_ForwardsRequestToHttpRequestSender()
     {
+        // Arrange
         var service = GetAppCallbackService();
 
+        // Act
         await service.SendCallbackRequestAsync(GetApp(), GetUser(), TestContext.Current.CancellationToken);
 
+        // Assert
         A.CallTo(_httpRequestSender)
             .Where(call => call.Method.Name == nameof(IHttpRequestSender.CreateHttpRequestMessage))
             .MustHaveHappenedOnceExactly();
@@ -76,14 +79,17 @@ public sealed class AppCallbackServiceTests : IDisposable
     [Fact]
     public async Task SendCallbackRequestAsync_WithCustomHeaders_AddsHeadersToRequest()
     {
+        // Arrange
         var service = GetAppCallbackService();
 
+        // Act
         await service.SendCallbackRequestAsync(
             GetApp(new() { { "X-Test-Header", "value" } }),
             GetUser(),
             TestContext.Current.CancellationToken
         );
 
+        // Assert
         Assert.True(_requestMessage.Headers.Contains("X-Test-Header"));
         A.CallTo(_httpRequestSender)
             .Where(call => call.Method.Name == nameof(IHttpRequestSender.SendRequestAsync) && call.GetArgument<string>(0) == "AppCallback")
@@ -93,8 +99,10 @@ public sealed class AppCallbackServiceTests : IDisposable
     [Fact]
     public async Task SendCallbackRequestAsync_Signs_Body_With_App_Secret()
     {
+        // Arrange
         var service = GetAppCallbackService();
 
+        // Act
         // An app-defined header must not be able to replace the signature
         await service.SendCallbackRequestAsync(
             GetApp(new() { { CustomHeaderNames.Signature, "sha256=spoofed" } }),
@@ -102,6 +110,7 @@ public sealed class AppCallbackServiceTests : IDisposable
             TestContext.Current.CancellationToken
         );
 
+        // Assert
         var timestamp = Assert.Single(_requestMessage.Headers.GetValues(CustomHeaderNames.Timestamp));
         var signature = Assert.Single(_requestMessage.Headers.GetValues(CustomHeaderNames.Signature));
         var body = await _requestMessage.Content!.ReadAsByteArrayAsync(TestContext.Current.CancellationToken);
@@ -117,10 +126,13 @@ public sealed class AppCallbackServiceTests : IDisposable
     [Fact]
     public async Task SendCallbackRequestAsync_Sends_The_New_Users_Details_As_An_Unconfirmed_Create()
     {
+        // Arrange
         var service = GetAppCallbackService();
 
+        // Act
         await service.SendCallbackRequestAsync(GetApp(), GetUser(), TestContext.Current.CancellationToken);
 
+        // Assert
         using var body = JsonDocument.Parse(await _requestMessage.Content!.ReadAsStringAsync(TestContext.Current.CancellationToken));
         var userContent = body.RootElement.GetProperty("userContent");
 
@@ -138,6 +150,7 @@ public sealed class AppCallbackServiceTests : IDisposable
     [Fact]
     public async Task SendCallbackRequestAsync_With_ForwardServiceToken_Sends_A_Service_Token_Scoped_To_The_Apps_Users()
     {
+        // Arrange
         A.CallTo(() => _jwtTokenHandler.GenerateScopeClaim("testapp-user", ScopeActions.Create))
             .Returns(new Claim("scope", "testapp-user:create"));
         A.CallTo(() =>
@@ -155,8 +168,10 @@ public sealed class AppCallbackServiceTests : IDisposable
         var service = GetAppCallbackService();
         var app = GetApp(forwardServiceToken: true);
 
+        // Act
         await service.SendCallbackRequestAsync(app, GetUser(), TestContext.Current.CancellationToken);
 
+        // Assert
         Assert.Equal("Bearer", _requestMessage.Headers.Authorization?.Scheme);
         Assert.Equal("service-token", _requestMessage.Headers.Authorization?.Parameter);
     }
@@ -164,10 +179,13 @@ public sealed class AppCallbackServiceTests : IDisposable
     [Fact]
     public async Task SendCallbackRequestAsync_Without_ForwardServiceToken_Sends_No_Token()
     {
+        // Arrange
         var service = GetAppCallbackService();
 
+        // Act
         await service.SendCallbackRequestAsync(GetApp(), GetUser(), TestContext.Current.CancellationToken);
 
+        // Assert
         Assert.Null(_requestMessage.Headers.Authorization);
         A.CallTo(() =>
                 _jwtTokenHandler.CreateToken(
@@ -185,11 +203,14 @@ public sealed class AppCallbackServiceTests : IDisposable
     [Fact]
     public async Task SendCallbackRequestAsync_Outside_A_Request_Sends_A_New_Request_Id()
     {
+        // Arrange
         A.CallTo(() => _requestIdAccessor.RequestId).Returns(null);
         var service = GetAppCallbackService();
 
+        // Act
         await service.SendCallbackRequestAsync(GetApp(), GetUser(), TestContext.Current.CancellationToken);
 
+        // Assert
         Assert.False(string.IsNullOrWhiteSpace(Assert.Single(_requestMessage.Headers.GetValues(CustomHeaderNames.RequestId))));
     }
 

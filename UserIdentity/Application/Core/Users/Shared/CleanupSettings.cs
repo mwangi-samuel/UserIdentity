@@ -2,11 +2,11 @@
 
 namespace UserIdentity.Application.Core.Users.Shared;
 
-public record CleanupSettings
+public sealed class CleanupSettings
 {
     [Range(1, int.MaxValue)]
-    public int IntervalInMinutes { get; set; }
+    public required int IntervalInMinutes { get; init; }
 
     [Range(1, int.MaxValue)]
-    public int UnconfirmedUserLifetimeInDays { get; set; }
+    public required int UnconfirmedUserLifetimeInDays { get; init; }
 }

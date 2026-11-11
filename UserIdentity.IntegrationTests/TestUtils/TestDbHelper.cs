@@ -189,6 +189,36 @@ public sealed class TestDbHelper(
         return user;
     }
 
+    public string CreateUserOfApp(string appName)
+    {
+        var user = new IdentityUser
+        {
+            Id = Guid.CreateVersion7().ToString(),
+            UserName = "other.app.user",
+            NormalizedUserName = "OTHER.APP.USER",
+            Email = "other.app.user@example.com",
+            NormalizedEmail = "OTHER.APP.USER@EXAMPLE.COM",
+        };
+
+        _appDbContext.Users.Add(user);
+        _appDbContext.AppUser.Add(
+            new UserEntity
+            {
+                Id = user.Id,
+                FirstName = "Other",
+                CreatedBy = user.Id,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedBy = user.Id,
+                UpdatedAt = DateTime.UtcNow,
+            }
+        );
+        _appDbContext.SaveChanges();
+
+        CreateUserRegisteredApp(user.Id, appName);
+
+        return user.Id;
+    }
+
     public UserEntity? GetUserEntity(string userId) => _appDbContext.AppUser.FirstOrDefault(x => x.Id == userId);
 
     public void UpdateUserEntity(UserEntity user)
@@ -217,7 +247,6 @@ public sealed class TestDbHelper(
 
         var entity = new UserRegisteredAppEntity
         {
-            Id = $"{userId}-{app.Id}",
             UserId = userId,
             AppId = app.Id,
             CreatedBy = userId,
@@ -309,6 +338,8 @@ public sealed class TestDbHelper(
 
         return entity;
     }
+
+    public int CountPasswordResetEntities(string userId) => _appDbContext.PasswordReset.AsNoTracking().Count(x => x.UserId == userId);
 
     public PasswordResetEntity? GetPasswordResetEntityWithNoTracking(string userId)
     {

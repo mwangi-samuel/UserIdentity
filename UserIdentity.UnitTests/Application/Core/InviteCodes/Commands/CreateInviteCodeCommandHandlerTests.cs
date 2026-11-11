@@ -18,6 +18,8 @@ public class CreateInviteCodeCommandHandlerTests
     private readonly RoleManager<IdentityRole> _roleManager;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IInviteCodeRepository _inviteCodeRepository;
+    private static readonly DateTime _now = new(2026, 11, 11, 12, 0, 0, DateTimeKind.Utc);
+
     private readonly FakeTimeProvider _timeProvider;
 
     public CreateInviteCodeCommandHandlerTests()
@@ -25,7 +27,7 @@ public class CreateInviteCodeCommandHandlerTests
         _roleSettings = Options.Create(
             new RoleSettings
             {
-                ServiceName = "UserIdentity",
+                ServiceName = "useridentity",
                 AdminRoles = "admin,superuser",
                 DefaultRole = "user",
             }
@@ -35,7 +37,7 @@ public class CreateInviteCodeCommandHandlerTests
         _inviteCodeRepository = A.Fake<IInviteCodeRepository>();
         _timeProvider = new FakeTimeProvider();
 
-        _timeProvider.SetUtcNow(DateTime.UtcNow);
+        _timeProvider.SetUtcNow(_now);
     }
 
     [Fact]
@@ -69,8 +71,6 @@ public class CreateInviteCodeCommandHandlerTests
         var result = await handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken);
 
         // Assert
-        Assert.NotNull(result);
-        Assert.NotNull(result.InviteCode);
         Assert.Equal(expectedDto.InviteCode, result.InviteCode.InviteCode);
         Assert.Equal(expectedDto.UserEmail, result.InviteCode.UserEmail);
         Assert.Equal(expectedDto.AppId, result.InviteCode.AppId);
@@ -90,9 +90,6 @@ public class CreateInviteCodeCommandHandlerTests
     public async Task CreateItemAsync_Sets_Audit_Fields()
     {
         // Arrange
-        var now = DateTime.UtcNow;
-        _timeProvider.SetUtcNow(now);
-
         var command = new CreateInviteCodeCommand
         {
             InviteCode = "INVITE456",
@@ -121,8 +118,10 @@ public class CreateInviteCodeCommandHandlerTests
 
         // Assert
         Assert.NotNull(capturedEntity);
-        Assert.Equal(TestStringHelper.UserId, capturedEntity!.CreatedBy);
+        Assert.Equal(TestStringHelper.UserId, capturedEntity.CreatedBy);
+        Assert.Equal(_now, capturedEntity.CreatedAt);
         Assert.Equal(TestStringHelper.UserId, capturedEntity.UpdatedBy);
+        Assert.Equal(_now, capturedEntity.UpdatedAt);
     }
 
     [Theory]

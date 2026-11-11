@@ -21,12 +21,14 @@ public class LoginUserCommandHandlerTests
     private readonly UserManager<IdentityUser> _userManager = IdentityFakes.UserManager();
     private readonly IUnitOfWork _unitOfWork = A.Fake<IUnitOfWork>();
     private readonly IUserRepository _userRepository = A.Fake<IUserRepository>();
-    private readonly ICreateItemCommandHandler<StartSessionCommand, AccessTokenViewModel> _startSessionCommandHandler = A.Fake<
-        ICreateItemCommandHandler<StartSessionCommand, AccessTokenViewModel>
+    private readonly ICreateItemCommandHandler<StartSessionCommand, UserTokenViewModel> _startSessionCommandHandler = A.Fake<
+        ICreateItemCommandHandler<StartSessionCommand, UserTokenViewModel>
     >();
     private readonly ICreateItemCommandHandler<CreateLoginTicketCommand, LoginTicketViewModel> _createLoginTicketCommandHandler = A.Fake<
         ICreateItemCommandHandler<CreateLoginTicketCommand, LoginTicketViewModel>
     >();
+
+    private readonly IPasswordHasher<IdentityUser> _passwordHasher = A.Fake<IPasswordHasher<IdentityUser>>();
 
     private readonly ActiveRegisteredApp _registeredApp = new()
     {
@@ -36,8 +38,13 @@ public class LoginUserCommandHandlerTests
         BaseUrl = "https://app.test",
     };
 
+    public LoginUserCommandHandlerTests()
+    {
+        _userManager.PasswordHasher = _passwordHasher;
+    }
+
     [Fact]
-    public async Task Login_With_Non_Existent_User_In_UserManager_Throws_InvalidCredentialException()
+    public async Task Login_With_Non_Existent_User_In_UserManager_Throws_InvalidCredentialException_After_Hashing_The_Password()
     {
         // Arrange
         var command = GetCommand();
@@ -53,6 +60,8 @@ public class LoginUserCommandHandlerTests
         );
 
         Assert.DoesNotContain(command.UserName, exception.Message);
+        A.CallTo(() => _passwordHasher.VerifyHashedPassword(A<IdentityUser>._, A<string>.That.Not.IsNullOrEmpty(), command.Password))
+            .MustHaveHappenedOnceExactly();
     }
 
     [Fact]
@@ -65,6 +74,7 @@ public class LoginUserCommandHandlerTests
         A.CallTo(() => _userManager.FindByNameAsync(command.UserName)).Returns(default(IdentityUser));
         A.CallTo(() => _userManager.FindByEmailAsync(command.UserName)).Returns(existingIdentityUser);
         A.CallTo(() => _userManager.CheckPasswordAsync(existingIdentityUser, command.Password)).Returns(false);
+        A.CallTo(() => _userManager.AccessFailedAsync(existingIdentityUser)).Returns(IdentityResult.Success);
 
         var handler = GetLoginUserCommandHandler();
 
@@ -76,10 +86,66 @@ public class LoginUserCommandHandlerTests
         Assert.DoesNotContain(command.UserName, exception.Message);
         A.CallTo(() => _userManager.AccessFailedAsync(existingIdentityUser)).MustHaveHappenedOnceExactly();
         A.CallTo(() => _userManager.ResetAccessFailedCountAsync(A<IdentityUser>._)).MustNotHaveHappened();
+        A.CallTo(() => _userRepository.ClearTrackedEntities()).MustNotHaveHappened();
     }
 
     [Fact]
-    public async Task Login_With_Locked_Out_User_Throws_InvalidCredentialException_Without_Checking_Password()
+    public async Task Login_With_No_Matching_Password_When_Another_Failed_Login_Saved_First_Counts_The_Attempt_On_The_Reloaded_User()
+    {
+        // Arrange
+        var command = GetCommand();
+        var existingIdentityUser = GetIdentityUser();
+        var reloadedIdentityUser = GetIdentityUser();
+        reloadedIdentityUser.Id = existingIdentityUser.Id;
+
+        A.CallTo(() => _userManager.FindByNameAsync(command.UserName)).Returns(existingIdentityUser);
+        A.CallTo(() => _userManager.CheckPasswordAsync(existingIdentityUser, command.Password)).Returns(false);
+        A.CallTo(() => _userManager.AccessFailedAsync(existingIdentityUser))
+            .Returns(IdentityResult.Failed(new IdentityErrorDescriber().ConcurrencyFailure()));
+        A.CallTo(() => _userManager.FindByIdAsync(existingIdentityUser.Id)).Returns(reloadedIdentityUser);
+        A.CallTo(() => _userManager.AccessFailedAsync(reloadedIdentityUser)).Returns(IdentityResult.Success);
+
+        var handler = GetLoginUserCommandHandler();
+
+        // Act & Assert
+        await Assert.ThrowsAsync<InvalidCredentialException>(() =>
+            handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken)
+        );
+
+        A.CallTo(() => _userManager.AccessFailedAsync(existingIdentityUser))
+            .MustHaveHappenedOnceExactly()
+            .Then(A.CallTo(() => _userRepository.ClearTrackedEntities()).MustHaveHappenedOnceExactly())
+            .Then(A.CallTo(() => _userManager.FindByIdAsync(existingIdentityUser.Id)).MustHaveHappenedOnceExactly())
+            .Then(A.CallTo(() => _userManager.AccessFailedAsync(reloadedIdentityUser)).MustHaveHappenedOnceExactly());
+        AssertNothingIssued();
+    }
+
+    [Fact]
+    public async Task Login_With_No_Matching_Password_When_The_Failed_Attempt_Cant_Be_Counted_Throws_InvalidOperationException()
+    {
+        // Arrange
+        var command = GetCommand();
+        var existingIdentityUser = GetIdentityUser();
+
+        A.CallTo(() => _userManager.FindByNameAsync(command.UserName)).Returns(existingIdentityUser);
+        A.CallTo(() => _userManager.CheckPasswordAsync(existingIdentityUser, command.Password)).Returns(false);
+        A.CallTo(() => _userManager.AccessFailedAsync(existingIdentityUser))
+            .Returns(IdentityResult.Failed(new IdentityError { Code = "Other", Description = "nope" }));
+
+        var handler = GetLoginUserCommandHandler();
+
+        // Act & Assert
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken)
+        );
+
+        A.CallTo(() => _userManager.AccessFailedAsync(A<IdentityUser>._)).MustHaveHappenedOnceExactly();
+        A.CallTo(() => _userRepository.ClearTrackedEntities()).MustNotHaveHappened();
+        AssertNothingIssued();
+    }
+
+    [Fact]
+    public async Task Login_With_Locked_Out_User_Throws_InvalidCredentialException_After_Hashing_The_Password_Without_Checking_It()
     {
         // Arrange
         var command = GetCommand();
@@ -95,6 +161,8 @@ public class LoginUserCommandHandlerTests
             handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken)
         );
 
+        A.CallTo(() => _passwordHasher.VerifyHashedPassword(A<IdentityUser>._, A<string>.That.Not.IsNullOrEmpty(), command.Password))
+            .MustHaveHappenedOnceExactly();
         A.CallTo(() => _userManager.CheckPasswordAsync(A<IdentityUser>._, A<string>._)).MustNotHaveHappened();
         A.CallTo(() => _userManager.AccessFailedAsync(A<IdentityUser>._)).MustNotHaveHappened();
         AssertNothingIssued();
@@ -136,10 +204,13 @@ public class LoginUserCommandHandlerTests
             FirstName = "Test",
             UserName = existingIdentityUser.UserName,
         };
-        var session = new AccessTokenViewModel
+        var session = new UserTokenViewModel
         {
-            AccessToken = new AccessTokenDto { Token = "access-token", ExpiresIn = 180 },
-            RefreshToken = "refresh-token",
+            UserToken = new UserTokenDto
+            {
+                AccessToken = new AccessTokenDto { Token = "access-token", ExpiresIn = 180 },
+                RefreshToken = "refresh-token",
+            },
         };
 
         A.CallTo(() => _userManager.FindByNameAsync(command.UserName)).Returns(existingIdentityUser);
@@ -162,7 +233,7 @@ public class LoginUserCommandHandlerTests
         // Assert
         Assert.Same(userDto, vm.User);
         Assert.True(vm.IsConfirmed);
-        Assert.Same(session, vm.UserToken);
+        Assert.Same(session.UserToken, vm.UserToken);
         Assert.Null(vm.LoginTicket);
 
         A.CallTo(() => _userManager.ResetAccessFailedCountAsync(existingIdentityUser)).MustHaveHappenedOnceExactly();

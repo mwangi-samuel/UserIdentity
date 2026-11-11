@@ -8,8 +8,6 @@ namespace UserIdentity.Persistence.Repositories.WaitLists;
 
 public class WaitListRepository(AppDbContext dbContext) : EntityRepository<WaitListEntity, long>(dbContext), IWaitListRepository
 {
-    private readonly AppDbContext _dbContext = dbContext;
-
     public async Task<WaitListEntity?> GetEntityByAlternateIdAsync(
         WaitListEntity entity,
         QueryCondition queryCondition,
@@ -18,8 +16,8 @@ public class WaitListRepository(AppDbContext dbContext) : EntityRepository<WaitL
     {
         var userEmail = ObjectExtensions.RequireNonNullValue(entity.UserEmail, nameof(entity.UserEmail));
 
-        var existingEntity = await _dbContext
-            .WaitList.Include(e => e.App)
+        var existingEntity = await DbSet
+            .Include(e => e.App)
             .SingleOrDefaultAsync(e => e.AppId == entity.AppId && e.UserEmail == userEmail, cancellationToken);
 
         return queryCondition.Apply(existingEntity, userEmail);
@@ -27,7 +25,15 @@ public class WaitListRepository(AppDbContext dbContext) : EntityRepository<WaitL
 
     public async Task<WaitListDto> GetEntityDtoByIdAsync(long id, CancellationToken cancellationToken = default)
     {
-        return await _dbContext.WaitList.Where(e => e.Id == id).Select(WaitListDto.Detailed).SingleOrDefaultAsync(cancellationToken)
+        return await DbSet.Where(e => e.Id == id).Select(WaitListDto.Detailed).SingleOrDefaultAsync(cancellationToken)
             ?? throw NoRecordException.ForIdentifier($"{id}");
+    }
+
+    public async Task<WaitListDto?> GetEntityDtoByEmailAsync(int appId, string userEmail, CancellationToken cancellationToken = default)
+    {
+        return await DbSet
+            .Where(e => e.AppId == appId && e.UserEmail == userEmail)
+            .Select(WaitListDto.Detailed)
+            .SingleOrDefaultAsync(cancellationToken);
     }
 }

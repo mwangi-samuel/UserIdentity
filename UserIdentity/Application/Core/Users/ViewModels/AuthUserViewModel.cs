@@ -6,8 +6,8 @@ namespace UserIdentity.Application.Core.Users.ViewModels;
 
 public record AuthUserViewModel : ItemDetailBaseViewModel
 {
-    public UserDto User { get; init; } = null!;
+    public required UserDto User { get; init; }
     public bool IsConfirmed { get; init; }
-    public AccessTokenViewModel? UserToken { get; init; }
+    public UserTokenDto? UserToken { get; init; }
     public string? LoginTicket { get; init; }
 }

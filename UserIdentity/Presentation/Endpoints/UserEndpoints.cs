@@ -14,6 +14,7 @@ using UserIdentity.Application.Core.Users.Commands;
 using UserIdentity.Application.Core.Users.Queries;
 using UserIdentity.Application.Core.Users.ViewModels;
 using UserIdentity.Common.Enums;
+using UserIdentity.Presentation.Filters;
 
 namespace UserIdentity.Presentation.Endpoints;
 
@@ -23,34 +24,38 @@ public static class UserEndpoints
     {
         var group = endpoints.MapApiGroup("User").RequireAuthorization();
 
-        group.MapGet("{userId}", GetUser).RequireAuthorization(AuthorizationPolicies.AdminGlobalAdminOrSameUser).Produces<UserViewModel>();
         group
-            .MapPost("register", CreateUser)
+            .MapGet("{userId}", GetUserAsync)
+            .RequireAuthorization(AuthorizationPolicies.AdminGlobalAdminOrSameUser)
+            .Produces<UserViewModel>();
+        group
+            .MapPost("register", CreateUserAsync)
             .AllowAnonymous()
             .RequireRateLimiting(RateLimitSettings.ClientIpPolicy)
+            .AddEndpointFilter<GoogleRecaptchaFilter>()
             .AddEndpointFilter<PasswordHashingFilter>()
             .Produces<AuthUserViewModel>();
         group
-            .MapPost("register-for-service", CreateUserForService)
+            .MapPost("register-for-service", CreateUserForServiceAsync)
             .RequireAuthorization(new AuthorizeAttribute { Policy = AuthorizationPolicies.UserScope, Roles = KnownRoles.InternalService })
             .AddEndpointFilter<PasswordHashingFilter>()
             .Produces<AuthUserViewModel>();
         group
-            .MapPost("login", LoginUser)
+            .MapPost("login", LoginUserAsync)
             .AllowAnonymous()
             .RequireRateLimiting(RateLimitSettings.ClientIpPolicy)
             .AddEndpointFilter<PasswordHashingFilter>()
             .Produces<AuthUserViewModel>();
-        group.MapPost("refresh-token", RefreshToken).AllowAnonymous().Produces<ExchangeRefreshTokenViewModel>();
-        group.MapPost("login-ticket", ExchangeLoginTicket).AllowAnonymous().Produces<AuthUserViewModel>();
-        group.MapPost("logout", LogoutUser).Produces<DeleteRecordViewModel>();
+        group.MapPost("refresh-token", ExchangeRefreshTokenAsync).AllowAnonymous().Produces<ExchangeRefreshTokenViewModel>();
+        group.MapPost("login-ticket", ExchangeLoginTicketAsync).AllowAnonymous().Produces<AuthUserViewModel>();
+        group.MapPost("logout", LogoutUserAsync).Produces<DeleteRecordViewModel>();
         group
-            .MapPost("reset-password", ResetPassword)
+            .MapPost("reset-password", ResetPasswordAsync)
             .AllowAnonymous()
             .RequireRateLimiting(RateLimitSettings.ClientIpPolicy)
             .Produces<ResetPasswordViewModel>();
         group
-            .MapPost("update-password", UpdatePassword)
+            .MapPost("update-password", UpdatePasswordAsync)
             .AllowAnonymous()
             .RequireRateLimiting(RateLimitSettings.ClientIpPolicy)
             .AddEndpointFilter<PasswordHashingFilter>()
@@ -59,22 +64,19 @@ public static class UserEndpoints
         return group;
     }
 
-    internal static async Task<JsonHttpResult<UserViewModel>> GetUser(
+    internal static async Task<JsonHttpResult<UserViewModel>> GetUserAsync(
         string userId,
         ApiRequest request,
         IGetItemQueryHandler<GetUserQuery, UserViewModel> handler,
         CancellationToken cancellationToken
     )
     {
-        var vm = await handler.GetItemAsync(
-            new GetUserQuery { UserId = userId, AppName = request.IsGlobalAdmin ? null : request.AuthorizedParty },
-            cancellationToken
-        );
+        var vm = await handler.GetItemAsync(new GetUserQuery { UserId = userId, AppName = AdminApp.GetName(request) }, cancellationToken);
 
         return ViewModelResults.GetItem(request, vm, vm.User.OwnedByLoggedInUser(request.LoggedInUserId));
     }
 
-    internal static async Task<JsonHttpResult<AuthUserViewModel>> CreateUser(
+    internal static async Task<JsonHttpResult<AuthUserViewModel>> CreateUserAsync(
         RegisterUserCommand command,
         ApiRequest request,
         IRegisteredAppResolver registeredAppResolver,
@@ -89,7 +91,7 @@ public static class UserEndpoints
         return ViewModelResults.CreateItem(request, vm, true);
     }
 
-    internal static async Task<JsonHttpResult<AuthUserViewModel>> CreateUserForService(
+    internal static async Task<JsonHttpResult<AuthUserViewModel>> CreateUserForServiceAsync(
         RegisterUserCommand command,
         ApiRequest request,
         IRegisteredAppResolver registeredAppResolver,
@@ -105,7 +107,7 @@ public static class UserEndpoints
         return ViewModelResults.CreateItem(request, vm, true);
     }
 
-    internal static async Task<JsonHttpResult<AuthUserViewModel>> LoginUser(
+    internal static async Task<JsonHttpResult<AuthUserViewModel>> LoginUserAsync(
         LoginUserCommand command,
         ApiRequest request,
         IRegisteredAppResolver registeredAppResolver,
@@ -117,18 +119,10 @@ public static class UserEndpoints
 
         var vm = await handler.CreateItemAsync(command, request.LoggedInUserId, cancellationToken);
 
-        vm.ResolveEditDeleteRights(request.UserScopeClaims, request.ScopeResource, true);
-
-        return ViewModelResults.Status(
-            vm,
-            StatusCodes.Status200OK,
-            RequestStatus.Successful,
-            ItemStatusMessage.FetchItemSuccessful,
-            "Login successful"
-        );
+        return ViewModelResults.GetItem(request, vm, true, "Login successful");
     }
 
-    internal static async Task<JsonHttpResult<AuthUserViewModel>> ExchangeLoginTicket(
+    internal static async Task<JsonHttpResult<AuthUserViewModel>> ExchangeLoginTicketAsync(
         ExchangeLoginTicketCommand command,
         ApiRequest request,
         IRegisteredAppResolver registeredAppResolver,
@@ -140,18 +134,10 @@ public static class UserEndpoints
 
         var vm = await handler.CreateItemAsync(command, request.LoggedInUserId, cancellationToken);
 
-        vm.ResolveEditDeleteRights(request.UserScopeClaims, request.ScopeResource, true);
-
-        return ViewModelResults.Status(
-            vm,
-            StatusCodes.Status200OK,
-            RequestStatus.Successful,
-            ItemStatusMessage.FetchItemSuccessful,
-            "Login successful"
-        );
+        return ViewModelResults.GetItem(request, vm, true, "Login successful");
     }
 
-    internal static async Task<JsonHttpResult<ExchangeRefreshTokenViewModel>> RefreshToken(
+    internal static async Task<JsonHttpResult<ExchangeRefreshTokenViewModel>> ExchangeRefreshTokenAsync(
         ExchangeRefreshTokenCommand command,
         ApiRequest request,
         IUpdateItemCommandHandler<ExchangeRefreshTokenCommand, ExchangeRefreshTokenViewModel> handler,
@@ -171,7 +157,7 @@ public static class UserEndpoints
         );
     }
 
-    internal static async Task<JsonHttpResult<DeleteRecordViewModel>> LogoutUser(
+    internal static async Task<JsonHttpResult<DeleteRecordViewModel>> LogoutUserAsync(
         LogoutUserCommand command,
         ApiRequest request,
         IDeleteItemCommandHandler<LogoutUserCommand, DeleteRecordViewModel> handler,
@@ -189,7 +175,7 @@ public static class UserEndpoints
         );
     }
 
-    internal static async Task<JsonHttpResult<ResetPasswordViewModel>> ResetPassword(
+    internal static async Task<JsonHttpResult<ResetPasswordViewModel>> ResetPasswordAsync(
         ResetPasswordCommand command,
         ApiRequest request,
         IRegisteredAppResolver registeredAppResolver,
@@ -210,7 +196,7 @@ public static class UserEndpoints
         );
     }
 
-    internal static async Task<JsonHttpResult<UpdatePasswordViewModel>> UpdatePassword(
+    internal static async Task<JsonHttpResult<UpdatePasswordViewModel>> UpdatePasswordAsync(
         UpdatePasswordCommand command,
         ApiRequest request,
         IUpdateItemCommandHandler<UpdatePasswordCommand, UpdatePasswordViewModel> handler,
@@ -219,7 +205,7 @@ public static class UserEndpoints
     {
         var vm = await handler.UpdateItemAsync(command, request.LoggedInUserId, cancellationToken);
 
-        return vm.UpdatePasswordResult.PassWordUpdated
+        return vm.UpdatePasswordResult.PasswordUpdated
             ? ViewModelResults.Status(
                 vm,
                 StatusCodes.Status200OK,

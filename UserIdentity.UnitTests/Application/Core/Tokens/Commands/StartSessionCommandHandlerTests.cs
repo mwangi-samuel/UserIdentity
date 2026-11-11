@@ -65,9 +65,9 @@ public class StartSessionCommandHandlerTests
         );
 
         // Assert
-        Assert.Equal("access-token", session.AccessToken?.Token);
-        Assert.Equal(180, session.AccessToken?.ExpiresIn);
-        Assert.Equal("refresh-token", session.RefreshToken);
+        Assert.Equal("access-token", session.UserToken.AccessToken.Token);
+        Assert.Equal(180, session.UserToken.AccessToken.ExpiresIn);
+        Assert.Equal("refresh-token", session.UserToken.RefreshToken);
 
         Assert.NotNull(stored);
         Assert.Equal("user-id", stored.UserId);

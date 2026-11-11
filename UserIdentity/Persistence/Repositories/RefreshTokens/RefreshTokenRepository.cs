@@ -1,5 +1,4 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using PolyzenKit.Common.Extensions;
 using PolyzenKit.Persistence.Repositories;
 using UserIdentity.Domain.RefreshTokens;
 
@@ -17,15 +16,33 @@ public class RefreshTokenRepository(AppDbContext appDbContext)
         CancellationToken cancellationToken = default
     )
     {
-        var userId = ObjectExtensions.RequireNonNullValue(entity.UserId, nameof(entity.UserId));
-        var token = ObjectExtensions.RequireNonNullValue(entity.Token, nameof(entity.Token));
-
         var existingEntity = await _appDbContext.RefreshToken.SingleOrDefaultAsync(
-            e => e.UserId == userId && e.Token == token,
+            e => e.UserId == entity.UserId && e.Token == entity.Token,
             cancellationToken
         );
 
-        return queryCondition.Apply(existingEntity, userId);
+        return queryCondition.Apply(existingEntity, entity.UserId);
+    }
+
+    public async Task<(RefreshTokenEntity Entity, bool IsUserRegisteredForApp)?> GetEntityForAppAsync(
+        string userId,
+        string token,
+        string appName,
+        CancellationToken cancellationToken = default
+    )
+    {
+        var result = await _appDbContext
+            .RefreshToken.Where(e => e.UserId == userId && e.Token == token)
+            .Select(e => new
+            {
+                Entity = e,
+                IsUserRegisteredForApp = _appDbContext.UserRegisteredApp.Any(registration =>
+                    registration.UserId == e.UserId && registration.App.AppName == appName && !registration.App.IsDeleted
+                ),
+            })
+            .SingleOrDefaultAsync(cancellationToken);
+
+        return result is null ? null : (result.Entity, result.IsUserRegisteredForApp);
     }
 
     public async Task<RefreshTokenEntity?> GetEntityByPreviousTokenAsync(
@@ -53,6 +70,6 @@ public class RefreshTokenRepository(AppDbContext appDbContext)
             .ExecuteDeleteAsync(cancellationToken);
     }
 
-    public async Task RemoveEntityItemsAsync(string userId, CancellationToken cancellationToken = default) =>
+    public async Task DeleteEntityItemsAsync(string userId, CancellationToken cancellationToken = default) =>
         await _appDbContext.RefreshToken.Where(e => e.UserId == userId).ExecuteDeleteAsync(cancellationToken);
 }

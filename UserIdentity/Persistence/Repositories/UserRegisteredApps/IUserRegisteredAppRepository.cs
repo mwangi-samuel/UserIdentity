@@ -3,7 +3,7 @@ using UserIdentity.Domain.UserRegisteredApps;
 
 namespace UserIdentity.Persistence.Repositories.UserRegisteredApps;
 
-public interface IUserRegisteredAppRepository : IEntityRepository<UserRegisteredAppEntity, string>
+public interface IUserRegisteredAppRepository : IEntityRepository<UserRegisteredAppEntity, Guid>
 {
     Task<bool> IsUserRegisteredForAppAsync(string userId, string appName, CancellationToken cancellationToken = default);
 }

@@ -7,8 +7,9 @@ using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Newtonsoft.Json.Linq;
 using PolyzenKit.Presentation.Settings;
-using UserIdentity.Application.Core.Users.Shared;
+using UserIdentity.Application.Interfaces;
 using UserIdentity.IntegrationTests.TestUtils;
+using UserIdentity.Presentation.Filters;
 using Xunit;
 
 namespace UserIdentity.IntegrationTests.Presentation.Endpoints;
@@ -17,6 +18,7 @@ public class PasswordHashingFilterTests(TestingWebAppFactory testingWebAppFactor
     : BaseIntegrationTests(testingWebAppFactory, outputHelper)
 {
     private const string LoginUri = "/api/v1/user/login";
+    private const string RegisterUri = "/api/v1/user/register";
     private const string ClientAddressHeader = "X-Test-Client-Address";
     private const string FirstClientAddress = "203.0.113.1";
     private const string SecondClientAddress = "203.0.113.2";
@@ -95,6 +97,47 @@ public class PasswordHashingFilterTests(TestingWebAppFactory testingWebAppFactor
         Assert.Equal(HttpStatusCode.OK, (await queuedLogin).StatusCode);
     }
 
+    [Fact]
+    public async Task Sign_Up_Waiting_On_Recaptcha_Holds_No_Hashing_Permit()
+    {
+        // Arrange
+        TestDbHelper.SeedDatabase();
+
+        var recaptchaService = new BlockingGoogleRecaptchaService();
+
+        await using var factory = _testingWebAppFactory.WithWebHostBuilder(builder =>
+        {
+            builder.UseSetting($"{nameof(PasswordHashingSettings)}:{nameof(PasswordHashingSettings.MaxConcurrent)}", "1");
+            builder.UseSetting($"{nameof(PasswordHashingSettings)}:{nameof(PasswordHashingSettings.QueueLimit)}", "0");
+            builder.ConfigureTestServices(services => services.AddSingleton<IGoogleRecaptchaService>(recaptchaService));
+        });
+        using var httpClient = factory.CreateClient();
+
+        var signUp = httpClient.SendNoAuthRequestAsync(
+            HttpMethod.Post,
+            RegisterUri,
+            new
+            {
+                UserSettingHelper.FirstName,
+                UserName = "waiting.user",
+                UserEmail = "waiting.user@example.com",
+                UserSettingHelper.UserPassword,
+                GoogleRecaptchaToken = "recaptcha-token",
+            }
+        );
+
+        await recaptchaService.Entered.Task.WaitAsync(_waitLimit, TestContext.Current.CancellationToken);
+
+        // Act
+        var login = await LogInAsync(httpClient, FirstClientAddress);
+
+        recaptchaService.Release();
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, login.StatusCode);
+        Assert.Equal(HttpStatusCode.Created, (await signUp).StatusCode);
+    }
+
     private WebApplicationFactory<Program> CreateFactory(int queueLimit, int? permitLimit = null) =>
         _testingWebAppFactory.WithWebHostBuilder(builder =>
         {
@@ -144,6 +187,23 @@ public class PasswordHashingFilterTests(TestingWebAppFactory testingWebAppFactor
             _released.Task.Wait(_waitLimit);
 
             return _passwordHasher.VerifyHashedPassword(user, hashedPassword, providedPassword);
+        }
+    }
+
+    private sealed class BlockingGoogleRecaptchaService : IGoogleRecaptchaService
+    {
+        private readonly TaskCompletionSource _released = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public TaskCompletionSource Entered { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public void Release() => _released.TrySetResult();
+
+        public async Task<bool> VerifyTokenAsync(string? token, CancellationToken cancellationToken = default)
+        {
+            Entered.TrySetResult();
+            await _released.Task.WaitAsync(_waitLimit, cancellationToken);
+
+            return true;
         }
     }
 

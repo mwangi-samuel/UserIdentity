@@ -1,6 +1,7 @@
 using FakeItEasy;
 using Microsoft.Extensions.Time.Testing;
 using UserIdentity.Application.Core.Tokens.Commands;
+using UserIdentity.Application.Core.Users.Shared;
 using UserIdentity.Persistence.Repositories.LoginTickets;
 using Xunit;
 
@@ -17,14 +18,8 @@ public class DeleteExpiredLoginTicketsCommandHandlerTests
         var timeProvider = new FakeTimeProvider();
         timeProvider.SetUtcNow(now);
 
-        A.CallTo(() =>
-                repository.DeleteEntityItemsExpiredBeforeAsync(
-                    now,
-                    DeleteExpiredLoginTicketsCommandHandler.BatchSize,
-                    A<CancellationToken>._
-                )
-            )
-            .ReturnsNextFromSequence(DeleteExpiredLoginTicketsCommandHandler.BatchSize, 3);
+        A.CallTo(() => repository.DeleteEntityItemsExpiredBeforeAsync(now, CleanupBatch.Size, A<CancellationToken>._))
+            .ReturnsNextFromSequence(CleanupBatch.Size, 3);
 
         var handler = new DeleteExpiredLoginTicketsCommandHandler(repository, timeProvider);
 
@@ -32,13 +27,7 @@ public class DeleteExpiredLoginTicketsCommandHandlerTests
         await handler.DeleteItemAsync(new DeleteExpiredLoginTicketsCommand(), "system", TestContext.Current.CancellationToken);
 
         // Assert
-        A.CallTo(() =>
-                repository.DeleteEntityItemsExpiredBeforeAsync(
-                    now,
-                    DeleteExpiredLoginTicketsCommandHandler.BatchSize,
-                    A<CancellationToken>._
-                )
-            )
+        A.CallTo(() => repository.DeleteEntityItemsExpiredBeforeAsync(now, CleanupBatch.Size, A<CancellationToken>._))
             .MustHaveHappened(2, Times.Exactly);
     }
 }

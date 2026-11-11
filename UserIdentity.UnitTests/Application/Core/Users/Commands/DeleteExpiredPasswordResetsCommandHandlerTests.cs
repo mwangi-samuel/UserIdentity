@@ -1,6 +1,7 @@
 ﻿using FakeItEasy;
 using Microsoft.Extensions.Time.Testing;
 using UserIdentity.Application.Core.Users.Commands;
+using UserIdentity.Application.Core.Users.Shared;
 using UserIdentity.Persistence.Repositories.PasswordResets;
 using Xunit;
 
@@ -18,14 +19,8 @@ public class DeleteExpiredPasswordResetsCommandHandlerTests
         var timeProvider = new FakeTimeProvider();
         timeProvider.SetUtcNow(now);
 
-        A.CallTo(() =>
-                repository.DeleteEntityItemsExpiredBeforeAsync(
-                    expiredBefore,
-                    DeleteExpiredPasswordResetsCommandHandler.BatchSize,
-                    A<CancellationToken>._
-                )
-            )
-            .ReturnsNextFromSequence(DeleteExpiredPasswordResetsCommandHandler.BatchSize, 0);
+        A.CallTo(() => repository.DeleteEntityItemsExpiredBeforeAsync(expiredBefore, CleanupBatch.Size, A<CancellationToken>._))
+            .ReturnsNextFromSequence(CleanupBatch.Size, 0);
 
         var handler = new DeleteExpiredPasswordResetsCommandHandler(repository, timeProvider);
 
@@ -33,13 +28,7 @@ public class DeleteExpiredPasswordResetsCommandHandlerTests
         await handler.DeleteItemAsync(new DeleteExpiredPasswordResetsCommand(), "system", TestContext.Current.CancellationToken);
 
         // Assert
-        A.CallTo(() =>
-                repository.DeleteEntityItemsExpiredBeforeAsync(
-                    expiredBefore,
-                    DeleteExpiredPasswordResetsCommandHandler.BatchSize,
-                    A<CancellationToken>._
-                )
-            )
+        A.CallTo(() => repository.DeleteEntityItemsExpiredBeforeAsync(expiredBefore, CleanupBatch.Size, A<CancellationToken>._))
             .MustHaveHappenedTwiceExactly();
     }
 }

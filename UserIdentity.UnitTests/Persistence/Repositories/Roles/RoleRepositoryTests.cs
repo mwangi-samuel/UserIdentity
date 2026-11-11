@@ -38,31 +38,17 @@ public class RoleRepositoryTests
     }
 
     [Fact]
-    public async Task GetUserRoleNamesAsync_Returns_Only_The_Users_Roles()
+    public async Task GetUserRoleScopesAsync_Returns_Each_Of_The_Users_Roles_With_Its_Scopes()
     {
         // Arrange
         var context = AppDbContextTestFactory.GetAppDbContext();
-        var roles = AddRoles(context, "testapp:user", "testapp:owner", "otherapp:user");
+        var roles = AddRoles(context, "testapp:user", "testapp:owner", "otherapp:user", "testapp:viewer");
         context.UserRoles.AddRange(
             new IdentityUserRole<string> { UserId = "user-id", RoleId = roles[1].Id },
             new IdentityUserRole<string> { UserId = "user-id", RoleId = roles[0].Id },
+            new IdentityUserRole<string> { UserId = "user-id", RoleId = roles[3].Id },
             new IdentityUserRole<string> { UserId = "other-user-id", RoleId = roles[2].Id }
         );
-        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
-
-        // Act
-        var roleNames = await new RoleRepository(context).GetUserRoleNamesAsync("user-id", TestContext.Current.CancellationToken);
-
-        // Assert
-        Assert.Equal(["testapp:owner", "testapp:user"], roleNames);
-    }
-
-    [Fact]
-    public async Task GetScopesAsync_Returns_The_Distinct_Scopes_Of_The_Named_Roles()
-    {
-        // Arrange
-        var context = AppDbContextTestFactory.GetAppDbContext();
-        var roles = AddRoles(context, "testapp:user", "testapp:owner", "otherapp:user");
         context.RoleClaims.AddRange(
             new IdentityRoleClaim<string>
             {
@@ -92,26 +78,26 @@ public class RoleRepositoryTests
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
         // Act
-        var scopes = await new RoleRepository(context).GetScopesAsync(
-            ["TestApp:User", "testapp:owner"],
-            TestContext.Current.CancellationToken
-        );
+        var roleScopes = await new RoleRepository(context).GetUserRoleScopesAsync("user-id", TestContext.Current.CancellationToken);
 
         // Assert
-        Assert.Equal(["catalog-product:all", "useridentity-user:read"], scopes.Order());
+        Assert.Equal(["testapp:owner", "testapp:user", "testapp:viewer"], roleScopes.Keys.Order());
+        Assert.Equal(["catalog-product:all", "useridentity-user:read"], roleScopes["testapp:owner"].Order());
+        Assert.Equal(["useridentity-user:read"], roleScopes["testapp:user"]);
+        Assert.Empty(roleScopes["testapp:viewer"]);
     }
 
     [Fact]
-    public async Task GetScopesAsync_Without_Roles_Returns_No_Scopes()
+    public async Task GetUserRoleScopesAsync_For_A_User_Without_Roles_Returns_No_Roles()
     {
         // Arrange
         var context = AppDbContextTestFactory.GetAppDbContext();
 
         // Act
-        var scopes = await new RoleRepository(context).GetScopesAsync([], TestContext.Current.CancellationToken);
+        var roleScopes = await new RoleRepository(context).GetUserRoleScopesAsync("user-id", TestContext.Current.CancellationToken);
 
         // Assert
-        Assert.Empty(scopes);
+        Assert.Empty(roleScopes);
     }
 
     private static IdentityRole[] AddRoles(AppDbContext context, params string[] names)

@@ -8,7 +8,6 @@ using PolyzenKit.Application.Core.Interfaces;
 using PolyzenKit.Application.Core.Messages.Commands;
 using PolyzenKit.Application.Core.Messages.ViewModels;
 using PolyzenKit.Application.Core.RegisteredApps.Shared;
-using PolyzenKit.Common.Enums;
 using PolyzenKit.Common.Exceptions;
 using PolyzenKit.Common.Settings;
 using PolyzenKit.Domain.Dtos;
@@ -19,7 +18,6 @@ using UserIdentity.Application.Core.Tokens.Commands;
 using UserIdentity.Application.Core.Tokens.ViewModels;
 using UserIdentity.Application.Core.Users.Shared;
 using UserIdentity.Application.Core.Users.ViewModels;
-using UserIdentity.Application.Interfaces;
 using UserIdentity.Common.Enums;
 using UserIdentity.Common.Errors;
 using UserIdentity.Common.Validation;
@@ -38,10 +36,7 @@ public record RegisterUserCommand : IBaseCommand, IValidatableObject
     public RequestSource RequestSource { get; internal set; } = RequestSource.UI;
 
     [JsonIgnore]
-    public ActiveRegisteredApp? RegisteredApp { get; internal set; }
-
-    [JsonIgnore]
-    public CrudEvent Event { get; internal set; } = CrudEvent.Create;
+    public ActiveRegisteredApp RegisteredApp { get; internal set; } = null!;
 
     [Required, StringLength(UserLimits.FirstNameMaxLength)]
     public string FirstName { get; init; } = null!;
@@ -61,9 +56,10 @@ public record RegisterUserCommand : IBaseCommand, IValidatableObject
     [Required]
     public string UserPassword { get; init; } = null!;
 
-    public string? GoogleRecaptchaToken { get; set; }
+    public string? GoogleRecaptchaToken { get; init; }
 
-    public string? InviteCode { get; set; }
+    [StringLength(InviteCodeLimits.InviteCodeMaxLength)]
+    public string? InviteCode { get; init; }
 
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {
@@ -87,9 +83,8 @@ public class RegisterUserCommandHandler(
     IInviteCodeRepository inviteCodeRepository,
     TimeProvider timeProvider,
     ICreateItemCommandHandler<CreateOutboxMessageCommand, OutboxMessageViewModel> createOutboxMessageCommandHandler,
-    ICreateItemCommandHandler<StartSessionCommand, AccessTokenViewModel> startSessionCommandHandler,
-    ICreateItemCommandHandler<CreateLoginTicketCommand, LoginTicketViewModel> createLoginTicketCommandHandler,
-    IGoogleRecaptchaService googleRecaptchaService
+    ICreateItemCommandHandler<StartSessionCommand, UserTokenViewModel> startSessionCommandHandler,
+    ICreateItemCommandHandler<CreateLoginTicketCommand, LoginTicketViewModel> createLoginTicketCommandHandler
 ) : ICreateItemCommandHandler<RegisterUserCommand, AuthUserViewModel>
 {
     private readonly RoleSettings _roleSettings = roleSettingsOptions.Value;
@@ -107,13 +102,11 @@ public class RegisterUserCommandHandler(
     private readonly ICreateItemCommandHandler<CreateOutboxMessageCommand, OutboxMessageViewModel> _createOutboxMessageCommandHandler =
         createOutboxMessageCommandHandler;
 
-    private readonly ICreateItemCommandHandler<StartSessionCommand, AccessTokenViewModel> _startSessionCommandHandler =
+    private readonly ICreateItemCommandHandler<StartSessionCommand, UserTokenViewModel> _startSessionCommandHandler =
         startSessionCommandHandler;
 
     private readonly ICreateItemCommandHandler<CreateLoginTicketCommand, LoginTicketViewModel> _createLoginTicketCommandHandler =
         createLoginTicketCommandHandler;
-
-    private readonly IGoogleRecaptchaService _googleRecaptchaService = googleRecaptchaService;
 
     public async Task<AuthUserViewModel> CreateItemAsync(
         RegisterUserCommand command,
@@ -121,14 +114,7 @@ public class RegisterUserCommandHandler(
         CancellationToken cancellationToken = default
     )
     {
-        // Confirm Google Recaptcha Token is valid before processing
-        if (
-            command.RequestSource == RequestSource.UI
-            && !await _googleRecaptchaService.VerifyTokenAsync(command.GoogleRecaptchaToken, cancellationToken)
-        )
-            throw new InvalidDataException(ErrorMessages.Users.InvalidRecaptchaToken);
-
-        var registeredAppName = command.RegisteredApp!.AppName;
+        var registeredAppName = command.RegisteredApp.AppName;
 
         // A blank email would be stored as an empty string, and the unique index allows only one of those
         var userEmail = string.IsNullOrWhiteSpace(command.UserEmail) ? null : command.UserEmail;
@@ -139,59 +125,59 @@ public class RegisterUserCommandHandler(
         // Start DB Transaction
         await _unitOfWork.BeginTransactionAsync(cancellationToken);
 
-        // Check if invite code is required for current app
-        var inviteCodeRequired = command.RegisteredApp?.RequireInviteCode ?? false;
-        var hasInviteCode = !string.IsNullOrWhiteSpace(command.InviteCode);
-
-        InviteCodeEntity? inviteCodeEntity = null;
-
-        if (inviteCodeRequired || hasInviteCode)
-        {
-            if (userEmail == null)
-                throw new InvalidDataException(ErrorMessages.Users.EmailRequiredForInviteCode);
-
-            if (!hasInviteCode)
-                throw new InvalidDataException(ErrorMessages.Users.InviteCodeRequired);
-
-            inviteCodeEntity = await _inviteCodeRepository.GetEntityByAlternateIdAsync(
-                new() { AppId = command.RegisteredApp!.Id, UserEmail = userEmail },
-                QueryCondition.MayOrMayNotExist,
-                cancellationToken
-            );
-
-            // A missing, wrong or used code gets the same answer, so sign-up never says whether an email has an invite
-            if (
-                inviteCodeEntity is null
-                || inviteCodeEntity.Applied
-                || !string.Equals(command.InviteCode, inviteCodeEntity.InviteCode, StringComparison.OrdinalIgnoreCase)
-            )
-                throw new InvalidDataException(ErrorMessages.Users.InviteCodeRequired);
-        }
-
-        //  Check if default role is created otherwise create
-        if (await _roleManager.FindByNameAsync(userDefaultRole) == null)
-            if (!(await _roleManager.CreateAsync(new IdentityRole { Name = userDefaultRole })).Succeeded)
-                throw new RecordCreationException($"Role {userDefaultRole} wasn't created");
-
-        // Check if user exists by user name, throw RecordExistsException
-        if (await _userManager.FindByNameAsync(command.UserName) != null)
-            throw RecordExistsException.ForIdentifier(command.UserName);
-
-        // Check if user exists by user email, throw RecordExistsException
-        if (userEmail != null && await _userManager.FindByEmailAsync(userEmail) != null)
-            throw RecordExistsException.ForIdentifier(userEmail);
-
-        var newUser = new IdentityUser
-        {
-            Email = userEmail,
-            UserName = command.UserName,
-            PhoneNumber = phoneNumber,
-            PhoneNumberConfirmed = false,
-            EmailConfirmed = false,
-        };
-
         try
         {
+            // Check if invite code is required for current app
+            var inviteCodeRequired = command.RegisteredApp.RequireInviteCode;
+            var hasInviteCode = !string.IsNullOrWhiteSpace(command.InviteCode);
+
+            InviteCodeEntity? inviteCodeEntity = null;
+
+            if (inviteCodeRequired || hasInviteCode)
+            {
+                if (userEmail == null)
+                    throw new InvalidDataException(ErrorMessages.Users.EmailRequiredForInviteCode);
+
+                if (!hasInviteCode)
+                    throw new InvalidDataException(ErrorMessages.Users.InviteCodeRequired);
+
+                inviteCodeEntity = await _inviteCodeRepository.GetEntityByAlternateIdAsync(
+                    new() { AppId = command.RegisteredApp.Id, UserEmail = userEmail },
+                    QueryCondition.MayOrMayNotExist,
+                    cancellationToken
+                );
+
+                // A missing, wrong or used code gets the same answer, so sign-up never says whether an email has an invite
+                if (
+                    inviteCodeEntity is null
+                    || inviteCodeEntity.Applied
+                    || !string.Equals(command.InviteCode, inviteCodeEntity.InviteCode, StringComparison.OrdinalIgnoreCase)
+                )
+                    throw new InvalidDataException(ErrorMessages.Users.InviteCodeRequired);
+            }
+
+            //  Check if default role is created otherwise create
+            if (await _roleManager.FindByNameAsync(userDefaultRole) == null)
+                if (!(await _roleManager.CreateAsync(new IdentityRole { Name = userDefaultRole })).Succeeded)
+                    throw new RecordCreationException($"Role {userDefaultRole} wasn't created");
+
+            // Check if user exists by user name, throw RecordExistsException
+            if (await _userManager.FindByNameAsync(command.UserName) != null)
+                throw RecordExistsException.ForIdentifier(command.UserName);
+
+            // Check if user exists by user email, throw RecordExistsException
+            if (userEmail != null && await _userManager.FindByEmailAsync(userEmail) != null)
+                throw RecordExistsException.ForIdentifier(userEmail);
+
+            var newUser = new IdentityUser
+            {
+                Email = userEmail,
+                UserName = command.UserName,
+                PhoneNumber = phoneNumber,
+                PhoneNumberConfirmed = false,
+                EmailConfirmed = false,
+            };
+
             var identityResult = await _userManager.CreateAsync(newUser, command.UserPassword);
 
             if (!identityResult.Succeeded)
@@ -200,11 +186,7 @@ public class RegisterUserCommandHandler(
                 throw new InvalidDataException(errors);
             }
 
-            // User vs Default Role
-            var resultUserRole = await _userManager.AddToRoleAsync(newUser, userDefaultRole);
-
-            if (!resultUserRole.Succeeded)
-                throw new RecordCreationException($"Role {userDefaultRole} wasn't added to user {newUser.Id}");
+            List<string> roleNames = [userDefaultRole];
 
             if (inviteCodeEntity?.Role is { } inviteRole && !string.Equals(inviteRole, userDefaultRole, StringComparison.OrdinalIgnoreCase))
             {
@@ -212,9 +194,11 @@ public class RegisterUserCommandHandler(
                     await _roleManager.FindByNameAsync(inviteRole)
                     ?? throw new InvalidDataException(ErrorMessages.Users.InviteRoleMissing(inviteRole));
 
-                if (!(await _userManager.AddToRoleAsync(newUser, role.Name!)).Succeeded)
-                    throw new RecordCreationException($"Role {role.Name} wasn't added to user {newUser.Id}");
+                roleNames.Add(role.Name!);
             }
+
+            if (!(await _userManager.AddToRolesAsync(newUser, roleNames)).Succeeded)
+                throw new RecordCreationException($"Roles {string.Join(", ", roleNames)} weren't added to user {newUser.Id}");
 
             // Create user details
             var userDetails = new UserEntity
@@ -222,7 +206,6 @@ public class RegisterUserCommandHandler(
                 Id = newUser.Id,
                 FirstName = command.FirstName,
                 LastName = command.LastName,
-                IsDeleted = false,
             };
 
             userDetails.SetEntityAuditFields(newUser.Id, _timeProvider.GetUtcNow().UtcDateTime);
@@ -239,12 +222,7 @@ public class RegisterUserCommandHandler(
             }
 
             // Create User Registered App Mapping
-            var userRegisteredApp = new UserRegisteredAppEntity
-            {
-                Id = $"{newUser.Id}-{command.RegisteredApp!.Id}",
-                UserId = newUser.Id,
-                AppId = command.RegisteredApp!.Id,
-            };
+            var userRegisteredApp = new UserRegisteredAppEntity { UserId = newUser.Id, AppId = command.RegisteredApp.Id };
 
             userRegisteredApp.SetEntityAuditFields(newUser.Id, _timeProvider.GetUtcNow().UtcDateTime);
 
@@ -252,7 +230,7 @@ public class RegisterUserCommandHandler(
 
             var isConfirmed = AccountConfirmation.IsConfirmed(_identityOptions, newUser);
 
-            var userToken = isConfirmed
+            var session = isConfirmed
                 ? await _startSessionCommandHandler.CreateItemAsync(
                     new StartSessionCommand(newUser.Id, command.UserName, registeredAppName),
                     newUser.Id,
@@ -304,7 +282,7 @@ public class RegisterUserCommandHandler(
             {
                 User = userDto,
                 IsConfirmed = isConfirmed,
-                UserToken = userToken,
+                UserToken = session?.UserToken,
                 LoginTicket = loginTicket?.Ticket,
             };
         }

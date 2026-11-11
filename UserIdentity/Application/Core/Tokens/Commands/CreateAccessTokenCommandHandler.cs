@@ -27,12 +27,9 @@ public class CreateAccessTokenCommandHandler(
         CancellationToken cancellationToken = default
     )
     {
-        var roles = AppRoleNames.ForApp(
-            await _roleRepository.GetUserRoleNamesAsync(command.UserId, cancellationToken),
-            command.AppName,
-            _roleSettings.GlobalAdminRole
-        );
-        var scopes = await _roleRepository.GetScopesAsync(roles, cancellationToken);
+        var roleScopes = await _roleRepository.GetUserRoleScopesAsync(command.UserId, cancellationToken);
+        var roles = AppRoleNames.ForApp(roleScopes.Keys, command.AppName, _roleSettings.GlobalAdminRole);
+        HashSet<string> scopes = [.. roles.SelectMany(role => roleScopes[role])];
 
         (var token, var expiresIn) = _jwtTokenHandler.CreateToken(command.UserId, command.UserName, command.AppName, [.. roles], scopes);
 

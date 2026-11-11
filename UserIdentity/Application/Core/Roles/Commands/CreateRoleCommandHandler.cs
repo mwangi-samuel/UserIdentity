@@ -1,5 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
-using System.Text.Json.Serialization;
+﻿using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Identity;
 using PolyzenKit.Application.Core;
 using PolyzenKit.Application.Core.Interfaces;
@@ -12,11 +11,8 @@ using UserIdentity.Domain.Roles;
 
 namespace UserIdentity.Application.Core.Roles.Commands;
 
-public record CreateRoleCommand : IBaseCommand
+public record CreateRoleCommand : RoleInput, IBaseCommand
 {
-    [Required, StringLength(RoleLimits.NameMaxLength)]
-    public string RoleName { get; init; } = null!;
-
     [JsonIgnore]
     public string? AppName { get; internal set; }
 }
