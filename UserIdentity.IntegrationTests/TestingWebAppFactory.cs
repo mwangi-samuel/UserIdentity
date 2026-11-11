@@ -138,6 +138,9 @@ public class TestingWebAppFactory : WebApplicationFactory<Program>, IAsyncLifeti
         // Override Rate Limit Settings
         builder.UseSetting($"{nameof(RateLimitSettings)}:{nameof(RateLimitSettings.Enabled)}", "false");
 
+        // Override UserIdentity Settings
+        builder.UseSetting($"{nameof(IdentityUserSettings)}:{nameof(IdentityUserSettings.RequireConfirmedAccount)}", "true");
+
         // A second app, for cross-app checks
         builder.UseSetting("RegisteredAppsSettings:RegisteredApps:1:AppName", OtherAppName);
         builder.UseSetting("RegisteredAppsSettings:RegisteredApps:1:BaseUrl", "http://localhost:3001");
