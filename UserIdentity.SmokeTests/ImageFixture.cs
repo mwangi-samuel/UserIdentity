@@ -190,6 +190,7 @@ public sealed class ImageFixture : IAsyncLifetime
             .WithEnvironment("ApiKeySettings__ApiKey", ApiKey)
             .WithEnvironment("RateLimitSettings__PermitLimit", "100000")
             .WithEnvironment("CleanupSettings__IntervalInMinutes", "1")
+            .WithEnvironment("IdentityUserSettings__RequireConfirmedAccount", "true")
             .WithCreateParameterModifier(parameters =>
             {
                 parameters.HostConfig!.Memory = MemoryLimitBytes;
