@@ -14,11 +14,13 @@ public sealed class ServiceClient : IDisposable
     public const string AppName = "testapp";
     public const string Password = "P@ssW1rd";
 
+    private static readonly TimeSpan _continueWait = TimeSpan.FromSeconds(30);
+
     private readonly HttpClient _httpClient;
 
     public ServiceClient(Uri serviceUrl, bool withApiKey = true)
     {
-        _httpClient = new HttpClient { BaseAddress = serviceUrl };
+        _httpClient = new HttpClient(new SocketsHttpHandler { Expect100ContinueTimeout = _continueWait }) { BaseAddress = serviceUrl };
         _httpClient.DefaultRequestHeaders.Add("X-App-Name", AppName);
 
         if (withApiKey)
@@ -39,6 +41,16 @@ public sealed class ServiceClient : IDisposable
 
     public Task<HttpResponseMessage> PostRawAsync(string path, string body, CancellationToken cancellationToken) =>
         _httpClient.PostAsync(path, new StringContent(body, new MediaTypeHeaderValue("application/json")), cancellationToken);
+
+    public async Task<HttpResponseMessage> PostWithExpectContinueAsync(string path, object body, CancellationToken cancellationToken)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, path) { Content = JsonContent.Create(body) };
+        request.Headers.ExpectContinue = true;
+
+        await request.Content.LoadIntoBufferAsync(cancellationToken);
+
+        return await _httpClient.SendAsync(request, cancellationToken);
+    }
 
     public async Task<SmokeUser> RegisterAsync(CancellationToken cancellationToken)
     {
