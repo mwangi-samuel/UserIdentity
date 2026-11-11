@@ -1,5 +1,4 @@
 ﻿using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
 using UserIdentity.Domain.InviteCodes;
 using UserIdentity.Domain.PasswordResets;

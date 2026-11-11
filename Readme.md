@@ -18,14 +18,23 @@ UserIdentity is an easy-to-use RESTful API that simplifies user management by pr
   ```
 
 ### Instructions
-`docker-compose.yml` starts MySQL, NATS (with JetStream) and UserIdentity.
+`docker-compose.yml` starts MySQL, NATS (with JetStream), OpenObserve and UserIdentity.
 
-- `.\up.ps1 -UseLocal` starts MySQL and NATS, waits for them to be healthy, then runs UserIdentity from source on http://localhost:5050 with the `UserIdentity` launch profile. The OpenAPI document is at http://localhost:5050/openapi/v1.json.
+- `.\up.ps1 -UseLocal` starts MySQL, NATS and OpenObserve, waits for them to be healthy, then runs UserIdentity from source on http://localhost:5050 with the `UserIdentity` launch profile. The OpenAPI document is at http://localhost:5050/openapi/v1.json.
 - `.\up.ps1 -Build` builds the image and runs everything in Docker. UserIdentity is on http://localhost:5050.
 - `.\up.ps1` runs everything in Docker without rebuilding.
 - `.\down.ps1` stops the stack and preserves its named volumes for the next run.
 
 NATS monitoring is on http://localhost:8222, and NUI, a web UI for browsing streams and messages, is on http://localhost:31311 (add a connection to `nats://nats:4222` with the user below). The local NATS server has one user, `useridentity` (password `useridentity-local`), which may publish only to UserIdentity's own subjects and the JetStream API.
+
+OpenObserve collects UserIdentity's logs, traces and metrics. Open http://localhost:5080 and sign in as `admin@example.com` with the password `OpenObserve-local1`; everything is in the `default` organisation.
+
+- UserIdentity sends them only when it runs in Docker, where `docker-compose.yml` sets the three `OTEL_EXPORTER_OTLP_*` variables. Run from source with `-UseLocal`, it sends nothing.
+- `OTEL_EXPORTER_OTLP_PROTOCOL` is `http/protobuf` because OpenObserve's port 5080 doesn't take gRPC, the .NET default. `OTEL_EXPORTER_OTLP_HEADERS` carries `Authorization=Basic <base64 of email:password>`, so it changes with `ZO_ROOT_USER_EMAIL` and `ZO_ROOT_USER_PASSWORD`.
+- UserIdentity starts once OpenObserve is healthy, so its startup logs and traces arrive too.
+- Every request's span and log lines carry `request_id` (the response's `X-Request-Id` header), `app_name` and `user_id`. Search Logs or Traces for `request_id = '<id>'` to follow one request.
+- OpenObserve sizes its caches from the container's memory limit, and `ZO_MAX_FILE_SIZE_IN_MEMORY` (in MB) must stay under a quarter of that limit, or it refuses new data until its next timed flush. Data is kept for 14 days (`ZO_COMPACT_DATA_RETENTION_DAYS`).
+- The sign-in and the open port are for local use. On a server, set your own root password and keep port 5080 private, since it takes data as well as serving the UI.
 
 The app applies database migrations on startup.
 
@@ -129,18 +138,21 @@ Sign-up verifies the reCAPTCHA token before it takes a place in the password has
 Settings are checked at startup. An invalid setting stops the app with every failure listed, such as `ValidForSeconds: The field ValidForSeconds must be between 1 and 2147483647.`
 
 ## API Requests
-`UserIdentity/UserIdentity.http` holds the main flows for sending by hand: registering and logging in the admins, registering a user, a role with a scope, an invite that grants the role, the wait list, registered apps, a password reset request, a refresh and a logout. Open it in Visual Studio 2022 (17.8 or later), or in VS Code with the [REST Client](https://marketplace.visualstudio.com/items?itemName=humao.rest-client) extension, and select **Send Request** above a request. The tests are the automated checks.
+`UserIdentity/UserIdentity.http` holds requests for sending by hand, in an order that works from top to bottom: health, the OpenAPI document and the key set, registering and logging in the admins, a user, roles with their scopes and users, invite codes, the wait list, the entities that scopes can name, registered apps, a password reset, a refresh and a logout. It leaves out `register-for-service`, which needs a service's token. Open it in Visual Studio 2022 (17.8 or later), or in VS Code with the [REST Client](https://marketplace.visualstudio.com/items?itemName=humao.rest-client) extension, and select **Send Request** above a request. The tests are the automated checks.
 
 - No environment needs selecting: the settings (URL, API key, app name and the admins' details) are variables at the top of the file.
 - Requests that use an earlier response, such as an admin's token or the new role's id, need that request sent first.
-- New users, roles, invites and wait list entries are named after the current time, so the requests can be sent again. Registering the admins again answers 400, since they exist.
-- The stack doesn't deliver confirmation codes, so after registering the admins, confirm them and give them their roles from the repo root, then log in:
+- New users, roles, invites, wait list entries and registered apps are named after the current time, so the requests can be sent again. Registering the admins again answers 400, since they exist.
+- Access tokens last 3 minutes (`JwtIssuerSettings:ValidForSeconds`). When a request answers 401, send the admin's login again.
+- The stack doesn't deliver confirmation codes, so it runs with `IdentityUserSettings:RequireConfirmedAccount` off (`docker-compose.yml` sets it, and `.\up.ps1 -UseLocal` passes it), and new accounts can log in at once. After registering the admins, give them their roles from the repo root, then log in:
   ```
-  docker compose exec -T db mysql -uroot -proot useridentity -e "UPDATE users SET email_confirmed = 1 WHERE normalized_user_name IN ('ADMIN', 'GLOBALADMIN')"
   Get-Content .sql\add_admin_user_role.sql | docker compose exec -T db mysql -uroot -proot --init-command="SET @username='admin', @app_name='testapp'"
   Get-Content .sql\add_admin_user_role.sql | docker compose exec -T db mysql -uroot -proot --init-command="SET @username='globaladmin', @role_name='global:admin'"
   ```
-  Other new accounts stay unconfirmed, and a password reset can't be completed.
+- The stack doesn't verify reset codes either, so `update-password` answers 406. To see it succeed, mark the reset requests verified after sending `reset-password`:
+  ```
+  docker compose exec -T db mysql -uroot -proot useridentity -e "UPDATE password_resets SET verified = 1"
+  ```
 
 ## Running the Tests
 The tests use xUnit v3 on Microsoft Testing Platform (selected in `global.json`). The unit tests call each endpoint method directly with faked handlers. The integration tests send requests to the whole app and start MySQL and NATS with Testcontainers, so Docker must be running. The smoke tests build the Docker image, run it as it's published (trimmed, single file) beside MySQL and NATS, and reach it only over HTTP and NATS.

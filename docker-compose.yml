@@ -44,7 +44,32 @@ services:
       nats:
         condition: service_healthy
 
+  openobserve:
+    image: public.ecr.aws/zinclabs/openobserve:v1.1.2
+    volumes:
+      - openobserve_data:/data
+    ports:
+      - 5080:5080
+    environment:
+      ZO_ROOT_USER_EMAIL: admin@example.com
+      ZO_ROOT_USER_PASSWORD: OpenObserve-local1
+      ZO_DATA_DIR: /data
+      ZO_TELEMETRY: "false"
+      ZO_MMDB_DISABLE_DOWNLOAD: "true"
+      ZO_MAX_FILE_SIZE_IN_MEMORY: "128"
+      ZO_COMPACT_DATA_RETENTION_DAYS: "14"
+    healthcheck:
+      test: ["CMD", "/openobserve", "node", "status"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    deploy:
+      resources:
+        limits:
+          memory: 768M
+
   useridentity:
+    image: useridentity:latest
     build:
       context: .
       dockerfile: UserIdentity/Dockerfile
@@ -54,14 +79,20 @@ services:
       DatabaseSettings__Host: db
       MessagingSettings__NatsUrl: nats://nats:4222
       KeySetSettings__PrivateKeyPassPhrase: ${EDDSA_PRIVATE_KEY_PASSPHRASE:-S3T@G00dPa22Phr@S3}
+      IdentityUserSettings__RequireConfirmedAccount: false
       EDDSA_PRIVATE_KEY:
       EDDSA_PUBLIC_KEY:
-      RateLimitSettings__PermitLimit: 100000
+      RateLimitSettings__PermitLimit: 10
       ASPNETCORE_ENVIRONMENT: Development
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://openobserve:5080/api/default
+      OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+      OTEL_EXPORTER_OTLP_HEADERS: Authorization=Basic YWRtaW5AZXhhbXBsZS5jb206T3Blbk9ic2VydmUtbG9jYWwx
     depends_on:
       db:
         condition: service_healthy
       nats:
+        condition: service_healthy
+      openobserve:
         condition: service_healthy
     restart: on-failure:5
     healthcheck:
@@ -72,13 +103,14 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "0.5"
+          cpus: "1"
           memory: 256M
 
 volumes:
   mysql_data:
   nats_data:
   nats_ui_data:
+  openobserve_data:
 
 configs:
   nats_ui_context:

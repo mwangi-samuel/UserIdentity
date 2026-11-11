@@ -6,12 +6,20 @@
 @GlobalAdminUserName = globaladmin
 @GlobalAdminPassword = Gl0b@lAdm1n
 @UserPassword = P@ssW1rd
+@NewUserPassword = N3w@P@ssW1rd
 
 GET {{UserIdentity_HostAddress}}/health
 
 ###
 
-# @name adminRegister
+GET {{UserIdentity_HostAddress}}/openapi/v1.json
+
+###
+
+GET {{UserIdentity_HostAddress}}/api/v1/jwks/keys
+
+###
+
 POST {{UserIdentity_HostAddress}}/api/v1/user/register
 X-Api-Key: {{ApiKey}}
 X-App-Name: {{AppName}}
@@ -42,19 +50,7 @@ Content-Type: application/json
 
 ###
 
-# Once the admin is confirmed, the ticket from sign-up starts one session without the password
-POST {{UserIdentity_HostAddress}}/api/v1/user/login-ticket
-X-Api-Key: {{ApiKey}}
-X-App-Name: {{AppName}}
-Content-Type: application/json
-
-{
-  "ticket": "{{adminRegister.response.body.$.loginTicket}}"
-}
-
-###
-
-# Confirm both admins and give them their roles first (Readme, API Requests)
+# Give both admins their roles first (Readme, API Requests)
 # @name adminLogin
 POST {{UserIdentity_HostAddress}}/api/v1/user/login
 X-Api-Key: {{ApiKey}}
@@ -97,6 +93,12 @@ Content-Type: application/json
 
 ###
 
+GET {{UserIdentity_HostAddress}}/api/v1/user/{{user.response.body.$.user.id}}
+X-Api-Key: {{ApiKey}}
+Authorization: Bearer {{adminLogin.response.body.$.userToken.accessToken.token}}
+
+###
+
 # @name role
 POST {{UserIdentity_HostAddress}}/api/v1/role
 X-Api-Key: {{ApiKey}}
@@ -106,6 +108,18 @@ Content-Type: application/json
 {
   "roleName": "{{AppName}}:editor{{$timestamp}}"
 }
+
+###
+
+GET {{UserIdentity_HostAddress}}/api/v1/role
+X-Api-Key: {{ApiKey}}
+Authorization: Bearer {{adminLogin.response.body.$.userToken.accessToken.token}}
+
+###
+
+GET {{UserIdentity_HostAddress}}/api/v1/role/{{role.response.body.$.role.id}}
+X-Api-Key: {{ApiKey}}
+Authorization: Bearer {{adminLogin.response.body.$.userToken.accessToken.token}}
 
 ###
 
@@ -122,6 +136,12 @@ Content-Type: application/json
 
 ###
 
+GET {{UserIdentity_HostAddress}}/api/v1/role/claim/{{role.response.body.$.role.id}}
+X-Api-Key: {{ApiKey}}
+Authorization: Bearer {{adminLogin.response.body.$.userToken.accessToken.token}}
+
+###
+
 POST {{UserIdentity_HostAddress}}/api/v1/role/user
 X-Api-Key: {{ApiKey}}
 Authorization: Bearer {{adminLogin.response.body.$.userToken.accessToken.token}}
@@ -131,6 +151,12 @@ Content-Type: application/json
   "userId": "{{user.response.body.$.user.id}}",
   "roleId": "{{role.response.body.$.role.id}}"
 }
+
+###
+
+GET {{UserIdentity_HostAddress}}/api/v1/role/user/{{user.response.body.$.user.id}}
+X-Api-Key: {{ApiKey}}
+Authorization: Bearer {{adminLogin.response.body.$.userToken.accessToken.token}}
 
 ###
 
@@ -145,6 +171,31 @@ Content-Type: application/json
   "userEmail": "invitee{{$timestamp}}@example.com",
   "role": "{{role.response.body.$.role.name}}"
 }
+
+###
+
+GET {{UserIdentity_HostAddress}}/api/v1/invite-code?page=1&pageSize=50&search=invitee&applied=false
+X-Api-Key: {{ApiKey}}
+Authorization: Bearer {{adminLogin.response.body.$.userToken.accessToken.token}}
+
+###
+
+GET {{UserIdentity_HostAddress}}/api/v1/invite-code/{{invite.response.body.$.inviteCode.id}}
+X-Api-Key: {{ApiKey}}
+Authorization: Bearer {{adminLogin.response.body.$.userToken.accessToken.token}}
+
+###
+
+GET {{UserIdentity_HostAddress}}/api/v1/invite-code/email/{{invite.response.body.$.inviteCode.userEmail}}
+X-Api-Key: {{ApiKey}}
+Authorization: Bearer {{adminLogin.response.body.$.userToken.accessToken.token}}
+
+###
+
+GET {{UserIdentity_HostAddress}}/api/v1/invite-code
+X-Api-Key: {{ApiKey}}
+X-App-Name: {{AppName}}
+Authorization: Bearer {{globalAdminLogin.response.body.$.userToken.accessToken.token}}
 
 ###
 
@@ -164,6 +215,26 @@ Content-Type: application/json
 
 ###
 
+# @name unusedInvite
+POST {{UserIdentity_HostAddress}}/api/v1/invite-code
+X-Api-Key: {{ApiKey}}
+Authorization: Bearer {{adminLogin.response.body.$.userToken.accessToken.token}}
+Content-Type: application/json
+
+{
+  "inviteCode": "UNUSED{{$timestamp}}",
+  "userEmail": "unused{{$timestamp}}@example.com"
+}
+
+###
+
+DELETE {{UserIdentity_HostAddress}}/api/v1/invite-code/{{unusedInvite.response.body.$.inviteCode.id}}
+X-Api-Key: {{ApiKey}}
+Authorization: Bearer {{adminLogin.response.body.$.userToken.accessToken.token}}
+
+###
+
+# @name waitList
 POST {{UserIdentity_HostAddress}}/api/v1/wait-list
 X-Api-Key: {{ApiKey}}
 X-App-Name: {{AppName}}
@@ -175,12 +246,120 @@ Content-Type: application/json
 
 ###
 
+GET {{UserIdentity_HostAddress}}/api/v1/wait-list/{{waitList.response.body.$.waitList.id}}
+X-Api-Key: {{ApiKey}}
+Authorization: Bearer {{adminLogin.response.body.$.userToken.accessToken.token}}
+
+###
+
+GET {{UserIdentity_HostAddress}}/api/v1/wait-list/email/{{waitList.response.body.$.waitList.userEmail}}
+X-Api-Key: {{ApiKey}}
+Authorization: Bearer {{adminLogin.response.body.$.userToken.accessToken.token}}
+
+###
+
+GET {{UserIdentity_HostAddress}}/api/v1/app-entity
+X-Api-Key: {{ApiKey}}
+Authorization: Bearer {{adminLogin.response.body.$.userToken.accessToken.token}}
+
+###
+
 GET {{UserIdentity_HostAddress}}/api/v1/registered-app
 X-Api-Key: {{ApiKey}}
 Authorization: Bearer {{globalAdminLogin.response.body.$.userToken.accessToken.token}}
 
 ###
 
+# @name registeredApp
+POST {{UserIdentity_HostAddress}}/api/v1/registered-app
+X-Api-Key: {{ApiKey}}
+Authorization: Bearer {{globalAdminLogin.response.body.$.userToken.accessToken.token}}
+Content-Type: application/json
+
+{
+  "appName": "demoapp{{$timestamp}}",
+  "baseUrl": "http://localhost:3001",
+  "appSecretKey": "An0therS3cret-For-Local-Use-Only-012345",
+  "requireInviteCode": true
+}
+
+###
+
+GET {{UserIdentity_HostAddress}}/api/v1/registered-app/{{registeredApp.response.body.$.registeredApp.id}}
+X-Api-Key: {{ApiKey}}
+Authorization: Bearer {{globalAdminLogin.response.body.$.userToken.accessToken.token}}
+
+###
+
+GET {{UserIdentity_HostAddress}}/api/v1/registered-app/name/{{registeredApp.response.body.$.registeredApp.appName}}
+X-Api-Key: {{ApiKey}}
+Authorization: Bearer {{globalAdminLogin.response.body.$.userToken.accessToken.token}}
+
+###
+
+PUT {{UserIdentity_HostAddress}}/api/v1/registered-app/{{registeredApp.response.body.$.registeredApp.id}}
+X-Api-Key: {{ApiKey}}
+Authorization: Bearer {{globalAdminLogin.response.body.$.userToken.accessToken.token}}
+Content-Type: application/json
+
+{
+  "appName": "{{registeredApp.response.body.$.registeredApp.appName}}",
+  "baseUrl": "http://localhost:3001",
+  "requireInviteCode": false,
+  "description": "A demo app"
+}
+
+###
+
+DELETE {{UserIdentity_HostAddress}}/api/v1/registered-app/{{registeredApp.response.body.$.registeredApp.id}}
+X-Api-Key: {{ApiKey}}
+Authorization: Bearer {{globalAdminLogin.response.body.$.userToken.accessToken.token}}
+
+###
+
+# @name unusedRole
+POST {{UserIdentity_HostAddress}}/api/v1/role
+X-Api-Key: {{ApiKey}}
+Authorization: Bearer {{adminLogin.response.body.$.userToken.accessToken.token}}
+Content-Type: application/json
+
+{
+  "roleName": "{{AppName}}:viewer{{$timestamp}}"
+}
+
+###
+
+PUT {{UserIdentity_HostAddress}}/api/v1/role/{{unusedRole.response.body.$.role.id}}
+X-Api-Key: {{ApiKey}}
+Authorization: Bearer {{adminLogin.response.body.$.userToken.accessToken.token}}
+Content-Type: application/json
+
+{
+  "roleName": "{{AppName}}:reader{{$timestamp}}"
+}
+
+###
+
+DELETE {{UserIdentity_HostAddress}}/api/v1/role/{{unusedRole.response.body.$.role.id}}
+X-Api-Key: {{ApiKey}}
+Authorization: Bearer {{adminLogin.response.body.$.userToken.accessToken.token}}
+
+###
+
+DELETE {{UserIdentity_HostAddress}}/api/v1/role/claim
+X-Api-Key: {{ApiKey}}
+Authorization: Bearer {{adminLogin.response.body.$.userToken.accessToken.token}}
+Content-Type: application/json
+
+{
+  "roleId": "{{role.response.body.$.role.id}}",
+  "resource": "catalog-product",
+  "action": "read"
+}
+
+###
+
+# @name passwordReset
 POST {{UserIdentity_HostAddress}}/api/v1/user/reset-password
 X-Api-Key: {{ApiKey}}
 X-App-Name: {{AppName}}
@@ -188,6 +367,17 @@ Content-Type: application/json
 
 {
   "userName": "{{user.response.body.$.user.userName}}"
+}
+
+###
+
+POST {{UserIdentity_HostAddress}}/api/v1/user/update-password
+X-Api-Key: {{ApiKey}}
+Content-Type: application/json
+
+{
+  "resetRequestId": "{{passwordReset.response.body.$.resetPasswordDetails.resetRequestId}}",
+  "newPassword": "{{NewUserPassword}}"
 }
 
 ###
