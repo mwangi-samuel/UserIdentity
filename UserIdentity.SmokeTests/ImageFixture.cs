@@ -37,7 +37,7 @@ public sealed class ImageFixture : IAsyncLifetime
 
     // The limits docker-compose.yml gives the service
     private const long MemoryLimitBytes = 256L * 1024 * 1024;
-    private const long NanoCpuLimit = 500_000_000;
+    private const long NanoCpuLimit = 1_000_000_000;
 
     private static readonly TimeSpan _startupTimeout = TimeSpan.FromMinutes(2);
     private static readonly TimeSpan _messageWait = TimeSpan.FromSeconds(30);
