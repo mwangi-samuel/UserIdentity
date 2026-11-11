@@ -19,7 +19,7 @@ public class CreateRoleClaimCommandHandlerTests
     private readonly IOptions<RoleSettings> _roleSettings = Options.Create(
         new RoleSettings
         {
-            ServiceName = "UserIdentity",
+            ServiceName = "useridentity",
             AdminRoles = "admin",
             DefaultRole = "user",
         }

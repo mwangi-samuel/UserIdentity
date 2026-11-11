@@ -1,6 +1,5 @@
 ﻿using FakeItEasy;
 using PolyzenKit.Common.Exceptions;
-using PolyzenKit.Domain.Entities.RegisteredApps;
 using PolyzenKit.Persistence.Repositories;
 using UserIdentity.Application.Core.WaitLists.Queries;
 using UserIdentity.Domain.WaitLists;
@@ -34,29 +33,21 @@ public class GetWaitListQueryHandlerTests
 
         // Assert
         Assert.Same(dto, vm.WaitList);
-        A.CallTo(() => _waitListRepository.GetEntityByAlternateIdAsync(A<WaitListEntity>._, A<QueryCondition>._, A<CancellationToken>._))
-            .MustNotHaveHappened();
+        A.CallTo(() => _waitListRepository.GetEntityDtoByEmailAsync(A<int>._, A<string>._, A<CancellationToken>._)).MustNotHaveHappened();
     }
 
     [Fact]
     public async Task GetItemAsync_With_An_Email_Reads_The_Apps_Entry_For_That_Email()
     {
         // Arrange
-        var entity = new WaitListEntity
+        var dto = new WaitListDto
         {
             Id = 7,
             UserEmail = "shopper@example.com",
             AppId = 1,
-            App = new RegisteredAppEntity { Id = 1, AppName = "TestApp" },
+            AppName = "TestApp",
         };
-        A.CallTo(() =>
-                _waitListRepository.GetEntityByAlternateIdAsync(
-                    A<WaitListEntity>.That.Matches(e => e.AppId == 1 && e.UserEmail == "shopper@example.com"),
-                    QueryCondition.MustExist,
-                    A<CancellationToken>._
-                )
-            )
-            .Returns(entity);
+        A.CallTo(() => _waitListRepository.GetEntityDtoByEmailAsync(1, "shopper@example.com", A<CancellationToken>._)).Returns(dto);
 
         // Act
         var vm = await new GetWaitListQueryHandler(_waitListRepository).GetItemAsync(
@@ -65,9 +56,27 @@ public class GetWaitListQueryHandlerTests
         );
 
         // Assert
-        Assert.Equal(7, vm.WaitList.Id);
-        Assert.Equal("shopper@example.com", vm.WaitList.UserEmail);
-        Assert.Equal("TestApp", vm.WaitList.AppName);
+        Assert.Same(dto, vm.WaitList);
+        A.CallTo(() => _waitListRepository.GetEntityByAlternateIdAsync(A<WaitListEntity>._, A<QueryCondition>._, A<CancellationToken>._))
+            .MustNotHaveHappened();
+    }
+
+    [Fact]
+    public async Task GetItemAsync_With_An_Email_Without_An_Entry_Throws_NoRecordException()
+    {
+        // Arrange
+        A.CallTo(() => _waitListRepository.GetEntityDtoByEmailAsync(1, "shopper@example.com", A<CancellationToken>._))
+            .Returns((WaitListDto?)null);
+
+        // Act & Assert
+        var exception = await Assert.ThrowsAsync<NoRecordException>(() =>
+            new GetWaitListQueryHandler(_waitListRepository).GetItemAsync(
+                new GetWaitListQuery { UserEmail = "shopper@example.com", AppId = 1 },
+                TestContext.Current.CancellationToken
+            )
+        );
+
+        Assert.Equal("No record exists for the provided identifier - shopper@example.com", exception.Message);
     }
 
     [Fact]

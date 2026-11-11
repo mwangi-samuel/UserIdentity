@@ -22,9 +22,19 @@ public class JwksEndpointsTests
         // Arrange
         var keySetsViewModel = new KeySetsViewModel
         {
-            KeySetList = new Dictionary<string, IList<Dictionary<string, string>>>
+            KeySetList = new JsonWebKeySetDto
             {
-                ["keys"] = [new Dictionary<string, string> { ["alg"] = "EdDSA", ["kty"] = "OKP" }],
+                Keys =
+                [
+                    new JsonWebKeyDto
+                    {
+                        Algorithm = "Ed25519",
+                        KeyType = "OKP",
+                        KeyId = "identity-key-id-1",
+                        Curve = "Ed25519",
+                        PublicKey = "public-key",
+                    },
+                ],
             },
         };
 
@@ -33,13 +43,8 @@ public class JwksEndpointsTests
 
         // Act
         var result = await JwksEndpoints.GetKeySetsAsync(_getKeySetsQueryHandler, TestContext.Current.CancellationToken);
-        var kvp = result.Value;
 
         // Assert
-        Assert.IsType<Dictionary<string, IList<Dictionary<string, string>>>>(kvp);
-        Assert.NotNull(kvp?["keys"]);
-
-        Assert.Equal(kvp?["keys"]?[0]["alg"], keySetsViewModel.KeySetList["keys"]?[0]["alg"]);
-        Assert.Equal(kvp?["keys"]?[0]["kty"], keySetsViewModel.KeySetList["keys"]?[0]["kty"]);
+        Assert.Same(keySetsViewModel.KeySetList, result.Value);
     }
 }

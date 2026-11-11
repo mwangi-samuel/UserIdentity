@@ -24,7 +24,7 @@ public class RoleEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
 
         var additionalRolename = "testapp:additionalrole";
         var role = TestDbHelper.CreateIdentityRole(additionalRolename);
-        var additionalRoleId = role.Id;
+        TestDbHelper.CreateIdentityRole("otherapp:admin");
 
         // Act
         var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Get, _baseUri);
@@ -44,11 +44,31 @@ public class RoleEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
         var roles = jsonObject["roles"]?.ToObject<List<RoleDto>>();
 
         Assert.NotNull(roles);
-        Assert.True(roles.Count >= 3);
+        Assert.Equal([additionalRolename, TestDbHelper.AdminRoles.First(), TestDbHelper.DefaultRole], roles.Select(r => r.Name));
+        Assert.Equal(role.Id, roles[0].Id);
+    }
 
+    [Fact]
+    public async Task Get_Roles_For_A_Global_Admin_Includes_Other_Apps_Roles()
+    {
+        // Arrange
+        TestDbHelper.SeedDatabase();
+        TestDbHelper.ConfigureIdentityUserAsGlobalAdmin();
+        TestDbHelper.CreateIdentityRole("otherapp:admin");
+
+        // Act
+        var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Get, _baseUri);
+
+        // Assert
+        var responseString = await response.ValidateRequestResponseAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var roles = SerDeHelper.Deserialize<JObject>(responseString)?["roles"]?.ToObject<List<RoleDto>>();
+
+        Assert.NotNull(roles);
+        Assert.Contains(roles, r => r.Name == "otherapp:admin");
         Assert.Contains(roles, r => r.Name == TestDbHelper.DefaultRole);
-        Assert.Contains(roles, r => r.Name == TestDbHelper.AdminRoles.First());
-        Assert.Contains(roles, r => r.Id == additionalRoleId && r.Name == additionalRolename);
     }
 
     [Fact]
@@ -263,12 +283,7 @@ public class RoleEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
 
         Assert.Equal($"A record identified with - {requestPayload.RoleName} - exists", $"{jsonObject["error"]?["message"]}");
 
-        var dateTime = (DateTime?)jsonObject["error"]?["timestamp"];
-
-        Assert.NotNull(dateTime);
-        Assert.Equal(DateTime.UtcNow.Year, dateTime.Value.Year);
-        Assert.Equal(DateTime.UtcNow.Month, dateTime.Value.Month);
-        Assert.Equal(DateTime.UtcNow.Day, dateTime.Value.Day);
+        AssertErrorTimestamp(jsonObject);
     }
 
     [Fact]
@@ -301,12 +316,7 @@ public class RoleEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
 
         Assert.Equal("Validation Failed", $"{jsonObject["error"]?["message"]}");
 
-        var dateTime = (DateTime?)jsonObject["error"]?["timestamp"];
-
-        Assert.NotNull(dateTime);
-        Assert.Equal(DateTime.UtcNow.Year, dateTime.Value.Year);
-        Assert.Equal(DateTime.UtcNow.Month, dateTime.Value.Month);
-        Assert.Equal(DateTime.UtcNow.Day, dateTime.Value.Day);
+        AssertErrorTimestamp(jsonObject);
 
         var errorList = jsonObject["error"]?["errorList"]?.ToObject<List<ValidationError>>();
 
@@ -431,6 +441,33 @@ public class RoleEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
     }
 
     [Fact]
+    public async Task Update_Role_Renames_It_On_The_Unused_Invites_That_Grant_It()
+    {
+        // Arrange
+        TestDbHelper.SeedDatabase();
+        TestDbHelper.CreateIdentityRole(TestDbHelper.AdminRoles.First());
+        TestDbHelper.ConfigureIdentityUserAsAdmin();
+
+        TestDbHelper.DeleteIdnetityRole("testapp:seller");
+
+        var role = TestDbHelper.CreateIdentityRole("testapp:owner");
+        var unusedInvite = TestDbHelper.CreateInviteCodeEntity("invited@example.com", RegisteredApp.AppName, role: role.Name);
+        var usedInvite = TestDbHelper.CreateInviteCodeEntity("joined@example.com", RegisteredApp.AppName, applied: true, role: role.Name);
+
+        var requestPayload = new { RoleName = "testapp:seller" };
+
+        // Act
+        var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Put, _baseUri + "/" + role.Id, requestPayload);
+
+        // Assert
+        await response.ValidateRequestResponseAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("testapp:seller", TestDbHelper.GetInviteCodeEntityWithNoTracking(unusedInvite.Id)?.Role);
+        Assert.Equal("testapp:owner", TestDbHelper.GetInviteCodeEntityWithNoTracking(usedInvite.Id)?.Role);
+    }
+
+    [Fact]
     public async Task Update_Non_Existing_Role_Does_Not_Update_Role()
     {
         // Arrange
@@ -459,12 +496,7 @@ public class RoleEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
 
         Assert.Equal($"No record exists for the provided identifier - {requestPayload.RoleId}", $"{jsonObject["error"]?["message"]}");
 
-        var dateTime = (DateTime?)jsonObject["error"]?["timestamp"];
-
-        Assert.NotNull(dateTime);
-        Assert.Equal(DateTime.UtcNow.Year, dateTime.Value.Year);
-        Assert.Equal(DateTime.UtcNow.Month, dateTime.Value.Month);
-        Assert.Equal(DateTime.UtcNow.Day, dateTime.Value.Day);
+        AssertErrorTimestamp(jsonObject);
     }
 
     [Fact]
@@ -496,12 +528,7 @@ public class RoleEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
 
         Assert.Equal("Validation Failed", $"{jsonObject["error"]?["message"]}");
 
-        var dateTime = (DateTime?)jsonObject["error"]?["timestamp"];
-
-        Assert.NotNull(dateTime);
-        Assert.Equal(DateTime.UtcNow.Year, dateTime.Value.Year);
-        Assert.Equal(DateTime.UtcNow.Month, dateTime.Value.Month);
-        Assert.Equal(DateTime.UtcNow.Day, dateTime.Value.Day);
+        AssertErrorTimestamp(jsonObject);
 
         var errorList = jsonObject["error"]?["errorList"]?.ToObject<List<ValidationError>>();
 
@@ -600,6 +627,32 @@ public class RoleEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
     }
 
     [Fact]
+    public async Task Delete_Role_Granted_By_An_Unused_Invite_Is_Refused()
+    {
+        // Arrange
+        TestDbHelper.SeedDatabase();
+        TestDbHelper.CreateIdentityRole(TestDbHelper.AdminRoles.First());
+        TestDbHelper.ConfigureIdentityUserAsAdmin();
+
+        var role = TestDbHelper.CreateIdentityRole("testapp:owner");
+        TestDbHelper.CreateInviteCodeEntity("invited@example.com", RegisteredApp.AppName, role: role.Name);
+
+        // Act
+        var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Delete, _baseUri + "/" + role.Id);
+
+        // Assert
+        var responseString = await response.ValidateRequestResponseAsync();
+
+        Assert.Equal(HttpStatusCode.NotAcceptable, response.StatusCode);
+
+        var jsonObject = SerDeHelper.Deserialize<JObject>(responseString);
+
+        Assert.NotNull(jsonObject);
+        Assert.Equal("A role that unused invite codes grant can't be deleted", $"{jsonObject["error"]?["message"]}");
+        Assert.NotNull(TestDbHelper.GetIdentityRole("testapp:owner"));
+    }
+
+    [Fact]
     public async Task Delete_Non_Existent_Role_Does_Not_Delete_Role()
     {
         // Arrange
@@ -626,12 +679,7 @@ public class RoleEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
 
         Assert.Equal($"No record exists for the provided identifier - {nonExistentRuleId}", $"{jsonObject["error"]?["message"]}");
 
-        var dateTime = (DateTime?)jsonObject["error"]?["timestamp"];
-
-        Assert.NotNull(dateTime);
-        Assert.Equal(DateTime.UtcNow.Year, dateTime.Value.Year);
-        Assert.Equal(DateTime.UtcNow.Month, dateTime.Value.Month);
-        Assert.Equal(DateTime.UtcNow.Day, dateTime.Value.Day);
+        AssertErrorTimestamp(jsonObject);
     }
 
     [Fact]
@@ -747,12 +795,7 @@ public class RoleEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
 
         Assert.Equal($"No record exists for the provided identifier - {nonExistentUserId}", $"{jsonObject["error"]?["message"]}");
 
-        var dateTime = (DateTime?)jsonObject["error"]?["timestamp"];
-
-        Assert.NotNull(dateTime);
-        Assert.Equal(DateTime.UtcNow.Year, dateTime.Value.Year);
-        Assert.Equal(DateTime.UtcNow.Month, dateTime.Value.Month);
-        Assert.Equal(DateTime.UtcNow.Day, dateTime.Value.Day);
+        AssertErrorTimestamp(jsonObject);
     }
 
     [Fact]
@@ -896,12 +939,7 @@ public class RoleEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
 
         Assert.Equal($"A record identified with - {requestPayload.RoleId} - exists", $"{jsonObject["error"]?["message"]}");
 
-        var dateTime = (DateTime?)jsonObject["error"]?["timestamp"];
-
-        Assert.NotNull(dateTime);
-        Assert.Equal(DateTime.UtcNow.Year, dateTime.Value.Year);
-        Assert.Equal(DateTime.UtcNow.Month, dateTime.Value.Month);
-        Assert.Equal(DateTime.UtcNow.Day, dateTime.Value.Day);
+        AssertErrorTimestamp(jsonObject);
     }
 
     [Fact]
@@ -935,12 +973,7 @@ public class RoleEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
 
         Assert.Equal("Validation Failed", $"{jsonObject["error"]?["message"]}");
 
-        var dateTime = (DateTime?)jsonObject["error"]?["timestamp"];
-
-        Assert.NotNull(dateTime);
-        Assert.Equal(DateTime.UtcNow.Year, dateTime.Value.Year);
-        Assert.Equal(DateTime.UtcNow.Month, dateTime.Value.Month);
-        Assert.Equal(DateTime.UtcNow.Day, dateTime.Value.Day);
+        AssertErrorTimestamp(jsonObject);
 
         var errorList = jsonObject["error"]?["errorList"]?.ToObject<List<ValidationError>>();
 
@@ -1094,12 +1127,7 @@ public class RoleEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
 
         Assert.Equal($"A record identified with - {$"user{Separators.ScopeClaim}edit"} - exists", $"{jsonObject["error"]?["message"]}");
 
-        var dateTime = (DateTime?)jsonObject["error"]?["timestamp"];
-
-        Assert.NotNull(dateTime);
-        Assert.Equal(DateTime.UtcNow.Year, dateTime.Value.Year);
-        Assert.Equal(DateTime.UtcNow.Month, dateTime.Value.Month);
-        Assert.Equal(DateTime.UtcNow.Day, dateTime.Value.Day);
+        AssertErrorTimestamp(jsonObject);
     }
 
     [Fact]
@@ -1157,12 +1185,7 @@ public class RoleEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
 
         Assert.Equal("Validation Failed", $"{jsonObject["error"]?["message"]}");
 
-        var dateTime = (DateTime?)jsonObject["error"]?["timestamp"];
-
-        Assert.NotNull(dateTime);
-        Assert.Equal(DateTime.UtcNow.Year, dateTime.Value.Year);
-        Assert.Equal(DateTime.UtcNow.Month, dateTime.Value.Month);
-        Assert.Equal(DateTime.UtcNow.Day, dateTime.Value.Day);
+        AssertErrorTimestamp(jsonObject);
 
         var errorList = jsonObject["error"]?["errorList"]?.ToObject<List<ValidationError>>();
 
@@ -1349,12 +1372,7 @@ public class RoleEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
 
         Assert.Equal($"No record exists for the provided identifier - {nonExistentRoleId}", $"{jsonObject["error"]?["message"]}");
 
-        var dateTime = (DateTime?)jsonObject["error"]?["timestamp"];
-
-        Assert.NotNull(dateTime);
-        Assert.Equal(DateTime.UtcNow.Year, dateTime.Value.Year);
-        Assert.Equal(DateTime.UtcNow.Month, dateTime.Value.Month);
-        Assert.Equal(DateTime.UtcNow.Day, dateTime.Value.Day);
+        AssertErrorTimestamp(jsonObject);
     }
 
     [Fact]
@@ -1492,12 +1510,7 @@ public class RoleEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
             $"{jsonObject["error"]?["message"]}"
         );
 
-        var dateTime = (DateTime?)jsonObject["error"]?["timestamp"];
-
-        Assert.NotNull(dateTime);
-        Assert.Equal(DateTime.UtcNow.Year, dateTime.Value.Year);
-        Assert.Equal(DateTime.UtcNow.Month, dateTime.Value.Month);
-        Assert.Equal(DateTime.UtcNow.Day, dateTime.Value.Day);
+        AssertErrorTimestamp(jsonObject);
     }
 
     [Fact]
@@ -1529,12 +1542,7 @@ public class RoleEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
 
         Assert.Equal("Validation Failed", $"{jsonObject["error"]?["message"]}");
 
-        var dateTime = (DateTime?)jsonObject["error"]?["timestamp"];
-
-        Assert.NotNull(dateTime);
-        Assert.Equal(DateTime.UtcNow.Year, dateTime.Value.Year);
-        Assert.Equal(DateTime.UtcNow.Month, dateTime.Value.Month);
-        Assert.Equal(DateTime.UtcNow.Day, dateTime.Value.Day);
+        AssertErrorTimestamp(jsonObject);
 
         var errorList = jsonObject["error"]?["errorList"]?.ToObject<List<ValidationError>>();
 

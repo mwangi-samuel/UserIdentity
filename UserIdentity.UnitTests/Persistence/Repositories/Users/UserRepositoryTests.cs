@@ -15,24 +15,27 @@ public class UserRepositoryTests
     [Fact]
     public async Task CreateEntityItem_Persists_User()
     {
+        // Arrange
         var context = AppDbContextTestFactory.GetAppDbContext();
         var repository = new UserRepository(context);
         var newUser = BuildUser();
 
+        // Act
         repository.CreateEntityItem(newUser);
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
+        // Assert
         var saved = await context.AppUser.SingleOrDefaultAsync(
             x => x.Id == newUser.Id,
             cancellationToken: TestContext.Current.CancellationToken
         );
-        Assert.NotNull(saved);
         Assert.Equal(newUser.FirstName, saved!.FirstName);
     }
 
     [Fact]
     public async Task GetEntityItemAsync_Returns_User_When_Found()
     {
+        // Arrange
         var context = AppDbContextTestFactory.GetAppDbContext();
         var repository = new UserRepository(context);
         var newUser = BuildUser();
@@ -40,14 +43,17 @@ public class UserRepositoryTests
         context.AppUser.Add(newUser);
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
+        // Act
         var result = await repository.GetEntityItemAsync(newUser.Id, TestContext.Current.CancellationToken);
-        Assert.NotNull(result);
-        Assert.Equal(newUser.Id, result!.Id);
+
+        // Assert
+        Assert.Equal(newUser.Id, result.Id);
     }
 
     [Fact]
     public async Task UpdateEntityItem_Updates_User()
     {
+        // Arrange
         var context = AppDbContextTestFactory.GetAppDbContext();
         var repository = new UserRepository(context);
         var newUser = BuildUser();
@@ -56,9 +62,12 @@ public class UserRepositoryTests
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
         newUser.FirstName = "Updated";
+
+        // Act
         repository.UpdateEntityItem(newUser);
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
+        // Assert
         var saved = await context.AppUser.SingleAsync(x => x.Id == newUser.Id, cancellationToken: TestContext.Current.CancellationToken);
         Assert.Equal("Updated", saved.FirstName);
     }
@@ -120,44 +129,6 @@ public class UserRepositoryTests
     }
 
     [Fact]
-    public async Task GetUserDtoAsync_Without_An_App_Reads_Any_Apps_User()
-    {
-        // Arrange
-        var context = AppDbContextTestFactory.GetAppDbContext();
-        var (user, _) = await SeedUserAsync(context, "TestApp");
-
-        // Act
-        var dto = await new UserRepository(context).GetUserDtoAsync(user.Id, null, TestContext.Current.CancellationToken);
-
-        // Assert
-        Assert.Equal(user.Id, dto?.Id);
-    }
-
-    [Fact]
-    public async Task GetUserDtoAsync_For_Another_Apps_User_Returns_Null()
-    {
-        // Arrange
-        var context = AppDbContextTestFactory.GetAppDbContext();
-        var (user, _) = await SeedUserAsync(context, "TestApp");
-        context.RegisteredApp.Add(
-            new RegisteredAppEntity
-            {
-                Id = 2,
-                AppName = "OtherApp",
-                AppSecretKey = "other-secret-key",
-                BaseUrl = "https://other.test",
-            }
-        );
-        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
-
-        // Act
-        var dto = await new UserRepository(context).GetUserDtoAsync(user.Id, "OtherApp", TestContext.Current.CancellationToken);
-
-        // Assert
-        Assert.Null(dto);
-    }
-
-    [Fact]
     public async Task GetUserDtoAsync_For_A_Deleted_App_Returns_Null()
     {
         // Arrange
@@ -214,14 +185,7 @@ public class UserRepositoryTests
         context.Users.Add(user);
         context.AppUser.Add(details);
         context.RegisteredApp.Add(app);
-        context.UserRegisteredApp.Add(
-            new UserRegisteredAppEntity
-            {
-                Id = $"{user.Id}-{app.Id}",
-                UserId = user.Id,
-                AppId = app.Id,
-            }
-        );
+        context.UserRegisteredApp.Add(new UserRegisteredAppEntity { UserId = user.Id, AppId = app.Id });
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
         return (user, details);

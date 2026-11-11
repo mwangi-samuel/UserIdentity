@@ -16,13 +16,16 @@ public static class WaitListEndpoints
     {
         var group = endpoints.MapApiGroup("WaitList");
 
-        group.MapGet("{id}", GetWaitList).RequireAuthorization(AuthorizationPolicies.AdminOrGlobalAdmin).Produces<WaitListViewModel>();
         group
-            .MapGet("email/{email}", GetWaitListByEmail)
+            .MapGet("{waitListId}", GetWaitListAsync)
             .RequireAuthorization(AuthorizationPolicies.AdminOrGlobalAdmin)
             .Produces<WaitListViewModel>();
         group
-            .MapPost("", CreateWaitList)
+            .MapGet("email/{email}", GetWaitListByEmailAsync)
+            .RequireAuthorization(AuthorizationPolicies.AdminOrGlobalAdmin)
+            .Produces<WaitListViewModel>();
+        group
+            .MapPost("", CreateWaitListAsync)
             .AllowAnonymous()
             .RequireRateLimiting(RateLimitSettings.ClientIpPolicy)
             .Produces<WaitListViewModel>();
@@ -30,8 +33,8 @@ public static class WaitListEndpoints
         return group;
     }
 
-    internal static async Task<JsonHttpResult<WaitListViewModel>> GetWaitList(
-        long id,
+    internal static async Task<JsonHttpResult<WaitListViewModel>> GetWaitListAsync(
+        long waitListId,
         ApiRequest request,
         IRegisteredAppResolver registeredAppResolver,
         IGetItemQueryHandler<GetWaitListQuery, WaitListViewModel> handler,
@@ -40,12 +43,12 @@ public static class WaitListEndpoints
     {
         var registeredApp = await AdminApp.GetAsync(request, registeredAppResolver, cancellationToken);
 
-        var vm = await handler.GetItemAsync(new GetWaitListQuery { WaitListId = id, AppId = registeredApp.Id }, cancellationToken);
+        var vm = await handler.GetItemAsync(new GetWaitListQuery { WaitListId = waitListId, AppId = registeredApp.Id }, cancellationToken);
 
         return ViewModelResults.GetItem(request, vm, true);
     }
 
-    internal static async Task<JsonHttpResult<WaitListViewModel>> GetWaitListByEmail(
+    internal static async Task<JsonHttpResult<WaitListViewModel>> GetWaitListByEmailAsync(
         string email,
         ApiRequest request,
         IRegisteredAppResolver registeredAppResolver,
@@ -60,7 +63,7 @@ public static class WaitListEndpoints
         return ViewModelResults.GetItem(request, vm, true);
     }
 
-    internal static async Task<JsonHttpResult<WaitListViewModel>> CreateWaitList(
+    internal static async Task<JsonHttpResult<WaitListViewModel>> CreateWaitListAsync(
         CreateWaitListCommand command,
         ApiRequest request,
         IRegisteredAppResolver registeredAppResolver,

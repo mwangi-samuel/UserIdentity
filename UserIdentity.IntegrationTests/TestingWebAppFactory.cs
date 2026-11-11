@@ -3,16 +3,22 @@ using System.Security.Cryptography;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.Extensions.DependencyInjection;
+using MySqlConnector;
 using NATS.Client.Core;
 using NATS.Client.JetStream;
 using PolyzenKit.Common.Utilities;
+using PolyzenKit.Domain.Entities.AppEntities;
+using PolyzenKit.Domain.Entities.RegisteredApps;
 using PolyzenKit.Infrastructure.ExternalServices;
 using PolyzenKit.Infrastructure.Messaging.Shared;
 using PolyzenKit.Infrastructure.Security.AppSecrets;
 using PolyzenKit.Infrastructure.Security.KeySets;
+using PolyzenKit.Persistence.Infrastructure;
 using PolyzenKit.Persistence.Settings;
 using PolyzenKit.Presentation.Settings;
+using Respawn;
 using Testcontainers.MySql;
 using Testcontainers.Nats;
 using UserIdentity.Infrastructure.ExternalServices;
@@ -36,6 +42,9 @@ public class TestingWebAppFactory : WebApplicationFactory<Program>, IAsyncLifeti
 
     private readonly MySqlContainer _mysqlContainer;
     private readonly NatsContainer _natsContainer;
+
+    private MySqlConnection? _respawnConnection;
+    private Respawner? _respawner;
 
     private static readonly string _dbUserName = "test-user";
     private static readonly string _dbUserPassword = "test-user-db@user@Pass";
@@ -91,12 +100,12 @@ public class TestingWebAppFactory : WebApplicationFactory<Program>, IAsyncLifeti
 
         // Override MYSQL Settings
         builder.UseSetting(
-            $"{nameof(MysqlSettings)}:{nameof(MysqlSettings.Port)}",
+            $"{nameof(DatabaseSettings)}:{nameof(DatabaseSettings.Port)}",
             _mysqlContainer.GetMappedPublicPort().ToString(CultureInfo.InvariantCulture)
         );
-        builder.UseSetting($"{nameof(MysqlSettings)}:{nameof(MysqlSettings.UserName)}", _dbUserName);
-        builder.UseSetting($"{nameof(MysqlSettings)}:{nameof(MysqlSettings.Password)}", _dbUserPassword);
-        builder.UseSetting($"{nameof(MysqlSettings)}:{nameof(MysqlSettings.Database)}", _dbName);
+        builder.UseSetting($"{nameof(DatabaseSettings)}:{nameof(DatabaseSettings.UserName)}", _dbUserName);
+        builder.UseSetting($"{nameof(DatabaseSettings)}:{nameof(DatabaseSettings.Password)}", _dbUserPassword);
+        builder.UseSetting($"{nameof(DatabaseSettings)}:{nameof(DatabaseSettings.Database)}", _dbName);
 
         // Override Messaging Settings
         builder.UseSetting($"{nameof(MessagingSettings)}:{nameof(MessagingSettings.NatsUrl)}", NatsUrl);
@@ -109,10 +118,10 @@ public class TestingWebAppFactory : WebApplicationFactory<Program>, IAsyncLifeti
         var privateKeyPassPhrase = RandomStrings.Generate(32, true, true);
         builder.UseSetting("EDDSA_PRIVATE_KEY", EdDsaHelper.ConvertToPem(keyPair.Private, privateKeyPassPhrase));
         builder.UseSetting("EDDSA_PUBLIC_KEY", EdDsaHelper.ConvertToPem(keyPair.Public));
-        builder.UseSetting($"{nameof(KeySetOptions)}:{nameof(KeySetOptions.PrivateKeyPassPhrase)}", privateKeyPassPhrase);
+        builder.UseSetting($"{nameof(KeySetSettings)}:{nameof(KeySetSettings.PrivateKeyPassPhrase)}", privateKeyPassPhrase);
 
         // Override app secret encryption key - "key1" is the CurrentKeyId in appsettings.json
-        builder.UseSetting($"{nameof(AppSecretOptions)}:{nameof(AppSecretOptions.Keys)}:key1", _appSecretKey);
+        builder.UseSetting($"{nameof(AppSecretSettings)}:{nameof(AppSecretSettings.Keys)}:key1", _appSecretKey);
 
         // Override Google Recaptcha Settings
         builder.UseSetting($"{nameof(GoogleRecaptchaSettings)}:{nameof(GoogleRecaptchaSettings.Enabled)}", "true");
@@ -140,8 +149,39 @@ public class TestingWebAppFactory : WebApplicationFactory<Program>, IAsyncLifeti
         builder.UseSetting("RegisteredAppsSettings:RegisteredApps:2:CallbackUrl", WireMockServer.Urls[0] + CallbackPath);
     }
 
+    public async Task ResetDatabaseAsync(CancellationToken cancellationToken)
+    {
+        if (_respawner is null || _respawnConnection is null)
+        {
+            using var scope = Services.CreateScope();
+            var appDbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+            _respawnConnection = new MySqlConnection(_mysqlContainer.GetConnectionString());
+            await _respawnConnection.OpenAsync(cancellationToken);
+
+            _respawner = await Respawner.CreateAsync(
+                _respawnConnection,
+                new RespawnerOptions
+                {
+                    DbAdapter = DbAdapter.MySql,
+                    TablesToIgnore =
+                    [
+                        appDbContext.GetTableName<AppEntity>()!,
+                        appDbContext.GetTableName<RegisteredAppEntity>()!,
+                        HistoryRepository.DefaultTableName,
+                    ],
+                }
+            );
+        }
+
+        await _respawner.ResetAsync(_respawnConnection);
+    }
+
     public override async ValueTask DisposeAsync()
     {
+        if (_respawnConnection is not null)
+            await _respawnConnection.DisposeAsync();
+
         // Stop the app first, so its message handlers shut down before NATS goes away
         await base.DisposeAsync();
 

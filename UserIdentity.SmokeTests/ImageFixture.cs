@@ -42,7 +42,7 @@ public sealed class ImageFixture : IAsyncLifetime
     private static readonly TimeSpan _startupTimeout = TimeSpan.FromMinutes(2);
     private static readonly TimeSpan _messageWait = TimeSpan.FromSeconds(30);
 
-    private static readonly string[] _errorMarkers = ["\"@l\":\"Error\"", "\"@l\":\"Fatal\"", "Unhandled exception"];
+    private static readonly string[] _errorMarkers = ["\"LogLevel\":\"Error\"", "\"LogLevel\":\"Critical\"", "Unhandled exception"];
 
     private readonly INetwork _network = new NetworkBuilder().Build();
     private readonly MySqlContainer _mysql;
@@ -177,16 +177,16 @@ public sealed class ImageFixture : IAsyncLifetime
         return new ContainerBuilder(image)
             .WithNetwork(_network)
             .WithPortBinding(ServicePort, true)
-            .WithEnvironment("MysqlSettings__Host", MysqlAlias)
-            .WithEnvironment("MysqlSettings__Database", DatabaseName)
-            .WithEnvironment("MysqlSettings__UserName", DatabaseUser)
-            .WithEnvironment("MysqlSettings__Password", DatabasePassword)
+            .WithEnvironment("DatabaseSettings__Host", MysqlAlias)
+            .WithEnvironment("DatabaseSettings__Database", DatabaseName)
+            .WithEnvironment("DatabaseSettings__UserName", DatabaseUser)
+            .WithEnvironment("DatabaseSettings__Password", DatabasePassword)
             .WithEnvironment("MessagingSettings__NatsUrl", $"nats://{NatsAlias}:{NatsPort}")
             .WithEnvironment("MessagingSettings__NatsUser", NatsUser)
             .WithEnvironment("MessagingSettings__NatsPassword", NatsPassword)
             .WithEnvironment("EDDSA_PRIVATE_KEY", EdDsaHelper.ConvertToPem(keyPair.Private, privateKeyPassPhrase))
             .WithEnvironment("EDDSA_PUBLIC_KEY", EdDsaHelper.ConvertToPem(keyPair.Public))
-            .WithEnvironment("KeySetOptions__PrivateKeyPassPhrase", privateKeyPassPhrase)
+            .WithEnvironment("KeySetSettings__PrivateKeyPassPhrase", privateKeyPassPhrase)
             .WithEnvironment("ApiKeySettings__ApiKey", ApiKey)
             .WithEnvironment("RateLimitSettings__PermitLimit", "100000")
             .WithEnvironment("CleanupSettings__IntervalInMinutes", "1")

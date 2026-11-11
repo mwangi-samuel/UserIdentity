@@ -21,6 +21,7 @@ public sealed class NatsTestHelper(INatsJSContext jetStream)
         .Subject;
 
     private static readonly string _codeVerifiedSender = CodeVerifiedSubject.Split('.')[0];
+    private static readonly string _codeVerifiedConsumer = $"useridentity_{CodeVerifiedSubject.Replace('.', '_')}";
 
     private static readonly TimeSpan _waitTime = TimeSpan.FromSeconds(10);
 
@@ -58,13 +59,26 @@ public sealed class NatsTestHelper(INatsJSContext jetStream)
         return null;
     }
 
-    public async Task PublishCodeVerifiedAsync(MessageEvent message)
+    public async Task<ulong> PublishCodeVerifiedAsync(MessageEvent message)
     {
         var payload = JsonSerializer.SerializeToUtf8Bytes(message, JsonOptionsCache.Get());
 
         var ack = await _jetStream.PublishAsync(CodeVerifiedSubject, payload, cancellationToken: TestContext.Current.CancellationToken);
 
         ack.EnsureSuccess();
+
+        return ack.Seq;
+    }
+
+    public async Task<bool> IsCodeVerifiedAcknowledgedAsync(ulong sequence)
+    {
+        var consumer = await _jetStream.GetConsumerAsync(
+            _codeVerifiedSender.ToUpperInvariant(),
+            _codeVerifiedConsumer,
+            TestContext.Current.CancellationToken
+        );
+
+        return consumer.Info.AckFloor.StreamSeq >= sequence && consumer.Info.NumAckPending == 0 && consumer.Info.NumRedelivered == 0;
     }
 
     // The service creates its stream when it starts sending, so wait for it

@@ -1,10 +1,8 @@
-﻿using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using PolyzenKit.Common.Exceptions;
 using PolyzenKit.Domain.Entities.RegisteredApps;
 using PolyzenKit.Persistence.Repositories;
 using UserIdentity.Domain.InviteCodes;
-using UserIdentity.Domain.UserRegisteredApps;
 using UserIdentity.Persistence;
 using UserIdentity.Persistence.Repositories.InviteCodes;
 using Xunit;
@@ -16,19 +14,21 @@ public class InviteCodeRepositoryTests
     [Fact]
     public async Task CreateEntityItem_Persists_InviteCode()
     {
+        // Arrange
         var context = GetAppDbContext();
         await SeedRegisteredApp(context);
         var repository = new InviteCodeRepository(context);
         var inviteCode = BuildInviteCode();
 
+        // Act
         repository.CreateEntityItem(inviteCode);
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
+        // Assert
         var saved = await context.InviteCode.SingleOrDefaultAsync(
             x => x.Id == inviteCode.Id,
             cancellationToken: TestContext.Current.CancellationToken
         );
-        Assert.NotNull(saved);
         Assert.Equal(inviteCode.InviteCode, saved!.InviteCode);
         Assert.Equal(inviteCode.UserEmail, saved.UserEmail);
     }
@@ -36,6 +36,7 @@ public class InviteCodeRepositoryTests
     [Fact]
     public async Task GetEntityByAlternateIdAsync_MustExist_Returns_Entity()
     {
+        // Arrange
         var context = GetAppDbContext();
         await SeedRegisteredApp(context);
         var repository = new InviteCodeRepository(context);
@@ -44,13 +45,14 @@ public class InviteCodeRepositoryTests
         context.InviteCode.Add(inviteCode);
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
+        // Act
         var result = await repository.GetEntityByAlternateIdAsync(
             new InviteCodeEntity { AppId = inviteCode.AppId, UserEmail = inviteCode.UserEmail },
             QueryCondition.MustExist,
             TestContext.Current.CancellationToken
         );
 
-        Assert.NotNull(result);
+        // Assert
         Assert.Equal(inviteCode.Id, result!.Id);
         Assert.Equal(inviteCode.InviteCode, result.InviteCode);
     }
@@ -58,9 +60,10 @@ public class InviteCodeRepositoryTests
     [Fact]
     public async Task GetEntityByAlternateIdAsync_MustExist_When_Missing_Throws_NoRecordException()
     {
-        var context = GetAppDbContext();
-        var repository = new InviteCodeRepository(context);
+        // Arrange
+        var repository = new InviteCodeRepository(GetAppDbContext());
 
+        // Act & Assert
         await Assert.ThrowsAsync<NoRecordException>(() =>
             repository.GetEntityByAlternateIdAsync(
                 new InviteCodeEntity { UserEmail = "notfound@example.com" },
@@ -73,6 +76,7 @@ public class InviteCodeRepositoryTests
     [Fact]
     public async Task GetEntityByAlternateIdAsync_MustNotExist_When_Exists_Throws_RecordExistsException()
     {
+        // Arrange
         var context = GetAppDbContext();
         await SeedRegisteredApp(context);
         var repository = new InviteCodeRepository(context);
@@ -81,6 +85,7 @@ public class InviteCodeRepositoryTests
         context.InviteCode.Add(inviteCode);
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
+        // Act & Assert
         await Assert.ThrowsAsync<RecordExistsException>(() =>
             repository.GetEntityByAlternateIdAsync(
                 new InviteCodeEntity { AppId = inviteCode.AppId, UserEmail = inviteCode.UserEmail },
@@ -93,21 +98,24 @@ public class InviteCodeRepositoryTests
     [Fact]
     public async Task GetEntityByAlternateIdAsync_MustNotExist_When_Missing_Returns_Null()
     {
-        var context = GetAppDbContext();
-        var repository = new InviteCodeRepository(context);
+        // Arrange
+        var repository = new InviteCodeRepository(GetAppDbContext());
 
+        // Act
         var result = await repository.GetEntityByAlternateIdAsync(
             new InviteCodeEntity { UserEmail = "new@example.com" },
             QueryCondition.MustNotExist,
             TestContext.Current.CancellationToken
         );
 
+        // Assert
         Assert.Null(result);
     }
 
     [Fact]
     public async Task GetEntityByAlternateIdAsync_For_Another_App_Returns_Null()
     {
+        // Arrange
         var context = GetAppDbContext();
         await SeedRegisteredApp(context);
         var repository = new InviteCodeRepository(context);
@@ -116,18 +124,21 @@ public class InviteCodeRepositoryTests
         context.InviteCode.Add(inviteCode);
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
+        // Act
         var result = await repository.GetEntityByAlternateIdAsync(
             new InviteCodeEntity { AppId = inviteCode.AppId + 1, UserEmail = inviteCode.UserEmail },
             QueryCondition.MayOrMayNotExist,
             TestContext.Current.CancellationToken
         );
 
+        // Assert
         Assert.Null(result);
     }
 
     [Fact]
     public async Task GetEntityDtoByIdAsync_Returns_Dto()
     {
+        // Arrange
         var context = GetAppDbContext();
         var app = await SeedRegisteredApp(context);
         var repository = new InviteCodeRepository(context);
@@ -137,9 +148,10 @@ public class InviteCodeRepositoryTests
         context.InviteCode.Add(inviteCode);
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
+        // Act
         var result = await repository.GetEntityDtoByIdAsync(inviteCode.Id, TestContext.Current.CancellationToken);
 
-        Assert.NotNull(result);
+        // Assert
         Assert.Equal(inviteCode.Id, result.Id);
         Assert.Equal(inviteCode.InviteCode, result.InviteCode);
         Assert.Equal(inviteCode.UserEmail, result.UserEmail);
@@ -149,15 +161,17 @@ public class InviteCodeRepositoryTests
     [Fact]
     public async Task GetEntityDtoByIdAsync_When_Not_Found_Throws_NoRecordException()
     {
-        var context = GetAppDbContext();
-        var repository = new InviteCodeRepository(context);
+        // Arrange
+        var repository = new InviteCodeRepository(GetAppDbContext());
 
+        // Act & Assert
         await Assert.ThrowsAsync<NoRecordException>(() => repository.GetEntityDtoByIdAsync(999, TestContext.Current.CancellationToken));
     }
 
     [Fact]
     public async Task SearchEntityDtosByAppIdAsync_Without_Filters_Returns_The_Apps_InviteCodes_Newest_First()
     {
+        // Arrange
         var context = GetAppDbContext();
         var app = await SeedRegisteredApp(context);
         context.RegisteredApp.Add(
@@ -186,8 +200,10 @@ public class InviteCodeRepositoryTests
         context.InviteCode.Add(otherAppInviteCode);
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
+        // Act
         var page = await repository.SearchEntityDtosByAppIdAsync(app.Id, null, null, 1, 2, TestContext.Current.CancellationToken);
 
+        // Assert
         Assert.Equal(3, page.TotalCount);
         Assert.Equal(["user2@example.com", "user1@example.com"], page.Items.Select(i => i.UserEmail));
         Assert.Equal("testapp:owner", page.Items[0].Role);
@@ -246,89 +262,65 @@ public class InviteCodeRepositoryTests
         );
     }
 
+    [Fact]
+    public async Task GetEntityDtoByEmailAsync_Returns_The_Apps_Invite_For_That_Email_Without_Tracking_It()
+    {
+        // Arrange
+        var context = GetAppDbContext();
+        await SeedRegisteredApp(context);
+        var inviteCode = BuildInviteCode();
+        context.InviteCode.Add(inviteCode);
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+        context.ChangeTracker.Clear();
+
+        var repository = new InviteCodeRepository(context);
+
+        // Act
+        var dto = await repository.GetEntityDtoByEmailAsync(1, inviteCode.UserEmail, TestContext.Current.CancellationToken);
+        var otherAppDto = await repository.GetEntityDtoByEmailAsync(2, inviteCode.UserEmail, TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.NotNull(dto);
+        Assert.Equal(inviteCode.Id, dto.Id);
+        Assert.Equal("TestApp", dto.AppName);
+        Assert.Null(otherAppDto);
+        Assert.Empty(context.ChangeTracker.Entries());
+    }
+
+    [Fact]
+    public async Task GetUnusedEntityItemsByRoleAsync_Returns_Only_The_Unused_Invites_That_Grant_The_Role()
+    {
+        // Arrange
+        var context = GetAppDbContext();
+        await SeedRegisteredApp(context);
+
+        var unusedInvite = BuildInviteCode();
+        unusedInvite.Role = "testapp:owner";
+        var usedInvite = BuildInviteCode();
+        usedInvite.UserEmail = "used@example.com";
+        usedInvite.Role = "testapp:owner";
+        usedInvite.Applied = true;
+        var otherRoleInvite = BuildInviteCode();
+        otherRoleInvite.UserEmail = "other@example.com";
+        otherRoleInvite.Role = "testapp:editor";
+        context.InviteCode.AddRange(unusedInvite, usedInvite, otherRoleInvite);
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+
+        // Act
+        var result = await new InviteCodeRepository(context).GetUnusedEntityItemsByRoleAsync(
+            "testapp:owner",
+            TestContext.Current.CancellationToken
+        );
+
+        // Assert
+        Assert.Equal([unusedInvite.Id], result.Select(invite => invite.Id));
+    }
+
     private static AppDbContext GetAppDbContext()
     {
         var options = new DbContextOptionsBuilder<AppDbContext>().UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString()).Options;
 
         return new AppDbContext(options);
-    }
-
-    [Fact]
-    public async Task GetAppliedEntityItemsForUserAsync_Returns_The_Applied_Invite_Of_The_Users_Own_App_Only()
-    {
-        // Arrange
-        var context = AppDbContextTestFactory.GetAppDbContext();
-        await SeedRegisteredApp(context);
-        context.RegisteredApp.Add(
-            new RegisteredAppEntity
-            {
-                Id = 2,
-                AppName = "OtherApp",
-                AppSecretKey = "other-secret-key",
-                BaseUrl = "https://other.test",
-            }
-        );
-
-        var user = new IdentityUser { Id = "user-id", Email = "test@example.com" };
-        context.Users.Add(user);
-        context.UserRegisteredApp.Add(
-            new UserRegisteredAppEntity
-            {
-                Id = "user-id-1",
-                UserId = user.Id,
-                AppId = 1,
-            }
-        );
-
-        var ownInvite = BuildInviteCode();
-        ownInvite.Applied = true;
-        var otherAppInvite = BuildInviteCode();
-        otherAppInvite.AppId = 2;
-        otherAppInvite.Applied = true;
-        var otherEmailInvite = BuildInviteCode();
-        otherEmailInvite.UserEmail = "someone@example.com";
-        otherEmailInvite.Applied = true;
-        context.InviteCode.AddRange(ownInvite, otherAppInvite, otherEmailInvite);
-        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
-
-        // Act
-        var result = await new InviteCodeRepository(context).GetAppliedEntityItemsForUserAsync(
-            user.Id,
-            TestContext.Current.CancellationToken
-        );
-
-        // Assert
-        Assert.Equal([ownInvite.Id], result.Select(invite => invite.Id));
-    }
-
-    [Fact]
-    public async Task GetAppliedEntityItemsForUserAsync_Skips_An_Unused_Invite()
-    {
-        // Arrange
-        var context = AppDbContextTestFactory.GetAppDbContext();
-        await SeedRegisteredApp(context);
-
-        var user = new IdentityUser { Id = "user-id", Email = "test@example.com" };
-        context.Users.Add(user);
-        context.UserRegisteredApp.Add(
-            new UserRegisteredAppEntity
-            {
-                Id = "user-id-1",
-                UserId = user.Id,
-                AppId = 1,
-            }
-        );
-        context.InviteCode.Add(BuildInviteCode());
-        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
-
-        // Act
-        var result = await new InviteCodeRepository(context).GetAppliedEntityItemsForUserAsync(
-            user.Id,
-            TestContext.Current.CancellationToken
-        );
-
-        // Assert
-        Assert.Empty(result);
     }
 
     private static async Task<RegisteredAppEntity> SeedRegisteredApp(AppDbContext context)

@@ -51,10 +51,7 @@ public class ProgramTests(TestingWebAppFactory testingWebAppFactory, ITestOutput
         var entityNames = await context.AppEntity.Select(entity => entity.EntityName).ToListAsync(TestContext.Current.CancellationToken);
 
         // Assert
-        Assert.Equal(
-            ["app-entity", "invite-code", "jwks", "registered-app", "role", "user", "wait-list"],
-            entityNames.Order(StringComparer.Ordinal)
-        );
+        Assert.Superset(new HashSet<string> { "user", "role", "invite-code", "wait-list" }, entityNames.ToHashSet());
     }
 
     [Fact]

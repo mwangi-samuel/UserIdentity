@@ -12,12 +12,12 @@ public static class JwksEndpoints
     {
         var group = endpoints.MapApiGroup("Jwks");
 
-        group.MapGet("keys", GetKeySetsAsync).AllowAnonymous();
+        group.MapGet("keys", GetKeySetsAsync).AllowAnonymous().Produces<JsonWebKeySetDto>();
 
         return group;
     }
 
-    internal static async Task<JsonHttpResult<IDictionary<string, IList<Dictionary<string, string>>>>> GetKeySetsAsync(
+    internal static async Task<JsonHttpResult<JsonWebKeySetDto>> GetKeySetsAsync(
         IGetItemsQueryHandler<GetKeySetsQuery, KeySetsViewModel> handler,
         CancellationToken cancellationToken
     )

@@ -24,158 +24,98 @@ public class WaitListEndpointsTests
         _createWaitListCommandHandler = A.Fake<ICreateItemCommandHandler<CreateWaitListCommand, WaitListViewModel>>();
         _getWaitListQueryHandler = A.Fake<IGetItemQueryHandler<GetWaitListQuery, WaitListViewModel>>();
         _registeredAppResolver = A.Fake<IRegisteredAppResolver>();
+
+        A.CallTo(() => _registeredAppResolver.GetActiveAppAsync(A<string>._, A<CancellationToken>._))
+            .Returns(
+                new ActiveRegisteredApp
+                {
+                    Id = 4,
+                    AppName = "TestApp",
+                    AppSecretKey = "test-secret",
+                    BaseUrl = "https://app.test",
+                }
+            );
+        A.CallTo(() => _getWaitListQueryHandler.GetItemAsync(A<GetWaitListQuery>._, A<CancellationToken>._))
+            .Returns(new WaitListViewModel { WaitList = new WaitListDto { Id = 1 } });
+        A.CallTo(() => _createWaitListCommandHandler.CreateItemAsync(A<CreateWaitListCommand>._, A<string>._, A<CancellationToken>._))
+            .Returns(new WaitListViewModel { WaitList = new WaitListDto { Id = 1 } });
     }
 
     [Fact]
-    public async Task GetWaitList_Returns_WaitList()
+    public async Task GetWaitList_Passes_The_Admins_App_And_Grants_Rights()
     {
         // Arrange
-        var waitListId = 1L;
-        var waitListVM = new WaitListViewModel
-        {
-            WaitList = new WaitListDto
-            {
-                Id = waitListId,
-                UserEmail = "test@example.com",
-                AppId = 1,
-                AppName = "TestApp",
-            },
-        };
-
-        A.CallTo(() =>
-                _getWaitListQueryHandler.GetItemAsync(
-                    A<GetWaitListQuery>.That.Matches(q => q.WaitListId == waitListId),
-                    A<CancellationToken>._
-                )
-            )
-            .Returns(waitListVM);
-
         var request = ApiRequestFactory.Create("wait-list");
 
         // Act
-        var result = await WaitListEndpoints.GetWaitList(
-            waitListId,
+        var result = await WaitListEndpoints.GetWaitListAsync(
+            1,
             request,
             _registeredAppResolver,
             _getWaitListQueryHandler,
             TestContext.Current.CancellationToken
         );
-        var vm = result.Value;
 
         // Assert
         Assert.Equal((int)HttpStatusCode.OK, result.StatusCode);
-        Assert.NotNull(vm);
-        Assert.Equal(waitListVM.WaitList.Id, vm?.WaitList.Id);
-        Assert.Equal(waitListVM.WaitList.UserEmail, vm?.WaitList.UserEmail);
+        Assert.True(result.Value?.EditEnabled);
+        Assert.True(result.Value?.DeleteEnabled);
+        Assert.Equal(RequestStatus.Successful.ToText(), result.Value?.RequestStatus);
+        Assert.Equal(ItemStatusMessage.FetchItemSuccessful.ToText(), result.Value?.StatusMessage);
 
-        Assert.Contains(RequestStatus.Successful.ToText(), vm?.RequestStatus);
-        Assert.Contains(ItemStatusMessage.FetchItemSuccessful.ToText(), vm?.StatusMessage);
+        A.CallTo(() => _getWaitListQueryHandler.GetItemAsync(new GetWaitListQuery { WaitListId = 1, AppId = 4 }, A<CancellationToken>._))
+            .MustHaveHappenedOnceExactly();
     }
 
     [Fact]
-    public async Task GetWaitListByEmail_Returns_WaitList()
+    public async Task GetWaitListByEmail_Passes_The_Admins_App()
     {
         // Arrange
         var userEmail = "test@example.com";
-        var waitListVM = new WaitListViewModel
-        {
-            WaitList = new WaitListDto
-            {
-                Id = 1,
-                UserEmail = userEmail,
-                AppId = 1,
-                AppName = "TestApp",
-            },
-        };
-
-        A.CallTo(() =>
-                _getWaitListQueryHandler.GetItemAsync(
-                    A<GetWaitListQuery>.That.Matches(q => q.UserEmail == userEmail),
-                    A<CancellationToken>._
-                )
-            )
-            .Returns(waitListVM);
-
         var request = ApiRequestFactory.Create("wait-list");
 
         // Act
-        var result = await WaitListEndpoints.GetWaitListByEmail(
+        var result = await WaitListEndpoints.GetWaitListByEmailAsync(
             userEmail,
             request,
             _registeredAppResolver,
             _getWaitListQueryHandler,
             TestContext.Current.CancellationToken
         );
-        var vm = result.Value;
 
         // Assert
         Assert.Equal((int)HttpStatusCode.OK, result.StatusCode);
-        Assert.NotNull(vm);
-        Assert.Equal(waitListVM.WaitList.UserEmail, vm?.WaitList.UserEmail);
+        Assert.Equal(ItemStatusMessage.FetchItemSuccessful.ToText(), result.Value?.StatusMessage);
 
-        Assert.Contains(RequestStatus.Successful.ToText(), vm?.RequestStatus);
-        Assert.Contains(ItemStatusMessage.FetchItemSuccessful.ToText(), vm?.StatusMessage);
+        A.CallTo(() =>
+                _getWaitListQueryHandler.GetItemAsync(new GetWaitListQuery { UserEmail = userEmail, AppId = 4 }, A<CancellationToken>._)
+            )
+            .MustHaveHappenedOnceExactly();
     }
 
     [Fact]
-    public async Task CreateWaitList_Creates_And_Returns_WaitList()
+    public async Task CreateWaitList_Passes_The_Requests_App_And_Returns_Created()
     {
         // Arrange
-        var appId = 1;
-        var appName = "TestApp";
-
         var command = new CreateWaitListCommand { UserEmail = "new@example.com" };
-
-        var registeredApp = new ActiveRegisteredApp
-        {
-            Id = appId,
-            AppName = appName,
-            AppSecretKey = "test-secret",
-            BaseUrl = "https://app.test",
-        };
-
-        var waitListVM = new WaitListViewModel
-        {
-            WaitList = new WaitListDto
-            {
-                Id = 1,
-                UserEmail = command.UserEmail,
-                AppId = appId,
-                AppName = appName,
-            },
-        };
-
-        A.CallTo(() => _registeredAppResolver.GetActiveAppAsync(A<string>._, A<CancellationToken>._)).Returns(registeredApp);
-        A.CallTo(() =>
-                _createWaitListCommandHandler.CreateItemAsync(A<CreateWaitListCommand>._, TestStringHelper.UserId, A<CancellationToken>._)
-            )
-            .Returns(waitListVM);
-
-        var request = ApiRequestFactory.Create("wait-list", userId: TestStringHelper.UserId, appName: appName);
+        var request = ApiRequestFactory.Create("wait-list", userId: TestStringHelper.UserId, appName: "TestApp");
 
         // Act
-        var result = await WaitListEndpoints.CreateWaitList(
+        var result = await WaitListEndpoints.CreateWaitListAsync(
             command,
             request,
             _registeredAppResolver,
             _createWaitListCommandHandler,
             TestContext.Current.CancellationToken
         );
-        var vm = result.Value;
 
         // Assert
         Assert.Equal((int)HttpStatusCode.Created, result.StatusCode);
-        Assert.NotNull(vm);
-        Assert.Equal(waitListVM.WaitList.UserEmail, vm?.WaitList.UserEmail);
-        Assert.Equal(appId, vm?.WaitList.AppId);
+        Assert.Equal(4, command.AppId);
+        Assert.Equal(ItemStatusMessage.CreateItemSuccessful.ToText(), result.Value?.StatusMessage);
 
-        Assert.Contains(RequestStatus.Successful.ToText(), vm?.RequestStatus);
-        Assert.Contains(ItemStatusMessage.CreateItemSuccessful.ToText(), vm?.StatusMessage);
-
-        A.CallTo(() => _registeredAppResolver.GetActiveAppAsync(A<string>._, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
-        A.CallTo(() =>
-                _createWaitListCommandHandler.CreateItemAsync(A<CreateWaitListCommand>._, TestStringHelper.UserId, A<CancellationToken>._)
-            )
+        A.CallTo(() => _registeredAppResolver.GetActiveAppAsync("testapp", A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+        A.CallTo(() => _createWaitListCommandHandler.CreateItemAsync(command, TestStringHelper.UserId, A<CancellationToken>._))
             .MustHaveHappenedOnceExactly();
     }
 
@@ -183,51 +123,22 @@ public class WaitListEndpointsTests
     public async Task CreateWaitList_Without_UserId_Uses_Anonymous()
     {
         // Arrange
-        var appId = 1;
-        var appName = "TestApp";
-
         var command = new CreateWaitListCommand { UserEmail = "anonymous@example.com" };
-
-        var registeredApp = new ActiveRegisteredApp
-        {
-            Id = appId,
-            AppName = appName,
-            AppSecretKey = "test-secret",
-            BaseUrl = "https://app.test",
-        };
-
-        var waitListVM = new WaitListViewModel
-        {
-            WaitList = new WaitListDto
-            {
-                Id = 1,
-                UserEmail = command.UserEmail,
-                AppId = appId,
-                AppName = appName,
-            },
-        };
-
-        A.CallTo(() => _registeredAppResolver.GetActiveAppAsync(A<string>._, A<CancellationToken>._)).Returns(registeredApp);
-        A.CallTo(() => _createWaitListCommandHandler.CreateItemAsync(A<CreateWaitListCommand>._, A<string>._, A<CancellationToken>._))
-            .Returns(waitListVM);
-
-        var request = ApiRequestFactory.Create("wait-list", appName: appName);
+        var request = ApiRequestFactory.Create("wait-list", appName: "TestApp");
 
         // Act
-        var result = await WaitListEndpoints.CreateWaitList(
+        var result = await WaitListEndpoints.CreateWaitListAsync(
             command,
             request,
             _registeredAppResolver,
             _createWaitListCommandHandler,
             TestContext.Current.CancellationToken
         );
-        var vm = result.Value;
 
         // Assert
         Assert.Equal((int)HttpStatusCode.Created, result.StatusCode);
-        Assert.NotNull(vm);
 
-        A.CallTo(() => _createWaitListCommandHandler.CreateItemAsync(A<CreateWaitListCommand>._, A<string>._, A<CancellationToken>._))
+        A.CallTo(() => _createWaitListCommandHandler.CreateItemAsync(command, request.LoggedInUserId, A<CancellationToken>._))
             .MustHaveHappenedOnceExactly();
     }
 }

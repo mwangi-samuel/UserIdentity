@@ -13,6 +13,8 @@ public class CreateWaitListCommandHandlerTests
 {
     private readonly IUnitOfWork _unitOfWork;
     private readonly IWaitListRepository _waitListRepository;
+    private static readonly DateTime _now = new(2026, 11, 11, 12, 0, 0, DateTimeKind.Utc);
+
     private readonly FakeTimeProvider _timeProvider;
 
     public CreateWaitListCommandHandlerTests()
@@ -21,7 +23,7 @@ public class CreateWaitListCommandHandlerTests
         _waitListRepository = A.Fake<IWaitListRepository>();
         _timeProvider = new FakeTimeProvider();
 
-        _timeProvider.SetUtcNow(DateTime.UtcNow);
+        _timeProvider.SetUtcNow(_now);
     }
 
     [Fact]
@@ -46,8 +48,6 @@ public class CreateWaitListCommandHandlerTests
         var result = await handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken);
 
         // Assert
-        Assert.NotNull(result);
-        Assert.NotNull(result.WaitList);
         Assert.Equal(expectedDto.UserEmail, result.WaitList.UserEmail);
         Assert.Equal(expectedDto.AppId, result.WaitList.AppId);
         Assert.Equal(expectedDto.AppName, result.WaitList.AppName);
@@ -61,9 +61,6 @@ public class CreateWaitListCommandHandlerTests
     public async Task CreateItemAsync_Sets_Audit_Fields()
     {
         // Arrange
-        var now = DateTime.UtcNow;
-        _timeProvider.SetUtcNow(now);
-
         var command = new CreateWaitListCommand { UserEmail = "audit@example.com", AppId = 2 };
 
         WaitListEntity? capturedEntity = null;
@@ -86,7 +83,9 @@ public class CreateWaitListCommandHandlerTests
 
         // Assert
         Assert.NotNull(capturedEntity);
-        Assert.Equal(TestStringHelper.UserId, capturedEntity!.CreatedBy);
+        Assert.Equal(TestStringHelper.UserId, capturedEntity.CreatedBy);
+        Assert.Equal(_now, capturedEntity.CreatedAt);
         Assert.Equal(TestStringHelper.UserId, capturedEntity.UpdatedBy);
+        Assert.Equal(_now, capturedEntity.UpdatedAt);
     }
 }

@@ -2,10 +2,10 @@
 
 namespace UserIdentity.Infrastructure.ExternalServices;
 
-public record GoogleRecaptchaSettings : IValidatableObject
+public sealed class GoogleRecaptchaSettings : IValidatableObject
 {
-    public bool Enabled { get; set; }
-    public string? SiteKey { get; set; }
+    public bool Enabled { get; init; }
+    public string? SiteKey { get; init; }
 
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {

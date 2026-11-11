@@ -18,7 +18,7 @@ public class StartSessionCommandHandler(
     IRefreshTokenRepository refreshTokenRepository,
     ITokenFactory tokenFactory,
     TimeProvider timeProvider
-) : ICreateItemCommandHandler<StartSessionCommand, AccessTokenViewModel>
+) : ICreateItemCommandHandler<StartSessionCommand, UserTokenViewModel>
 {
     private readonly RefreshTokenSettings _refreshTokenSettings = refreshTokenSettingsOptions.Value;
     private readonly ICreateItemCommandHandler<CreateAccessTokenCommand, AccessTokenViewModel> _createAccessTokenCommandHandler =
@@ -27,7 +27,7 @@ public class StartSessionCommandHandler(
     private readonly ITokenFactory _tokenFactory = tokenFactory;
     private readonly TimeProvider _timeProvider = timeProvider;
 
-    public async Task<AccessTokenViewModel> CreateItemAsync(
+    public async Task<UserTokenViewModel> CreateItemAsync(
         StartSessionCommand command,
         string userId,
         CancellationToken cancellationToken = default
@@ -53,6 +53,9 @@ public class StartSessionCommandHandler(
 
         _refreshTokenRepository.CreateEntityItem(refreshTokenEntity);
 
-        return new AccessTokenViewModel { AccessToken = accessToken.AccessToken, RefreshToken = refreshToken };
+        return new UserTokenViewModel
+        {
+            UserToken = new UserTokenDto { AccessToken = accessToken.AccessToken, RefreshToken = refreshToken },
+        };
     }
 }

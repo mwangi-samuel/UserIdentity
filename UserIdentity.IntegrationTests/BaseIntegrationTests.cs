@@ -1,15 +1,10 @@
 ﻿using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using NATS.Client.JetStream;
+using Newtonsoft.Json.Linq;
 using PolyzenKit.Application.Core.RegisteredApps.Shared;
 using PolyzenKit.Common.Exceptions;
-using PolyzenKit.Domain.Entities.AppEntities;
-using PolyzenKit.Domain.Entities.RegisteredApps;
-using PolyzenKit.Persistence.Infrastructure;
-using Respawn;
 using UserIdentity.IntegrationTests.TestUtils;
 using UserIdentity.Persistence;
 using Xunit;
@@ -20,13 +15,11 @@ namespace UserIdentity.IntegrationTests;
 public class BaseIntegrationTests : IAsyncLifetime
 {
     private readonly IServiceScope _scope;
-    private readonly Func<Task> _resetDatabase;
+    private readonly TestingWebAppFactory _testingWebAppFactory;
 
     protected ITestOutputHelper OutputHelper { get; }
     protected HttpClient HttpClient { get; }
     protected IServiceProvider ServiceProvider { get; }
-
-    private readonly AppDbContext _appDbContext;
 
     protected TestDbHelper TestDbHelper { get; }
     protected NatsTestHelper NatsTestHelper { get; }
@@ -35,21 +28,23 @@ public class BaseIntegrationTests : IAsyncLifetime
 
     protected IConfiguration Configuration { get; }
 
+    protected DateTime TestStartedAt { get; private set; }
+
     public BaseIntegrationTests(TestingWebAppFactory testingWebAppFactory, ITestOutputHelper outputHelper)
     {
+        _testingWebAppFactory = testingWebAppFactory;
+
         OutputHelper = outputHelper;
         HttpClient = testingWebAppFactory.CreateClient();
 
         _scope = testingWebAppFactory.Services.CreateScope();
         ServiceProvider = _scope.ServiceProvider;
 
-        _appDbContext = ServiceProvider.GetRequiredService<AppDbContext>();
-
         Configuration = ServiceProvider.GetRequiredService<IConfiguration>();
 
         TestDbHelper = new TestDbHelper(
             Configuration,
-            _appDbContext,
+            ServiceProvider.GetRequiredService<AppDbContext>(),
             ServiceProvider.GetRequiredService<UserManager<IdentityUser>>(),
             ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>()
         );
@@ -59,38 +54,24 @@ public class BaseIntegrationTests : IAsyncLifetime
         RegisteredApp =
             Configuration.GetSetting<RegisteredAppsSettings>().RegisteredApps.FirstOrDefault()
             ?? throw new MissingConfigurationException("At least one registered app must be provided");
-
-        _resetDatabase = ResolveResetDatabaseFunc();
     }
 
-    private Func<Task> ResolveResetDatabaseFunc()
+    public async ValueTask InitializeAsync()
     {
-        return async () =>
-        {
-            var dbConnection = _appDbContext.Database.GetDbConnection();
+        TestStartedAt = DateTime.UtcNow;
 
-            await dbConnection.OpenAsync();
+        await _testingWebAppFactory.ResetDatabaseAsync(TestContext.Current.CancellationToken);
 
-            var respawner = await Respawner.CreateAsync(
-                dbConnection,
-                new RespawnerOptions
-                {
-                    DbAdapter = DbAdapter.MySql,
-                    TablesToIgnore =
-                    [
-                        _appDbContext.GetTableName<AppEntity>()!,
-                        _appDbContext.GetTableName<RegisteredAppEntity>()!,
-                        _appDbContext.GetTableName<IdentityRole>()!,
-                        HistoryRepository.DefaultTableName,
-                    ],
-                }
-            );
-
-            await respawner.ResetAsync(dbConnection);
-        };
+        TestDbHelper.CreateIdentityRole(TestDbHelper.AdminRoles.First());
     }
 
-    public async ValueTask InitializeAsync() => await _resetDatabase();
+    protected void AssertErrorTimestamp(JObject jsonObject)
+    {
+        var timestamp = (DateTime?)jsonObject["error"]?["timestamp"];
+
+        Assert.NotNull(timestamp);
+        Assert.InRange(timestamp.Value.ToUniversalTime(), TestStartedAt, DateTime.UtcNow);
+    }
 
     public ValueTask DisposeAsync()
     {

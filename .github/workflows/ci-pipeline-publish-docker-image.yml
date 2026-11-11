@@ -7,21 +7,31 @@ on:
   release:
     types: [published]
 
+concurrency:
+  group: release
+  cancel-in-progress: false
+
 jobs:
   push-to-registry:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
         with:
-          dotnet-version: 10.0.x
+          global-json-file: global.json
+
+      - name: Unit Tests
+        run: dotnet test --project ./UserIdentity.UnitTests/UserIdentity.UnitTests.csproj --configuration Release
+
+      - name: Integration Tests
+        run: dotnet test --project ./UserIdentity.IntegrationTests/UserIdentity.IntegrationTests.csproj --configuration Release
 
       - name: Build Image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           context: .
           file: ./UserIdentity/Dockerfile
@@ -34,20 +44,20 @@ jobs:
           USERIDENTITY_SMOKE_IMAGE: useridentity:smoke
 
       - name: Login to Dockerhub
-        uses: docker/login-action@v3
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Docker Metadata
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
         with:
           images: ${{ secrets.DOCKERHUB_USERNAME }}/useridentity
           tags: type=semver,pattern={{version}}
 
       - name: Build and Push
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           context: .
           file: ./UserIdentity/Dockerfile

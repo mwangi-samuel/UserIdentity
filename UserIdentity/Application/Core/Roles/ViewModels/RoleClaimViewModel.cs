@@ -5,5 +5,5 @@ namespace UserIdentity.Application.Core.Roles.ViewModels;
 
 public record RoleClaimViewModel : ItemDetailBaseViewModel
 {
-    public RoleClaimDto RoleClaim { get; init; } = null!;
+    public required RoleClaimDto RoleClaim { get; init; }
 }

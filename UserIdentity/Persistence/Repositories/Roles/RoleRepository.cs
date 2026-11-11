@@ -19,32 +19,27 @@ public class RoleRepository(AppDbContext appDbContext) : IRoleRepository
             .ToListAsync(cancellationToken);
     }
 
-    public async Task<List<string>> GetUserRoleNamesAsync(string userId, CancellationToken cancellationToken = default)
+    public async Task<Dictionary<string, HashSet<string>>> GetUserRoleScopesAsync(
+        string userId,
+        CancellationToken cancellationToken = default
+    )
     {
-        return await _appDbContext
+        var roleScopes = await _appDbContext
             .UserRoles.Where(userRole => userRole.UserId == userId)
-            .Join(_appDbContext.Roles, userRole => userRole.RoleId, role => role.Id, (_, role) => role.Name!)
-            .OrderBy(roleName => roleName)
-            .ToListAsync(cancellationToken);
-    }
-
-    public async Task<HashSet<string>> GetScopesAsync(IReadOnlyCollection<string> roleNames, CancellationToken cancellationToken = default)
-    {
-        if (roleNames.Count == 0)
-            return [];
-
-        var normalizedNames = roleNames.Select(roleName => roleName.ToUpperInvariant()).ToList();
-
-        var scopes = await _appDbContext
-            .RoleClaims.Join(
-                _appDbContext.Roles.Where(role => normalizedNames.Contains(role.NormalizedName!)),
-                roleClaim => roleClaim.RoleId,
+            .Join(_appDbContext.Roles, userRole => userRole.RoleId, role => role.Id, (_, role) => role)
+            .LeftJoin(
+                _appDbContext.RoleClaims,
                 role => role.Id,
-                (roleClaim, _) => roleClaim.ClaimValue!
+                roleClaim => roleClaim.RoleId,
+                (role, roleClaim) => new { RoleName = role.Name!, Scope = roleClaim == null ? null : roleClaim.ClaimValue }
             )
-            .Distinct()
             .ToListAsync(cancellationToken);
 
-        return [.. scopes];
+        return roleScopes
+            .GroupBy(roleScope => roleScope.RoleName)
+            .ToDictionary(
+                group => group.Key,
+                group => group.Where(roleScope => roleScope.Scope is not null).Select(roleScope => roleScope.Scope!).ToHashSet()
+            );
     }
 }

@@ -32,6 +32,14 @@ public class UserEndpointsTests
 
     private readonly IRegisteredAppResolver _registeredAppResolver;
 
+    private readonly ActiveRegisteredApp _registeredApp = new()
+    {
+        Id = 1,
+        AppName = "test-app",
+        AppSecretKey = "test-secret",
+        BaseUrl = "https://app.test",
+    };
+
     public UserEndpointsTests()
     {
         _getUserQueryHandler = A.Fake<IGetItemQueryHandler<GetUserQuery, UserViewModel>>();
@@ -44,154 +52,110 @@ public class UserEndpointsTests
         _resetPasswordCommandHandler = A.Fake<ICreateItemCommandHandler<ResetPasswordCommand, ResetPasswordViewModel>>();
         _updatePasswordCommandHandler = A.Fake<IUpdateItemCommandHandler<UpdatePasswordCommand, UpdatePasswordViewModel>>();
         _registeredAppResolver = A.Fake<IRegisteredAppResolver>();
+
+        A.CallTo(() => _registeredAppResolver.GetActiveAppAsync(A<string>._, A<CancellationToken>._)).Returns(_registeredApp);
     }
 
     [Fact]
-    public async Task Get_User_Should_Return_User()
+    public async Task Get_User_Passes_The_Callers_App_And_Grants_No_Rights_On_Another_Users_Record()
     {
         // Arrange
         var userId = Guid.NewGuid().ToString();
-        var userFName = "Test";
-        var userLName = "User";
-        var userName = "test.user";
-        var userEmail = userName + "@test.com";
-        GetUserQuery getUserQuery = new() { UserId = userId, AppName = "testapp" };
-        UserViewModel userVM = new()
-        {
-            User = new UserDto
-            {
-                Id = userId,
-                FirstName = userFName,
-                LastName = userLName,
-                UserName = userName,
-                Email = userEmail,
-            },
-        };
+
+        A.CallTo(() => _getUserQueryHandler.GetItemAsync(A<GetUserQuery>._, A<CancellationToken>._))
+            .Returns(
+                new UserViewModel
+                {
+                    User = new UserDto { Id = userId, CreatedBy = userId },
+                }
+            );
+
+        var request = ApiRequestFactory.Create("user", userId: TestStringHelper.UserId);
 
         // Act
-        A.CallTo(() => _getUserQueryHandler.GetItemAsync(getUserQuery, A<CancellationToken>._)).Returns(userVM);
-
-        var request = ApiRequestFactory.Create("user");
-        var result = await UserEndpoints.GetUser(userId, request, _getUserQueryHandler, TestContext.Current.CancellationToken);
-        var vm = result.Value;
+        var result = await UserEndpoints.GetUserAsync(userId, request, _getUserQueryHandler, TestContext.Current.CancellationToken);
 
         // Assert
         Assert.Equal((int)HttpStatusCode.OK, result.StatusCode);
+        Assert.False(result.Value?.EditEnabled);
+        Assert.False(result.Value?.DeleteEnabled);
+        Assert.Equal(RequestStatus.Successful.ToText(), result.Value?.RequestStatus);
+        Assert.Equal(ItemStatusMessage.FetchItemSuccessful.ToText(), result.Value?.StatusMessage);
 
-        Assert.NotNull(vm);
-        Assert.Equal(userId, vm?.User?.Id);
-        Assert.Equal(userFName, vm?.User?.FirstName);
-        Assert.Equal(userLName, vm?.User?.LastName);
-        Assert.Equal(userName, vm?.User?.UserName);
-        Assert.Equal(userEmail, vm?.User?.Email);
-
-        Assert.False(vm?.EditEnabled);
-        Assert.False(vm?.DeleteEnabled);
-
-        Assert.Contains(RequestStatus.Successful.ToText(), vm?.RequestStatus);
-        Assert.Contains(ItemStatusMessage.FetchItemSuccessful.ToText(), vm?.StatusMessage);
+        A.CallTo(() => _getUserQueryHandler.GetItemAsync(new GetUserQuery { UserId = userId, AppName = "testapp" }, A<CancellationToken>._))
+            .MustHaveHappenedOnceExactly();
     }
 
     [Fact]
-    public async Task Create_User_Should_Create_User()
+    public async Task Get_User_Grants_Rights_On_The_Callers_Own_Record()
     {
         // Arrange
-        var userId = Guid.NewGuid().ToString();
-        var userFName = "Test";
-        var userLName = "User";
-        var userName = "test.user";
-        var userEmail = userName + "@test.com";
-        var userPassword = "testPassword";
+        A.CallTo(() => _getUserQueryHandler.GetItemAsync(A<GetUserQuery>._, A<CancellationToken>._))
+            .Returns(
+                new UserViewModel
+                {
+                    User = new UserDto { Id = TestStringHelper.UserId, CreatedBy = TestStringHelper.UserId },
+                }
+            );
 
-        var refreshToken = "abmsmmsrefreshToken";
-
-        RegisterUserCommand command = new()
-        {
-            FirstName = userFName,
-            LastName = userLName,
-            UserName = userName,
-            UserEmail = userEmail,
-            UserPassword = userPassword,
-        };
-
-        AuthUserViewModel authVM = new()
-        {
-            User = new UserDto
-            {
-                Id = userId,
-                FirstName = userFName,
-                LastName = userLName,
-                UserName = userName,
-                Email = userEmail,
-            },
-            UserToken = new AccessTokenViewModel { RefreshToken = refreshToken },
-        };
+        var request = ApiRequestFactory.Create("user", userId: TestStringHelper.UserId);
 
         // Act
-        A.CallTo(() => _registerUserCommandHandler.CreateItemAsync(command, TestStringHelper.UserId, A<CancellationToken>._))
-            .Returns(authVM);
+        var result = await UserEndpoints.GetUserAsync(
+            TestStringHelper.UserId,
+            request,
+            _getUserQueryHandler,
+            TestContext.Current.CancellationToken
+        );
 
-        var request = ApiRequestFactory.Create("user", userId: TestStringHelper.UserId, appName: "test-app");
-        var result = await UserEndpoints.CreateUser(
+        // Assert
+        Assert.True(result.Value?.EditEnabled);
+        Assert.True(result.Value?.DeleteEnabled);
+    }
+
+    [Fact]
+    public async Task Create_User_Passes_The_Requests_App_And_Returns_Created()
+    {
+        // Arrange
+        var command = GetRegisterUserCommand();
+
+        A.CallTo(() => _registerUserCommandHandler.CreateItemAsync(command, A<string>._, A<CancellationToken>._))
+            .Returns(new AuthUserViewModel { User = new UserDto { Id = "user-id" } });
+
+        var request = ApiRequestFactory.Create("user", appName: "test-app");
+
+        // Act
+        var result = await UserEndpoints.CreateUserAsync(
             command,
             request,
             _registeredAppResolver,
             _registerUserCommandHandler,
             TestContext.Current.CancellationToken
         );
-        var vm = result.Value;
 
         // Assert
         Assert.Equal((int)HttpStatusCode.Created, result.StatusCode);
-
-        Assert.NotNull(vm);
-        Assert.Equal(userId, vm?.User?.Id);
-        Assert.Equal(userFName, vm?.User?.FirstName);
-        Assert.Equal(userLName, vm?.User?.LastName);
-        Assert.Equal(userName, vm?.User?.UserName);
-        Assert.Equal(userEmail, vm?.User?.Email);
-
-        Assert.Equal(refreshToken, vm?.UserToken?.RefreshToken);
-
-        Assert.True(vm?.EditEnabled);
-        Assert.True(vm?.DeleteEnabled);
-
-        Assert.Contains(RequestStatus.Successful.ToText(), vm?.RequestStatus);
-        Assert.Contains(ItemStatusMessage.CreateItemSuccessful.ToText(), vm?.StatusMessage);
+        Assert.Same(_registeredApp, command.RegisteredApp);
+        Assert.Equal(RequestSource.UI, command.RequestSource);
+        Assert.True(result.Value?.EditEnabled);
+        Assert.True(result.Value?.DeleteEnabled);
+        Assert.Equal(RequestStatus.Successful.ToText(), result.Value?.RequestStatus);
+        Assert.Equal(ItemStatusMessage.CreateItemSuccessful.ToText(), result.Value?.StatusMessage);
     }
 
     [Fact]
     public async Task Create_User_For_Service_Registers_The_User_As_An_Api_Sign_Up()
     {
         // Arrange
-        RegisterUserCommand command = new()
-        {
-            FirstName = "Test",
-            UserName = "test.user",
-            UserEmail = "test.user@test.com",
-            UserPassword = "testPassword",
-        };
-        var registeredApp = new ActiveRegisteredApp
-        {
-            Id = 1,
-            AppName = "test-app",
-            AppSecretKey = "test-secret",
-            BaseUrl = "https://app.test",
-        };
+        var command = GetRegisterUserCommand();
 
-        A.CallTo(() => _registeredAppResolver.GetActiveAppAsync(A<string>._, A<CancellationToken>._)).Returns(registeredApp);
         A.CallTo(() => _registerUserCommandHandler.CreateItemAsync(command, A<string>._, A<CancellationToken>._))
-            .Returns(
-                new AuthUserViewModel
-                {
-                    User = new UserDto { Id = "user-id", UserName = command.UserName },
-                }
-            );
+            .Returns(new AuthUserViewModel { User = new UserDto { Id = "user-id" } });
 
         var request = ApiRequestFactory.Create("user", userId: TestStringHelper.UserId, appName: "test-app");
 
         // Act
-        var result = await UserEndpoints.CreateUserForService(
+        var result = await UserEndpoints.CreateUserForServiceAsync(
             command,
             request,
             _registeredAppResolver,
@@ -200,120 +164,74 @@ public class UserEndpointsTests
         );
 
         // Assert
-
         Assert.Equal((int)HttpStatusCode.Created, result.StatusCode);
         Assert.Equal(RequestSource.Api, command.RequestSource);
-        Assert.Same(registeredApp, command.RegisteredApp);
+        Assert.Same(_registeredApp, command.RegisteredApp);
     }
 
     [Fact]
-    public async Task Login_User_Should_Login_User()
+    public async Task Login_User_Passes_The_Requests_App_And_Answers_Login_Successful()
     {
         // Arrange
-        var userName = "test.user";
-        var userPassword = "-test.user*1+";
+        LoginUserCommand command = new() { UserName = "test.user", Password = "-test.user*1+" };
 
-        var userId = Guid.NewGuid().ToString();
-        var userFName = "Test";
-        var userLName = "User";
-        var userEmail = userName + "@test.com";
+        A.CallTo(() => _loginUserCommandHandler.CreateItemAsync(command, A<string>._, A<CancellationToken>._))
+            .Returns(new AuthUserViewModel { User = new UserDto { Id = "user-id" } });
 
-        var refreshToken = "abmsmmsrefreshToken";
-        var loginMessage = "Login successful";
-
-        LoginUserCommand command = new() { UserName = userName, Password = userPassword };
-        AuthUserViewModel authVM = new()
-        {
-            User = new UserDto
-            {
-                Id = userId,
-                FirstName = userFName,
-                LastName = userLName,
-                UserName = userName,
-                Email = userEmail,
-            },
-            UserToken = new AccessTokenViewModel { RefreshToken = refreshToken },
-        };
+        var request = ApiRequestFactory.Create("user", appName: "test-app");
 
         // Act
-        A.CallTo(() => _loginUserCommandHandler.CreateItemAsync(command, TestStringHelper.UserId, A<CancellationToken>._)).Returns(authVM);
-
-        var request = ApiRequestFactory.Create("user", userId: TestStringHelper.UserId, appName: "test-app");
-        var result = await UserEndpoints.LoginUser(
+        var result = await UserEndpoints.LoginUserAsync(
             command,
             request,
             _registeredAppResolver,
             _loginUserCommandHandler,
             TestContext.Current.CancellationToken
         );
-        var vm = result.Value;
 
         // Assert
         Assert.Equal((int)HttpStatusCode.OK, result.StatusCode);
-
-        Assert.NotNull(vm);
-        Assert.Equal(userId, vm?.User?.Id);
-        Assert.Equal(userFName, vm?.User?.FirstName);
-        Assert.Equal(userLName, vm?.User?.LastName);
-        Assert.Equal(userName, vm?.User?.UserName);
-        Assert.Equal(userEmail, vm?.User?.Email);
-        Assert.Equal(refreshToken, vm?.UserToken?.RefreshToken);
-
-        Assert.True(vm?.EditEnabled);
-        Assert.True(vm?.DeleteEnabled);
-
-        Assert.Contains(RequestStatus.Successful.ToText(), vm?.RequestStatus);
-        Assert.Contains(loginMessage, vm?.StatusMessage);
+        Assert.Same(_registeredApp, command.RegisteredApp);
+        Assert.True(result.Value?.EditEnabled);
+        Assert.True(result.Value?.DeleteEnabled);
+        Assert.Equal(RequestStatus.Successful.ToText(), result.Value?.RequestStatus);
+        Assert.Equal("Login successful", result.Value?.StatusMessage);
     }
 
     [Fact]
-    public async Task Refresh_Token_Refreshes_Token()
+    public async Task Refresh_Token_Grants_Edit_Only_And_Answers_Refresh_Token_Generated()
     {
         // Arrange
-        var accessToken = "Acccess Token This";
-        var refreshToken = "Refresh Token This";
+        ExchangeRefreshTokenCommand command = new() { AccessToken = "access-token", RefreshToken = "refresh-token" };
 
-        var newAccesstoken = "New Access Token This";
-        var newRefreshToken = "New Refresh Token This";
-
-        var sucessStatusMessage = "Refresh token generated successfully";
-
-        ExchangeRefreshTokenViewModel exchangeRefreshTokenVM = new()
-        {
-            UserToken = new AccessTokenViewModel
-            {
-                AccessToken = new AccessTokenDto { Token = newAccesstoken },
-                RefreshToken = newRefreshToken,
-            },
-        };
-
-        ExchangeRefreshTokenCommand command = new() { AccessToken = accessToken, RefreshToken = refreshToken };
-
-        // Act
-        A.CallTo(() => _exchangeRefreshTokenCommandHandler.UpdateItemAsync(command, TestStringHelper.UserId, A<CancellationToken>._))
-            .Returns(exchangeRefreshTokenVM);
+        A.CallTo(() => _exchangeRefreshTokenCommandHandler.UpdateItemAsync(command, A<string>._, A<CancellationToken>._))
+            .Returns(
+                new ExchangeRefreshTokenViewModel
+                {
+                    UserToken = new UserTokenDto
+                    {
+                        AccessToken = new AccessTokenDto { Token = "new-access-token" },
+                        RefreshToken = "new-refresh-token",
+                    },
+                }
+            );
 
         var request = ApiRequestFactory.Create("user", userId: TestStringHelper.UserId);
-        var result = await UserEndpoints.RefreshToken(
+
+        // Act
+        var result = await UserEndpoints.ExchangeRefreshTokenAsync(
             command,
             request,
             _exchangeRefreshTokenCommandHandler,
             TestContext.Current.CancellationToken
         );
-        var vm = result.Value;
 
         // Assert
         Assert.Equal((int)HttpStatusCode.OK, result.StatusCode);
-
-        Assert.NotNull(vm);
-        Assert.Equal(newAccesstoken, vm?.UserToken?.AccessToken?.Token);
-        Assert.Equal(newRefreshToken, vm?.UserToken?.RefreshToken);
-
-        Assert.True(vm?.EditEnabled);
-        Assert.False(vm?.DeleteEnabled);
-
-        Assert.Contains(RequestStatus.Successful.ToText(), vm?.RequestStatus);
-        Assert.Contains(sucessStatusMessage, vm?.StatusMessage);
+        Assert.True(result.Value?.EditEnabled);
+        Assert.False(result.Value?.DeleteEnabled);
+        Assert.Equal(RequestStatus.Successful.ToText(), result.Value?.RequestStatus);
+        Assert.Equal("Refresh token generated successfully", result.Value?.StatusMessage);
     }
 
     [Fact]
@@ -321,30 +239,21 @@ public class UserEndpointsTests
     {
         // Arrange
         ExchangeLoginTicketCommand command = new() { Ticket = "login-ticket" };
-        var registeredApp = new ActiveRegisteredApp
-        {
-            Id = 1,
-            AppName = "test-app",
-            AppSecretKey = "test-secret",
-            BaseUrl = "https://app.test",
-        };
         var handler = A.Fake<ICreateItemCommandHandler<ExchangeLoginTicketCommand, AuthUserViewModel>>();
 
-        A.CallTo(() => _registeredAppResolver.GetActiveAppAsync(A<string>._, A<CancellationToken>._)).Returns(registeredApp);
         A.CallTo(() => handler.CreateItemAsync(command, A<string>._, A<CancellationToken>._))
             .Returns(
                 new AuthUserViewModel
                 {
                     User = new UserDto { Id = "user-id" },
                     IsConfirmed = true,
-                    UserToken = new AccessTokenViewModel { RefreshToken = "refresh-token" },
                 }
             );
 
         var request = ApiRequestFactory.Create("user", appName: "test-app");
 
         // Act
-        var result = await UserEndpoints.ExchangeLoginTicket(
+        var result = await UserEndpoints.ExchangeLoginTicketAsync(
             command,
             request,
             _registeredAppResolver,
@@ -354,107 +263,106 @@ public class UserEndpointsTests
 
         // Assert
         Assert.Equal((int)HttpStatusCode.OK, result.StatusCode);
-        Assert.Same(registeredApp, command.RegisteredApp);
-        Assert.Equal("refresh-token", result.Value?.UserToken?.RefreshToken);
-        Assert.Contains("Login successful", result.Value?.StatusMessage);
+        Assert.Same(_registeredApp, command.RegisteredApp);
+        Assert.True(result.Value?.EditEnabled);
+        Assert.Equal("Login successful", result.Value?.StatusMessage);
     }
 
     [Fact]
-    public async Task Logout_User_Logs_Out_User()
+    public async Task Logout_User_Passes_The_Callers_Id_And_Answers_Logout_Successful()
     {
         // Arrange
         LogoutUserCommand command = new() { RefreshToken = "Refresh Token This" };
 
-        // Act
         A.CallTo(() => _logoutUserCommandHandler.DeleteItemAsync(command, TestStringHelper.UserId, A<CancellationToken>._))
             .Returns(new DeleteRecordViewModel());
 
         var request = ApiRequestFactory.Create("user", userId: TestStringHelper.UserId);
-        var result = await UserEndpoints.LogoutUser(command, request, _logoutUserCommandHandler, TestContext.Current.CancellationToken);
-        var vm = result.Value;
+
+        // Act
+        var result = await UserEndpoints.LogoutUserAsync(
+            command,
+            request,
+            _logoutUserCommandHandler,
+            TestContext.Current.CancellationToken
+        );
 
         // Assert
         Assert.Equal((int)HttpStatusCode.OK, result.StatusCode);
-
-        Assert.NotNull(vm);
-        Assert.Contains(RequestStatus.Successful.ToText(), vm?.RequestStatus);
-        Assert.Contains("Logout successful", vm?.StatusMessage);
+        Assert.Equal(RequestStatus.Successful.ToText(), result.Value?.RequestStatus);
+        Assert.Equal("Logout successful", result.Value?.StatusMessage);
         A.CallTo(() => _logoutUserCommandHandler.DeleteItemAsync(command, TestStringHelper.UserId, A<CancellationToken>._))
             .MustHaveHappenedOnceExactly();
     }
 
     [Fact]
-    public async Task Reset_Password_Resets_Password()
+    public async Task Reset_Password_Passes_The_Requests_App_And_Answers_Reset_Request_Successful()
     {
         // Arrange
-        var userName = "user-email123@server.com";
-        var resetRequestId = "ResetRequestId123";
+        ResetPasswordCommand command = new() { UserName = "user-email123@server.com" };
 
-        var emailMessage = "Password reset code sent successfully";
-        var resetMessage = "Password reset request successful";
+        A.CallTo(() => _resetPasswordCommandHandler.CreateItemAsync(command, A<string>._, A<CancellationToken>._))
+            .Returns(
+                new ResetPasswordViewModel
+                {
+                    ResetPasswordDetails = new ResetPasswordDto { EmailMessage = "message", ResetRequestId = "ResetRequestId123" },
+                }
+            );
 
-        ResetPasswordCommand command = new() { UserName = userName };
-        ResetPasswordViewModel resetPasswordVM = new()
-        {
-            ResetPasswordDetails = new ResetPasswordDto { EmailMessage = emailMessage, ResetRequestId = resetRequestId },
-        };
+        var request = ApiRequestFactory.Create("user", appName: "test-app");
 
         // Act
-        A.CallTo(() => _resetPasswordCommandHandler.CreateItemAsync(command, TestStringHelper.UserId, A<CancellationToken>._))
-            .Returns(resetPasswordVM);
-
-        var request = ApiRequestFactory.Create("user", userId: TestStringHelper.UserId, appName: "test-app");
-        var result = await UserEndpoints.ResetPassword(
+        var result = await UserEndpoints.ResetPasswordAsync(
             command,
             request,
             _registeredAppResolver,
             _resetPasswordCommandHandler,
             TestContext.Current.CancellationToken
         );
-        var vm = result.Value;
 
         // Assert
         Assert.Equal((int)HttpStatusCode.OK, result.StatusCode);
-
-        Assert.NotNull(vm);
-        Assert.Equal(emailMessage, vm?.ResetPasswordDetails?.EmailMessage);
-        Assert.Equal(resetRequestId, vm?.ResetPasswordDetails?.ResetRequestId);
-        Assert.NotNull(command.RegisteredApp);
-
-        Assert.Contains(RequestStatus.Successful.ToText(), vm?.RequestStatus);
-        Assert.Contains(resetMessage, vm?.StatusMessage);
+        Assert.Same(_registeredApp, command.RegisteredApp);
+        Assert.Equal(RequestStatus.Successful.ToText(), result.Value?.RequestStatus);
+        Assert.Equal("Password reset request successful", result.Value?.StatusMessage);
     }
 
-    [Fact]
-    public async Task Update_Password_Updates_Password()
+    [Theory]
+    [InlineData(true, HttpStatusCode.OK, "Password updated successfully")]
+    [InlineData(false, HttpStatusCode.NotAcceptable, "Password update failed")]
+    public async Task Update_Password_Answers_By_Whether_The_Password_Was_Updated(
+        bool passwordUpdated,
+        HttpStatusCode statusCode,
+        string statusMessage
+    )
     {
         // Arrange
-        var newPassword = "NewPassword123";
-        var resetRequestId = "ResetRequestId123";
+        UpdatePasswordCommand command = new() { ResetRequestId = "ResetRequestId123", NewPassword = "NewPassword123" };
 
-        UpdatePasswordCommand command = new() { ResetRequestId = resetRequestId, NewPassword = newPassword };
-        UpdatePasswordViewModel updatePasswordViewModel = new() { UpdatePasswordResult = new UpdatePasswordDto { PassWordUpdated = true } };
+        A.CallTo(() => _updatePasswordCommandHandler.UpdateItemAsync(command, A<string>._, A<CancellationToken>._))
+            .Returns(new UpdatePasswordViewModel { UpdatePasswordResult = new UpdatePasswordDto { PasswordUpdated = passwordUpdated } });
+
+        var request = ApiRequestFactory.Create("user");
 
         // Act
-        A.CallTo(() => _updatePasswordCommandHandler.UpdateItemAsync(command, TestStringHelper.UserId, A<CancellationToken>._))
-            .Returns(updatePasswordViewModel);
-
-        var request = ApiRequestFactory.Create("user", userId: TestStringHelper.UserId);
-        var result = await UserEndpoints.UpdatePassword(
+        var result = await UserEndpoints.UpdatePasswordAsync(
             command,
             request,
             _updatePasswordCommandHandler,
             TestContext.Current.CancellationToken
         );
-        var vm = result.Value;
 
         // Assert
-        Assert.Equal((int)HttpStatusCode.OK, result.StatusCode);
-
-        Assert.NotNull(vm);
-        Assert.True(vm?.UpdatePasswordResult?.PassWordUpdated);
-
-        Assert.Contains(RequestStatus.Successful.ToText(), vm?.RequestStatus);
-        Assert.Contains("Password updated successfully", vm?.StatusMessage);
+        Assert.Equal((int)statusCode, result.StatusCode);
+        Assert.Equal(statusMessage, result.Value?.StatusMessage);
     }
+
+    private static RegisterUserCommand GetRegisterUserCommand() =>
+        new()
+        {
+            FirstName = "Test",
+            UserName = "test.user",
+            UserEmail = "test.user@test.com",
+            UserPassword = "testPassword",
+        };
 }

@@ -84,8 +84,8 @@ public class InviteOpenApiContractTests
             var phrase = RandomStrings.Generate(32, true, true);
             builder.UseSetting("EDDSA_PRIVATE_KEY", TestUtils.EdDsaHelper.ConvertToPem(keys.Private, phrase));
             builder.UseSetting("EDDSA_PUBLIC_KEY", TestUtils.EdDsaHelper.ConvertToPem(keys.Public));
-            builder.UseSetting($"{nameof(KeySetOptions)}:{nameof(KeySetOptions.PrivateKeyPath)}", "EDDSA_PRIVATE_KEY");
-            builder.UseSetting($"{nameof(KeySetOptions)}:{nameof(KeySetOptions.PrivateKeyPassPhrase)}", phrase);
+            builder.UseSetting($"{nameof(KeySetSettings)}:{nameof(KeySetSettings.PrivateKeyPath)}", "EDDSA_PRIVATE_KEY");
+            builder.UseSetting($"{nameof(KeySetSettings)}:{nameof(KeySetSettings.PrivateKeyPassPhrase)}", phrase);
             builder.ConfigureTestServices(services =>
             {
                 services.RemoveAll<DbContext>();

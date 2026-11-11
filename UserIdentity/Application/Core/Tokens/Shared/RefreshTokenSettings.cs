@@ -2,8 +2,8 @@
 
 namespace UserIdentity.Application.Core.Tokens.Shared;
 
-public record RefreshTokenSettings
+public sealed class RefreshTokenSettings
 {
     [Range(1, int.MaxValue)]
-    public int ValidForSeconds { get; set; }
+    public required int ValidForSeconds { get; init; }
 }

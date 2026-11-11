@@ -15,10 +15,10 @@ internal sealed class AppDbContextFactory : IDesignTimeDbContextFactory<AppDbCon
             .AddEnvironmentVariables()
             .Build();
 
-        var mysqlSettings = configuration.GetRequiredSetting<MysqlSettings>();
+        var databaseSettings = configuration.GetRequiredSetting<DatabaseSettings>();
 
         var options = new DbContextOptionsBuilder<AppDbContext>();
-        options.UseAppMysql(mysqlSettings);
+        options.UseAppMysql(databaseSettings);
 
         return new AppDbContext(options.Options);
     }

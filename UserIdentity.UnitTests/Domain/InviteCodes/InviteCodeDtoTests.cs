@@ -20,23 +20,6 @@ public class InviteCodeDtoTests
     };
 
     [Fact]
-    public void FromEntityBasic_Copies_The_Invite_Without_Audit_Fields()
-    {
-        // Act
-        var dto = InviteCodeDto.FromEntityBasic(_entity);
-
-        // Assert
-        Assert.Equal(4, dto.Id);
-        Assert.Equal("ABCDEFGHJK", dto.InviteCode);
-        Assert.Equal("owner@example.com", dto.UserEmail);
-        Assert.True(dto.Applied);
-        Assert.Equal("testapp:owner", dto.Role);
-        Assert.Equal(1, dto.AppId);
-        Assert.Null(dto.AppName);
-        Assert.Null(dto.CreatedBy);
-    }
-
-    [Fact]
     public void FromEntityDetailed_Adds_The_App_Name_And_Audit_Fields()
     {
         // Act

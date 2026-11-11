@@ -2,8 +2,8 @@ using System.ComponentModel.DataAnnotations;
 
 namespace UserIdentity.Application.Core.Tokens.Shared;
 
-public record LoginTicketSettings
+public sealed class LoginTicketSettings
 {
     [Range(1, int.MaxValue)]
-    public int ValidForSeconds { get; set; }
+    public required int ValidForSeconds { get; init; }
 }

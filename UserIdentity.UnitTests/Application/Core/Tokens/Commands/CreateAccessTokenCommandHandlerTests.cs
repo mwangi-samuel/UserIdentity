@@ -22,26 +22,31 @@ public class CreateAccessTokenCommandHandlerTests
         // Arrange
         HashSet<string> scopes = ["useridentity-user:read", "catalog-product:all"];
 
-        A.CallTo(() => _roleRepository.GetUserRoleNamesAsync("user-id", A<CancellationToken>._))
-            .Returns(["global:admin", "otherapp:admin", "service:internal", "testapp:owner", "testapp:user"]);
-        A.CallTo(() =>
-                _roleRepository.GetScopesAsync(A<IReadOnlyCollection<string>>.That.IsSameSequenceAs(AppRoles), A<CancellationToken>._)
-            )
-            .Returns(scopes);
+        A.CallTo(() => _roleRepository.GetUserRoleScopesAsync("user-id", A<CancellationToken>._))
+            .Returns(
+                new Dictionary<string, HashSet<string>>
+                {
+                    ["global:admin"] = [],
+                    ["otherapp:admin"] = ["otherapp-secret:all"],
+                    ["service:internal"] = ["service-secret:all"],
+                    ["testapp:owner"] = ["useridentity-user:read", "catalog-product:all"],
+                    ["testapp:user"] = ["useridentity-user:read"],
+                }
+            );
         A.CallTo(() =>
                 _jwtTokenHandler.CreateToken(
                     "user-id",
                     "test.user",
                     "TestApp",
                     A<HashSet<string>>.That.Matches(roles => roles.SetEquals(AppRoles)),
-                    scopes,
+                    A<HashSet<string>>.That.Matches(tokenScopes => tokenScopes.SetEquals(scopes)),
                     A<HashSet<Claim>?>._
                 )
             )
             .Returns(("access-token", 180));
 
         var handler = new CreateAccessTokenCommandHandler(
-            Options.Create(new RoleSettings { ServiceName = "UserIdentity" }),
+            Options.Create(new RoleSettings { ServiceName = "useridentity" }),
             _roleRepository,
             _jwtTokenHandler
         );
@@ -54,8 +59,7 @@ public class CreateAccessTokenCommandHandlerTests
         );
 
         // Assert
-        Assert.Equal("access-token", vm.AccessToken?.Token);
-        Assert.Equal(180, vm.AccessToken?.ExpiresIn);
-        Assert.Null(vm.RefreshToken);
+        Assert.Equal("access-token", vm.AccessToken.Token);
+        Assert.Equal(180, vm.AccessToken.ExpiresIn);
     }
 }

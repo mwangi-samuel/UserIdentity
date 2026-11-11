@@ -1,6 +1,16 @@
+using System.ComponentModel.DataAnnotations;
 using System.Threading.RateLimiting;
 
-namespace UserIdentity.Presentation.Endpoints;
+namespace UserIdentity.Presentation.Filters;
+
+public sealed class PasswordHashingSettings
+{
+    [Range(1, int.MaxValue)]
+    public int MaxConcurrent { get; init; } = 1;
+
+    [Range(0, int.MaxValue)]
+    public int QueueLimit { get; init; } = 32;
+}
 
 // A filter, not a global rate limiter: those run before the per-IP policy, so requests already over their
 // own budget would take queue places and other clients' logins would be refused

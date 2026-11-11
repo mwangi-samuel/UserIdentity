@@ -125,7 +125,6 @@ public class CreateUserRoleCommandHandlerTests
         var result = await handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken);
 
         // Assert
-        Assert.NotNull(result);
         Assert.Single(result.UserRoles);
     }
 

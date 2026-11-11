@@ -36,7 +36,7 @@ public class DeleteUnconfirmedUsersCommandHandlerTests
         return new(
             _userManager,
             Options.Create(identityOptions),
-            Options.Create(new CleanupSettings { UnconfirmedUserLifetimeInDays = 30 }),
+            Options.Create(new CleanupSettings { IntervalInMinutes = 60, UnconfirmedUserLifetimeInDays = 30 }),
             _unitOfWork,
             _userRepository,
             _inviteCodeRepository,
@@ -60,7 +60,7 @@ public class DeleteUnconfirmedUsersCommandHandlerTests
         A.CallTo(() =>
                 _userRepository.GetUnconfirmedEntityItemsCreatedBeforeAsync(
                     _fixedNow.AddDays(-30),
-                    DeleteUnconfirmedUsersCommandHandler.BatchSize,
+                    CleanupBatch.Size,
                     A<CancellationToken>._
                 )
             )
@@ -110,8 +110,58 @@ public class DeleteUnconfirmedUsersCommandHandlerTests
             CreateHandler().DeleteItemAsync(new DeleteUnconfirmedUsersCommand(), "system", TestContext.Current.CancellationToken)
         );
 
-        A.CallTo(() => _unitOfWork.RollbackTransactionAsync(A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+        A.CallTo(() => _unitOfWork.RollbackTransactionAsync(CancellationToken.None)).MustHaveHappenedOnceExactly();
         A.CallTo(() => _unitOfWork.CommitTransactionAsync(A<CancellationToken>._)).MustNotHaveHappened();
+    }
+
+    [Fact]
+    public async Task DeleteItemAsync_Skips_A_User_Confirmed_After_The_Batch_Was_Read()
+    {
+        // Arrange
+        var userEntity = new UserEntity { Id = Guid.NewGuid().ToString() };
+        var identityUser = new IdentityUser { Id = userEntity.Id, EmailConfirmed = true };
+
+        A.CallTo(() => _userRepository.GetUnconfirmedEntityItemsCreatedBeforeAsync(A<DateTime>._, A<int>._, A<CancellationToken>._))
+            .Returns([userEntity]);
+        A.CallTo(() => _userManager.FindByIdAsync(userEntity.Id)).Returns(identityUser);
+
+        // Act
+        await CreateHandler().DeleteItemAsync(new DeleteUnconfirmedUsersCommand(), "system", TestContext.Current.CancellationToken);
+
+        // Assert
+        A.CallTo(() => _userManager.DeleteAsync(A<IdentityUser>._)).MustNotHaveHappened();
+        A.CallTo(() => _inviteCodeRepository.GetAppliedEntityItemsForUserAsync(A<string>._, A<CancellationToken>._)).MustNotHaveHappened();
+        A.CallTo(() => _unitOfWork.BeginTransactionAsync(A<CancellationToken>._)).MustNotHaveHappened();
+    }
+
+    [Fact]
+    public async Task DeleteItemAsync_Skips_A_User_Changed_During_Its_Delete_And_Deletes_The_Next_One()
+    {
+        // Arrange
+        var changedUser = new UserEntity { Id = Guid.NewGuid().ToString() };
+        var nextUser = new UserEntity { Id = Guid.NewGuid().ToString() };
+        var changedIdentityUser = new IdentityUser { Id = changedUser.Id };
+        var nextIdentityUser = new IdentityUser { Id = nextUser.Id };
+
+        A.CallTo(() => _userRepository.GetUnconfirmedEntityItemsCreatedBeforeAsync(A<DateTime>._, A<int>._, A<CancellationToken>._))
+            .Returns([changedUser, nextUser]);
+        A.CallTo(() => _userManager.FindByIdAsync(changedUser.Id)).Returns(changedIdentityUser);
+        A.CallTo(() => _userManager.FindByIdAsync(nextUser.Id)).Returns(nextIdentityUser);
+        A.CallTo(() => _userManager.DeleteAsync(changedIdentityUser))
+            .Returns(IdentityResult.Failed(new IdentityErrorDescriber().ConcurrencyFailure()));
+        A.CallTo(() => _userManager.DeleteAsync(nextIdentityUser)).Returns(IdentityResult.Success);
+
+        // Act
+        await CreateHandler().DeleteItemAsync(new DeleteUnconfirmedUsersCommand(), "system", TestContext.Current.CancellationToken);
+
+        // Assert
+        A.CallTo(() => _userManager.DeleteAsync(changedIdentityUser))
+            .MustHaveHappenedOnceExactly()
+            .Then(A.CallTo(() => _unitOfWork.RollbackTransactionAsync(CancellationToken.None)).MustHaveHappenedOnceExactly())
+            .Then(A.CallTo(() => _userRepository.ClearTrackedEntities()).MustHaveHappenedOnceExactly())
+            .Then(A.CallTo(() => _userManager.DeleteAsync(nextIdentityUser)).MustHaveHappenedOnceExactly())
+            .Then(A.CallTo(() => _unitOfWork.CommitTransactionAsync(A<CancellationToken>._)).MustHaveHappenedOnceExactly());
+        A.CallTo(() => _unitOfWork.RollbackTransactionAsync(A<CancellationToken>._)).MustHaveHappenedOnceExactly();
     }
 
     [Fact]
@@ -122,13 +172,9 @@ public class DeleteUnconfirmedUsersCommandHandlerTests
             [.. Enumerable.Range(0, count).Select(_ => new UserEntity { Id = Guid.NewGuid().ToString() })];
 
         A.CallTo(() =>
-                _userRepository.GetUnconfirmedEntityItemsCreatedBeforeAsync(
-                    A<DateTime>._,
-                    DeleteUnconfirmedUsersCommandHandler.BatchSize,
-                    A<CancellationToken>._
-                )
+                _userRepository.GetUnconfirmedEntityItemsCreatedBeforeAsync(A<DateTime>._, CleanupBatch.Size, A<CancellationToken>._)
             )
-            .ReturnsNextFromSequence(Build(DeleteUnconfirmedUsersCommandHandler.BatchSize), Build(1));
+            .ReturnsNextFromSequence(Build(CleanupBatch.Size), Build(1));
         A.CallTo(() => _userManager.FindByIdAsync(A<string>._)).ReturnsLazily((string id) => new IdentityUser { Id = id });
         A.CallTo(() => _userManager.DeleteAsync(A<IdentityUser>._)).Returns(IdentityResult.Success);
 
@@ -136,9 +182,7 @@ public class DeleteUnconfirmedUsersCommandHandlerTests
         await CreateHandler().DeleteItemAsync(new DeleteUnconfirmedUsersCommand(), "system", TestContext.Current.CancellationToken);
 
         // Assert
-        A.CallTo(() => _userManager.DeleteAsync(A<IdentityUser>._))
-            .MustHaveHappened(DeleteUnconfirmedUsersCommandHandler.BatchSize + 1, Times.Exactly);
-        A.CallTo(() => _unitOfWork.CommitTransactionAsync(A<CancellationToken>._))
-            .MustHaveHappened(DeleteUnconfirmedUsersCommandHandler.BatchSize + 1, Times.Exactly);
+        A.CallTo(() => _userManager.DeleteAsync(A<IdentityUser>._)).MustHaveHappened(CleanupBatch.Size + 1, Times.Exactly);
+        A.CallTo(() => _unitOfWork.CommitTransactionAsync(A<CancellationToken>._)).MustHaveHappened(CleanupBatch.Size + 1, Times.Exactly);
     }
 }

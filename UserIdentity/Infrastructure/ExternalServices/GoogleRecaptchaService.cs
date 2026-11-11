@@ -11,7 +11,7 @@ public class GoogleRecaptchaService(IHttpRequestSender httpRequestSender, IOptio
     private readonly IHttpRequestSender _httpRequestSender = httpRequestSender;
     private readonly GoogleRecaptchaSettings _googleRecaptchaSettings = googleRecaptchaSettingsOptions.Value;
 
-    private const string targetServiceName = "GoogleRecaptcha";
+    private const string TargetServiceName = "GoogleRecaptcha";
 
     public async Task<bool> VerifyTokenAsync(string? token, CancellationToken cancellationToken = default)
     {
@@ -26,7 +26,7 @@ public class GoogleRecaptchaService(IHttpRequestSender httpRequestSender, IOptio
         var requestMessage = _httpRequestSender.CreateHttpRequestMessage(HttpMethod.Post, "siteverify").WithRequestParams(requestParams);
 
         var response = await _httpRequestSender.SendRequestAsync<GoogleRecaptchaResponseDto>(
-            targetServiceName,
+            TargetServiceName,
             requestMessage,
             HttpStatusCode.OK,
             cancellationToken

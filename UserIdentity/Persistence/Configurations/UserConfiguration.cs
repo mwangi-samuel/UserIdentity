@@ -9,7 +9,6 @@ public class UserConfiguration : IEntityTypeConfiguration<UserEntity>
 {
     public void Configure(EntityTypeBuilder<UserEntity> builder)
     {
-        builder.HasKey(e => e.Id);
         builder.HasOne<IdentityUser>().WithOne().HasForeignKey<UserEntity>(e => e.Id).OnDelete(DeleteBehavior.Cascade);
 
         builder.HasIndex(e => e.CreatedAt);

@@ -1,4 +1,6 @@
-﻿using PolyzenKit.Common.Extensions;
+﻿using Microsoft.AspNetCore.Identity;
+using PolyzenKit.Common.Exceptions;
+using PolyzenKit.Common.Extensions;
 using PolyzenKit.Common.Settings;
 using PolyzenKit.Common.Utilities;
 
@@ -17,6 +19,16 @@ public static class AppRoleNames
 
     public static bool IsAppRole(string? roleName, string appName) =>
         roleName is not null && roleName.StartsWith(Prefix(appName), StringComparison.OrdinalIgnoreCase);
+
+    public static async Task<IdentityRole> GetAppRoleAsync(RoleManager<IdentityRole> roleManager, string roleId, string? appName)
+    {
+        var role = await roleManager.FindByIdAsync(roleId);
+
+        if (role is null || (appName is not null && !IsAppRole(role.Name, appName)))
+            throw NoRecordException.ForIdentifier(roleId);
+
+        return role;
+    }
 
     public static bool IsAppAdminRole(string? roleName, string appName, RoleSettings roleSettings)
     {

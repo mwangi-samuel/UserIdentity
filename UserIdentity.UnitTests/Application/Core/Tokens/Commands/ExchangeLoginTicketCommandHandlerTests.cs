@@ -30,8 +30,8 @@ public class ExchangeLoginTicketCommandHandlerTests
     private readonly IUnitOfWork _unitOfWork = A.Fake<IUnitOfWork>();
     private readonly IUserRepository _userRepository = A.Fake<IUserRepository>();
     private readonly ILoginTicketRepository _loginTicketRepository = A.Fake<ILoginTicketRepository>();
-    private readonly ICreateItemCommandHandler<StartSessionCommand, AccessTokenViewModel> _startSessionCommandHandler = A.Fake<
-        ICreateItemCommandHandler<StartSessionCommand, AccessTokenViewModel>
+    private readonly ICreateItemCommandHandler<StartSessionCommand, UserTokenViewModel> _startSessionCommandHandler = A.Fake<
+        ICreateItemCommandHandler<StartSessionCommand, UserTokenViewModel>
     >();
     private readonly FakeTimeProvider _timeProvider = new();
 
@@ -88,10 +88,13 @@ public class ExchangeLoginTicketCommandHandlerTests
     public async Task Exchange_Of_A_Ticket_For_A_Confirmed_User_Uses_The_Ticket_And_Starts_A_Session()
     {
         // Arrange
-        var session = new AccessTokenViewModel
+        var session = new UserTokenViewModel
         {
-            AccessToken = new AccessTokenDto { Token = "access-token", ExpiresIn = 180 },
-            RefreshToken = "refresh-token",
+            UserToken = new UserTokenDto
+            {
+                AccessToken = new AccessTokenDto { Token = "access-token", ExpiresIn = 180 },
+                RefreshToken = "refresh-token",
+            },
         };
 
         A.CallTo(() =>
@@ -111,7 +114,7 @@ public class ExchangeLoginTicketCommandHandlerTests
         // Assert
         Assert.True(vm.IsConfirmed);
         Assert.Equal(_user.Id, vm.User.Id);
-        Assert.Same(session, vm.UserToken);
+        Assert.Same(session.UserToken, vm.UserToken);
         Assert.Null(vm.LoginTicket);
 
         A.CallTo(() => _loginTicketRepository.RemoveEntityItem(_loginTicket))

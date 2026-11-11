@@ -18,9 +18,7 @@ namespace UserIdentity.Application.Core.Users.Commands;
 public record LoginUserCommand : IBaseCommand
 {
     [JsonIgnore]
-    public ActiveRegisteredApp? RegisteredApp { get; internal set; }
-
-    public int AppId { get; set; }
+    public ActiveRegisteredApp RegisteredApp { get; internal set; } = null!;
 
     [Required]
     public string UserName { get; init; } = null!;
@@ -34,15 +32,20 @@ public class LoginUserCommandHandler(
     UserManager<IdentityUser> userManager,
     IUnitOfWork unitOfWork,
     IUserRepository userRepository,
-    ICreateItemCommandHandler<StartSessionCommand, AccessTokenViewModel> startSessionCommandHandler,
+    ICreateItemCommandHandler<StartSessionCommand, UserTokenViewModel> startSessionCommandHandler,
     ICreateItemCommandHandler<CreateLoginTicketCommand, LoginTicketViewModel> createLoginTicketCommandHandler
 ) : ICreateItemCommandHandler<LoginUserCommand, AuthUserViewModel>
 {
+    private static readonly string _dummyPasswordHash = new PasswordHasher<IdentityUser>().HashPassword(
+        new IdentityUser(),
+        Guid.NewGuid().ToString()
+    );
+
     private readonly IdentityOptions _identityOptions = identityOptions.Value;
     private readonly UserManager<IdentityUser> _userManager = userManager;
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
     private readonly IUserRepository _userRepository = userRepository;
-    private readonly ICreateItemCommandHandler<StartSessionCommand, AccessTokenViewModel> _startSessionCommandHandler =
+    private readonly ICreateItemCommandHandler<StartSessionCommand, UserTokenViewModel> _startSessionCommandHandler =
         startSessionCommandHandler;
     private readonly ICreateItemCommandHandler<CreateLoginTicketCommand, LoginTicketViewModel> _createLoginTicketCommandHandler =
         createLoginTicketCommandHandler;
@@ -53,18 +56,20 @@ public class LoginUserCommandHandler(
         CancellationToken cancellationToken = default
     )
     {
-        var appName = command.RegisteredApp!.AppName;
+        var appName = command.RegisteredApp.AppName;
 
-        var user =
-            (await _userManager.FindByNameAsync(command.UserName) ?? await _userManager.FindByEmailAsync(command.UserName))
-            ?? throw new InvalidCredentialException("Unknown user name or email");
+        var user = await _userManager.FindByNameAsync(command.UserName) ?? await _userManager.FindByEmailAsync(command.UserName);
 
-        if (await _userManager.IsLockedOutAsync(user))
-            throw new InvalidCredentialException($"User {user.Id} is locked out");
+        if (user is null || await _userManager.IsLockedOutAsync(user))
+        {
+            _userManager.PasswordHasher.VerifyHashedPassword(user ?? new IdentityUser(), _dummyPasswordHash, command.Password);
+
+            throw new InvalidCredentialException(user is null ? "Unknown user name or email" : $"User {user.Id} is locked out");
+        }
 
         if (!await _userManager.CheckPasswordAsync(user, command.Password))
         {
-            await _userManager.AccessFailedAsync(user);
+            await RecordFailedAccessAsync(user);
             throw new InvalidCredentialException($"Wrong password for user {user.Id}");
         }
 
@@ -75,11 +80,11 @@ public class LoginUserCommandHandler(
             ?? throw new InvalidCredentialException($"User {user.Id} has no profile for app {appName}");
 
         var isConfirmed = AccountConfirmation.IsConfirmed(_identityOptions, user);
-        AccessTokenViewModel? userToken = null;
+        UserTokenViewModel? session = null;
         LoginTicketViewModel? loginTicket = null;
 
         if (isConfirmed)
-            userToken = await _startSessionCommandHandler.CreateItemAsync(
+            session = await _startSessionCommandHandler.CreateItemAsync(
                 new StartSessionCommand(user.Id, user.UserName!, appName),
                 user.Id,
                 cancellationToken
@@ -96,9 +101,29 @@ public class LoginUserCommandHandler(
         return new AuthUserViewModel
         {
             User = userDto,
-            UserToken = userToken,
+            UserToken = session?.UserToken,
             IsConfirmed = isConfirmed,
             LoginTicket = loginTicket?.Ticket,
         };
+    }
+
+    private async Task RecordFailedAccessAsync(IdentityUser user)
+    {
+        var result = await _userManager.AccessFailedAsync(user);
+
+        if (result.Errors.Any(error => error.Code == nameof(IdentityErrorDescriber.ConcurrencyFailure)))
+        {
+            _userRepository.ClearTrackedEntities();
+
+            var reloadedUser = await _userManager.FindByIdAsync(user.Id);
+
+            if (reloadedUser is null)
+                return;
+
+            result = await _userManager.AccessFailedAsync(reloadedUser);
+        }
+
+        if (!result.Succeeded)
+            throw new InvalidOperationException(string.Join(" ", result.Errors.Select(e => e.Description)));
     }
 }

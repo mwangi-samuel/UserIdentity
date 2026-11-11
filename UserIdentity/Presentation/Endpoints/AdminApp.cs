@@ -14,4 +14,6 @@ internal static class AdminApp
         request.IsGlobalAdmin
             ? request.GetRegisteredAppAsync(resolver, cancellationToken)
             : resolver.GetActiveAppAsync(request.AuthorizedParty, cancellationToken);
+
+    internal static string? GetName(ApiRequest request) => request.IsGlobalAdmin ? null : request.AuthorizedParty;
 }

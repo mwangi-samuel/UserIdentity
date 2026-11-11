@@ -62,13 +62,13 @@ An invite code lets one email address sign up to an app, and can give the new ac
 
 - `POST /api/v1/invite-code` with `{ "inviteCode": "...", "userEmail": "...", "role": "<app>:owner" }` creates one. The code has 10 to 255 characters and the email must be a valid address. `role` is optional. When set, it must be an existing role of the app that isn't an admin role (`<app>:admin` or any of `RoleSettings:AdminRoles`), or the request returns 400. There's one invite code per app and email.
 - `GET /api/v1/invite-code?page=1&pageSize=50&search=owner&applied=false` lists the app's invite codes, newest first, with `totalCount`. Optional `search` (email, up to 100 characters) and nullable `applied` filters are combined before counting/paging; omission retains the full list.
-- `GET /api/v1/invite-code/{id}` and `GET /api/v1/invite-code/email/{email}` read one.
-- `DELETE /api/v1/invite-code/{id}` revokes an unused invite code. A used one returns 400, and another app's returns 404.
+- `GET /api/v1/invite-code/{inviteCodeId}` and `GET /api/v1/invite-code/email/{email}` read one.
+- `DELETE /api/v1/invite-code/{inviteCodeId}` revokes an unused invite code. A used one returns 400, and another app's returns 404.
 
 Signing up with `inviteCode` checks it whether or not the app has `RequireInviteCode` on: the email is required, an invite code must exist for the app and email, the code must match (ignoring case), and it must be unused. Otherwise the request returns 400, with the same message whether the invite is missing, wrong or used, so sign-up never says whether an email has an invite. A valid code is marked used, and its role is given to the new account with the default role, so it's in the account's tokens with its scopes. If that role no longer exists, sign-up returns 400 and nothing is saved. Without `inviteCode`, sign-up only needs one when the app requires it.
 
 ## Wait List
-`POST /api/v1/wait-list` with the `X-App-Name` header and `{ "userEmail": "..." }` adds an email to the app's wait list. Anyone can call it. The email must be a valid address of up to 255 characters, and any other field in the body is ignored. App admins read their app's entries with `GET /api/v1/wait-list/{id}` and `GET /api/v1/wait-list/email/{email}`, and global admins name the app in the `X-App-Name` header.
+`POST /api/v1/wait-list` with the `X-App-Name` header and `{ "userEmail": "..." }` adds an email to the app's wait list. Anyone can call it. The email must be a valid address of up to 256 characters, and any other field in the body is ignored. App admins read their app's entries with `GET /api/v1/wait-list/{waitListId}` and `GET /api/v1/wait-list/email/{email}`, and global admins name the app in the `X-App-Name` header.
 
 ## App Callbacks
 When a service registers a user through `register-for-service` and the app has a `CallbackUrl`, UserIdentity POSTs the user details to it. Registrations through the app's UI (`register`) get no callback. The callback goes through the outbox: sign-up stores a message with the new account and sends it to NATS JetStream, and UserIdentity receives it and calls the app. A failed callback is retried after each of `MessagingSettings:RetryDelaysSeconds` until it succeeds or `MessagingSettings:MaxDeliver` runs out. Delivery is at least once, so an app may get the same callback twice and should ignore a repeated `userIdentityId`.
@@ -111,20 +111,20 @@ Every setting has a default in `appsettings.json` that works locally. In product
 
 | Setting | Meaning |
 |---|---|
-| `EDDSA_PRIVATE_KEY`, `EDDSA_PUBLIC_KEY`, `KeySetOptions__PrivateKeyPassPhrase` | The Ed25519 key pair (PEM content) and the private key's passphrase |
-| `AppSecretOptions__Keys__<id>`, `AppSecretOptions__CurrentKeyId` | Base64 256-bit keys that encrypt registered apps' secrets at rest. Generate one with `openssl rand -base64 32` and keep it in a secret store: secrets encrypted with a lost key can't be recovered |
+| `EDDSA_PRIVATE_KEY`, `EDDSA_PUBLIC_KEY`, `KeySetSettings__PrivateKeyPassPhrase` | The Ed25519 key pair (PEM content) and the private key's passphrase |
+| `AppSecretSettings__Keys__<id>`, `AppSecretSettings__CurrentKeyId` | Base64 256-bit keys that encrypt registered apps' secrets at rest. Generate one with `openssl rand -base64 32` and keep it in a secret store: secrets encrypted with a lost key can't be recovered |
 | `ApiKeySettings__ApiKey` | The key clients send in `X-Api-Key`, at least 32 characters |
 | `ExternalServicesSettings__ExternalServices__AppCallback__DefaultHeaders__X-Api-Key` | The `X-Api-Key` header sent with app callbacks |
 | `GoogleRecaptchaSettings__Enabled`, `GoogleRecaptchaSettings__SiteKey` | Turns on the reCAPTCHA check at sign-up, which is off by default |
 | `RegisteredAppsSettings__RegisteredApps__<n>__*` | The apps to seed. Each `AppSecretKey` needs 32 to 100 characters |
-| `MysqlSettings__*` | Database connection |
+| `DatabaseSettings__*` | Database connection |
 | `MessagingSettings__NatsUrl` | The NATS server, without credentials |
 | `MessagingSettings__NatsUser`, `MessagingSettings__NatsPassword` | UserIdentity's own NATS user. Keep the password in a secret store |
 | `ForwardedHeadersSettings__KnownNetworks` | The reverse proxy's networks (see [Rate Limiting](#rate-limiting)) |
 
-Keep `ExternalServicesSettings:ExternalServices:GoogleRecaptcha:TimeoutSeconds` short (default 5). Sign-up verifies the token while it holds a place in the password hashing limit, so a slow answer holds up logins.
+Sign-up verifies the reCAPTCHA token before it takes a place in the password hashing limit, so a slow answer (`ExternalServicesSettings:ExternalServices:GoogleRecaptcha:TimeoutSeconds`, default 5) holds up only that sign-up.
 
-`Serilog:MinimumLevel:Default` (`Warning`) sets the log level, and `Serilog:MinimumLevel:Override` sets EF Core's (`Error`). From the environment, set the level with `Serilog__MinimumLevel__Default`, since a plain `Serilog__MinimumLevel` is ignored. Logs go to the console as plain text in Development and as one JSON object per line everywhere else.
+`Logging:LogLevel:Default` (`Warning`) sets the log level, and `Logging:LogLevel:Microsoft.EntityFrameworkCore` sets EF Core's (`Error`). From the environment, set the level with `Logging__LogLevel__Default`. Logs go to the console as plain text in Development and as one JSON object per line everywhere else. Setting `OTEL_EXPORTER_OTLP_ENDPOINT` also sends logs, traces and metrics there over OTLP, with OpenTelemetry's other `OTEL_EXPORTER_OTLP_*` settings.
 
 Settings are checked at startup. An invalid setting stops the app with every failure listed, such as `ValidForSeconds: The field ValidForSeconds must be between 1 and 2147483647.`
 
@@ -154,7 +154,7 @@ dotnet test --project UserIdentity.SmokeTests/UserIdentity.SmokeTests.csproj
 Add `--coverlet` for a Cobertura coverage report. Set `USERIDENTITY_SMOKE_IMAGE` to run the smoke tests against an image that's already built.
 
 ## Adding Migrations
-Migrations need the global `dotnet-ef` tool, version 10 (`dotnet tool install --global dotnet-ef`, or `update` if an older one is installed). MySQL must be running, since the server version is auto-detected. The tool builds the database context from `MysqlSettings` in `appsettings.json`, which `MysqlSettings__*` environment variables override, so it doesn't need the Ed25519 keys.
+Migrations need the global `dotnet-ef` tool, version 10 (`dotnet tool install --global dotnet-ef`, or `update` if an older one is installed). MySQL must be running, since the server version is auto-detected. The tool builds the database context from `DatabaseSettings` in `appsettings.json`, which `DatabaseSettings__*` environment variables override, so it doesn't need the Ed25519 keys.
 
 ```
 dotnet ef migrations add <MigrationName> --project UserIdentity

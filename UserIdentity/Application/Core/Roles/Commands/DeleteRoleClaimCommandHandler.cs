@@ -1,5 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
-using System.Text.Json.Serialization;
+﻿using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Identity;
 using PolyzenKit.Application.Core;
 using PolyzenKit.Application.Core.Interfaces;
@@ -10,17 +9,8 @@ using UserIdentity.Application.Core.Roles.Shared;
 
 namespace UserIdentity.Application.Core.Roles.Commands;
 
-public record DeleteRoleClaimCommand : IBaseCommand
+public record DeleteRoleClaimCommand : RoleClaimInput, IBaseCommand
 {
-    [Required]
-    public string RoleId { get; init; } = null!;
-
-    [Required]
-    public string Resource { get; init; } = null!;
-
-    [Required]
-    public string Action { get; init; } = null!;
-
     [JsonIgnore]
     public string? AppName { get; internal set; }
 }
@@ -37,11 +27,7 @@ public class DeleteRoleClaimCommandHandler(RoleManager<IdentityRole> roleManager
         CancellationToken cancellationToken = default
     )
     {
-        // Confirm role exists
-        var role = await _roleManager.FindByIdAsync(command.RoleId) ?? throw NoRecordException.ForIdentifier(command.RoleId);
-
-        if (command.AppName is not null && !AppRoleNames.IsAppRole(role.Name, command.AppName))
-            throw NoRecordException.ForIdentifier(command.RoleId);
+        var role = await AppRoleNames.GetAppRoleAsync(_roleManager, command.RoleId, command.AppName);
 
         // Scopes are stored in lower case, and the claim is removed by its exact value
         var scopeClaim = _jwtTokenHandler.GenerateScopeClaim(

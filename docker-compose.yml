@@ -51,9 +51,9 @@ services:
     ports:
       - 5050:8080
     environment:
-      MysqlSettings__Host: db
+      DatabaseSettings__Host: db
       MessagingSettings__NatsUrl: nats://nats:4222
-      KeySetOptions__PrivateKeyPassPhrase: ${EDDSA_PRIVATE_KEY_PASSPHRASE:-S3T@G00dPa22Phr@S3}
+      KeySetSettings__PrivateKeyPassPhrase: ${EDDSA_PRIVATE_KEY_PASSPHRASE:-S3T@G00dPa22Phr@S3}
       EDDSA_PRIVATE_KEY:
       EDDSA_PUBLIC_KEY:
       RateLimitSettings__PermitLimit: 100000

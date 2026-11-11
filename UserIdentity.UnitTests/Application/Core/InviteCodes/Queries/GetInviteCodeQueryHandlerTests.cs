@@ -40,18 +40,13 @@ public class GetInviteCodeQueryHandlerTests
         var result = await handler.GetItemAsync(query, TestContext.Current.CancellationToken);
 
         // Assert
-        Assert.NotNull(result);
-        Assert.NotNull(result.InviteCode);
         Assert.Equal(expectedDto.Id, result.InviteCode.Id);
         Assert.Equal(expectedDto.InviteCode, result.InviteCode.InviteCode);
         Assert.Equal(expectedDto.UserEmail, result.InviteCode.UserEmail);
         Assert.Equal(expectedDto.AppName, result.InviteCode.AppName);
 
         A.CallTo(() => _inviteCodeRepository.GetEntityDtoByIdAsync(inviteCodeId, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
-        A.CallTo(() =>
-                _inviteCodeRepository.GetEntityByAlternateIdAsync(A<InviteCodeEntity>._, A<QueryCondition>._, A<CancellationToken>._)
-            )
-            .MustNotHaveHappened();
+        A.CallTo(() => _inviteCodeRepository.GetEntityDtoByEmailAsync(A<int>._, A<string>._, A<CancellationToken>._)).MustNotHaveHappened();
     }
 
     [Fact]
@@ -59,23 +54,16 @@ public class GetInviteCodeQueryHandlerTests
     {
         // Arrange
         var userEmail = "test@example.com";
-        var entity = new InviteCodeEntity
+        var expectedDto = new InviteCodeDto
         {
             Id = 1,
             InviteCode = "INVITE456",
             UserEmail = userEmail,
             AppId = 2,
-            App = new PolyzenKit.Domain.Entities.RegisteredApps.RegisteredAppEntity { AppName = "TestApp" },
+            AppName = "TestApp",
         };
 
-        A.CallTo(() =>
-                _inviteCodeRepository.GetEntityByAlternateIdAsync(
-                    A<InviteCodeEntity>.That.Matches(e => e.UserEmail == userEmail && e.AppId == 2),
-                    QueryCondition.MustExist,
-                    A<CancellationToken>._
-                )
-            )
-            .Returns(entity);
+        A.CallTo(() => _inviteCodeRepository.GetEntityDtoByEmailAsync(2, userEmail, A<CancellationToken>._)).Returns(expectedDto);
 
         var query = new GetInviteCodeQuery { UserEmail = userEmail, AppId = 2 };
         var handler = new GetInviteCodeQueryHandler(_inviteCodeRepository);
@@ -84,20 +72,11 @@ public class GetInviteCodeQueryHandlerTests
         var result = await handler.GetItemAsync(query, TestContext.Current.CancellationToken);
 
         // Assert
-        Assert.NotNull(result);
-        Assert.NotNull(result.InviteCode);
-        Assert.Equal(entity.Id, result.InviteCode.Id);
-        Assert.Equal(entity.InviteCode, result.InviteCode.InviteCode);
-        Assert.Equal(entity.UserEmail, result.InviteCode.UserEmail);
-
+        Assert.Same(expectedDto, result.InviteCode);
         A.CallTo(() =>
-                _inviteCodeRepository.GetEntityByAlternateIdAsync(
-                    A<InviteCodeEntity>.That.Matches(e => e.UserEmail == userEmail && e.AppId == 2),
-                    QueryCondition.MustExist,
-                    A<CancellationToken>._
-                )
+                _inviteCodeRepository.GetEntityByAlternateIdAsync(A<InviteCodeEntity>._, A<QueryCondition>._, A<CancellationToken>._)
             )
-            .MustHaveHappenedOnceExactly();
+            .MustNotHaveHappened();
         A.CallTo(() => _inviteCodeRepository.GetEntityDtoByIdAsync(A<long>._, A<CancellationToken>._)).MustNotHaveHappened();
     }
 
@@ -147,19 +126,16 @@ public class GetInviteCodeQueryHandlerTests
         // Arrange
         var userEmail = "notfound@example.com";
 
-        A.CallTo(() =>
-                _inviteCodeRepository.GetEntityByAlternateIdAsync(
-                    A<InviteCodeEntity>.That.Matches(e => e.UserEmail == userEmail && e.AppId == 2),
-                    QueryCondition.MustExist,
-                    A<CancellationToken>._
-                )
-            )
-            .ThrowsAsync(NoRecordException.ForIdentifier(userEmail));
+        A.CallTo(() => _inviteCodeRepository.GetEntityDtoByEmailAsync(2, userEmail, A<CancellationToken>._)).Returns((InviteCodeDto?)null);
 
         var query = new GetInviteCodeQuery { UserEmail = userEmail, AppId = 2 };
         var handler = new GetInviteCodeQueryHandler(_inviteCodeRepository);
 
         // Act & Assert
-        await Assert.ThrowsAsync<NoRecordException>(() => handler.GetItemAsync(query, TestContext.Current.CancellationToken));
+        var exception = await Assert.ThrowsAsync<NoRecordException>(() =>
+            handler.GetItemAsync(query, TestContext.Current.CancellationToken)
+        );
+
+        Assert.Equal($"No record exists for the provided identifier - {userEmail}", exception.Message);
     }
 }

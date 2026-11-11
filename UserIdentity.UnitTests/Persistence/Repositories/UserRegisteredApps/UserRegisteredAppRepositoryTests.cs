@@ -75,18 +75,8 @@ public class UserRegisteredAppRepositoryTests
         );
 
         context.UserRegisteredApp.AddRange(
-            new UserRegisteredAppEntity
-            {
-                Id = "user-id-1",
-                UserId = "user-id",
-                AppId = 1,
-            },
-            new UserRegisteredAppEntity
-            {
-                Id = "user-id-3",
-                UserId = "user-id",
-                AppId = 3,
-            }
+            new UserRegisteredAppEntity { UserId = "user-id", AppId = 1 },
+            new UserRegisteredAppEntity { UserId = "user-id", AppId = 3 }
         );
 
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);

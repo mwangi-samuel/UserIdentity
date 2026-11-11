@@ -5,24 +5,21 @@ using Microsoft.IdentityModel.Tokens;
 using PolyzenKit.Application.Core;
 using PolyzenKit.Application.Core.Interfaces;
 using PolyzenKit.Application.Interfaces;
-using PolyzenKit.Common.Extensions;
-using PolyzenKit.Domain.Entities;
 using PolyzenKit.Persistence.Repositories;
 using UserIdentity.Application.Core.Tokens.Shared;
 using UserIdentity.Application.Core.Tokens.ViewModels;
 using UserIdentity.Domain.RefreshTokens;
 using UserIdentity.Persistence.Repositories.RefreshTokens;
-using UserIdentity.Persistence.Repositories.UserRegisteredApps;
 
 namespace UserIdentity.Application.Core.Tokens.Commands;
 
 public record ExchangeRefreshTokenCommand : IBaseCommand
 {
     [Required]
-    public string? AccessToken { get; init; }
+    public string AccessToken { get; init; } = null!;
 
     [Required]
-    public string? RefreshToken { get; init; }
+    public string RefreshToken { get; init; } = null!;
 }
 
 public class ExchangeRefreshTokenCommandHandler(
@@ -32,19 +29,15 @@ public class ExchangeRefreshTokenCommandHandler(
     IUnitOfWork unitOfWork,
     IRefreshTokenRepository refreshTokenRepository,
     TimeProvider timeProvider,
-    IUserRegisteredAppRepository userRegisteredAppRepository,
     ICreateItemCommandHandler<CreateAccessTokenCommand, AccessTokenViewModel> createAccessTokenCommandHandler
-) : IUpdateItemCommandHandler<ExchangeRefreshTokenCommand, ExchangeRefreshTokenViewModel>
+)
+    : BaseAuditableItemCommandHandler<Guid, RefreshTokenEntity, IRefreshTokenRepository>(unitOfWork, refreshTokenRepository, timeProvider),
+        IUpdateItemCommandHandler<ExchangeRefreshTokenCommand, ExchangeRefreshTokenViewModel>
 {
     private readonly RefreshTokenSettings _refreshTokenSettings = refreshTokenSettingsOptions.Value;
     private readonly IJwtTokenHandler _jwtTokenHandler = jwtTokenHandler;
     private readonly ITokenFactory _tokenFactory = tokenFactory;
 
-    private readonly IUnitOfWork _unitOfWork = unitOfWork;
-    private readonly IRefreshTokenRepository _refreshTokenRepository = refreshTokenRepository;
-    private readonly TimeProvider _timeProvider = timeProvider;
-
-    private readonly IUserRegisteredAppRepository _userRegisteredAppRepository = userRegisteredAppRepository;
     private readonly ICreateItemCommandHandler<CreateAccessTokenCommand, AccessTokenViewModel> _createAccessTokenCommandHandler =
         createAccessTokenCommandHandler;
 
@@ -54,11 +47,8 @@ public class ExchangeRefreshTokenCommandHandler(
         CancellationToken cancellationToken = default
     )
     {
-        var requestAccessToken = ObjectExtensions.RequireNonNullValue(command.AccessToken, nameof(command.AccessToken));
-        var requestRefreshToken = ObjectExtensions.RequireNonNullValue(command.RefreshToken, nameof(command.RefreshToken));
-
         // The access token being exchanged is expected to have expired, so only its signature and claims are validated
-        var tokenValidationResult = await _jwtTokenHandler.ValidateTokenAsync(requestAccessToken, validateLifetime: false);
+        var tokenValidationResult = await _jwtTokenHandler.ValidateTokenAsync(command.AccessToken, validateLifetime: false);
 
         var tokenUserId = _jwtTokenHandler.ResolveTokenValue<string?>(tokenValidationResult, JwtRegisteredClaimNames.Sub);
         var tokenUserName = _jwtTokenHandler.ResolveTokenValue<string?>(tokenValidationResult, JwtRegisteredClaimNames.Name);
@@ -67,24 +57,14 @@ public class ExchangeRefreshTokenCommandHandler(
         if (tokenUserId == null || tokenUserName == null || azp == null)
             throw new SecurityTokenException("Invalid access token provided");
 
-        var requestRefreshTokenHash = _tokenFactory.HashToken(requestRefreshToken);
+        var requestRefreshTokenHash = _tokenFactory.HashToken(command.RefreshToken);
 
-        var tokenEntity = new RefreshTokenEntity { UserId = tokenUserId, Token = requestRefreshTokenHash };
+        var existing = await Repository.GetEntityForAppAsync(tokenUserId, requestRefreshTokenHash, azp, cancellationToken);
 
-        var existingEntity = await _refreshTokenRepository.GetEntityByAlternateIdAsync(
-            tokenEntity,
-            QueryCondition.MayOrMayNotExist,
-            cancellationToken
-        );
-
-        if (existingEntity is null)
+        if (existing is null)
         {
             // A replaced refresh token is being reused - end its session
-            var reusedEntity = await _refreshTokenRepository.GetEntityByPreviousTokenAsync(
-                tokenUserId,
-                requestRefreshTokenHash,
-                cancellationToken
-            );
+            var reusedEntity = await Repository.GetEntityByPreviousTokenAsync(tokenUserId, requestRefreshTokenHash, cancellationToken);
 
             if (reusedEntity is not null)
                 await RemoveRefreshTokenAsync(reusedEntity, cancellationToken);
@@ -92,7 +72,9 @@ public class ExchangeRefreshTokenCommandHandler(
             throw new SecurityTokenException("Invalid refresh token provided");
         }
 
-        if (existingEntity.Expires <= _timeProvider.GetUtcNow().UtcDateTime)
+        (var existingEntity, var isUserRegisteredForApp) = existing.Value;
+
+        if (existingEntity.Expires <= TimeProvider.GetUtcNow().UtcDateTime)
         {
             await RemoveRefreshTokenAsync(existingEntity, cancellationToken);
 
@@ -100,7 +82,7 @@ public class ExchangeRefreshTokenCommandHandler(
         }
 
         // Ends sessions from logins to apps the user isn't registered for
-        if (!await _userRegisteredAppRepository.IsUserRegisteredForAppAsync(tokenUserId, azp, cancellationToken))
+        if (!isUserRegisteredForApp)
         {
             await RemoveRefreshTokenAsync(existingEntity, cancellationToken);
 
@@ -117,26 +99,21 @@ public class ExchangeRefreshTokenCommandHandler(
 
         existingEntity.PreviousToken = existingEntity.Token;
         existingEntity.Token = _tokenFactory.HashToken(updateRefreshToken);
-        existingEntity.Expires = _timeProvider.GetUtcNow().UtcDateTime.AddSeconds(_refreshTokenSettings.ValidForSeconds);
+        existingEntity.Expires = TimeProvider.GetUtcNow().UtcDateTime.AddSeconds(_refreshTokenSettings.ValidForSeconds);
         existingEntity.Version = Guid.NewGuid();
-        existingEntity.UpdateEntityAuditFields(tokenUserId, _timeProvider.GetUtcNow().UtcDateTime);
 
-        _refreshTokenRepository.UpdateEntityItem(existingEntity);
-
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        await UpdateEntityItemAsync(existingEntity, tokenUserId, cancellationToken);
 
         return new ExchangeRefreshTokenViewModel
         {
-            UserToken = new AccessTokenViewModel { AccessToken = accessToken.AccessToken, RefreshToken = updateRefreshToken },
-            EditEnabled = false,
-            DeleteEnabled = false,
+            UserToken = new UserTokenDto { AccessToken = accessToken.AccessToken, RefreshToken = updateRefreshToken },
         };
     }
 
     private async Task RemoveRefreshTokenAsync(RefreshTokenEntity refreshTokenEntity, CancellationToken cancellationToken)
     {
-        _refreshTokenRepository.RemoveEntityItem(refreshTokenEntity);
+        Repository.RemoveEntityItem(refreshTokenEntity);
 
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        await UnitOfWork.SaveChangesAsync(cancellationToken);
     }
 }

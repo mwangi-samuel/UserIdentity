@@ -3,6 +3,8 @@ using PolyzenKit;
 using PolyzenKit.Presentation.Endpoints;
 using PolyzenKit.Presentation.Middlewares;
 using UserIdentity;
+using UserIdentity.Application.Core.Tokens.Shared;
+using UserIdentity.Application.Core.Users.Shared;
 using UserIdentity.Application.Interfaces;
 using UserIdentity.Infrastructure.ExternalServices;
 using UserIdentity.Persistence;
@@ -15,7 +17,9 @@ var assembly = typeof(Program).Assembly;
 
 builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = MaxRequestBodyBytes);
 
-builder.AddAppSerilog();
+builder.AddAppLogging();
+
+builder.AddAppTelemetry("MySqlConnector");
 
 builder.Services.AddAppMysql<AppDbContext>(builder.Configuration);
 
@@ -47,13 +51,15 @@ builder.Services.AddAppExternalServices(builder.Configuration);
 
 builder.Services.AddScoped<IAppCallbackService, AppCallbackService>();
 
-builder.Services.AddGoogleRecaptcha(builder.Configuration);
+builder.Services.AddScoped<IGoogleRecaptchaService, GoogleRecaptchaService>();
 
-builder.Services.AddAppRefreshTokenSettings(builder.Configuration);
+builder.Services.AddAppSetting<GoogleRecaptchaSettings>(builder.Configuration);
 
-builder.Services.AddAppLoginTicketSettings(builder.Configuration);
+builder.Services.AddAppSetting<RefreshTokenSettings>(builder.Configuration);
 
-builder.Services.AddAppPasswordResetSettings(builder.Configuration);
+builder.Services.AddAppSetting<LoginTicketSettings>(builder.Configuration);
+
+builder.Services.AddAppSetting<PasswordResetSettings>(builder.Configuration);
 
 builder.Services.AddAppCleanups(builder.Configuration);
 
