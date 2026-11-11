@@ -1,16 +1,13 @@
 ﻿using System.Net;
 using System.Text;
 using System.Text.Json;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Newtonsoft.Json.Linq;
 using PolyzenKit.Application.Interfaces;
 using PolyzenKit.Common.Utilities;
 using UserIdentity.Common.Enums;
 using UserIdentity.IntegrationTests.TestUtils;
-using WireMock.Logging;
-using WireMock.RequestBuilders;
-using WireMock.ResponseBuilders;
-using WireMock.Server;
 using Xunit;
 
 namespace UserIdentity.IntegrationTests.Infrastructure.Messaging;
@@ -21,46 +18,45 @@ public class CallbackRequestedMessageHandlerTests(TestingWebAppFactory testingWe
     private const string RecaptchaToken = "callback-recaptcha-token";
     private const string ServiceName = "testservice";
 
-    private readonly WireMockServer _wireMock = testingWebAppFactory.WireMockServer;
+    private readonly StubHttpServer _stubHttpServer = testingWebAppFactory.StubHttpServer;
 
     [Fact]
     public async Task Sign_Up_For_A_Service_Sends_One_Signed_Callback()
     {
         // Arrange
-        SetUpWireMock(failFirstCallback: false);
+        SetUpStubHttpServer(failFirstCallback: false);
 
         // Act
         var userId = await RegisterAsync(TestingWebAppFactory.CallbackAppName, RequestSource.Api);
 
         // Assert
         var callbacks = await WaitForCallbacksAsync(1);
-        var callback = Assert.Single(callbacks).RequestMessage;
-        Assert.NotNull(callback);
+        var callback = Assert.Single(callbacks);
 
-        using var body = JsonDocument.Parse(callback.Body!);
+        using var body = JsonDocument.Parse(callback.Body);
         Assert.Equal(userId, body.RootElement.GetProperty("userContent").GetProperty("userIdentityId").GetString());
         Assert.Equal("Create", body.RootElement.GetProperty("eventType").GetString());
 
-        var timestamp = callback.Headers![CustomHeaderNames.Timestamp].Single();
-        var signature = callback.Headers[CustomHeaderNames.Signature].Single();
+        var timestamp = callback.Headers[CustomHeaderNames.Timestamp];
+        var signature = callback.Headers[CustomHeaderNames.Signature];
         Assert.True(
             HmacSignature.IsValid(
                 TestingWebAppFactory.CallbackAppSecretKey,
                 timestamp,
-                Encoding.UTF8.GetBytes(callback.Body!),
+                Encoding.UTF8.GetBytes(callback.Body),
                 signature,
                 DateTimeOffset.UtcNow,
                 TimeSpan.FromMinutes(5)
             )
         );
-        Assert.Equal("4f35dac2b47ff3db17c5e6200af572ac28e7db67e7475af1342f2264c9400dd1", callback.Headers["X-Api-Key"].Single());
+        Assert.Equal("4f35dac2b47ff3db17c5e6200af572ac28e7db67e7475af1342f2264c9400dd1", callback.Headers["X-Api-Key"]);
     }
 
     [Fact]
     public async Task A_Failed_Callback_Is_Sent_Again()
     {
         // Arrange
-        SetUpWireMock(failFirstCallback: true);
+        SetUpStubHttpServer(failFirstCallback: true);
 
         // Act
         await RegisterAsync(TestingWebAppFactory.CallbackAppName, RequestSource.Api);
@@ -75,7 +71,7 @@ public class CallbackRequestedMessageHandlerTests(TestingWebAppFactory testingWe
     public async Task Sign_Up_Through_The_Apps_UI_Adds_No_Callback_Message()
     {
         // Arrange
-        SetUpWireMock(failFirstCallback: false);
+        SetUpStubHttpServer(failFirstCallback: false);
 
         // Act
         var userId = await RegisterAsync(TestingWebAppFactory.CallbackAppName, RequestSource.UI);
@@ -88,7 +84,7 @@ public class CallbackRequestedMessageHandlerTests(TestingWebAppFactory testingWe
     public async Task Sign_Up_For_An_App_Without_A_Callback_Url_Adds_No_Callback_Message()
     {
         // Arrange
-        SetUpWireMock(failFirstCallback: false);
+        SetUpStubHttpServer(failFirstCallback: false);
 
         // Act
         var userId = await RegisterAsync(RegisteredApp.AppName, RequestSource.Api);
@@ -104,37 +100,21 @@ public class CallbackRequestedMessageHandlerTests(TestingWebAppFactory testingWe
         await Eventually.HoldsAsync(() => TestDbHelper.CountOutboxMessages() == 0);
 
         Assert.Null(await NatsTestHelper.FindMessageAsync(NatsTestHelper.CallbackRequestedSubject, userId, TimeSpan.FromSeconds(2)));
-        Assert.Empty(CallbackLogEntries());
+        Assert.Empty(Callbacks());
     }
 
-    private void SetUpWireMock(bool failFirstCallback)
+    private void SetUpStubHttpServer(bool failFirstCallback)
     {
-        _wireMock.Reset();
+        var failNextCallback = failFirstCallback;
 
-        _wireMock
-            .Given(Request.Create().WithPath("/siteverify").UsingPost())
-            .RespondWith(Response.Create().WithStatusCode(HttpStatusCode.OK).WithBody("""{ "success": true, "score": 0.9 }"""));
+        _stubHttpServer.Reset();
 
-        if (!failFirstCallback)
-        {
-            _wireMock
-                .Given(Request.Create().WithPath(TestingWebAppFactory.CallbackPath).UsingPost())
-                .RespondWith(Response.Create().WithStatusCode(HttpStatusCode.OK));
+        _stubHttpServer.OnPost("/siteverify", _ => Results.Json(new { success = true, score = 0.9 }));
 
-            return;
-        }
-
-        _wireMock
-            .Given(Request.Create().WithPath(TestingWebAppFactory.CallbackPath).UsingPost())
-            .InScenario("callback-retry")
-            .WillSetStateTo("failed-once")
-            .RespondWith(Response.Create().WithStatusCode(HttpStatusCode.InternalServerError));
-
-        _wireMock
-            .Given(Request.Create().WithPath(TestingWebAppFactory.CallbackPath).UsingPost())
-            .InScenario("callback-retry")
-            .WhenStateIs("failed-once")
-            .RespondWith(Response.Create().WithStatusCode(HttpStatusCode.OK));
+        _stubHttpServer.OnPost(
+            TestingWebAppFactory.CallbackPath,
+            _ => Interlocked.Exchange(ref failNextCallback, false) ? Results.InternalServerError() : Results.Ok()
+        );
     }
 
     private async Task<string> RegisterAsync(string appName, RequestSource requestSource)
@@ -177,17 +157,13 @@ public class CallbackRequestedMessageHandlerTests(TestingWebAppFactory testingWe
         return token;
     }
 
-    private List<ILogEntry> CallbackLogEntries() =>
-        [
-            .. _wireMock
-                .LogEntries.Where(entry => entry.RequestMessage?.Path == TestingWebAppFactory.CallbackPath)
-                .OrderBy(entry => entry.RequestMessage?.DateTime),
-        ];
+    private List<StubHttpRequest> Callbacks() =>
+        [.. _stubHttpServer.Requests.Where(request => request.Path == TestingWebAppFactory.CallbackPath)];
 
-    private async Task<List<ILogEntry>> WaitForCallbacksAsync(int count)
+    private async Task<List<StubHttpRequest>> WaitForCallbacksAsync(int count)
     {
-        await Eventually.HoldsAsync(() => CallbackLogEntries().Count >= count);
+        await Eventually.HoldsAsync(() => Callbacks().Count >= count);
 
-        return CallbackLogEntries();
+        return Callbacks();
     }
 }

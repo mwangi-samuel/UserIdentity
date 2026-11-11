@@ -2,13 +2,13 @@
 using System.Net;
 using System.Net.Mime;
 using System.Text;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
-using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using PolyzenKit.Application.Core.Messages.Events;
 using PolyzenKit.Common.Enums;
@@ -24,9 +24,6 @@ using UserIdentity.Domain.Users;
 using UserIdentity.Infrastructure.ExternalServices;
 using UserIdentity.IntegrationTests.TestUtils;
 using UserIdentity.Persistence;
-using WireMock.RequestBuilders;
-using WireMock.ResponseBuilders;
-using WireMock.Server;
 using Xunit;
 
 namespace UserIdentity.IntegrationTests.Presentation.Endpoints;
@@ -38,7 +35,7 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
 
     private readonly TestingWebAppFactory _testingWebAppFactory = testingWebAppFactory;
 
-    private readonly WireMockServer _wireMock = testingWebAppFactory.WireMockServer;
+    private readonly StubHttpServer _stubHttpServer = testingWebAppFactory.StubHttpServer;
 
     [Fact]
     public async Task Get_Existing_User_Gets_User_Details()
@@ -1888,27 +1885,16 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
     {
         var googleRecaptchaSettings = Configuration.GetSetting<GoogleRecaptchaSettings>();
 
-        var googleRecaptchaResponse = new { success = true, score = 0.9f };
-
-        _wireMock.Reset();
-        _wireMock
-            .Given(
-                Request
-                    .Create()
-                    .WithPath("/siteverify")
-                    .WithParam("secret", googleRecaptchaSettings.SiteKey!)
-                    .WithParam("response", googleRecaptchaToken)
-                    .UsingPost()
-            )
-            .RespondWith(
-                Response.Create().WithStatusCode(HttpStatusCode.OK).WithBody(JsonConvert.SerializeObject(googleRecaptchaResponse))
-            );
+        _stubHttpServer.Reset();
+        _stubHttpServer.OnPost(
+            "/siteverify",
+            request =>
+                request.Query.GetValueOrDefault("secret") == googleRecaptchaSettings.SiteKey
+                && request.Query.GetValueOrDefault("response") == googleRecaptchaToken
+                    ? Results.Json(new { success = true, score = 0.9f })
+                    : Results.NotFound()
+        );
     }
 
-    private void VerifyGoogleRecaptchaEndpoint()
-    {
-        // verify calls to wiremock
-        var logs = _wireMock.LogEntries;
-        Assert.Contains(logs, l => l.RequestMessage?.Path == "/siteverify");
-    }
+    private void VerifyGoogleRecaptchaEndpoint() => Assert.Contains(_stubHttpServer.Requests, request => request.Path == "/siteverify");
 }

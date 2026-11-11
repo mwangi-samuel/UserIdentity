@@ -24,7 +24,6 @@ using Testcontainers.Nats;
 using UserIdentity.Infrastructure.ExternalServices;
 using UserIdentity.IntegrationTests.TestUtils;
 using UserIdentity.Persistence;
-using WireMock.Server;
 using Xunit;
 
 namespace UserIdentity.IntegrationTests;
@@ -36,7 +35,7 @@ public class TestingWebAppFactory : WebApplicationFactory<Program>, IAsyncLifeti
     public const string CallbackAppSecretKey = "Ca11backApp5ecretKey-For-Tests-Only-0123";
     public const string CallbackPath = "/callback";
 
-    public WireMockServer WireMockServer { get; private set; }
+    public StubHttpServer StubHttpServer { get; } = new();
 
     public SqlCommandCounter SqlCommandCounter { get; } = new();
 
@@ -59,8 +58,6 @@ public class TestingWebAppFactory : WebApplicationFactory<Program>, IAsyncLifeti
 
     public TestingWebAppFactory()
     {
-        WireMockServer = WireMockServer.Start();
-
         _mysqlContainer = new MySqlBuilder("mysql:8.4.0")
             .WithUsername(_dbUserName)
             .WithPassword(_dbUserPassword)
@@ -78,7 +75,11 @@ public class TestingWebAppFactory : WebApplicationFactory<Program>, IAsyncLifeti
 
     public async ValueTask InitializeAsync()
     {
-        await Task.WhenAll(_mysqlContainer.StartAsync(), _natsContainer.StartAsync());
+        await Task.WhenAll(
+            _mysqlContainer.StartAsync(),
+            _natsContainer.StartAsync(),
+            StubHttpServer.StartAsync(TestContext.Current.CancellationToken)
+        );
 
         // Without the streams, the app's consumers back off for up to 30 seconds before they attach
         await using var natsConnection = new NatsConnection(
@@ -127,7 +128,7 @@ public class TestingWebAppFactory : WebApplicationFactory<Program>, IAsyncLifeti
         builder.UseSetting($"{nameof(GoogleRecaptchaSettings)}:{nameof(GoogleRecaptchaSettings.Enabled)}", "true");
         builder.UseSetting(
             $"{nameof(ExternalServicesSettings)}:{nameof(ExternalServicesSettings.ExternalServices)}:GoogleRecaptcha:BaseUrl",
-            WireMockServer.Urls[0]
+            StubHttpServer.Url
         );
         builder.UseSetting(
             $"{nameof(ExternalServicesSettings)}:{nameof(ExternalServicesSettings.ExternalServices)}:GoogleRecaptcha:TimeoutSeconds",
@@ -142,11 +143,11 @@ public class TestingWebAppFactory : WebApplicationFactory<Program>, IAsyncLifeti
         builder.UseSetting("RegisteredAppsSettings:RegisteredApps:1:BaseUrl", "http://localhost:3001");
         builder.UseSetting("RegisteredAppsSettings:RegisteredApps:1:AppSecretKey", "0therApp5ecretKey-For-Tests-Only-0123456");
 
-        // A third app, whose sign-ups through its UI are called back on WireMock
+        // A third app, whose sign-ups through its UI are called back on the stub server
         builder.UseSetting("RegisteredAppsSettings:RegisteredApps:2:AppName", CallbackAppName);
         builder.UseSetting("RegisteredAppsSettings:RegisteredApps:2:BaseUrl", "http://localhost:3002");
         builder.UseSetting("RegisteredAppsSettings:RegisteredApps:2:AppSecretKey", CallbackAppSecretKey);
-        builder.UseSetting("RegisteredAppsSettings:RegisteredApps:2:CallbackUrl", WireMockServer.Urls[0] + CallbackPath);
+        builder.UseSetting("RegisteredAppsSettings:RegisteredApps:2:CallbackUrl", StubHttpServer.Url + CallbackPath);
     }
 
     public async Task ResetDatabaseAsync(CancellationToken cancellationToken)
@@ -189,8 +190,7 @@ public class TestingWebAppFactory : WebApplicationFactory<Program>, IAsyncLifeti
 
         await _mysqlContainer.DisposeAsync();
 
-        WireMockServer.Stop();
-        WireMockServer.Dispose();
+        await StubHttpServer.DisposeAsync();
 
         GC.SuppressFinalize(this);
     }

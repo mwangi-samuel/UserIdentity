@@ -12,11 +12,11 @@
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" />
     <PackageReference Include="Microting.EntityFrameworkCore.MySql" />
+    <PackageReference Include="Newtonsoft.Json" />
     <PackageReference Include="PolyzenKit" />
     <PackageReference Include="Respawn" />
     <PackageReference Include="Testcontainers.MySql" />
     <PackageReference Include="Testcontainers.Nats" />
-    <PackageReference Include="WireMock.Net" />
     <PackageReference Include="xunit.v3" />
   </ItemGroup>
   <ItemGroup>
