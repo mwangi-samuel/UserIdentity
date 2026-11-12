@@ -4,10 +4,10 @@ using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Time.Testing;
 using PolyzenKit.Application.Core.Interfaces;
 using PolyzenKit.Application.Core.Messages.Commands;
+using PolyzenKit.Application.Core.Messages.Events;
 using PolyzenKit.Application.Core.Messages.ViewModels;
 using PolyzenKit.Application.Core.RegisteredApps.Shared;
 using PolyzenKit.Application.Interfaces;
-using PolyzenKit.Common.Enums;
 using PolyzenKit.Persistence.Repositories;
 using UserIdentity.Application.Core.Users.Commands;
 using UserIdentity.Application.Core.Users.Shared;
@@ -129,17 +129,29 @@ public class ResetPasswordCommandHandlerTests
             )
             .MustNotHaveHappened();
 
+        var recipient = new MessageRecipient
+        {
+            Email = existingIdentityUser.Email,
+            Phone = existingIdentityUser.PhoneNumber,
+            Name = $"{existingEntity.FirstName} {existingEntity.LastName}",
+        };
+        var data = new UserMessageData
+        {
+            UserId = existingIdentityUser.Id,
+            UserName = existingIdentityUser.UserName,
+            FirstName = existingEntity.FirstName,
+            LastName = existingEntity.LastName,
+        };
+
         A.CallTo(() =>
                 _createOutboxMessageCommandHandler.CreateItemAsync(
                     A<CreateOutboxMessageCommand>.That.Matches(c =>
                         c.Name == UserMessages.PasswordResetRequested
-                        && c.Message.Action == MessageAction.PasswordReset
+                        && c.Message.Action == UserMessages.PasswordResetAction
                         && c.Message.CorrelationId == ResetRequestId
                         && c.Message.RegisteredApp == _registeredApp.AppName
-                        && c.Message.Attributes[MessageAttributeKey.UserId] == existingIdentityUser.Id
-                        && c.Message.Attributes[MessageAttributeKey.RecipientEmail] == existingIdentityUser.Email
-                        && c.Message.Attributes[MessageAttributeKey.RecipientPhone] == existingIdentityUser.PhoneNumber
-                        && c.Message.Attributes[MessageAttributeKey.FirstName] == existingEntity.FirstName
+                        && c.Message.Recipient == recipient
+                        && c.Message.GetData<UserMessageData>() == data
                     ),
                     A<string>._,
                     A<CancellationToken>._

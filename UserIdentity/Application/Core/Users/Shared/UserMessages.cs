@@ -1,7 +1,5 @@
 ﻿using Microsoft.AspNetCore.Identity;
 using PolyzenKit.Application.Core.Messages.Events;
-using PolyzenKit.Common.Enums;
-using PolyzenKit.Common.Extensions;
 using UserIdentity.Domain.Users;
 
 namespace UserIdentity.Application.Core.Users.Shared;
@@ -14,20 +12,32 @@ public static class UserMessages
 
     public const string CallbackRequested = "callback.requested";
 
+    public const string WelcomeUserAction = "WelcomeUser";
+
+    public const string PasswordResetAction = "PasswordReset";
+
     public static MessageEvent Welcome(IdentityUser user, UserEntity userDetails, string appName) =>
-        MessageEventFactory.Create(user.Id, appName, Attributes(user, userDetails), MessageAction.WelcomeUser);
+        MessageEventFactory.Create(user.Id, appName, WelcomeUserAction, Data(user, userDetails), Recipient(user, userDetails));
 
     public static MessageEvent PasswordReset(string resetRequestId, IdentityUser user, UserEntity userDetails, string appName) =>
-        MessageEventFactory.Create(resetRequestId, appName, Attributes(user, userDetails), MessageAction.PasswordReset);
+        MessageEventFactory.Create(resetRequestId, appName, PasswordResetAction, Data(user, userDetails), Recipient(user, userDetails));
 
-    private static Dictionary<MessageAttributeKey, string> Attributes(IdentityUser user, UserEntity userDetails) =>
+    private static UserMessageData Data(IdentityUser user, UserEntity userDetails) =>
         new()
         {
-            { MessageAttributeKey.RecipientEmail, user.Email.EmptyIfNullOrWhiteSpace() },
-            { MessageAttributeKey.RecipientPhone, user.PhoneNumber.EmptyIfNullOrWhiteSpace() },
-            { MessageAttributeKey.FirstName, userDetails.FirstName.EmptyIfNullOrWhiteSpace() },
-            { MessageAttributeKey.LastName, userDetails.LastName.EmptyIfNullOrWhiteSpace() },
-            { MessageAttributeKey.UserName, user.UserName.EmptyIfNullOrWhiteSpace() },
-            { MessageAttributeKey.UserId, user.Id.EmptyIfNullOrWhiteSpace() },
+            UserId = user.Id,
+            UserName = NullIfBlank(user.UserName),
+            FirstName = NullIfBlank(userDetails.FirstName),
+            LastName = NullIfBlank(userDetails.LastName),
         };
+
+    private static MessageRecipient Recipient(IdentityUser user, UserEntity userDetails) =>
+        new()
+        {
+            Email = NullIfBlank(user.Email),
+            Phone = NullIfBlank(user.PhoneNumber),
+            Name = NullIfBlank($"{userDetails.FirstName} {userDetails.LastName}".Trim()),
+        };
+
+    private static string? NullIfBlank(string? value) => string.IsNullOrWhiteSpace(value) ? null : value;
 }

@@ -1,8 +1,8 @@
 ﻿using PolyzenKit.Application.Core.Interfaces;
 using PolyzenKit.Application.Core.Messages.Events;
-using PolyzenKit.Common.Enums;
 using PolyzenKit.Infrastructure.Messaging.Receiving;
 using UserIdentity.Application.Core.Users.Events;
+using UserIdentity.Application.Core.Users.Shared;
 
 namespace UserIdentity.Infrastructure.Messaging;
 
@@ -13,23 +13,19 @@ public class CallbackRequestedMessageHandler(IEventHandler<UserRegisteredEvent> 
 
     public Task HandleAsync(MessageEvent message, CancellationToken cancellationToken = default)
     {
+        var data = message.GetData<UserMessageData>();
+
         var userRegisteredEvent = new UserRegisteredEvent
         {
             AppName = message.RegisteredApp,
-            UserId =
-                Attribute(message, MessageAttributeKey.UserId)
-                ?? throw new InvalidDataException($"Callback message {message.CorrelationId} has no user id"),
-            FirstName = Attribute(message, MessageAttributeKey.FirstName),
-            LastName = Attribute(message, MessageAttributeKey.LastName),
-            UserName = Attribute(message, MessageAttributeKey.UserName),
-            PhoneNumber = Attribute(message, MessageAttributeKey.RecipientPhone),
-            UserEmail = Attribute(message, MessageAttributeKey.RecipientEmail),
+            UserId = data?.UserId ?? throw new InvalidDataException($"Callback message {message.CorrelationId} has no user id"),
+            FirstName = data.FirstName,
+            LastName = data.LastName,
+            UserName = data.UserName,
+            PhoneNumber = message.Recipient?.Phone,
+            UserEmail = message.Recipient?.Email,
         };
 
         return _userRegisteredEventHandler.HandleEventAsync(userRegisteredEvent, cancellationToken);
     }
-
-    // Missing values are sent as empty strings
-    private static string? Attribute(MessageEvent message, MessageAttributeKey key) =>
-        message.Attributes.TryGetValue(key, out var value) && value.Length > 0 ? value : null;
 }

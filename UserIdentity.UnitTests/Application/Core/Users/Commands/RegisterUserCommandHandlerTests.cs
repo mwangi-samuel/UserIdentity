@@ -4,9 +4,9 @@ using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Time.Testing;
 using PolyzenKit.Application.Core.Interfaces;
 using PolyzenKit.Application.Core.Messages.Commands;
+using PolyzenKit.Application.Core.Messages.Events;
 using PolyzenKit.Application.Core.Messages.ViewModels;
 using PolyzenKit.Application.Core.RegisteredApps.Shared;
-using PolyzenKit.Common.Enums;
 using PolyzenKit.Common.Exceptions;
 using PolyzenKit.Common.Settings;
 using PolyzenKit.Common.Utilities;
@@ -307,19 +307,29 @@ public class RegisterUserCommandHandlerTests
         await handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken);
 
         // Assert
+        var recipient = new MessageRecipient
+        {
+            Email = command.UserEmail,
+            Phone = command.PhoneNumber,
+            Name = $"{command.FirstName} {command.LastName}",
+        };
+        var data = new UserMessageData
+        {
+            UserId = userId,
+            UserName = command.UserName,
+            FirstName = command.FirstName,
+            LastName = command.LastName,
+        };
+
         A.CallTo(() =>
                 _createOutboxMessageCommandHandler.CreateItemAsync(
                     A<CreateOutboxMessageCommand>.That.Matches(c =>
                         c.Name == UserMessages.UserRegistered
-                        && c.Message.Action == MessageAction.WelcomeUser
+                        && c.Message.Action == UserMessages.WelcomeUserAction
                         && c.Message.CorrelationId == userId
                         && c.Message.RegisteredApp == command.RegisteredApp.AppName
-                        && c.Message.Attributes[MessageAttributeKey.RecipientEmail] == command.UserEmail
-                        && c.Message.Attributes[MessageAttributeKey.RecipientPhone] == command.PhoneNumber
-                        && c.Message.Attributes[MessageAttributeKey.FirstName] == command.FirstName
-                        && c.Message.Attributes[MessageAttributeKey.LastName] == command.LastName
-                        && c.Message.Attributes[MessageAttributeKey.UserName] == command.UserName
-                        && c.Message.Attributes[MessageAttributeKey.UserId] == userId
+                        && c.Message.Recipient == recipient
+                        && c.Message.GetData<UserMessageData>() == data
                     ),
                     A<string>._,
                     A<CancellationToken>._
@@ -352,7 +362,7 @@ public class RegisterUserCommandHandlerTests
                 _createOutboxMessageCommandHandler.CreateItemAsync(
                     A<CreateOutboxMessageCommand>.That.Matches(c =>
                         c.Name == UserMessages.CallbackRequested
-                        && c.Message.Action == MessageAction.WelcomeUser
+                        && c.Message.Action == UserMessages.WelcomeUserAction
                         && c.Message.CorrelationId == vm.User.Id
                         && c.Message.RegisteredApp == command.RegisteredApp.AppName
                     ),

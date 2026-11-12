@@ -1,5 +1,4 @@
-﻿using PolyzenKit.Application.Core.Messages.Events;
-using PolyzenKit.Common.Enums;
+﻿using UserIdentity.Application.Core.Users.Shared;
 using UserIdentity.IntegrationTests.TestUtils;
 using Xunit;
 
@@ -18,16 +17,8 @@ public class CodeVerifiedMessageHandlerTests(TestingWebAppFactory testingWebAppF
 
         Assert.False(TestDbHelper.GetIdentityUserWithNoTracking(user.Id)?.EmailConfirmed);
 
-        var messageEvent = MessageEventFactory.Create(
-            user.Id,
-            RegisteredApp.AppName,
-            new Dictionary<MessageAttributeKey, string>(),
-            MessageAction.WelcomeUser,
-            CrudEvent.Update
-        );
-
         // Act
-        await NatsTestHelper.PublishCodeVerifiedAsync(messageEvent);
+        await NatsTestHelper.PublishCodeVerifiedAsync(user.Id, RegisteredApp.AppName, UserMessages.WelcomeUserAction);
 
         // Assert
         await Eventually.HoldsAsync(() => TestDbHelper.GetIdentityUserWithNoTracking(user.Id)?.EmailConfirmed == true);
@@ -41,22 +32,53 @@ public class CodeVerifiedMessageHandlerTests(TestingWebAppFactory testingWebAppF
         user.EmailConfirmed = false;
         TestDbHelper.UpdateIdentityUser(user);
 
-        var messageEvent = MessageEventFactory.Create(
-            user.Id,
-            RegisteredApp.AppName,
-            new Dictionary<MessageAttributeKey, string>(),
-            MessageAction.WelcomeUser,
-            CrudEvent.Update
-        );
-
         // Act
-        await NatsTestHelper.PublishCodeVerifiedAsync(messageEvent);
-        var secondDelivery = await NatsTestHelper.PublishCodeVerifiedAsync(messageEvent);
+        await NatsTestHelper.PublishCodeVerifiedAsync(user.Id, RegisteredApp.AppName, UserMessages.WelcomeUserAction);
+        var secondDelivery = await NatsTestHelper.PublishCodeVerifiedAsync(user.Id, RegisteredApp.AppName, UserMessages.WelcomeUserAction);
 
         // Assert
         await Eventually.HoldsAsync(() => NatsTestHelper.IsCodeVerifiedAcknowledgedAsync(secondDelivery));
 
         Assert.True(TestDbHelper.GetIdentityUserWithNoTracking(user.Id)?.EmailConfirmed);
+    }
+
+    [Fact]
+    public async Task Welcome_User_Message_With_Another_Status_Leaves_The_User_Unconfirmed()
+    {
+        // Arrange
+        var user = TestDbHelper.CreateIdentityUser();
+        user.EmailConfirmed = false;
+        TestDbHelper.UpdateIdentityUser(user);
+
+        // Act
+        var delivery = await NatsTestHelper.PublishCodeVerifiedAsync(
+            user.Id,
+            RegisteredApp.AppName,
+            UserMessages.WelcomeUserAction,
+            status: "Expired"
+        );
+
+        // Assert
+        await Eventually.HoldsAsync(() => NatsTestHelper.IsCodeVerifiedAcknowledgedAsync(delivery));
+
+        Assert.False(TestDbHelper.GetIdentityUserWithNoTracking(user.Id)?.EmailConfirmed);
+    }
+
+    [Fact]
+    public async Task Message_With_Another_Action_Leaves_The_User_Unconfirmed()
+    {
+        // Arrange
+        var user = TestDbHelper.CreateIdentityUser();
+        user.EmailConfirmed = false;
+        TestDbHelper.UpdateIdentityUser(user);
+
+        // Act
+        var delivery = await NatsTestHelper.PublishCodeVerifiedAsync(user.Id, RegisteredApp.AppName, "OrderPlaced");
+
+        // Assert
+        await Eventually.HoldsAsync(() => NatsTestHelper.IsCodeVerifiedAcknowledgedAsync(delivery));
+
+        Assert.False(TestDbHelper.GetIdentityUserWithNoTracking(user.Id)?.EmailConfirmed);
     }
 
     [Fact]
@@ -68,16 +90,8 @@ public class CodeVerifiedMessageHandlerTests(TestingWebAppFactory testingWebAppF
         TestDbHelper.CreateIdentityUser();
         TestDbHelper.CreatePasswordResetEntity(resetRequestId, verified: false);
 
-        var messageEvent = MessageEventFactory.Create(
-            resetRequestId,
-            RegisteredApp.AppName,
-            new Dictionary<MessageAttributeKey, string>(),
-            MessageAction.PasswordReset,
-            CrudEvent.Update
-        );
-
         // Act
-        await NatsTestHelper.PublishCodeVerifiedAsync(messageEvent);
+        await NatsTestHelper.PublishCodeVerifiedAsync(resetRequestId, RegisteredApp.AppName, UserMessages.PasswordResetAction);
 
         // Assert
         await Eventually.HoldsAsync(() => TestDbHelper.GetPasswordResetEntityWithNoTracking(UserSettingHelper.UserId)?.Verified == true);

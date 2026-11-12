@@ -142,7 +142,7 @@ public sealed class ImageFixture : IAsyncLifetime
             ["correlationId"] = correlationId,
             ["registeredApp"] = ServiceClient.AppName,
             ["action"] = action,
-            ["attributes"] = new JsonObject(),
+            ["data"] = new JsonObject { ["status"] = "Verified", ["channel"] = "Email" },
             ["occurredAt"] = DateTime.UtcNow,
         };
 

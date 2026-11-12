@@ -10,13 +10,12 @@ using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
 using Newtonsoft.Json.Linq;
 using PolyzenKit.Application.Core.Messages.Events;
-using PolyzenKit.Common.Enums;
-using PolyzenKit.Common.Extensions;
 using PolyzenKit.Common.Utilities;
 using PolyzenKit.Infrastructure.Security.Tokens;
 using PolyzenKit.Presentation.Settings;
 using PolyzenKit.Presentation.Validation;
 using UserIdentity.Application.Core.Tokens.ViewModels;
+using UserIdentity.Application.Core.Users.Shared;
 using UserIdentity.Application.Core.Users.ViewModels;
 using UserIdentity.Domain.InviteCodes;
 using UserIdentity.Domain.Users;
@@ -409,17 +408,27 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
 
         Assert.NotNull(message);
         Assert.Equal(RegisteredApp.AppName, message.RegisteredApp);
-        Assert.Equal(MessageAction.WelcomeUser, message.Action);
+        Assert.Equal(UserMessages.WelcomeUserAction, message.Action);
 
-        var messageAttributes = message.Attributes;
-        Assert.NotNull(messageAttributes);
-
-        Assert.Equal(requestPayload.UserEmail, messageAttributes.GetAttributeValue(MessageAttributeKey.RecipientEmail));
-        Assert.Equal(requestPayload.PhoneNumber, messageAttributes.GetAttributeValue(MessageAttributeKey.RecipientPhone));
-        Assert.Equal(requestPayload.FirstName, messageAttributes.GetAttributeValue(MessageAttributeKey.FirstName));
-        Assert.Equal(requestPayload.LastName, messageAttributes.GetAttributeValue(MessageAttributeKey.LastName));
-        Assert.Equal(requestPayload.UserName, messageAttributes.GetAttributeValue(MessageAttributeKey.UserName));
-        Assert.Equal(userDetails?.Id, messageAttributes.GetAttributeValue(MessageAttributeKey.UserId));
+        Assert.Equal(
+            new MessageRecipient
+            {
+                Email = requestPayload.UserEmail,
+                Phone = requestPayload.PhoneNumber,
+                Name = $"{requestPayload.FirstName} {requestPayload.LastName}",
+            },
+            message.Recipient
+        );
+        Assert.Equal(
+            new UserMessageData
+            {
+                UserId = userDetails.Id,
+                UserName = requestPayload.UserName,
+                FirstName = requestPayload.FirstName,
+                LastName = requestPayload.LastName,
+            },
+            message.GetData<UserMessageData>()
+        );
     }
 
     [Theory]
@@ -488,7 +497,7 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
 
         var message = await NatsTestHelper.FindMessageAsync(NatsTestHelper.PasswordResetRequestedSubject, resetRequestId);
 
-        Assert.Equal(UserSettingHelper.UserEmail, message?.Attributes.GetAttributeValue(MessageAttributeKey.RecipientEmail));
+        Assert.Equal(UserSettingHelper.UserEmail, message?.Recipient?.Email);
     }
 
     [Fact]
@@ -623,17 +632,27 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
 
         Assert.NotNull(message);
         Assert.Equal(RegisteredApp.AppName, message.RegisteredApp);
-        Assert.Equal(MessageAction.WelcomeUser, message.Action);
+        Assert.Equal(UserMessages.WelcomeUserAction, message.Action);
 
-        var messageAttributes = message.Attributes;
-        Assert.NotNull(messageAttributes);
-
-        Assert.Equal(requestPayload.UserEmail ?? string.Empty, messageAttributes.GetAttributeValue(MessageAttributeKey.RecipientEmail));
-        Assert.Equal(requestPayload.PhoneNumber ?? string.Empty, messageAttributes.GetAttributeValue(MessageAttributeKey.RecipientPhone));
-        Assert.Equal(requestPayload.FirstName, messageAttributes.GetAttributeValue(MessageAttributeKey.FirstName));
-        Assert.Equal(string.Empty, messageAttributes.GetAttributeValue(MessageAttributeKey.LastName));
-        Assert.Equal(requestPayload.UserName, messageAttributes.GetAttributeValue(MessageAttributeKey.UserName));
-        Assert.Equal(userDetails?.Id, messageAttributes.GetAttributeValue(MessageAttributeKey.UserId));
+        Assert.Equal(
+            new MessageRecipient
+            {
+                Email = string.IsNullOrEmpty(UserEmail) ? null : UserEmail,
+                Phone = string.IsNullOrEmpty(PhoneNumber) ? null : PhoneNumber,
+                Name = requestPayload.FirstName,
+            },
+            message.Recipient
+        );
+        Assert.Equal(
+            new UserMessageData
+            {
+                UserId = userDetails.Id,
+                UserName = requestPayload.UserName,
+                FirstName = requestPayload.FirstName,
+            },
+            message.GetData<UserMessageData>()
+        );
+        Assert.False(message.Data.TryGetProperty("lastName", out _));
     }
 
     [Fact]
@@ -717,17 +736,7 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
         Assert.True(TestDbHelper.GetInviteCodeEntityWithNoTracking(inviteCode.Id)?.Applied);
 
         // Simulate the code being verified for the welcome message
-        var attributes = new Dictionary<MessageAttributeKey, string>() { { MessageAttributeKey.UserId, userDetails.Id } };
-
-        var messageEvent = MessageEventFactory.Create(
-            userDetails.Id,
-            RegisteredApp.AppName,
-            attributes,
-            MessageAction.WelcomeUser,
-            CrudEvent.Update
-        );
-
-        await NatsTestHelper.PublishCodeVerifiedAsync(messageEvent);
+        await NatsTestHelper.PublishCodeVerifiedAsync(userDetails.Id, RegisteredApp.AppName, UserMessages.WelcomeUserAction);
 
         await Eventually.HoldsAsync(() => TestDbHelper.GetIdentityUserWithNoTracking(userDetails.Id)?.EmailConfirmed == true);
 
@@ -982,15 +991,7 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
         // Act
         var beforeConfirming = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/login-ticket", ticketPayload);
 
-        await NatsTestHelper.PublishCodeVerifiedAsync(
-            MessageEventFactory.Create(
-                userId,
-                RegisteredApp.AppName,
-                new Dictionary<MessageAttributeKey, string> { { MessageAttributeKey.UserId, userId } },
-                MessageAction.WelcomeUser,
-                CrudEvent.Update
-            )
-        );
+        await NatsTestHelper.PublishCodeVerifiedAsync(userId, RegisteredApp.AppName, UserMessages.WelcomeUserAction);
         await Eventually.HoldsAsync(() => TestDbHelper.GetIdentityUserWithNoTracking(userId)?.EmailConfirmed == true);
 
         var afterConfirming = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/login-ticket", ticketPayload);
@@ -1590,17 +1591,7 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
         Assert.NotNull(resetRequestId);
 
         // Simulate the message saying a code was verified
-        var attributes = new Dictionary<MessageAttributeKey, string>() { { MessageAttributeKey.UserId, resetRequestId } };
-
-        var messageEvent = MessageEventFactory.Create(
-            resetRequestId,
-            RegisteredApp.AppName,
-            attributes,
-            MessageAction.PasswordReset,
-            CrudEvent.Update
-        );
-
-        await NatsTestHelper.PublishCodeVerifiedAsync(messageEvent);
+        await NatsTestHelper.PublishCodeVerifiedAsync(resetRequestId, RegisteredApp.AppName, UserMessages.PasswordResetAction);
 
         await Eventually.HoldsAsync(() => TestDbHelper.GetPasswordResetEntityWithNoTracking(UserSettingHelper.UserId)?.Verified == true);
 
