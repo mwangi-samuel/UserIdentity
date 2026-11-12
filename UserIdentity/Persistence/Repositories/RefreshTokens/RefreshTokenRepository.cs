@@ -49,13 +49,11 @@ public class RefreshTokenRepository(AppDbContext appDbContext)
         string userId,
         string previousToken,
         CancellationToken cancellationToken = default
-    )
-    {
-        return await _appDbContext.RefreshToken.SingleOrDefaultAsync(
+    ) =>
+        await _appDbContext.RefreshToken.SingleOrDefaultAsync(
             e => e.UserId == userId && e.PreviousToken == previousToken,
             cancellationToken
         );
-    }
 
     public async Task<int> DeleteEntityItemsExpiredBeforeAsync(
         DateTime expiredBefore,
