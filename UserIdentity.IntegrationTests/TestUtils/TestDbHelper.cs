@@ -341,14 +341,8 @@ public sealed class TestDbHelper(
 
     public int CountPasswordResetEntities(string userId) => _appDbContext.PasswordReset.AsNoTracking().Count(x => x.UserId == userId);
 
-    public PasswordResetEntity? GetPasswordResetEntityWithNoTracking(string userId)
-    {
-        return _appDbContext
-            .PasswordReset.AsNoTracking()
-            .Where(x => x.UserId == userId)
-            .OrderByDescending(x => x.CreatedAt)
-            .FirstOrDefault();
-    }
+    public PasswordResetEntity? GetPasswordResetEntityWithNoTracking(string userId) =>
+        _appDbContext.PasswordReset.AsNoTracking().Where(x => x.UserId == userId).OrderByDescending(x => x.CreatedAt).FirstOrDefault();
 
     #endregion
 

@@ -29,11 +29,9 @@ public class WaitListRepository(AppDbContext dbContext) : EntityRepository<WaitL
             ?? throw NoRecordException.ForIdentifier($"{id}");
     }
 
-    public async Task<WaitListDto?> GetEntityDtoByEmailAsync(int appId, string userEmail, CancellationToken cancellationToken = default)
-    {
-        return await DbSet
+    public async Task<WaitListDto?> GetEntityDtoByEmailAsync(int appId, string userEmail, CancellationToken cancellationToken = default) =>
+        await DbSet
             .Where(e => e.AppId == appId && e.UserEmail == userEmail)
             .Select(WaitListDto.Detailed)
             .SingleOrDefaultAsync(cancellationToken);
-    }
 }

@@ -221,9 +221,8 @@ public class UpdatePasswordCommandHandlerTests
 
     private static UpdatePasswordCommand GetUpdatePasswordCommand() => new() { ResetRequestId = ResetRequestId, NewPassword = NewPassword };
 
-    private UpdatePasswordCommandHandler GetUpdatePasswordCommandHandler()
-    {
-        return new UpdatePasswordCommandHandler(
+    private UpdatePasswordCommandHandler GetUpdatePasswordCommandHandler() =>
+        new UpdatePasswordCommandHandler(
             _userManager,
             _tokenFactory,
             _unitOfWork,
@@ -231,5 +230,4 @@ public class UpdatePasswordCommandHandlerTests
             _refreshTokenRepository,
             _timeProvider
         );
-    }
 }
