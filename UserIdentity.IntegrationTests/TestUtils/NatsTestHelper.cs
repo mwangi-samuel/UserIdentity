@@ -3,6 +3,7 @@ using System.Text.Json;
 using NATS.Client.JetStream;
 using NATS.Client.JetStream.Models;
 using PolyzenKit.Application.Core.Messages.Events;
+using PolyzenKit.Common.Enums;
 using PolyzenKit.Common.Utilities;
 using PolyzenKit.Infrastructure.Messaging.Receiving;
 using UserIdentity.Infrastructure.Messaging;
@@ -59,8 +60,16 @@ public sealed class NatsTestHelper(INatsJSContext jetStream)
         return null;
     }
 
-    public async Task<ulong> PublishCodeVerifiedAsync(MessageEvent message)
+    public async Task<ulong> PublishCodeVerifiedAsync(string correlationId, string appName, string action, string status = "Verified")
     {
+        var message = MessageEventFactory.Create(
+            correlationId,
+            appName,
+            action,
+            new { Status = status, Channel = "Email" },
+            eventType: CrudEvent.Update
+        );
+
         var payload = JsonSerializer.SerializeToUtf8Bytes(message, JsonOptionsCache.Get());
 
         var ack = await _jetStream.PublishAsync(CodeVerifiedSubject, payload, cancellationToken: TestContext.Current.CancellationToken);

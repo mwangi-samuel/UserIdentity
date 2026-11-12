@@ -1,10 +1,10 @@
 ﻿using FakeItEasy;
 using PolyzenKit.Application.Core.Interfaces;
-using PolyzenKit.Common.Enums;
 using PolyzenKit.Common.Exceptions;
 using PolyzenKit.Common.Utilities;
 using UserIdentity.Application.Core.Users.Commands;
 using UserIdentity.Application.Core.Users.Events;
+using UserIdentity.Application.Core.Users.Shared;
 using UserIdentity.Application.Core.Users.ViewModels;
 using Xunit;
 
@@ -27,7 +27,10 @@ public class CodeVerifiedEventHandlerTests
         var handler = CreateHandler();
 
         // Act
-        await handler.HandleEventAsync(new CodeVerifiedEvent(MessageAction.WelcomeUser, "user-id"), TestContext.Current.CancellationToken);
+        await handler.HandleEventAsync(
+            new CodeVerifiedEvent(UserMessages.WelcomeUserAction, "user-id"),
+            TestContext.Current.CancellationToken
+        );
 
         // Assert
         A.CallTo(() =>
@@ -52,7 +55,7 @@ public class CodeVerifiedEventHandlerTests
 
         // Act
         await handler.HandleEventAsync(
-            new CodeVerifiedEvent(MessageAction.PasswordReset, "reset-request-id"),
+            new CodeVerifiedEvent(UserMessages.PasswordResetAction, "reset-request-id"),
             TestContext.Current.CancellationToken
         );
 
@@ -76,7 +79,7 @@ public class CodeVerifiedEventHandlerTests
         var handler = CreateHandler();
 
         // Act
-        await handler.HandleEventAsync(new CodeVerifiedEvent(MessageAction.OrderPlaced, "order-id"), TestContext.Current.CancellationToken);
+        await handler.HandleEventAsync(new CodeVerifiedEvent("OrderPlaced", "order-id"), TestContext.Current.CancellationToken);
 
         // Assert
         A.CallTo(() => _confirmUserCommandHandler.UpdateItemAsync(A<ConfirmUserCommand>._, A<string>._, A<CancellationToken>._))
@@ -98,7 +101,10 @@ public class CodeVerifiedEventHandlerTests
 
         // Act & Assert
         await Assert.ThrowsAsync<NoRecordException>(() =>
-            handler.HandleEventAsync(new CodeVerifiedEvent(MessageAction.WelcomeUser, "user-id"), TestContext.Current.CancellationToken)
+            handler.HandleEventAsync(
+                new CodeVerifiedEvent(UserMessages.WelcomeUserAction, "user-id"),
+                TestContext.Current.CancellationToken
+            )
         );
     }
 

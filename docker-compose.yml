@@ -69,7 +69,6 @@ services:
           memory: 768M
 
   useridentity:
-    image: useridentity:latest
     build:
       context: .
       dockerfile: UserIdentity/Dockerfile

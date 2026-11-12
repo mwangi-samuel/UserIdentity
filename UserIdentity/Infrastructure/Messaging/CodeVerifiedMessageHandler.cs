@@ -8,8 +8,12 @@ namespace UserIdentity.Infrastructure.Messaging;
 [MessageSubject("messagemanager.code.verified")]
 public class CodeVerifiedMessageHandler(IEventHandler<CodeVerifiedEvent> codeVerifiedEventHandler) : IMessageHandler
 {
+    private const string VerifiedStatus = "Verified";
+
     private readonly IEventHandler<CodeVerifiedEvent> _codeVerifiedEventHandler = codeVerifiedEventHandler;
 
     public Task HandleAsync(MessageEvent message, CancellationToken cancellationToken = default) =>
-        _codeVerifiedEventHandler.HandleEventAsync(new CodeVerifiedEvent(message.Action, message.CorrelationId), cancellationToken);
+        message.GetData<CodeVerifiedData>()?.Status == VerifiedStatus
+            ? _codeVerifiedEventHandler.HandleEventAsync(new CodeVerifiedEvent(message.Action, message.CorrelationId), cancellationToken)
+            : Task.CompletedTask;
 }

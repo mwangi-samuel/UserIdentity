@@ -1,13 +1,13 @@
 ﻿using PolyzenKit.Application.Core;
 using PolyzenKit.Application.Core.Interfaces;
-using PolyzenKit.Common.Enums;
 using PolyzenKit.Common.Utilities;
 using UserIdentity.Application.Core.Users.Commands;
+using UserIdentity.Application.Core.Users.Shared;
 using UserIdentity.Application.Core.Users.ViewModels;
 
 namespace UserIdentity.Application.Core.Users.Events;
 
-public record CodeVerifiedEvent(MessageAction Action, string CorrelationId) : IBaseEvent;
+public record CodeVerifiedEvent(string Action, string CorrelationId) : IBaseEvent;
 
 public class CodeVerifiedEventHandler(
     IUpdateItemCommandHandler<ConfirmUserCommand, ConfirmUserViewModel> confirmUserCommandHandler,
@@ -25,7 +25,7 @@ public class CodeVerifiedEventHandler(
     {
         switch (eventItem.Action)
         {
-            case MessageAction.WelcomeUser:
+            case UserMessages.WelcomeUserAction:
                 await _confirmUserCommandHandler.UpdateItemAsync(
                     new ConfirmUserCommand { UserId = eventItem.CorrelationId },
                     KnownUsers.SystemId,
@@ -33,7 +33,7 @@ public class CodeVerifiedEventHandler(
                 );
                 break;
 
-            case MessageAction.PasswordReset:
+            case UserMessages.PasswordResetAction:
                 await _verifyPasswordResetCommandHandler.UpdateItemAsync(
                     new VerifyPasswordResetCommand { ResetRequestId = eventItem.CorrelationId },
                     KnownUsers.SystemId,

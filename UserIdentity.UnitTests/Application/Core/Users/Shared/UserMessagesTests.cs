@@ -1,5 +1,5 @@
 ﻿using Microsoft.AspNetCore.Identity;
-using PolyzenKit.Common.Enums;
+using PolyzenKit.Application.Core.Messages.Events;
 using UserIdentity.Application.Core.Users.Shared;
 using UserIdentity.Domain.Users;
 using Xunit;
@@ -30,10 +30,10 @@ public class UserMessagesTests
         var message = UserMessages.Welcome(_user, _userDetails, "TestApp");
 
         // Assert
-        Assert.Equal(MessageAction.WelcomeUser, message.Action);
+        Assert.Equal("WelcomeUser", message.Action);
         Assert.Equal("user-id", message.CorrelationId);
         Assert.Equal("TestApp", message.RegisteredApp);
-        AssertAttributes(message.Attributes);
+        AssertUserDetails(message);
     }
 
     [Fact]
@@ -43,35 +43,86 @@ public class UserMessagesTests
         var message = UserMessages.PasswordReset("reset-request-id", _user, _userDetails, "TestApp");
 
         // Assert
-        Assert.Equal(MessageAction.PasswordReset, message.Action);
+        Assert.Equal("PasswordReset", message.Action);
         Assert.Equal("reset-request-id", message.CorrelationId);
         Assert.Equal("TestApp", message.RegisteredApp);
-        AssertAttributes(message.Attributes);
+        AssertUserDetails(message);
     }
 
     [Fact]
-    public void Missing_Details_Are_Sent_As_Empty_Attributes()
+    public void Messages_Carry_No_Locale_Or_Reply_Subject()
+    {
+        // Act
+        var message = UserMessages.Welcome(_user, _userDetails, "TestApp");
+
+        // Assert
+        Assert.Null(message.Locale);
+        Assert.Null(message.ReplySubject);
+    }
+
+    [Theory]
+    [InlineData(null, null, null, null, null)]
+    [InlineData("", "", "", "", "")]
+    [InlineData(" ", " ", " ", " ", " ")]
+    public void Blank_Details_Are_Left_Out(string? userName, string? email, string? phoneNumber, string? firstName, string? lastName)
     {
         // Arrange
-        var user = new IdentityUser { Id = "user-id", UserName = "test.user" };
-        var userDetails = new UserEntity { Id = "user-id", FirstName = "Test" };
+        var user = new IdentityUser
+        {
+            Id = "user-id",
+            UserName = userName,
+            Email = email,
+            PhoneNumber = phoneNumber,
+        };
+        var userDetails = new UserEntity
+        {
+            Id = "user-id",
+            FirstName = firstName,
+            LastName = lastName,
+        };
 
         // Act
         var message = UserMessages.Welcome(user, userDetails, "TestApp");
 
         // Assert
-        Assert.Equal(string.Empty, message.Attributes[MessageAttributeKey.RecipientEmail]);
-        Assert.Equal(string.Empty, message.Attributes[MessageAttributeKey.RecipientPhone]);
-        Assert.Equal(string.Empty, message.Attributes[MessageAttributeKey.LastName]);
+        Assert.Equal(new MessageRecipient(), message.Recipient);
+        Assert.Equal("""{"userId":"user-id"}""", message.Data.GetRawText());
     }
 
-    private static void AssertAttributes(IReadOnlyDictionary<MessageAttributeKey, string> attributes)
+    [Theory]
+    [InlineData("Test", "User", "Test User")]
+    [InlineData("Test", null, "Test")]
+    [InlineData("Test", " ", "Test")]
+    [InlineData(null, "User", "User")]
+    [InlineData("", "User", "User")]
+    public void Recipient_Name_Joins_The_First_And_Last_Names(string? firstName, string? lastName, string expectedName)
     {
-        Assert.Equal("test.user@domain.com", attributes[MessageAttributeKey.RecipientEmail]);
-        Assert.Equal("0712345678", attributes[MessageAttributeKey.RecipientPhone]);
-        Assert.Equal("Test", attributes[MessageAttributeKey.FirstName]);
-        Assert.Equal("User", attributes[MessageAttributeKey.LastName]);
-        Assert.Equal("test.user", attributes[MessageAttributeKey.UserName]);
-        Assert.Equal("user-id", attributes[MessageAttributeKey.UserId]);
+        // Arrange
+        var userDetails = new UserEntity
+        {
+            Id = "user-id",
+            FirstName = firstName,
+            LastName = lastName,
+        };
+
+        // Act
+        var message = UserMessages.PasswordReset("reset-request-id", _user, userDetails, "TestApp");
+
+        // Assert
+        Assert.Equal(expectedName, message.Recipient?.Name);
+    }
+
+    private static void AssertUserDetails(MessageEvent message)
+    {
+        Assert.Equal(
+            new MessageRecipient
+            {
+                Email = "test.user@domain.com",
+                Phone = "0712345678",
+                Name = "Test User",
+            },
+            message.Recipient
+        );
+        Assert.Equal("""{"userId":"user-id","userName":"test.user","firstName":"Test","lastName":"User"}""", message.Data.GetRawText());
     }
 }

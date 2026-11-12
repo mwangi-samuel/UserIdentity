@@ -130,7 +130,8 @@ public class ImageSmokeTests(ImageFixture fixture) : IClassFixture<ImageFixture>
 
         // Assert
         Assert.Equal("WelcomeUser", $"{welcome["action"]}");
-        Assert.Equal(user.Email, $"{welcome["attributes"]!["RecipientEmail"]}");
+        Assert.Equal(user.Email, $"{welcome["recipient"]!["email"]}");
+        Assert.Equal(user.Id, $"{welcome["data"]!["userId"]}");
         Assert.Null(sessionBeforeConfirming);
 
         var profileBody = await ServiceClient.ReadAsync(profile, HttpStatusCode.OK, _cancellationToken);
