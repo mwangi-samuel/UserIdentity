@@ -7,7 +7,6 @@ using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
-using PolyzenKit.Common.Utilities;
 using PolyzenKit.Infrastructure.Security.KeySets;
 using UserIdentity.Persistence;
 using Xunit;
@@ -81,7 +80,7 @@ public class InviteOpenApiContractTests
         {
             builder.UseEnvironment("Development");
             var keys = TestUtils.EdDsaHelper.GenerateEd25519KeyPair();
-            var phrase = RandomStrings.Generate(32, true, true);
+            var phrase = "TestKeyPassPhrase-For-Local-Use-Only";
             builder.UseSetting("EDDSA_PRIVATE_KEY", TestUtils.EdDsaHelper.ConvertToPem(keys.Private, phrase));
             builder.UseSetting("EDDSA_PUBLIC_KEY", TestUtils.EdDsaHelper.ConvertToPem(keys.Public));
             builder.UseSetting($"{nameof(KeySetSettings)}:{nameof(KeySetSettings.PrivateKeyPath)}", "EDDSA_PRIVATE_KEY");

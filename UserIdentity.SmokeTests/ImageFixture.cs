@@ -17,7 +17,7 @@ namespace UserIdentity.SmokeTests;
 // Runs the published image, not the build the other test projects use, so what trimming removed is really gone
 public sealed class ImageFixture : IAsyncLifetime
 {
-    public const string ApiKey = "SmokeApiKey-For-Tests-Only-0123456789012";
+    public const string ApiKey = "TestApiKey-For-Local-Use-Only-0123456789";
     public const string UserRegisteredSubject = "useridentity.user.registered";
     public const string PasswordResetRequestedSubject = "useridentity.password-reset.requested";
 
@@ -26,9 +26,9 @@ public sealed class ImageFixture : IAsyncLifetime
     private const string LocalImage = "useridentity:smoke";
     private const string DatabaseName = "useridentity";
     private const string DatabaseUser = "useridentity";
-    private const string DatabasePassword = "useridentity-smoke";
+    private const string DatabasePassword = "useridentity-local";
     private const string NatsUser = "useridentity";
-    private const string NatsPassword = "useridentity-smoke";
+    private const string NatsPassword = "useridentity-local";
     private const string MysqlAlias = "db";
     private const string NatsAlias = "nats";
     private const string UserIdentityStream = "USERIDENTITY";
@@ -171,7 +171,7 @@ public sealed class ImageFixture : IAsyncLifetime
 
     private IContainer BuildService(string image)
     {
-        var privateKeyPassPhrase = Guid.NewGuid().ToString("N");
+        var privateKeyPassPhrase = "TestKeyPassPhrase-For-Local-Use-Only";
         var keyPair = EdDsaHelper.GenerateEd25519KeyPair();
 
         return new ContainerBuilder(image)
