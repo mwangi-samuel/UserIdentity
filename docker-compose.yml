@@ -77,7 +77,6 @@ services:
     environment:
       DatabaseSettings__Host: db
       MessagingSettings__NatsUrl: nats://nats:4222
-      KeySetSettings__PrivateKeyPassPhrase: ${EDDSA_PRIVATE_KEY_PASSPHRASE:-S3T@G00dPa22Phr@S3}
       IdentityUserSettings__RequireConfirmedAccount: false
       EDDSA_PRIVATE_KEY:
       EDDSA_PUBLIC_KEY:

@@ -7,7 +7,7 @@ namespace UserIdentity.IntegrationTests.TestUtils;
 
 internal static class ApiRequestHelper
 {
-    private const string ApiKey = "4f35dac2b47ff3db17c5e6200af572ac28e7db67e7475af1342f2264c9400dd1";
+    private const string ApiKey = "TestApiKey-For-Local-Use-Only-0123456789";
     private const string AppName = "TestApp";
 
     public static string loginUrl = "/api/v1/user/login";

@@ -1,5 +1,5 @@
 @UserIdentity_HostAddress = http://localhost:5050
-@ApiKey = 4f35dac2b47ff3db17c5e6200af572ac28e7db67e7475af1342f2264c9400dd1
+@ApiKey = TestApiKey-For-Local-Use-Only-0123456789
 @AppName = testapp
 @AdminUserName = admin
 @AdminPassword = Adm1n@P@ss
@@ -20,37 +20,7 @@ GET {{UserIdentity_HostAddress}}/api/v1/jwks/keys
 
 ###
 
-POST {{UserIdentity_HostAddress}}/api/v1/user/register
-X-Api-Key: {{ApiKey}}
-X-App-Name: {{AppName}}
-Content-Type: application/json
-
-{
-  "firstName": "Admin",
-  "lastName": "User",
-  "userName": "{{AdminUserName}}",
-  "userEmail": "admin@example.com",
-  "userPassword": "{{AdminPassword}}"
-}
-
-###
-
-POST {{UserIdentity_HostAddress}}/api/v1/user/register
-X-Api-Key: {{ApiKey}}
-X-App-Name: {{AppName}}
-Content-Type: application/json
-
-{
-  "firstName": "Global",
-  "lastName": "Admin",
-  "userName": "{{GlobalAdminUserName}}",
-  "userEmail": "globaladmin@example.com",
-  "userPassword": "{{GlobalAdminPassword}}"
-}
-
-###
-
-# Give both admins their roles first (Readme, API Requests)
+# up.ps1 registers both admins and gives them their roles
 # @name adminLogin
 POST {{UserIdentity_HostAddress}}/api/v1/user/login
 X-Api-Key: {{ApiKey}}

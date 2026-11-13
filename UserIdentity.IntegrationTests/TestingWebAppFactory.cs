@@ -8,7 +8,6 @@ using Microsoft.Extensions.DependencyInjection;
 using MySqlConnector;
 using NATS.Client.Core;
 using NATS.Client.JetStream;
-using PolyzenKit.Common.Utilities;
 using PolyzenKit.Domain.Entities.AppEntities;
 using PolyzenKit.Domain.Entities.RegisteredApps;
 using PolyzenKit.Infrastructure.ExternalServices;
@@ -50,7 +49,7 @@ public class TestingWebAppFactory : WebApplicationFactory<Program>, IAsyncLifeti
     private static readonly string _dbName = "useridentity-test-db";
 
     private const string NatsUser = "useridentity";
-    private const string NatsPassword = "useridentity-test";
+    private const string NatsPassword = "useridentity-local";
     private const ushort NatsPort = 4222;
 
     // Shared by hosts made with WithWebHostBuilder, which use the same database
@@ -116,7 +115,7 @@ public class TestingWebAppFactory : WebApplicationFactory<Program>, IAsyncLifeti
 
         // Override pub/private key Settings
         var keyPair = EdDsaHelper.GenerateEd25519KeyPair();
-        var privateKeyPassPhrase = RandomStrings.Generate(32, true, true);
+        var privateKeyPassPhrase = "TestKeyPassPhrase-For-Local-Use-Only";
         builder.UseSetting("EDDSA_PRIVATE_KEY", EdDsaHelper.ConvertToPem(keyPair.Private, privateKeyPassPhrase));
         builder.UseSetting("EDDSA_PUBLIC_KEY", EdDsaHelper.ConvertToPem(keyPair.Public));
         builder.UseSetting($"{nameof(KeySetSettings)}:{nameof(KeySetSettings.PrivateKeyPassPhrase)}", privateKeyPassPhrase);

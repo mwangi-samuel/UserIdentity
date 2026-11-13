@@ -5,25 +5,24 @@ UserIdentity is an easy-to-use RESTful API that simplifies user management by pr
 ### Prerequisites
 - Dotnet 10.0 SDK (pinned in `global.json`)
 - Docker
-- An Ed25519 key pair for signing and checking tokens. Generate one outside the repo (replace the passphrase with your own):
+- In production, an Ed25519 key pair for signing and checking tokens, set as `EDDSA_PRIVATE_KEY` and `EDDSA_PUBLIC_KEY` (the PEM contents) with the passphrase in `KeySetSettings__PrivateKeyPassPhrase`. Generate one outside the repo with your own passphrase:
   ```
-  openssl genpkey -algorithm ED25519 -aes-256-cbc -out ed25519-private.pem -pass pass:S3T@G00dPa22Phr@S3
-  openssl pkey -pubout -in ed25519-private.pem -out ed25519-public.pem -passin pass:S3T@G00dPa22Phr@S3
+  openssl genpkey -algorithm ED25519 -aes-256-cbc -out ed25519-private.pem -pass pass:<your passphrase>
+  openssl pkey -pubout -in ed25519-private.pem -out ed25519-public.pem -passin pass:<your passphrase>
   ```
-  Then set the PEM contents, and the passphrase if you changed it, in the shell that runs `up.ps1`:
-  ```
-  $env:EDDSA_PRIVATE_KEY = Get-Content -Raw .\ed25519-private.pem
-  $env:EDDSA_PUBLIC_KEY = Get-Content -Raw .\ed25519-public.pem
-  $env:EDDSA_PRIVATE_KEY_PASSPHRASE = '<your passphrase>'
-  ```
+  Locally, `up.ps1` provides one (see below).
 
 ### Instructions
 `docker-compose.yml` starts MySQL, NATS (with JetStream), OpenObserve and UserIdentity.
 
 - `.\up.ps1 -UseLocal` starts MySQL, NATS and OpenObserve, waits for them to be healthy, then runs UserIdentity from source on http://localhost:5050 with the `UserIdentity` launch profile. The OpenAPI document is at http://localhost:5050/openapi/v1.json.
-- `.\up.ps1 -Build` builds the image and runs everything in Docker. UserIdentity is on http://localhost:5050.
-- `.\up.ps1` runs everything in Docker without rebuilding.
+- `.\up.ps1 -Build` builds the image, runs everything in Docker and waits for it to be healthy. UserIdentity is on http://localhost:5050.
+- `.\up.ps1` does the same without rebuilding.
 - `.\down.ps1` stops the stack and preserves its named volumes for the next run.
+
+The first run of `up.ps1` on a machine generates an Ed25519 key pair with a pinned openssl image, encrypted with the passphrase in `appsettings.json` (`TestKeyPassPhrase-For-Local-Use-Only`), and saves it in `~/.local-eddsa-keys`. Every run reads it from there into `EDDSA_PRIVATE_KEY` and `EDDSA_PUBLIC_KEY`, which `docker-compose.yml` passes to the container and `-UseLocal` to the app. Other local stacks that use the folder share the pair, so tokens issued here work there. Delete the folder to get a new pair, then log in again. Start the stack with `up.ps1`, not `docker compose up` alone, so the keys are set.
+
+Once UserIdentity is healthy, `up.ps1` registers `admin` (password `Adm1n@P@ss`) and `globaladmin` (password `Gl0b@lAdm1n`) for the app `testapp`, unless they can already log in, and gives them `testapp:admin` and `global:admin` with `.sql/add_admin_user_role.sql`. Every local client uses the API key `TestApiKey-For-Local-Use-Only-0123456789`.
 
 NATS monitoring is on http://localhost:8222, and NUI, a web UI for browsing streams and messages, is on http://localhost:31311 (add a connection to `nats://nats:4222` with the user below). The local NATS server has one user, `useridentity` (password `useridentity-local`), which may publish only to UserIdentity's own subjects and the JetStream API.
 
@@ -138,17 +137,13 @@ Sign-up verifies the reCAPTCHA token before it takes a place in the password has
 Settings are checked at startup. An invalid setting stops the app with every failure listed, such as `ValidForSeconds: The field ValidForSeconds must be between 1 and 2147483647.`
 
 ## API Requests
-`UserIdentity/UserIdentity.http` holds requests for sending by hand, in an order that works from top to bottom: health, the OpenAPI document and the key set, registering and logging in the admins, a user, roles with their scopes and users, invite codes, the wait list, the entities that scopes can name, registered apps, a password reset, a refresh and a logout. It leaves out `register-for-service`, which needs a service's token. Open it in Visual Studio 2022 (17.8 or later), or in VS Code with the [REST Client](https://marketplace.visualstudio.com/items?itemName=humao.rest-client) extension, and select **Send Request** above a request. The tests are the automated checks.
+`UserIdentity/UserIdentity.http` holds requests for sending by hand, in an order that works from top to bottom: health, the OpenAPI document and the key set, logging in the admins, a user, roles with their scopes and users, invite codes, the wait list, the entities that scopes can name, registered apps, a password reset, a refresh and a logout. It leaves out `register-for-service`, which needs a service's token. Open it in Visual Studio 2022 (17.8 or later), or in VS Code with the [REST Client](https://marketplace.visualstudio.com/items?itemName=humao.rest-client) extension, and select **Send Request** above a request. The tests are the automated checks.
 
 - No environment needs selecting: the settings (URL, API key, app name and the admins' details) are variables at the top of the file.
 - Requests that use an earlier response, such as an admin's token or the new role's id, need that request sent first.
-- New users, roles, invites, wait list entries and registered apps are named after the current time, so the requests can be sent again. Registering the admins again answers 400, since they exist.
+- New users, roles, invites, wait list entries and registered apps are named after the current time, so the requests can be sent again.
 - Access tokens last 3 minutes (`JwtIssuerSettings:ValidForSeconds`). When a request answers 401, send the admin's login again.
-- The stack doesn't deliver confirmation codes, so it runs with `IdentityUserSettings:RequireConfirmedAccount` off (`docker-compose.yml` sets it, and `.\up.ps1 -UseLocal` passes it), and new accounts can log in at once. After registering the admins, give them their roles from the repo root, then log in:
-  ```
-  Get-Content .sql\add_admin_user_role.sql | docker compose exec -T db mysql -uroot -proot --init-command="SET @username='admin', @app_name='testapp'"
-  Get-Content .sql\add_admin_user_role.sql | docker compose exec -T db mysql -uroot -proot --init-command="SET @username='globaladmin', @role_name='global:admin'"
-  ```
+- The stack doesn't deliver confirmation codes, so it runs with `IdentityUserSettings:RequireConfirmedAccount` off (the default in `appsettings.json`, which `docker-compose.yml` also sets), and new accounts can log in at once. `up.ps1` registers both admins and gives them their roles, so start with their logins.
 - The stack doesn't verify reset codes either, so `update-password` answers 406. To see it succeed, mark the reset requests verified after sending `reset-password`:
   ```
   docker compose exec -T db mysql -uroot -proot useridentity -e "UPDATE password_resets SET verified = 1"
