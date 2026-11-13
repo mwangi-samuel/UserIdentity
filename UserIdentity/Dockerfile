@@ -15,6 +15,7 @@ RUN dotnet restore "UserIdentity/UserIdentity.csproj" \
     /p:SelfContained=true \
     /p:PublishTrimmed=true \
     /p:TrimMode=partial \
+    /p:PublishSingleFile=true \
     /p:PublishReadyToRun=true 
 
 COPY ["UserIdentity/", "UserIdentity/"]
@@ -29,6 +30,7 @@ RUN dotnet publish "UserIdentity.csproj" \
     /p:SelfContained=true \
     /p:PublishTrimmed=true \
     /p:TrimMode=partial \
+    /p:PublishSingleFile=true \
     /p:PublishReadyToRun=true \
     /p:JsonSerializerIsReflectionEnabledByDefault=true \
     /p:SuppressTrimAnalysisWarnings=true \
