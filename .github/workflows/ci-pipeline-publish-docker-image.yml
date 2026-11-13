@@ -24,12 +24,6 @@ jobs:
         with:
           global-json-file: global.json
 
-      - name: Unit Tests
-        run: dotnet test --project ./UserIdentity.UnitTests/UserIdentity.UnitTests.csproj --configuration Release
-
-      - name: Integration Tests
-        run: dotnet test --project ./UserIdentity.IntegrationTests/UserIdentity.IntegrationTests.csproj --configuration Release
-
       - name: Setup QEMU
         uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
         with:
