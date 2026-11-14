@@ -49,11 +49,9 @@ builder.Services.AddAppRegisteredApps(builder.Configuration);
 
 builder.Services.AddAppExternalServices(builder.Configuration);
 
+builder.Services.AddAppCaptcha(builder.Configuration);
+
 builder.Services.AddScoped<IAppCallbackService, AppCallbackService>();
-
-builder.Services.AddScoped<IGoogleRecaptchaService, GoogleRecaptchaService>();
-
-builder.Services.AddAppSetting<GoogleRecaptchaSettings>(builder.Configuration);
 
 builder.Services.AddAppSetting<RefreshTokenSettings>(builder.Configuration);
 

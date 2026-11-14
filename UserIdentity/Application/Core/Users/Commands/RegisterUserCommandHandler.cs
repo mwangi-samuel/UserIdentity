@@ -56,8 +56,6 @@ public record RegisterUserCommand : IBaseCommand, IValidatableObject
     [Required]
     public string UserPassword { get; init; } = null!;
 
-    public string? GoogleRecaptchaToken { get; init; }
-
     [StringLength(InviteCodeLimits.InviteCodeMaxLength)]
     public string? InviteCode { get; init; }
 

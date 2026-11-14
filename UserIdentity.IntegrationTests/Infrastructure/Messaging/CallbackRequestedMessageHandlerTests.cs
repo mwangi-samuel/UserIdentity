@@ -15,7 +15,6 @@ namespace UserIdentity.IntegrationTests.Infrastructure.Messaging;
 public class CallbackRequestedMessageHandlerTests(TestingWebAppFactory testingWebAppFactory, ITestOutputHelper outputHelper)
     : BaseIntegrationTests(testingWebAppFactory, outputHelper)
 {
-    private const string RecaptchaToken = "callback-recaptcha-token";
     private const string ServiceName = "testservice";
 
     private readonly StubHttpServer _stubHttpServer = testingWebAppFactory.StubHttpServer;
@@ -109,8 +108,6 @@ public class CallbackRequestedMessageHandlerTests(TestingWebAppFactory testingWe
 
         _stubHttpServer.Reset();
 
-        _stubHttpServer.OnPost("/siteverify", _ => Results.Json(new { success = true, score = 0.9 }));
-
         _stubHttpServer.OnPost(
             TestingWebAppFactory.CallbackPath,
             _ => Interlocked.Exchange(ref failNextCallback, false) ? Results.InternalServerError() : Results.Ok()
@@ -134,7 +131,6 @@ public class CallbackRequestedMessageHandlerTests(TestingWebAppFactory testingWe
                 UserSettingHelper.UserName,
                 UserSettingHelper.UserEmail,
                 UserSettingHelper.UserPassword,
-                GoogleRecaptchaToken = RecaptchaToken,
             }
         );
 
