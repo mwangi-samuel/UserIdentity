@@ -6,6 +6,7 @@ using PolyzenKit.Application.Core.RegisteredApps.Shared;
 using PolyzenKit.Common.Enums;
 using PolyzenKit.Common.Utilities;
 using PolyzenKit.Domain.Dtos;
+using PolyzenKit.Presentation.Captcha;
 using PolyzenKit.Presentation.Endpoints;
 using PolyzenKit.Presentation.Settings;
 using UserIdentity.Application.Core.Tokens.Commands;
@@ -32,7 +33,7 @@ public static class UserEndpoints
             .MapPost("register", CreateUserAsync)
             .AllowAnonymous()
             .RequireRateLimiting(RateLimitSettings.ClientIpPolicy)
-            .AddEndpointFilter<GoogleRecaptchaFilter>()
+            .RequireCaptcha("register")
             .AddEndpointFilter<PasswordHashingFilter>()
             .Produces<AuthUserViewModel>();
         group
@@ -53,6 +54,7 @@ public static class UserEndpoints
             .MapPost("reset-password", ResetPasswordAsync)
             .AllowAnonymous()
             .RequireRateLimiting(RateLimitSettings.ClientIpPolicy)
+            .RequireCaptcha("reset-password")
             .Produces<ResetPasswordViewModel>();
         group
             .MapPost("update-password", UpdatePasswordAsync)

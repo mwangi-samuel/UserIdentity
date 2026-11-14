@@ -109,6 +109,13 @@ Behind a reverse proxy, set `ForwardedHeadersSettings__KnownNetworks` to the pro
 
 Password hashing is limited across all clients too, because a hash takes most of a CPU for about 100 ms and would otherwise starve every other request. Login, register, `register-for-service` and update-password run at most `PasswordHashingSettings:MaxConcurrent` at a time (default 1), with up to `PasswordHashingSettings:QueueLimit` more waiting (default 32). Requests beyond that get a 429.
 
+## Captcha
+While `CaptchaSettings:Enabled` is on, register, reset-password and the wait list sign-up need a Cloudflare Turnstile token in the `X-Captcha-Token` header. The client renders the Turnstile widget with `data-action` set to the endpoint's action, `register`, `reset-password` or `wait-list`, and gets a new token for each request, since a token is good for one check. A missing, invalid, reused or wrong-action token gets a 400, "The captcha check failed".
+
+The check runs after the rate limit and before password hashing, so a slow answer (`ExternalServicesSettings:ExternalServices:Turnstile:TimeoutSeconds`, default 5) holds up only that request. When Turnstile can't be reached or refuses the check itself, such as for a wrong secret key, the request goes through and an error is logged.
+
+The check is off by default, because Cloudflare's test keys can't pass the action check. To try it locally, use a widget whose hostnames include `localhost`.
+
 Request bodies are limited to 64 KiB. Larger ones get a 413.
 
 ## Cleanup
@@ -123,14 +130,12 @@ Every setting has a default in `appsettings.json` that works locally. In product
 | `AppSecretSettings__Keys__<id>`, `AppSecretSettings__CurrentKeyId` | Base64 256-bit keys that encrypt registered apps' secrets at rest. Generate one with `openssl rand -base64 32` and keep it in a secret store: secrets encrypted with a lost key can't be recovered |
 | `ApiKeySettings__ApiKey` | The key clients send in `X-Api-Key`, at least 32 characters |
 | `ExternalServicesSettings__ExternalServices__AppCallback__DefaultHeaders__X-Api-Key` | The `X-Api-Key` header sent with app callbacks |
-| `GoogleRecaptchaSettings__Enabled`, `GoogleRecaptchaSettings__SiteKey` | Turns on the reCAPTCHA check at sign-up, which is off by default |
+| `CaptchaSettings__Enabled`, `CaptchaSettings__SecretKey` | Turns on the Turnstile check (see [Captcha](#captcha)) with the widget's secret key. Keep the key in a secret store |
 | `RegisteredAppsSettings__RegisteredApps__<n>__*` | The apps to seed. Each `AppSecretKey` needs 32 to 100 characters |
 | `DatabaseSettings__*` | Database connection |
 | `MessagingSettings__NatsUrl` | The NATS server, without credentials |
 | `MessagingSettings__NatsUser`, `MessagingSettings__NatsPassword` | UserIdentity's own NATS user. Keep the password in a secret store |
 | `ForwardedHeadersSettings__KnownNetworks` | The reverse proxy's networks (see [Rate Limiting](#rate-limiting)) |
-
-Sign-up verifies the reCAPTCHA token before it takes a place in the password hashing limit, so a slow answer (`ExternalServicesSettings:ExternalServices:GoogleRecaptcha:TimeoutSeconds`, default 5) holds up only that sign-up.
 
 `Logging:LogLevel:Default` (`Warning`) sets the log level, and `Logging:LogLevel:Microsoft.EntityFrameworkCore` sets EF Core's (`Error`). From the environment, set the level with `Logging__LogLevel__Default`. Logs go to the console as plain text in Development and as one JSON object per line everywhere else. Setting `OTEL_EXPORTER_OTLP_ENDPOINT` also sends logs, traces and metrics there over OTLP, with OpenTelemetry's other `OTEL_EXPORTER_OTLP_*` settings.
 

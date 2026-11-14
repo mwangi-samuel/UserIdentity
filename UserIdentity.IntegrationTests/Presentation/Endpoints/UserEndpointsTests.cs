@@ -2,7 +2,6 @@
 using System.Net;
 using System.Net.Mime;
 using System.Text;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
@@ -19,7 +18,6 @@ using UserIdentity.Application.Core.Users.Shared;
 using UserIdentity.Application.Core.Users.ViewModels;
 using UserIdentity.Domain.InviteCodes;
 using UserIdentity.Domain.Users;
-using UserIdentity.Infrastructure.ExternalServices;
 using UserIdentity.IntegrationTests.TestUtils;
 using UserIdentity.Persistence;
 using Xunit;
@@ -32,8 +30,6 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
     private static readonly string _baseUri = "/api/v1/user";
 
     private readonly TestingWebAppFactory _testingWebAppFactory = testingWebAppFactory;
-
-    private readonly StubHttpServer _stubHttpServer = testingWebAppFactory.StubHttpServer;
 
     [Fact]
     public async Task Get_Existing_User_Gets_User_Details()
@@ -357,8 +353,6 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
     public async Task Register_User_With_Valid_Request_Payload_Registers_User()
     {
         // Arrange
-        var googleRecaptchaToken = RandomStrings.Generate(90);
-
         var requestPayload = new
         {
             UserSettingHelper.FirstName,
@@ -367,10 +361,7 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
             UserSettingHelper.PhoneNumber,
             UserSettingHelper.UserEmail,
             UserSettingHelper.UserPassword,
-            googleRecaptchaToken,
         };
-
-        SetUpGoogleRecaptchaEndpoint(googleRecaptchaToken);
 
         // Act
         var response = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/register", requestPayload);
@@ -401,7 +392,7 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
 
         Assert.False(jsonObject["isConfirmed"]?.Value<bool>() ?? false);
 
-        VerifyGoogleRecaptchaEndpoint();
+        Assert.Contains(CaptchaVerifier.Checks, check => check.Action == "register");
 
         // Confirm the message reached the stream
         var message = await NatsTestHelper.FindMessageAsync(NatsTestHelper.UserRegisteredSubject, userDetails!.Id);
@@ -549,18 +540,13 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
     public async Task Register_User_Message_Leaves_The_Outbox_Once_It_Is_In_The_Stream()
     {
         // Arrange
-        var googleRecaptchaToken = RandomStrings.Generate(90);
-
         var requestPayload = new
         {
             UserSettingHelper.FirstName,
             UserSettingHelper.UserName,
             UserSettingHelper.UserEmail,
             UserSettingHelper.UserPassword,
-            googleRecaptchaToken,
         };
-
-        SetUpGoogleRecaptchaEndpoint(googleRecaptchaToken);
 
         // Act
         var response = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/register", requestPayload);
@@ -582,8 +568,6 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
     public async Task Register_User_With_Only_Required_Request_Payload_Registers_User(string? UserEmail, string? PhoneNumber)
     {
         // Arrange
-        var googleRecaptchaToken = RandomStrings.Generate(90);
-
         var requestPayload = new
         {
             UserSettingHelper.FirstName,
@@ -591,10 +575,7 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
             UserSettingHelper.UserPassword,
             UserEmail,
             PhoneNumber,
-            googleRecaptchaToken,
         };
-
-        SetUpGoogleRecaptchaEndpoint(googleRecaptchaToken);
 
         // Act
         var response = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/register", requestPayload);
@@ -625,7 +606,7 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
 
         Assert.False(jsonObject["isConfirmed"]?.Value<bool>() ?? false);
 
-        VerifyGoogleRecaptchaEndpoint();
+        Assert.Contains(CaptchaVerifier.Checks, check => check.Action == "register");
 
         // Confirm the message reached the stream
         var message = await NatsTestHelper.FindMessageAsync(NatsTestHelper.UserRegisteredSubject, userDetails!.Id);
@@ -661,8 +642,6 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
         // Arrange
         TestDbHelper.SeedDatabase();
 
-        var googleRecaptchaToken = RandomStrings.Generate(90);
-
         var requestPayload = new
         {
             UserSettingHelper.FirstName,
@@ -671,10 +650,7 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
             UserSettingHelper.PhoneNumber,
             UserSettingHelper.UserEmail,
             UserSettingHelper.UserPassword,
-            googleRecaptchaToken,
         };
-
-        SetUpGoogleRecaptchaEndpoint(googleRecaptchaToken);
 
         // Act
         var response = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/register", requestPayload);
@@ -701,7 +677,6 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
         // Arrange
         const string ownerRole = "testapp:owner";
         const string ownerScope = "catalog-product:all";
-        var googleRecaptchaToken = RandomStrings.Generate(90);
         var userEmail = "invited-owner@example.com";
         var userName = "invited.owner";
 
@@ -716,10 +691,7 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
             UserEmail = userEmail,
             UserSettingHelper.UserPassword,
             InviteCode = "ownerinvite",
-            googleRecaptchaToken,
         };
-
-        SetUpGoogleRecaptchaEndpoint(googleRecaptchaToken);
 
         // Act
         var response = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/register", requestPayload);
@@ -752,7 +724,6 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
     public async Task Register_User_With_Invalid_Optional_Invite_Code_Does_Not_Create_User()
     {
         // Arrange
-        var googleRecaptchaToken = RandomStrings.Generate(90);
         var userEmail = "wrong-invite@example.com";
         var userName = "wrong.invite";
 
@@ -770,10 +741,7 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
             UserEmail = userEmail,
             UserSettingHelper.UserPassword,
             InviteCode = "WRONGCODE",
-            googleRecaptchaToken,
         };
-
-        SetUpGoogleRecaptchaEndpoint(googleRecaptchaToken);
 
         // Act
         var response = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/register", requestPayload);
@@ -971,17 +939,13 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
     public async Task Login_Ticket_From_Sign_Up_Starts_A_Session_Once_The_User_Is_Confirmed_And_Only_Once()
     {
         // Arrange
-        var googleRecaptchaToken = RandomStrings.Generate(90);
         var requestPayload = new
         {
             UserSettingHelper.FirstName,
             UserSettingHelper.UserName,
             UserSettingHelper.UserEmail,
             UserSettingHelper.UserPassword,
-            googleRecaptchaToken,
         };
-
-        SetUpGoogleRecaptchaEndpoint(googleRecaptchaToken);
 
         var registerResponse = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/register", requestPayload);
         var registered = SerDeHelper.Deserialize<JObject>(await registerResponse.ValidateRequestResponseAsync());
@@ -1840,18 +1804,8 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
             ["UserPassword"] = UserSettingHelper.UserPassword,
         };
 
-    private async Task<HttpResponseMessage> RegisterAsync(Dictionary<string, string?> fields)
-    {
-        var googleRecaptchaToken = RandomStrings.Generate(90);
-
-        SetUpGoogleRecaptchaEndpoint(googleRecaptchaToken);
-
-        return await HttpClient.SendNoAuthRequestAsync(
-            HttpMethod.Post,
-            _baseUri + "/register",
-            new Dictionary<string, string?>(fields) { ["GoogleRecaptchaToken"] = googleRecaptchaToken }
-        );
-    }
+    private Task<HttpResponseMessage> RegisterAsync(Dictionary<string, string?> fields) =>
+        HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/register", fields);
 
     private async Task AssertSignUpRefusedAsync(HttpResponseMessage response, string field)
     {
@@ -1870,21 +1824,4 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
         Assert.Equal(0, TestDbHelper.CountIdentityUsers());
         Assert.Equal(0, TestDbHelper.CountOutboxMessages());
     }
-
-    private void SetUpGoogleRecaptchaEndpoint(string googleRecaptchaToken)
-    {
-        var googleRecaptchaSettings = Configuration.GetSetting<GoogleRecaptchaSettings>();
-
-        _stubHttpServer.Reset();
-        _stubHttpServer.OnPost(
-            "/siteverify",
-            request =>
-                request.Query.GetValueOrDefault("secret") == googleRecaptchaSettings.SiteKey
-                && request.Query.GetValueOrDefault("response") == googleRecaptchaToken
-                    ? Results.Json(new { success = true, score = 0.9f })
-                    : Results.NotFound()
-        );
-    }
-
-    private void VerifyGoogleRecaptchaEndpoint() => Assert.Contains(_stubHttpServer.Requests, request => request.Path == "/siteverify");
 }

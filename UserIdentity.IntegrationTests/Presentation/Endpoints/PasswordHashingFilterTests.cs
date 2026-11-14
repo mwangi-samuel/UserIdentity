@@ -6,8 +6,8 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Newtonsoft.Json.Linq;
+using PolyzenKit.Application.Interfaces;
 using PolyzenKit.Presentation.Settings;
-using UserIdentity.Application.Interfaces;
 using UserIdentity.IntegrationTests.TestUtils;
 using UserIdentity.Presentation.Filters;
 using Xunit;
@@ -98,18 +98,18 @@ public class PasswordHashingFilterTests(TestingWebAppFactory testingWebAppFactor
     }
 
     [Fact]
-    public async Task Sign_Up_Waiting_On_Recaptcha_Holds_No_Hashing_Permit()
+    public async Task Sign_Up_Waiting_On_Captcha_Holds_No_Hashing_Permit()
     {
         // Arrange
         TestDbHelper.SeedDatabase();
 
-        var recaptchaService = new BlockingGoogleRecaptchaService();
+        var captchaVerifier = new BlockingCaptchaVerifier();
 
         await using var factory = _testingWebAppFactory.WithWebHostBuilder(builder =>
         {
             builder.UseSetting($"{nameof(PasswordHashingSettings)}:{nameof(PasswordHashingSettings.MaxConcurrent)}", "1");
             builder.UseSetting($"{nameof(PasswordHashingSettings)}:{nameof(PasswordHashingSettings.QueueLimit)}", "0");
-            builder.ConfigureTestServices(services => services.AddSingleton<IGoogleRecaptchaService>(recaptchaService));
+            builder.ConfigureTestServices(services => services.AddSingleton<ICaptchaVerifier>(captchaVerifier));
         });
         using var httpClient = factory.CreateClient();
 
@@ -122,16 +122,15 @@ public class PasswordHashingFilterTests(TestingWebAppFactory testingWebAppFactor
                 UserName = "waiting.user",
                 UserEmail = "waiting.user@example.com",
                 UserSettingHelper.UserPassword,
-                GoogleRecaptchaToken = "recaptcha-token",
             }
         );
 
-        await recaptchaService.Entered.Task.WaitAsync(_waitLimit, TestContext.Current.CancellationToken);
+        await captchaVerifier.Entered.Task.WaitAsync(_waitLimit, TestContext.Current.CancellationToken);
 
         // Act
         var login = await LogInAsync(httpClient, FirstClientAddress);
 
-        recaptchaService.Release();
+        captchaVerifier.Release();
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, login.StatusCode);
@@ -190,7 +189,7 @@ public class PasswordHashingFilterTests(TestingWebAppFactory testingWebAppFactor
         }
     }
 
-    private sealed class BlockingGoogleRecaptchaService : IGoogleRecaptchaService
+    private sealed class BlockingCaptchaVerifier : ICaptchaVerifier
     {
         private readonly TaskCompletionSource _released = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
@@ -198,7 +197,7 @@ public class PasswordHashingFilterTests(TestingWebAppFactory testingWebAppFactor
 
         public void Release() => _released.TrySetResult();
 
-        public async Task<bool> VerifyTokenAsync(string? token, CancellationToken cancellationToken = default)
+        public async Task<bool> VerifyAsync(string? token, string action, string? remoteIp, CancellationToken cancellationToken = default)
         {
             Entered.TrySetResult();
             await _released.Task.WaitAsync(_waitLimit, cancellationToken);

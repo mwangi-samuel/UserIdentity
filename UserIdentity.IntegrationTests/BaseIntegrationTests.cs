@@ -24,6 +24,8 @@ public class BaseIntegrationTests : IAsyncLifetime
     protected TestDbHelper TestDbHelper { get; }
     protected NatsTestHelper NatsTestHelper { get; }
 
+    protected StubCaptchaVerifier CaptchaVerifier => _testingWebAppFactory.CaptchaVerifier;
+
     protected RegisteredAppSeed RegisteredApp { get; }
 
     protected IConfiguration Configuration { get; }
@@ -61,6 +63,8 @@ public class BaseIntegrationTests : IAsyncLifetime
         TestStartedAt = DateTime.UtcNow;
 
         await _testingWebAppFactory.ResetDatabaseAsync(TestContext.Current.CancellationToken);
+
+        CaptchaVerifier.Reset();
 
         TestDbHelper.CreateIdentityRole(TestDbHelper.AdminRoles.First());
     }

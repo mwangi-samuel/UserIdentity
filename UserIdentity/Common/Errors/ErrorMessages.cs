@@ -7,7 +7,6 @@ public static class ErrorMessages
         public const string PhoneNumberOrEmailRequired = "Either PhoneNumber or UserEmail must be provided.";
         public const string InvalidEmail = "UserEmail must be a valid email address.";
         public const string UserNameCannotBeAnotherEmail = "A user name can only look like an email address when it matches UserEmail.";
-        public const string InvalidRecaptchaToken = "Invalid GoogleRecaptchaToken provided";
         public const string EmailRequiredForInviteCode = "An email is required when signing up with an invite code.";
         public const string InviteCodeRequired = "A valid invite code is required when signing up.";
         public const string AccountNotConfirmed = "The account isn't confirmed yet.";

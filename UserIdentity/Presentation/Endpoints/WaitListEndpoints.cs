@@ -2,6 +2,7 @@
 using PolyzenKit.Application.Core.Interfaces;
 using PolyzenKit.Application.Core.RegisteredApps.Shared;
 using PolyzenKit.Common.Utilities;
+using PolyzenKit.Presentation.Captcha;
 using PolyzenKit.Presentation.Endpoints;
 using PolyzenKit.Presentation.Settings;
 using UserIdentity.Application.Core.WaitLists.Commands;
@@ -28,6 +29,7 @@ public static class WaitListEndpoints
             .MapPost("", CreateWaitListAsync)
             .AllowAnonymous()
             .RequireRateLimiting(RateLimitSettings.ClientIpPolicy)
+            .RequireCaptcha("wait-list")
             .Produces<WaitListViewModel>();
 
         return group;

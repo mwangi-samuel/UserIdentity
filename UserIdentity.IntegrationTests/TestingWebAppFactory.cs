@@ -8,9 +8,9 @@ using Microsoft.Extensions.DependencyInjection;
 using MySqlConnector;
 using NATS.Client.Core;
 using NATS.Client.JetStream;
+using PolyzenKit.Application.Interfaces;
 using PolyzenKit.Domain.Entities.AppEntities;
 using PolyzenKit.Domain.Entities.RegisteredApps;
-using PolyzenKit.Infrastructure.ExternalServices;
 using PolyzenKit.Infrastructure.Messaging.Shared;
 using PolyzenKit.Infrastructure.Security.AppSecrets;
 using PolyzenKit.Infrastructure.Security.KeySets;
@@ -20,7 +20,6 @@ using PolyzenKit.Presentation.Settings;
 using Respawn;
 using Testcontainers.MySql;
 using Testcontainers.Nats;
-using UserIdentity.Infrastructure.ExternalServices;
 using UserIdentity.IntegrationTests.TestUtils;
 using UserIdentity.Persistence;
 using Xunit;
@@ -35,6 +34,8 @@ public class TestingWebAppFactory : WebApplicationFactory<Program>, IAsyncLifeti
     public const string CallbackPath = "/callback";
 
     public StubHttpServer StubHttpServer { get; } = new();
+
+    public StubCaptchaVerifier CaptchaVerifier { get; } = new();
 
     public SqlCommandCounter SqlCommandCounter { get; } = new();
 
@@ -95,8 +96,10 @@ public class TestingWebAppFactory : WebApplicationFactory<Program>, IAsyncLifeti
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.ConfigureTestServices(services =>
-            services.ConfigureDbContext<AppDbContext>((_, options) => options.AddInterceptors(SqlCommandCounter))
-        );
+        {
+            services.ConfigureDbContext<AppDbContext>((_, options) => options.AddInterceptors(SqlCommandCounter));
+            services.AddSingleton<ICaptchaVerifier>(CaptchaVerifier);
+        });
 
         // Override MYSQL Settings
         builder.UseSetting(
@@ -122,17 +125,6 @@ public class TestingWebAppFactory : WebApplicationFactory<Program>, IAsyncLifeti
 
         // Override app secret encryption key - "key1" is the CurrentKeyId in appsettings.json
         builder.UseSetting($"{nameof(AppSecretSettings)}:{nameof(AppSecretSettings.Keys)}:key1", _appSecretKey);
-
-        // Override Google Recaptcha Settings
-        builder.UseSetting($"{nameof(GoogleRecaptchaSettings)}:{nameof(GoogleRecaptchaSettings.Enabled)}", "true");
-        builder.UseSetting(
-            $"{nameof(ExternalServicesSettings)}:{nameof(ExternalServicesSettings.ExternalServices)}:GoogleRecaptcha:BaseUrl",
-            StubHttpServer.Url
-        );
-        builder.UseSetting(
-            $"{nameof(ExternalServicesSettings)}:{nameof(ExternalServicesSettings.ExternalServices)}:GoogleRecaptcha:TimeoutSeconds",
-            "60"
-        );
 
         // Override Rate Limit Settings
         builder.UseSetting($"{nameof(RateLimitSettings)}:{nameof(RateLimitSettings.Enabled)}", "false");
