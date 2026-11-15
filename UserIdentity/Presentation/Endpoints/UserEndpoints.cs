@@ -201,10 +201,13 @@ public static class UserEndpoints
     internal static async Task<JsonHttpResult<UpdatePasswordViewModel>> UpdatePasswordAsync(
         UpdatePasswordCommand command,
         ApiRequest request,
+        IRegisteredAppResolver registeredAppResolver,
         IUpdateItemCommandHandler<UpdatePasswordCommand, UpdatePasswordViewModel> handler,
         CancellationToken cancellationToken
     )
     {
+        command.RegisteredApp = await request.GetRegisteredAppAsync(registeredAppResolver, cancellationToken);
+
         var vm = await handler.UpdateItemAsync(command, request.LoggedInUserId, cancellationToken);
 
         return vm.UpdatePasswordResult.PasswordUpdated

@@ -348,6 +348,7 @@ Content-Type: application/json
 
 POST {{UserIdentity_HostAddress}}/api/v1/user/update-password
 X-Api-Key: {{ApiKey}}
+X-App-Name: {{AppName}}
 Content-Type: application/json
 
 {
