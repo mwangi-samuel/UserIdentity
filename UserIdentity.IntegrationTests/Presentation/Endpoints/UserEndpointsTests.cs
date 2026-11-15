@@ -1585,6 +1585,8 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
         Assert.Equal("Request Successful", $"{jsonObject["requestStatus"]}");
         Assert.Equal("Password updated successfully", $"{jsonObject["statusMessage"]}");
         Assert.True(jsonObject["updatePasswordResult"]?.ToObject<UpdatePasswordDto>()?.PasswordUpdated);
+        Assert.False(string.IsNullOrEmpty($"{jsonObject["userToken"]?["accessToken"]?["token"]}"));
+        Assert.False(string.IsNullOrEmpty($"{jsonObject["userToken"]?["refreshToken"]}"));
 
         Assert.True(TestDbHelper.GetPasswordResetEntityWithNoTracking(UserSettingHelper.UserId)?.Applied);
 

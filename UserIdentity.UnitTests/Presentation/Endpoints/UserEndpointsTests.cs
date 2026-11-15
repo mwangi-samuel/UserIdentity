@@ -342,12 +342,13 @@ public class UserEndpointsTests
         A.CallTo(() => _updatePasswordCommandHandler.UpdateItemAsync(command, A<string>._, A<CancellationToken>._))
             .Returns(new UpdatePasswordViewModel { UpdatePasswordResult = new UpdatePasswordDto { PasswordUpdated = passwordUpdated } });
 
-        var request = ApiRequestFactory.Create("user");
+        var request = ApiRequestFactory.Create("user", appName: "test-app");
 
         // Act
         var result = await UserEndpoints.UpdatePasswordAsync(
             command,
             request,
+            _registeredAppResolver,
             _updatePasswordCommandHandler,
             TestContext.Current.CancellationToken
         );
@@ -355,6 +356,7 @@ public class UserEndpointsTests
         // Assert
         Assert.Equal((int)statusCode, result.StatusCode);
         Assert.Equal(statusMessage, result.Value?.StatusMessage);
+        Assert.Same(_registeredApp, command.RegisteredApp);
     }
 
     private static RegisterUserCommand GetRegisterUserCommand() =>
