@@ -114,7 +114,7 @@ While `CaptchaSettings:Enabled` is on, register, reset-password and the wait lis
 
 The check runs after the rate limit and before password hashing, so a slow answer (`ExternalServicesSettings:ExternalServices:Turnstile:TimeoutSeconds`, default 5) holds up only that request. When Turnstile can't be reached or refuses the check itself, such as for a wrong secret key, the request goes through and an error is logged.
 
-The check is off by default, because Cloudflare's test keys can't pass the action check. To try it locally, use a widget whose hostnames include `localhost`.
+The check is off by default. `appsettings.json` holds Cloudflare's always-pass test secret `1x0000000000000000000000000000000AA`, which fails every check while `AcceptTestKeys` is off. To try it locally, set `CaptchaSettings__Enabled=true` and `CaptchaSettings__AcceptTestKeys=true`, and send the dummy token `XXXX.DUMMY.TOKEN.XXXX`, as `UserIdentity/UserIdentity.http` does. Test keys answer without an action, so `AcceptTestKeys` lets them pass without the action check and logs a warning; keep it off everywhere else. To test the action check itself, use a separate widget whose hostnames include `localhost`.
 
 Request bodies are limited to 64 KiB. Larger ones get a 413.
 
@@ -130,7 +130,7 @@ Every setting has a default in `appsettings.json` that works locally. In product
 | `AppSecretSettings__Keys__<id>`, `AppSecretSettings__CurrentKeyId` | Base64 256-bit keys that encrypt registered apps' secrets at rest. Generate one with `openssl rand -base64 32` and keep it in a secret store: secrets encrypted with a lost key can't be recovered |
 | `ApiKeySettings__ApiKey` | The key clients send in `X-Api-Key`, at least 32 characters |
 | `ExternalServicesSettings__ExternalServices__AppCallback__DefaultHeaders__X-Api-Key` | The `X-Api-Key` header sent with app callbacks |
-| `CaptchaSettings__Enabled`, `CaptchaSettings__SecretKey` | Turns on the Turnstile check (see [Captcha](#captcha)) with the widget's secret key. Keep the key in a secret store |
+| `CaptchaSettings__Enabled`, `CaptchaSettings__SecretKey` | Turns on the Turnstile check (see [Captcha](#captcha)) with the widget's secret key. Keep the key in a secret store, and leave `CaptchaSettings__AcceptTestKeys` off |
 | `RegisteredAppsSettings__RegisteredApps__<n>__*` | The apps to seed. Each `AppSecretKey` needs 32 to 100 characters |
 | `DatabaseSettings__*` | Database connection |
 | `MessagingSettings__NatsUrl` | The NATS server, without credentials |

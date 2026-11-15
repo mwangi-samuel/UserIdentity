@@ -7,6 +7,7 @@
 @GlobalAdminPassword = Gl0b@lAdm1n
 @UserPassword = P@ssW1rd
 @NewUserPassword = N3w@P@ssW1rd
+@CaptchaToken = XXXX.DUMMY.TOKEN.XXXX
 
 GET {{UserIdentity_HostAddress}}/health
 
@@ -51,6 +52,7 @@ Content-Type: application/json
 POST {{UserIdentity_HostAddress}}/api/v1/user/register
 X-Api-Key: {{ApiKey}}
 X-App-Name: {{AppName}}
+X-Captcha-Token: {{CaptchaToken}}
 Content-Type: application/json
 
 {
@@ -172,6 +174,7 @@ Authorization: Bearer {{globalAdminLogin.response.body.$.userToken.accessToken.t
 POST {{UserIdentity_HostAddress}}/api/v1/user/register
 X-Api-Key: {{ApiKey}}
 X-App-Name: {{AppName}}
+X-Captcha-Token: {{CaptchaToken}}
 Content-Type: application/json
 
 {
@@ -208,6 +211,7 @@ Authorization: Bearer {{adminLogin.response.body.$.userToken.accessToken.token}}
 POST {{UserIdentity_HostAddress}}/api/v1/wait-list
 X-Api-Key: {{ApiKey}}
 X-App-Name: {{AppName}}
+X-Captcha-Token: {{CaptchaToken}}
 Content-Type: application/json
 
 {
@@ -333,6 +337,7 @@ Content-Type: application/json
 POST {{UserIdentity_HostAddress}}/api/v1/user/reset-password
 X-Api-Key: {{ApiKey}}
 X-App-Name: {{AppName}}
+X-Captcha-Token: {{CaptchaToken}}
 Content-Type: application/json
 
 {
