@@ -13,9 +13,9 @@ UserIdentity is an easy-to-use RESTful API that simplifies user management by pr
   Locally, `up.ps1` provides one (see below).
 
 ### Instructions
-`docker-compose.yml` starts MySQL, NATS (with JetStream), OpenObserve and UserIdentity.
+`docker-compose.yml` starts MySQL, NATS (with JetStream), Grafana's LGTM stack and UserIdentity.
 
-- `.\up.ps1 -UseLocal` starts MySQL, NATS and OpenObserve, waits for them to be healthy, then runs UserIdentity from source on http://localhost:5050 with the `UserIdentity` launch profile. The OpenAPI document is at http://localhost:5050/openapi/v1.json.
+- `.\up.ps1 -UseLocal` starts MySQL, NATS and the LGTM stack, waits for them to be healthy, then runs UserIdentity from source on http://localhost:5050 with the `UserIdentity` launch profile. The OpenAPI document is at http://localhost:5050/openapi/v1.json.
 - `.\up.ps1 -Build` builds the image, runs everything in Docker and waits for it to be healthy. UserIdentity is on http://localhost:5050.
 - `.\up.ps1` does the same without rebuilding.
 - `.\down.ps1` stops the stack and preserves its named volumes for the next run.
@@ -26,14 +26,16 @@ Once UserIdentity is healthy, `up.ps1` registers `admin` (password `Adm1n@P@ss`)
 
 NATS monitoring is on http://localhost:8222, and NUI, a web UI for browsing streams and messages, is on http://localhost:31311 (add a connection to `nats://nats:4222` with the user below). The local NATS server has one user, `useridentity` (password `useridentity-local`), which may publish only to UserIdentity's own subjects and the JetStream API.
 
-OpenObserve collects UserIdentity's logs, traces and metrics. Open http://localhost:5080 and sign in as `admin@example.com` with the password `OpenObserve-local1`; everything is in the `default` organisation.
+The LGTM stack (`grafana/otel-lgtm`: Grafana, with Loki for logs, Tempo for traces and Prometheus for metrics) collects UserIdentity's telemetry. Open Grafana on http://localhost:3030 and sign in as `admin` with the password `admin`. Loki, Tempo and Prometheus are already added as data sources; use **Explore** or **Drilldown** to search them.
 
 - UserIdentity sends them only when it runs in Docker, where `docker-compose.yml` sets the three `OTEL_EXPORTER_OTLP_*` variables. Run from source with `-UseLocal`, it sends nothing.
-- `OTEL_EXPORTER_OTLP_PROTOCOL` is `http/protobuf` because OpenObserve's port 5080 doesn't take gRPC, the .NET default. `OTEL_EXPORTER_OTLP_HEADERS` carries `Authorization=Basic <base64 of email:password>`, so it changes with `ZO_ROOT_USER_EMAIL` and `ZO_ROOT_USER_PASSWORD`.
-- UserIdentity starts once OpenObserve is healthy, so its startup logs and traces arrive too.
-- Every request's span and log lines carry `request_id` (the response's `X-Request-Id` header), `app_name` and `user_id`. Search Logs or Traces for `request_id = '<id>'` to follow one request.
-- OpenObserve sizes its caches from the container's memory limit, and `ZO_MAX_FILE_SIZE_IN_MEMORY` (in MB) must stay under a quarter of that limit, or it refuses new data until its next timed flush. Data is kept for 14 days (`ZO_COMPACT_DATA_RETENTION_DAYS`).
-- The sign-in and the open port are for local use. On a server, set your own root password and keep port 5080 private, since it takes data as well as serving the UI.
+- `OTEL_EXPORTER_OTLP_PROTOCOL` is `http/protobuf` because the endpoint is the stack's OTLP/HTTP port, 4318, while the .NET default is gRPC. The port isn't published, since only containers send to it.
+- `OTEL_EXPORTER_OTLP_HEADERS` holds a dummy `Authorization=Basic <base64 of instance id:token>`, which the local stack ignores. A hosted OTLP backend needs the same three variables, with its own endpoint and a real token passed in from the environment, never written in a compose file.
+- UserIdentity starts once the stack is healthy, so its startup logs and traces arrive too. The stack takes about half a minute to become healthy.
+- The service is `service_name="useridentity"` in Loki, `resource.service.name = "useridentity"` in Tempo and `job="useridentity"` in Prometheus. Metric names carry their unit, such as `http_server_request_duration_seconds_count`.
+- Every request's span and log lines carry its request id (the response's `X-Request-Id` header), app and user, set as `request.id`, `app.name` and `user.id`. To follow one request, search Loki for `{service_name="useridentity"} | request_id="<id>"` (Loki turns the dots into underscores) or Tempo for `{ span.request.id = "<id>" }`.
+- The stack runs five processes and needs about 1 GB, so its container is limited to 2 GB. Its data lives in the `lgtm_data` volume.
+- The stack is for local use only: the sign-in is the default one and nothing is secured.
 
 The app applies database migrations on startup.
 
