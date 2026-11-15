@@ -54,7 +54,7 @@ public sealed class ImageFixture : IAsyncLifetime
 
     public ImageFixture()
     {
-        _mysql = new MySqlBuilder("mysql:8.4.0")
+        _mysql = new MySqlBuilder("mysql:9.7.4")
             .WithUsername(DatabaseUser)
             .WithPassword(DatabasePassword)
             .WithDatabase(DatabaseName)
@@ -164,7 +164,10 @@ public sealed class ImageFixture : IAsyncLifetime
 
     public async Task<string> RunSqlAsync(string sql, CancellationToken cancellationToken)
     {
-        var result = await _mysql.ExecScriptAsync(sql, cancellationToken);
+        var result = await _mysql.ExecAsync(
+            ["mysql", "--protocol=TCP", $"--user={DatabaseUser}", $"--password={DatabasePassword}", DatabaseName, $"--execute={sql}"],
+            cancellationToken
+        );
 
         return result.ExitCode == 0 ? result.Stdout.Trim() : throw new InvalidOperationException($"SQL failed: {result.Stderr}");
     }

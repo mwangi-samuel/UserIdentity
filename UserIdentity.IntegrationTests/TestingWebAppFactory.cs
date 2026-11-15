@@ -58,7 +58,7 @@ public class TestingWebAppFactory : WebApplicationFactory<Program>, IAsyncLifeti
 
     public TestingWebAppFactory()
     {
-        _mysqlContainer = new MySqlBuilder("mysql:8.4.0")
+        _mysqlContainer = new MySqlBuilder("mysql:9.7.4")
             .WithUsername(_dbUserName)
             .WithPassword(_dbUserPassword)
             .WithDatabase(_dbName)
