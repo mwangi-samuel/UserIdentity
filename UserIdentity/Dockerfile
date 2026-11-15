@@ -16,7 +16,7 @@ RUN dotnet restore "UserIdentity/UserIdentity.csproj" \
     /p:PublishTrimmed=true \
     /p:TrimMode=partial \
     /p:PublishSingleFile=true \
-    /p:PublishReadyToRun=true 
+    /p:PublishReadyToRun=true
 
 COPY ["UserIdentity/", "UserIdentity/"]
 WORKDIR "/src/UserIdentity"
