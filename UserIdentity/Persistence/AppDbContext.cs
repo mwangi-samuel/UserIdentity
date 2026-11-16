@@ -18,6 +18,8 @@ namespace UserIdentity.Persistence;
 
 public class AppDbContext : IdentityDbContext<IdentityUser>
 {
+    public const string CaseInsensitiveCollation = "case_insensitive";
+
     public AppDbContext(DbContextOptions<AppDbContext> dbContextOptions)
         : base(dbContextOptions)
     {
@@ -62,6 +64,9 @@ public class AppDbContext : IdentityDbContext<IdentityUser>
         builder.ApplyConfiguration(new PasswordResetConfiguration());
         builder.ApplyConfiguration(new LoginTicketConfiguration());
         builder.ApplyConfiguration(new OutboxMessageConfiguration());
+
+        builder.HasCollation(CaseInsensitiveCollation, locale: "und-u-ks-level2", provider: "icu", deterministic: false);
+        builder.Entity<RegisteredAppEntity>().Property(e => e.AppName).UseCollation(CaseInsensitiveCollation);
 
         builder.Entity<UserEntity>().ToTable("user_details");
         builder.Entity<RefreshTokenEntity>().ToTable("refresh_tokens");

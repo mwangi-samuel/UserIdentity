@@ -8,8 +8,8 @@ using DotNet.Testcontainers.Networks;
 using NATS.Client.Core;
 using NATS.Client.JetStream;
 using NATS.Client.JetStream.Models;
-using Testcontainers.MySql;
 using Testcontainers.Nats;
+using Testcontainers.PostgreSql;
 using UserIdentity.IntegrationTests.TestUtils;
 using Xunit;
 
@@ -33,7 +33,7 @@ public sealed class ImageFixture : IAsyncLifetime
     private const string DatabasePassword = "useridentity-local";
     private const string NatsUser = "useridentity";
     private const string NatsPassword = "useridentity-local";
-    private const string MysqlAlias = "db";
+    private const string DatabaseAlias = "db";
     private const string NatsAlias = "nats";
     private const string UserIdentityStream = "USERIDENTITY";
     private const ushort ServicePort = 8080;
@@ -49,7 +49,7 @@ public sealed class ImageFixture : IAsyncLifetime
     private static readonly string[] _errorMarkers = ["\"LogLevel\":\"Error\"", "\"LogLevel\":\"Critical\"", "Unhandled exception"];
 
     private readonly INetwork _network = new NetworkBuilder().Build();
-    private readonly MySqlContainer _mysql;
+    private readonly PostgreSqlContainer _postgreSql;
     private readonly NatsContainer _nats;
 
     private IContainer? _service;
@@ -58,12 +58,12 @@ public sealed class ImageFixture : IAsyncLifetime
 
     public ImageFixture()
     {
-        _mysql = new MySqlBuilder("mysql:9.7.4")
+        _postgreSql = new PostgreSqlBuilder("postgres:18.7")
             .WithUsername(DatabaseUser)
             .WithPassword(DatabasePassword)
             .WithDatabase(DatabaseName)
             .WithNetwork(_network)
-            .WithNetworkAliases(MysqlAlias)
+            .WithNetworkAliases(DatabaseAlias)
             .Build();
 
         _nats = new NatsBuilder("nats:2.15.2-alpine")
@@ -83,7 +83,7 @@ public sealed class ImageFixture : IAsyncLifetime
         var image = await ResolveImageAsync(cancellationToken);
 
         await _network.CreateAsync(cancellationToken);
-        await Task.WhenAll(_mysql.StartAsync(cancellationToken), _nats.StartAsync(cancellationToken));
+        await Task.WhenAll(_postgreSql.StartAsync(cancellationToken), _nats.StartAsync(cancellationToken));
 
         _natsConnection = new NatsConnection(
             NatsOpts.Default with
@@ -115,7 +115,7 @@ public sealed class ImageFixture : IAsyncLifetime
             await _service.DisposeAsync();
 
         await _nats.DisposeAsync();
-        await _mysql.DisposeAsync();
+        await _postgreSql.DisposeAsync();
         await _network.DisposeAsync();
 
         if (errors.Count > 0)
@@ -161,17 +161,41 @@ public sealed class ImageFixture : IAsyncLifetime
         ack.EnsureSuccess();
     }
 
-    public async Task GrantRoleAsync(string userName, string roleName, CancellationToken cancellationToken)
+    public async Task GrantRoleAsync(string userId, string roleName, CancellationToken cancellationToken)
     {
-        var script = await File.ReadAllTextAsync(Path.Combine(FindRepositoryRoot(), ".sql", "add_admin_user_role.sql"), cancellationToken);
+        using var client = new ServiceClient(ServiceUrl);
+        await client.SignInAsBootstrapAdminAsync(cancellationToken);
 
-        await RunSqlAsync($"SET @username = '{userName}', @role_name = '{roleName}';\n{script}", cancellationToken);
+        var roles = await ServiceClient.ReadAsync(
+            await client.GetAsync("/api/v1/role", cancellationToken),
+            HttpStatusCode.OK,
+            cancellationToken
+        );
+        var roleId = $"{roles["roles"]!.AsArray().Single(role => $"{role!["name"]}" == roleName)!["id"]}";
+
+        await ServiceClient.ReadAsync(
+            await client.PostAsync("/api/v1/role/user", new { userId, roleId }, cancellationToken),
+            HttpStatusCode.Created,
+            cancellationToken
+        );
     }
 
-    public async Task<string> RunSqlAsync(string sql, CancellationToken cancellationToken)
+    public Task<string> RunSqlAsync(string sql, CancellationToken cancellationToken) =>
+        RunPsqlAsync([$"--command={sql}"], cancellationToken);
+
+    private async Task<string> RunPsqlAsync(string[] arguments, CancellationToken cancellationToken)
     {
-        var result = await _mysql.ExecAsync(
-            ["mysql", "--protocol=TCP", $"--user={DatabaseUser}", $"--password={DatabasePassword}", DatabaseName, $"--execute={sql}"],
+        var result = await _postgreSql.ExecAsync(
+            [
+                "psql",
+                $"--username={DatabaseUser}",
+                $"--dbname={DatabaseName}",
+                "--set=ON_ERROR_STOP=1",
+                "--quiet",
+                "--tuples-only",
+                "--no-align",
+                .. arguments,
+            ],
             cancellationToken
         );
 
@@ -214,7 +238,7 @@ public sealed class ImageFixture : IAsyncLifetime
         return new ContainerBuilder(image)
             .WithNetwork(_network)
             .WithPortBinding(ServicePort, true)
-            .WithEnvironment("DatabaseSettings__Host", MysqlAlias)
+            .WithEnvironment("DatabaseSettings__Host", DatabaseAlias)
             .WithEnvironment("DatabaseSettings__Database", DatabaseName)
             .WithEnvironment("DatabaseSettings__UserName", DatabaseUser)
             .WithEnvironment("DatabaseSettings__Password", DatabasePassword)

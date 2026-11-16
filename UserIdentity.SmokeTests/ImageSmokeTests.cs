@@ -287,7 +287,7 @@ public class ImageSmokeTests(ImageFixture fixture) : IClassFixture<ImageFixture>
                       + (SELECT COUNT(*) FROM users WHERE id = '{unconfirmed.Id}') AS remaining;
                     """,
                     _cancellationToken
-                ) == "remaining\n0",
+                ) == "0",
             _cleanupWait
         );
 
@@ -320,7 +320,7 @@ public class ImageSmokeTests(ImageFixture fixture) : IClassFixture<ImageFixture>
     {
         var user = await CreateConfirmedUserAsync(client);
 
-        await _fixture.GrantRoleAsync(user.UserName, roleName, _cancellationToken);
+        await _fixture.GrantRoleAsync(user.Id, roleName, _cancellationToken);
 
         var session = await client.LogInAsync(user.UserName, ServiceClient.Password, _cancellationToken);
 

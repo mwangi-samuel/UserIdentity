@@ -66,8 +66,16 @@ public class InviteCodeRepository(AppDbContext dbContext) : EntityRepository<Inv
         CancellationToken cancellationToken = default
     )
     {
+        var searchPattern = LikePattern.Containing(search);
+
         return await _dbContext
-            .InviteCode.Where(invite => invite.AppId == appId && (search == null || invite.UserEmail.Contains(search)))
+            .InviteCode.Where(invite =>
+                invite.AppId == appId
+                && (
+                    searchPattern == null
+                    || EF.Functions.ILike(EF.Functions.Collate(invite.UserEmail, "default"), searchPattern, LikePattern.EscapeCharacter)
+                )
+            )
             .Where(invite => applied == null || invite.Applied == applied)
             .OrderByDescending(invite => invite.CreatedAt)
             .ThenByDescending(invite => invite.Id)

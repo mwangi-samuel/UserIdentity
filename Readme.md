@@ -13,9 +13,9 @@ UserIdentity is an easy-to-use RESTful API that simplifies user management by pr
   Locally, `up.ps1` provides one (see below).
 
 ### Instructions
-`docker-compose.yml` starts MySQL, NATS (with JetStream), Grafana's LGTM stack and UserIdentity.
+`docker-compose.yml` starts PostgreSQL, NATS (with JetStream), Grafana's LGTM stack and UserIdentity.
 
-- `.\up.ps1 -UseLocal` starts MySQL, NATS and the LGTM stack, waits for them to be healthy, then runs UserIdentity from source on http://localhost:5050 with the `UserIdentity` launch profile. The OpenAPI document is at http://localhost:5050/openapi/v1.json.
+- `.\up.ps1 -UseLocal` starts PostgreSQL, NATS and the LGTM stack, waits for them to be healthy, then runs UserIdentity from source on http://localhost:5050 with the `UserIdentity` launch profile. The OpenAPI document is at http://localhost:5050/openapi/v1.json.
 - `.\up.ps1 -Build` builds the image, runs everything in Docker and waits for it to be healthy. UserIdentity is on http://localhost:5050.
 - `.\up.ps1` does the same without rebuilding.
 - `.\down.ps1` stops the stack and preserves its named volumes for the next run.
@@ -39,7 +39,7 @@ The LGTM stack (`grafana/otel-lgtm`: Grafana, with Loki for logs, Tempo for trac
 
 The app applies database migrations on startup.
 
-`GET /health` checks MySQL and NATS. It answers `Healthy`, or 503 with `Unhealthy` while either can't be reached.
+`GET /health` checks PostgreSQL and NATS. It answers `Healthy`, or 503 with `Unhealthy` while either can't be reached.
 
 ## Apps, Accounts and Admins
 Each account belongs to the app it registered with. Logging in, refreshing a token or resetting a password through any other app fails as if the account didn't exist. A token carries only its app's roles (`<app>:*`, where `<app>` is the app's name in lower case), plus the global admin role.
@@ -66,12 +66,7 @@ No user starts as an admin. The `BootstrapAdminSettings` create the first one wh
 
 Setting any of them requires all of them. The bootstrap runs only while no user has the global admin role, so later starts change nothing. It creates the account, gives it the global admin role and `<app>:admin`, and stops the app from starting if the user name or email is taken, so an account someone else signed up with never becomes an admin. Once the admin has logged in, remove the settings, or at least the password, from the environment.
 
-Without the bootstrap, `.sql/add_admin_user_role.sql` gives a role straight in the database. It takes the user name or email and the app name, creates the role if it's missing, and is safe to run again. Add `@role_name='global:admin'` for a global admin:
-
-```
-Get-Content .sql\add_admin_user_role.sql | docker compose exec -T db mysql -uroot -proot --init-command="SET @username='<user name or email>', @app_name='testapp'"
-Get-Content .sql\add_admin_user_role.sql | docker compose exec -T db mysql -uroot -proot --init-command="SET @username='<user name or email>', @role_name='global:admin'"
-```
+After that, admins grant roles with `POST /api/v1/role/user`. If no user holds the global admin role any more, setting the bootstrap settings again, with a new user name and email, creates a new global admin at the next start.
 
 Roles are read into the token at login, so the user has to log in again to get an admin token.
 
@@ -154,6 +149,7 @@ Every setting has a default in `appsettings.json` that works locally. In product
 | `DatabaseSettings__*` | Database connection |
 | `MessagingSettings__NatsUrl` | The NATS server, without credentials |
 | `MessagingSettings__NatsUser`, `MessagingSettings__NatsPassword` | UserIdentity's own NATS user. Keep the password in a secret store |
+| `MessagingSettings__Subscriptions__CodeVerifiedMessageHandler` | The subjects, separated by commas, that the messages saying a code was verified arrive on |
 | `ForwardedHeadersSettings__KnownNetworks` | The reverse proxy's networks (see [Rate Limiting](#rate-limiting)) |
 
 `Logging:LogLevel:Default` (`Warning`) sets the log level, and `Logging:LogLevel:Microsoft.EntityFrameworkCore` sets EF Core's (`Error`). From the environment, set the level with `Logging__LogLevel__Default`. Logs go to the console as plain text in Development and as one JSON object per line everywhere else. Setting `OTEL_EXPORTER_OTLP_ENDPOINT` also sends logs, traces and metrics there over OTLP, with OpenTelemetry's other `OTEL_EXPORTER_OTLP_*` settings.
@@ -170,11 +166,11 @@ Settings are checked at startup. An invalid setting stops the app with every fai
 - The stack doesn't deliver confirmation codes, and `TestApp` doesn't require confirmed accounts, so new accounts can log in at once. Start with the admin's login: the bootstrap admin is the global admin and `testapp:admin`.
 - The stack doesn't verify reset codes either, so `update-password` answers 406. To see it succeed, mark the reset requests verified after sending `reset-password`:
   ```
-  docker compose exec -T db mysql -uroot -proot useridentity -e "UPDATE password_resets SET verified = 1"
+  docker compose exec -T db psql -U postgres -d useridentity -c "UPDATE password_resets SET verified = true"
   ```
 
 ## Running the Tests
-The tests use xUnit v3 on Microsoft Testing Platform (selected in `global.json`). The unit tests call each endpoint method directly with faked handlers. The integration tests send requests to the whole app and start MySQL and NATS with Testcontainers, so Docker must be running. The smoke tests build the Docker image, run it as it's published (trimmed, single file) beside MySQL and NATS, and reach it only over HTTP and NATS.
+The tests use xUnit v3 on Microsoft Testing Platform (selected in `global.json`). The unit tests call each endpoint method directly with faked handlers. The integration tests send requests to the whole app and start PostgreSQL and NATS with Testcontainers, so Docker must be running. The smoke tests build the Docker image, run it as it's published (trimmed, single file) beside PostgreSQL and NATS, and reach it only over HTTP and NATS.
 
 ```
 dotnet test --project UserIdentity.UnitTests/UserIdentity.UnitTests.csproj
@@ -185,7 +181,7 @@ dotnet test --project UserIdentity.SmokeTests/UserIdentity.SmokeTests.csproj
 Add `--coverlet` for a Cobertura coverage report. Set `USERIDENTITY_SMOKE_IMAGE` to run the smoke tests against an image that's already built.
 
 ## Adding Migrations
-Migrations need the global `dotnet-ef` tool, version 10 (`dotnet tool install --global dotnet-ef`, or `update` if an older one is installed). MySQL must be running, since the server version is auto-detected. The tool builds the database context from `DatabaseSettings` in `appsettings.json`, which `DatabaseSettings__*` environment variables override, so it doesn't need the Ed25519 keys.
+Migrations need the global `dotnet-ef` tool, version 10 (`dotnet tool install --global dotnet-ef`, or `update` if an older one is installed). It doesn't need a running database. The tool builds the database context from `DatabaseSettings` in `appsettings.json`, which `DatabaseSettings__*` environment variables override, so it doesn't need the Ed25519 keys.
 
 ```
 dotnet ef migrations add <MigrationName> --project UserIdentity
@@ -193,5 +189,5 @@ dotnet ef migrations add <MigrationName> --project UserIdentity
 
 ## Persistent storage
 
-Normal `./down.ps1; ./up.ps1` and rebuilds reuse project-scoped named volumes. MySQL mounts `mysql_data` at `/var/lib/mysql`; object storage and the broker also retain their data when present. The scripts resolve Compose relative to their own directory. Deliberate reset uses `docker compose down --volumes` and deletes the stack's stored data; it is separate from normal shutdown.
+Normal `./down.ps1; ./up.ps1` and rebuilds reuse project-scoped named volumes. PostgreSQL mounts `postgres_data` at `/var/lib/postgresql`; object storage and the broker also retain their data when present. The scripts resolve Compose relative to their own directory. Deliberate reset uses `docker compose down --volumes` and deletes the stack's stored data; it is separate from normal shutdown.
 

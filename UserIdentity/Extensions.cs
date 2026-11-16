@@ -16,13 +16,13 @@ namespace UserIdentity;
 
 public static class Extensions
 {
-    public static void AddAppMysql<TContext>(this IServiceCollection services, IConfiguration configuration)
+    public static void AddAppPostgreSql<TContext>(this IServiceCollection services, IConfiguration configuration)
         where TContext : DbContext
     {
         var databaseSettings = configuration.GetRequiredSetting<DatabaseSettings>();
 
-        services.AddDbContextPool<DbContext, TContext>(options => options.UseAppMysql(databaseSettings));
-        services.AddHealthChecks().AddDbContextCheck<TContext>("mysql");
+        services.AddDbContextPool<DbContext, TContext>(options => options.UseAppPostgreSql(databaseSettings));
+        services.AddHealthChecks().AddDbContextCheck<TContext>("postgresql");
     }
 
     public static void AddAppPasswordHashingLimit(this IServiceCollection services, IConfiguration configuration)

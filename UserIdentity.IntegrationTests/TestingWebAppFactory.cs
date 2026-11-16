@@ -5,12 +5,11 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.Extensions.DependencyInjection;
-using MySqlConnector;
 using NATS.Client.Core;
 using NATS.Client.JetStream;
+using Npgsql;
 using PolyzenKit.Application.Core.Interfaces;
 using PolyzenKit.Application.Core.RegisteredApps.Commands;
-using PolyzenKit.Application.Core.RegisteredApps.Shared;
 using PolyzenKit.Application.Core.RegisteredApps.ViewModels;
 using PolyzenKit.Application.Interfaces;
 using PolyzenKit.Common.Utilities;
@@ -23,8 +22,8 @@ using PolyzenKit.Persistence.Infrastructure;
 using PolyzenKit.Persistence.Settings;
 using PolyzenKit.Presentation.Settings;
 using Respawn;
-using Testcontainers.MySql;
 using Testcontainers.Nats;
+using Testcontainers.PostgreSql;
 using UserIdentity.IntegrationTests.TestUtils;
 using UserIdentity.Persistence;
 using Xunit;
@@ -41,7 +40,7 @@ public class TestingWebAppFactory : WebApplicationFactory<Program>, IAsyncLifeti
     public const string CallbackPath = "/callback";
     public const string DefaultRole = "user";
 
-    public RegisteredAppSeed TestApp { get; } =
+    public CreateRegisteredAppCommand TestApp { get; } =
         new()
         {
             AppName = TestAppName,
@@ -57,10 +56,10 @@ public class TestingWebAppFactory : WebApplicationFactory<Program>, IAsyncLifeti
 
     public SqlCommandCounter SqlCommandCounter { get; } = new();
 
-    private readonly MySqlContainer _mysqlContainer;
+    private readonly PostgreSqlContainer _postgreSqlContainer;
     private readonly NatsContainer _natsContainer;
 
-    private MySqlConnection? _respawnConnection;
+    private NpgsqlConnection? _respawnConnection;
     private Respawner? _respawner;
 
     private static readonly string _dbUserName = "test-user";
@@ -76,7 +75,7 @@ public class TestingWebAppFactory : WebApplicationFactory<Program>, IAsyncLifeti
 
     public TestingWebAppFactory()
     {
-        _mysqlContainer = new MySqlBuilder("mysql:9.7.4")
+        _postgreSqlContainer = new PostgreSqlBuilder("postgres:18.7")
             .WithUsername(_dbUserName)
             .WithPassword(_dbUserPassword)
             .WithDatabase(_dbName)
@@ -94,7 +93,7 @@ public class TestingWebAppFactory : WebApplicationFactory<Program>, IAsyncLifeti
     public async ValueTask InitializeAsync()
     {
         await Task.WhenAll(
-            _mysqlContainer.StartAsync(),
+            _postgreSqlContainer.StartAsync(),
             _natsContainer.StartAsync(),
             StubHttpServer.StartAsync(TestContext.Current.CancellationToken)
         );
@@ -112,29 +111,35 @@ public class TestingWebAppFactory : WebApplicationFactory<Program>, IAsyncLifeti
 
         await using var scope = Services.CreateAsyncScope();
 
-        await scope
-            .ServiceProvider.GetRequiredService<IUpdateItemCommandHandler<SeedRegisteredAppsCommand, RegisteredAppsViewModel>>()
-            .UpdateItemAsync(
-                new SeedRegisteredAppsCommand([
-                    TestApp,
-                    new RegisteredAppSeed
-                    {
-                        AppName = OtherAppName,
-                        BaseUrl = "http://localhost:3001",
-                        AppSecretKey = "0therApp5ecretKey-For-Tests-Only-0123456",
-                        RequireConfirmedAccount = true,
-                        DefaultRole = DefaultRole,
-                    },
-                    new RegisteredAppSeed
-                    {
-                        AppName = CallbackAppName,
-                        BaseUrl = "http://localhost:3002",
-                        AppSecretKey = CallbackAppSecretKey,
-                        CallbackUrl = StubHttpServer.Url + CallbackPath,
-                        RequireConfirmedAccount = true,
-                        DefaultRole = DefaultRole,
-                    },
-                ]),
+        var createRegisteredAppCommandHandler = scope.ServiceProvider.GetRequiredService<
+            ICreateItemCommandHandler<CreateRegisteredAppCommand, RegisteredAppViewModel>
+        >();
+
+        CreateRegisteredAppCommand[] registeredApps =
+        [
+            TestApp,
+            new()
+            {
+                AppName = OtherAppName,
+                BaseUrl = "http://localhost:3001",
+                AppSecretKey = "0therApp5ecretKey-For-Tests-Only-0123456",
+                RequireConfirmedAccount = true,
+                DefaultRole = DefaultRole,
+            },
+            new()
+            {
+                AppName = CallbackAppName,
+                BaseUrl = "http://localhost:3002",
+                AppSecretKey = CallbackAppSecretKey,
+                CallbackUrl = StubHttpServer.Url + CallbackPath,
+                RequireConfirmedAccount = true,
+                DefaultRole = DefaultRole,
+            },
+        ];
+
+        foreach (var registeredApp in registeredApps)
+            await createRegisteredAppCommandHandler.CreateItemAsync(
+                registeredApp,
                 KnownUsers.SystemId,
                 TestContext.Current.CancellationToken
             );
@@ -148,10 +153,9 @@ public class TestingWebAppFactory : WebApplicationFactory<Program>, IAsyncLifeti
             services.AddSingleton<ICaptchaVerifier>(CaptchaVerifier);
         });
 
-        // Override MYSQL Settings
         builder.UseSetting(
             $"{nameof(DatabaseSettings)}:{nameof(DatabaseSettings.Port)}",
-            _mysqlContainer.GetMappedPublicPort().ToString(CultureInfo.InvariantCulture)
+            _postgreSqlContainer.GetMappedPublicPort().ToString(CultureInfo.InvariantCulture)
         );
         builder.UseSetting($"{nameof(DatabaseSettings)}:{nameof(DatabaseSettings.UserName)}", _dbUserName);
         builder.UseSetting($"{nameof(DatabaseSettings)}:{nameof(DatabaseSettings.Password)}", _dbUserPassword);
@@ -184,14 +188,15 @@ public class TestingWebAppFactory : WebApplicationFactory<Program>, IAsyncLifeti
             using var scope = Services.CreateScope();
             var appDbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-            _respawnConnection = new MySqlConnection(_mysqlContainer.GetConnectionString());
+            _respawnConnection = new NpgsqlConnection(_postgreSqlContainer.GetConnectionString());
             await _respawnConnection.OpenAsync(cancellationToken);
 
             _respawner = await Respawner.CreateAsync(
                 _respawnConnection,
                 new RespawnerOptions
                 {
-                    DbAdapter = DbAdapter.MySql,
+                    DbAdapter = DbAdapter.Postgres,
+                    SchemasToInclude = ["public"],
                     TablesToIgnore =
                     [
                         appDbContext.GetTableName<AppEntity>()!,
@@ -215,7 +220,7 @@ public class TestingWebAppFactory : WebApplicationFactory<Program>, IAsyncLifeti
 
         await _natsContainer.DisposeAsync();
 
-        await _mysqlContainer.DisposeAsync();
+        await _postgreSqlContainer.DisposeAsync();
 
         await StubHttpServer.DisposeAsync();
 
