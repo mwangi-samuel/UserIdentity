@@ -24,14 +24,7 @@ public class CreateInviteCodeCommandHandlerTests
 
     public CreateInviteCodeCommandHandlerTests()
     {
-        _roleSettings = Options.Create(
-            new RoleSettings
-            {
-                ServiceName = "useridentity",
-                AdminRoles = "admin,superuser",
-                DefaultRole = "user",
-            }
-        );
+        _roleSettings = Options.Create(new RoleSettings { ServiceName = "useridentity", AdminRoles = "admin,superuser" });
         _roleManager = A.Fake<RoleManager<IdentityRole>>();
         _unitOfWork = A.Fake<IUnitOfWork>();
         _inviteCodeRepository = A.Fake<IInviteCodeRepository>();

@@ -1,4 +1,5 @@
-﻿using PolyzenKit.Common.Settings;
+﻿using PolyzenKit.Application.Core.RegisteredApps.Shared;
+using PolyzenKit.Common.Settings;
 using UserIdentity.Application.Core.Roles.Shared;
 using Xunit;
 
@@ -43,14 +44,23 @@ public class AppRoleNamesTests
         // Act & Assert
         Assert.Equal("testapp:", AppRoleNames.Prefix(" TestApp "));
 
-    [Fact]
-    public void DefaultRole_Is_The_Apps_Lower_Case_Default_Role()
+    [Theory]
+    [InlineData("shopper", "testapp:shopper")]
+    [InlineData(null, null)]
+    public void DefaultRole_Prefixes_The_Apps_Default_Role_Or_Is_Null_Without_One(string? defaultRole, string? expected)
     {
         // Arrange
-        var roleSettings = new RoleSettings { ServiceName = "useridentity", DefaultRole = " Shopper " };
+        var registeredApp = new ActiveRegisteredApp
+        {
+            Id = 1,
+            AppName = " TestApp ",
+            AppSecretKey = "test-secret",
+            BaseUrl = "https://app.test",
+            DefaultRole = defaultRole,
+        };
 
         // Act & Assert
-        Assert.Equal("testapp:shopper", AppRoleNames.DefaultRole("TestApp", roleSettings));
+        Assert.Equal(expected, AppRoleNames.DefaultRole(registeredApp));
     }
 
     [Fact]

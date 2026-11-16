@@ -17,12 +17,7 @@ public class CreateRoleClaimCommandHandlerTests
     private readonly RoleManager<IdentityRole> _roleManager;
     private readonly IJwtTokenHandler _jwtTokenHandler;
     private readonly IOptions<RoleSettings> _roleSettings = Options.Create(
-        new RoleSettings
-        {
-            ServiceName = "useridentity",
-            AdminRoles = "admin",
-            DefaultRole = "user",
-        }
+        new RoleSettings { ServiceName = "useridentity", AdminRoles = "admin" }
     );
 
     public CreateRoleClaimCommandHandlerTests()

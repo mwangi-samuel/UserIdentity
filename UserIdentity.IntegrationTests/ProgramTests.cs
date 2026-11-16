@@ -1,8 +1,12 @@
 ﻿using System.Net;
+using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.IdentityModel.JsonWebTokens;
 using Newtonsoft.Json.Linq;
+using PolyzenKit.Common.Utilities;
 using PolyzenKit.Presentation.Validation;
+using UserIdentity.Application.Core.Users.Shared;
 using UserIdentity.IntegrationTests.TestUtils;
 using UserIdentity.Persistence;
 using Xunit;
@@ -12,6 +16,12 @@ namespace UserIdentity.IntegrationTests;
 public class ProgramTests(TestingWebAppFactory testingWebAppFactory, ITestOutputHelper outputHelper)
     : BaseIntegrationTests(testingWebAppFactory, outputHelper)
 {
+    private const string RegisteredAppUri = "/api/v1/registered-app";
+    private const string AppSecretKey = "S3TAG00dSeC8E7-For-Local-Use-Only-012345";
+    private const string BootstrapAppName = "BootstrapApp";
+    private const string BootstrapUserName = "bootstrap.admin";
+    private const string BootstrapPassword = "B00tstr@p-Adm1n";
+
     private readonly TestingWebAppFactory _testingWebAppFactory = testingWebAppFactory;
 
     [Fact]
@@ -61,10 +71,15 @@ public class ProgramTests(TestingWebAppFactory testingWebAppFactory, ITestOutput
         TestDbHelper.SeedDatabase();
         TestDbHelper.ConfigureIdentityUserAsGlobalAdmin();
 
-        var requestPayload = new { AppSecretKey = "S3TAG00dSeC8E7-For-Local-Use-Only-012345", BaseUrl = "http://localhost:3001" };
+        var requestPayload = new
+        {
+            AppSecretKey,
+            BaseUrl = "http://localhost:3001",
+            RequireConfirmedAccount = true,
+        };
 
         // Act
-        var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Post, "/api/v1/registered-app", requestPayload);
+        var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Post, RegisteredAppUri, requestPayload);
 
         // Assert
         var responseString = await response.ValidateRequestResponseAsync();
@@ -84,4 +99,209 @@ public class ProgramTests(TestingWebAppFactory testingWebAppFactory, ITestOutput
         Assert.Equal("AppName", error.Field);
         Assert.Equal("The AppName field is required.", error.Message);
     }
+
+    [Fact]
+    public async Task Create_Registered_App_Without_Require_Confirmed_Account_Returns_Validation_Error()
+    {
+        // Arrange
+        TestDbHelper.SeedDatabase();
+        TestDbHelper.ConfigureIdentityUserAsGlobalAdmin();
+
+        var requestPayload = new
+        {
+            AppName = "UndecidedConfirmationApp",
+            AppSecretKey,
+            BaseUrl = "http://localhost:3001",
+        };
+
+        // Act
+        var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Post, RegisteredAppUri, requestPayload);
+
+        // Assert
+        var responseString = await response.ValidateRequestResponseAsync();
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+
+        var errorList = SerDeHelper.Deserialize<JObject>(responseString)?["error"]?["errorList"]?.ToObject<List<ValidationError>>();
+
+        Assert.NotNull(errorList);
+        var error = Assert.Single(errorList);
+        Assert.Equal("RequireConfirmedAccount", error.Field);
+        Assert.Equal("The RequireConfirmedAccount field is required.", error.Message);
+    }
+
+    [Fact]
+    public async Task Created_Registered_App_Keeps_Its_Lower_Case_Default_Role_And_Confirmation_Setting()
+    {
+        // Arrange
+        TestDbHelper.SeedDatabase();
+        TestDbHelper.ConfigureIdentityUserAsGlobalAdmin();
+
+        var requestPayload = new
+        {
+            AppName = "DefaultRoleApp",
+            AppSecretKey,
+            BaseUrl = "http://localhost:3001",
+            RequireConfirmedAccount = true,
+            DefaultRole = "Member",
+        };
+
+        var createResponse = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Post, RegisteredAppUri, requestPayload);
+        Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
+
+        var registeredAppId = SerDeHelper
+            .Deserialize<JObject>(await createResponse.ValidateRequestResponseAsync())
+            ?["registeredApp"]?["id"];
+
+        // Act
+        var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Get, $"{RegisteredAppUri}/{registeredAppId}");
+
+        // Assert
+        var jsonObject = SerDeHelper.Deserialize<JObject>(await response.ValidateRequestResponseAsync());
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.NotNull(jsonObject);
+        Assert.Equal("member", $"{jsonObject["registeredApp"]?["defaultRole"]}");
+        Assert.Equal("True", $"{jsonObject["registeredApp"]?["requireConfirmedAccount"]}");
+    }
+
+    [Fact]
+    public async Task Update_Registered_App_Replaces_Its_Default_Role_And_Confirmation_Setting()
+    {
+        // Arrange
+        TestDbHelper.SeedDatabase();
+        TestDbHelper.ConfigureIdentityUserAsGlobalAdmin();
+
+        var createResponse = await HttpClient.SendValidAuthRequestAsync(
+            HttpMethod.Post,
+            RegisteredAppUri,
+            new
+            {
+                AppName = "UpdatedSignUpApp",
+                AppSecretKey,
+                BaseUrl = "http://localhost:3001",
+                RequireConfirmedAccount = true,
+                DefaultRole = "member",
+            }
+        );
+        Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
+
+        var registeredAppId = SerDeHelper
+            .Deserialize<JObject>(await createResponse.ValidateRequestResponseAsync())
+            ?["registeredApp"]?["id"];
+
+        // Act
+        var response = await HttpClient.SendValidAuthRequestAsync(
+            HttpMethod.Put,
+            $"{RegisteredAppUri}/{registeredAppId}",
+            new
+            {
+                AppName = "UpdatedSignUpApp",
+                BaseUrl = "http://localhost:3001",
+                RequireConfirmedAccount = false,
+            }
+        );
+
+        // Assert
+        var jsonObject = SerDeHelper.Deserialize<JObject>(await response.ValidateRequestResponseAsync());
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.NotNull(jsonObject);
+        Assert.Equal(string.Empty, $"{jsonObject["registeredApp"]?["defaultRole"]}");
+        Assert.Equal("False", $"{jsonObject["registeredApp"]?["requireConfirmedAccount"]}");
+    }
+
+    [Fact]
+    public async Task Create_Registered_App_With_An_Admin_Default_Role_Returns_Bad_Request()
+    {
+        // Arrange
+        TestDbHelper.SeedDatabase();
+        TestDbHelper.ConfigureIdentityUserAsGlobalAdmin();
+
+        var requestPayload = new
+        {
+            AppName = "AdminDefaultRoleApp",
+            AppSecretKey,
+            BaseUrl = "http://localhost:3001",
+            RequireConfirmedAccount = true,
+            DefaultRole = "Admin",
+        };
+
+        // Act
+        var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Post, RegisteredAppUri, requestPayload);
+
+        // Assert
+        var jsonObject = SerDeHelper.Deserialize<JObject>(await response.ValidateRequestResponseAsync());
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.NotNull(jsonObject);
+        Assert.Equal("The default role Admin is an admin role, which sign-up can't grant.", $"{jsonObject["error"]?["message"]}");
+
+        var context = ServiceProvider.GetRequiredService<AppDbContext>();
+        Assert.False(
+            await context.RegisteredApp.AnyAsync(app => app.AppName == "AdminDefaultRoleApp", TestContext.Current.CancellationToken)
+        );
+    }
+
+    [Fact]
+    public async Task Startup_With_Bootstrap_Settings_Creates_A_Global_Admin_Who_Is_An_Admin_Of_The_App()
+    {
+        // Arrange
+        await using var factory = CreateBootstrapFactory();
+        using var httpClient = factory.CreateClient();
+
+        var httpRequest = new HttpRequestMessage(HttpMethod.Post, ApiRequestHelper.loginUrl)
+        {
+            Content = SerDeHelper.ConvertToHttpContent(new { UserName = BootstrapUserName, Password = BootstrapPassword }),
+        };
+        httpRequest.AddXApiKey();
+        httpRequest.Headers.Add("X-App-Name", BootstrapAppName);
+
+        // Act
+        var response = await httpClient.SendAsync(httpRequest, TestContext.Current.CancellationToken);
+
+        // Assert
+        var jsonObject = SerDeHelper.Deserialize<JObject>(await response.ValidateRequestResponseAsync());
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var token = $"{jsonObject?["userToken"]?["accessToken"]?["token"]}";
+        var roles = new JsonWebToken(token).Claims.Where(c => c.Type == JwtCustomClaimNames.Roles).Select(c => c.Value).ToList();
+
+        Assert.Contains(KnownRoles.GlobalAdmin, roles);
+        Assert.Contains("bootstrapapp:admin", roles);
+    }
+
+    [Fact]
+    public async Task Startup_With_Bootstrap_Settings_Creates_No_User_When_A_Global_Admin_Exists()
+    {
+        // Arrange
+        TestDbHelper.SeedDatabase();
+        TestDbHelper.ConfigureIdentityUserAsGlobalAdmin();
+        var userCount = TestDbHelper.CountIdentityUsers();
+
+        await using var factory = CreateBootstrapFactory();
+
+        // Act
+        using var httpClient = factory.CreateClient();
+
+        // Assert
+        Assert.Equal(userCount, TestDbHelper.CountIdentityUsers());
+        Assert.False(
+            await ServiceProvider
+                .GetRequiredService<AppDbContext>()
+                .Users.AnyAsync(user => user.UserName == BootstrapUserName, TestContext.Current.CancellationToken)
+        );
+    }
+
+    private WebApplicationFactory<Program> CreateBootstrapFactory() =>
+        _testingWebAppFactory.WithWebHostBuilder(builder =>
+        {
+            builder.UseSetting($"{nameof(BootstrapAdminSettings)}:{nameof(BootstrapAdminSettings.AppName)}", BootstrapAppName);
+            builder.UseSetting($"{nameof(BootstrapAdminSettings)}:{nameof(BootstrapAdminSettings.AppBaseUrl)}", "http://localhost:3003");
+            builder.UseSetting($"{nameof(BootstrapAdminSettings)}:{nameof(BootstrapAdminSettings.UserName)}", BootstrapUserName);
+            builder.UseSetting($"{nameof(BootstrapAdminSettings)}:{nameof(BootstrapAdminSettings.FirstName)}", "Boot");
+            builder.UseSetting($"{nameof(BootstrapAdminSettings)}:{nameof(BootstrapAdminSettings.Email)}", "bootstrap.admin@example.com");
+            builder.UseSetting($"{nameof(BootstrapAdminSettings)}:{nameof(BootstrapAdminSettings.Password)}", BootstrapPassword);
+        });
 }

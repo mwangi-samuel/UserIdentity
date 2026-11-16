@@ -60,6 +60,7 @@ public class UserRepository(AppDbContext appDbContext) : EntityRepository<UserEn
     {
         return await _appDbContext
             .AppUser.Where(e => e.CreatedAt < createdBefore)
+            .Where(e => !_appDbContext.UserRegisteredApp.Any(link => link.UserId == e.Id && !link.App.RequireConfirmedAccount))
             .Join(_appDbContext.Users.Where(u => !u.EmailConfirmed && !u.PhoneNumberConfirmed), e => e.Id, u => u.Id, (e, _) => e)
             .OrderBy(e => e.CreatedAt)
             .Take(count)

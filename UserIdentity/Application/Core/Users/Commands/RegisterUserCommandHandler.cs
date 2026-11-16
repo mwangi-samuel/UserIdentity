@@ -2,14 +2,12 @@
 using System.Data;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.Extensions.Options;
 using PolyzenKit.Application.Core;
 using PolyzenKit.Application.Core.Interfaces;
 using PolyzenKit.Application.Core.Messages.Commands;
 using PolyzenKit.Application.Core.Messages.ViewModels;
 using PolyzenKit.Application.Core.RegisteredApps.Shared;
 using PolyzenKit.Common.Exceptions;
-using PolyzenKit.Common.Settings;
 using PolyzenKit.Domain.Dtos;
 using PolyzenKit.Domain.Entities;
 using PolyzenKit.Persistence.Repositories;
@@ -71,8 +69,6 @@ public record RegisterUserCommand : IBaseCommand, IValidatableObject
 }
 
 public class RegisterUserCommandHandler(
-    IOptions<RoleSettings> roleSettingsOptions,
-    IOptions<IdentityOptions> identityOptions,
     UserManager<IdentityUser> userManager,
     RoleManager<IdentityRole> roleManager,
     IUnitOfWork unitOfWork,
@@ -85,8 +81,6 @@ public class RegisterUserCommandHandler(
     ICreateItemCommandHandler<CreateLoginTicketCommand, LoginTicketViewModel> createLoginTicketCommandHandler
 ) : ICreateItemCommandHandler<RegisterUserCommand, AuthUserViewModel>
 {
-    private readonly RoleSettings _roleSettings = roleSettingsOptions.Value;
-    private readonly IdentityOptions _identityOptions = identityOptions.Value;
     private readonly UserManager<IdentityUser> _userManager = userManager;
     private readonly RoleManager<IdentityRole> _roleManager = roleManager;
 
@@ -118,7 +112,7 @@ public class RegisterUserCommandHandler(
         var userEmail = string.IsNullOrWhiteSpace(command.UserEmail) ? null : command.UserEmail;
         var phoneNumber = string.IsNullOrWhiteSpace(command.PhoneNumber) ? null : command.PhoneNumber;
 
-        var userDefaultRole = AppRoleNames.DefaultRole(registeredAppName, _roleSettings);
+        var userDefaultRole = AppRoleNames.DefaultRole(command.RegisteredApp);
 
         // Start DB Transaction
         await _unitOfWork.BeginTransactionAsync(cancellationToken);
@@ -154,8 +148,7 @@ public class RegisterUserCommandHandler(
                     throw new InvalidDataException(ErrorMessages.Users.InviteCodeRequired);
             }
 
-            //  Check if default role is created otherwise create
-            if (await _roleManager.FindByNameAsync(userDefaultRole) == null)
+            if (userDefaultRole is not null && await _roleManager.FindByNameAsync(userDefaultRole) == null)
                 if (!(await _roleManager.CreateAsync(new IdentityRole { Name = userDefaultRole })).Succeeded)
                     throw new RecordCreationException($"Role {userDefaultRole} wasn't created");
 
@@ -184,7 +177,7 @@ public class RegisterUserCommandHandler(
                 throw new InvalidDataException(errors);
             }
 
-            List<string> roleNames = [userDefaultRole];
+            List<string> roleNames = userDefaultRole is null ? [] : [userDefaultRole];
 
             if (inviteCodeEntity?.Role is { } inviteRole && !string.Equals(inviteRole, userDefaultRole, StringComparison.OrdinalIgnoreCase))
             {
@@ -195,7 +188,7 @@ public class RegisterUserCommandHandler(
                 roleNames.Add(role.Name!);
             }
 
-            if (!(await _userManager.AddToRolesAsync(newUser, roleNames)).Succeeded)
+            if (roleNames.Count > 0 && !(await _userManager.AddToRolesAsync(newUser, roleNames)).Succeeded)
                 throw new RecordCreationException($"Roles {string.Join(", ", roleNames)} weren't added to user {newUser.Id}");
 
             // Create user details
@@ -226,7 +219,7 @@ public class RegisterUserCommandHandler(
 
             _userRegisteredAppRepository.CreateEntityItem(userRegisteredApp);
 
-            var isConfirmed = AccountConfirmation.IsConfirmed(_identityOptions, newUser);
+            var isConfirmed = AccountConfirmation.IsConfirmed(command.RegisteredApp, newUser);
 
             var session = isConfirmed
                 ? await _startSessionCommandHandler.CreateItemAsync(

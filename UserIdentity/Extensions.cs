@@ -1,11 +1,14 @@
 ﻿using System.Threading.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using PolyzenKit;
+using PolyzenKit.Application.Core.Interfaces;
+using PolyzenKit.Common.Utilities;
 using PolyzenKit.Infrastructure.Configurations;
 using PolyzenKit.Persistence.Settings;
 using UserIdentity.Application.Core.Tokens.Commands;
 using UserIdentity.Application.Core.Users.Commands;
 using UserIdentity.Application.Core.Users.Shared;
+using UserIdentity.Application.Core.Users.ViewModels;
 using UserIdentity.Persistence;
 using UserIdentity.Presentation.Filters;
 
@@ -45,5 +48,15 @@ public static class Extensions
         services.AddAppPeriodicDeleteCommand<DeleteExpiredLoginTicketsCommand>(interval);
         services.AddAppPeriodicDeleteCommand<DeleteExpiredPasswordResetsCommand>(interval);
         services.AddAppPeriodicDeleteCommand<DeleteUnconfirmedUsersCommand>(interval);
+    }
+
+    public static async Task AppBootstrapAdminAsync(this WebApplication app, CancellationToken cancellationToken = default)
+    {
+        await using var scope = app.Services.CreateAsyncScope();
+        var handler = scope.ServiceProvider.GetRequiredService<
+            ICreateItemCommandHandler<BootstrapAdminCommand, BootstrappedAdminViewModel>
+        >();
+
+        await handler.CreateItemAsync(new BootstrapAdminCommand(), KnownUsers.SystemId, cancellationToken);
     }
 }

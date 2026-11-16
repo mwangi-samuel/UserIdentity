@@ -107,6 +107,47 @@ public class UserRepositoryTests
     }
 
     [Fact]
+    public async Task GetUnconfirmedEntityItemsCreatedBeforeAsync_Leaves_Out_Users_Of_An_App_That_Does_Not_Require_Confirmation()
+    {
+        // Arrange
+        var createdAt = DateTime.UtcNow.AddDays(-40);
+        var context = AppDbContextTestFactory.GetAppDbContext();
+        var confirmingApp = BuildApp(1, "ConfirmingApp", requireConfirmedAccount: true);
+        var openApp = BuildApp(2, "OpenApp", requireConfirmedAccount: false);
+        var confirmingAppUser = BuildUser();
+        var openAppUser = BuildUser();
+        var bothAppsUser = BuildUser();
+
+        foreach (var user in new[] { confirmingAppUser, openAppUser, bothAppsUser })
+        {
+            user.CreatedAt = createdAt;
+            context.AppUser.Add(user);
+            context.Users.Add(new IdentityUser { Id = user.Id });
+        }
+
+        context.RegisteredApp.AddRange(confirmingApp, openApp);
+        context.UserRegisteredApp.AddRange(
+            new UserRegisteredAppEntity { UserId = confirmingAppUser.Id, AppId = confirmingApp.Id },
+            new UserRegisteredAppEntity { UserId = openAppUser.Id, AppId = openApp.Id },
+            new UserRegisteredAppEntity { UserId = bothAppsUser.Id, AppId = confirmingApp.Id },
+            new UserRegisteredAppEntity { UserId = bothAppsUser.Id, AppId = openApp.Id }
+        );
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+
+        var repository = new UserRepository(context);
+
+        // Act
+        var result = await repository.GetUnconfirmedEntityItemsCreatedBeforeAsync(
+            DateTime.UtcNow.AddDays(-30),
+            10,
+            TestContext.Current.CancellationToken
+        );
+
+        // Assert
+        Assert.Equal([confirmingAppUser.Id], result.Select(e => e.Id));
+    }
+
+    [Fact]
     public async Task GetUserDtoAsync_Joins_The_Identity_User_And_Its_Details()
     {
         // Arrange
@@ -190,6 +231,16 @@ public class UserRepositoryTests
 
         return (user, details);
     }
+
+    private static RegisteredAppEntity BuildApp(int id, string appName, bool requireConfirmedAccount) =>
+        new()
+        {
+            Id = id,
+            AppName = appName,
+            AppSecretKey = "secret-key",
+            BaseUrl = "https://app.test",
+            RequireConfirmedAccount = requireConfirmedAccount,
+        };
 
     private static UserEntity BuildUser()
     {

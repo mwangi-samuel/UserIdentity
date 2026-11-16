@@ -387,6 +387,11 @@ namespace UserIdentity.Persistence.Migrations
                         .HasColumnType("varchar(50)")
                         .HasColumnName("created_by");
 
+                    b.Property<string>("DefaultRole")
+                        .HasMaxLength(155)
+                        .HasColumnType("varchar(155)")
+                        .HasColumnName("default_role");
+
                     b.Property<string>("Description")
                         .HasMaxLength(1000)
                         .HasColumnType("varchar(1000)")
@@ -414,6 +419,10 @@ namespace UserIdentity.Persistence.Migrations
                         .HasMaxLength(10)
                         .HasColumnType("varchar(10)")
                         .HasColumnName("primary_color");
+
+                    b.Property<bool>("RequireConfirmedAccount")
+                        .HasColumnType("tinyint(1)")
+                        .HasColumnName("require_confirmed_account");
 
                     b.Property<bool>("RequireInviteCode")
                         .HasColumnType("tinyint(1)")

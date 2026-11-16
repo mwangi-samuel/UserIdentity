@@ -240,20 +240,22 @@ public class ImageSmokeTests(ImageFixture fixture) : IClassFixture<ImageFixture>
     }
 
     [Fact]
-    public async Task GlobalAdmin_ReadsTheRegisteredApps()
+    public async Task BootstrapAdmin_ReadsTheRegisteredApps()
     {
         // Arrange
         using var client = new ServiceClient(_fixture.ServiceUrl);
-        await SignInWithRoleAsync(client, "global:admin");
+        await client.SignInAsBootstrapAdminAsync(_cancellationToken);
 
         // Act
         var registeredApps = await ReadOkAsync(client, "/api/v1/registered-app");
 
         // Assert
-        Assert.Contains(
+        var app = Assert.Single(
             registeredApps["registeredApps"]!.AsArray(),
-            app => string.Equals($"{app!["appName"]}", ServiceClient.AppName, StringComparison.OrdinalIgnoreCase)
+            item => string.Equals($"{item!["appName"]}", ServiceClient.AppName, StringComparison.OrdinalIgnoreCase)
         );
+        Assert.True(app!["requireConfirmedAccount"]!.GetValue<bool>());
+        Assert.Equal("user", $"{app["defaultRole"]}");
     }
 
     [Fact]

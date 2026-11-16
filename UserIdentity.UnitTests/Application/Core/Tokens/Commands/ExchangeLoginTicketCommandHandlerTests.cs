@@ -1,7 +1,6 @@
 using System.Security.Authentication;
 using FakeItEasy;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Time.Testing;
 using PolyzenKit.Application.Core.Interfaces;
 using PolyzenKit.Application.Core.RegisteredApps.Shared;
@@ -24,7 +23,6 @@ public class ExchangeLoginTicketCommandHandlerTests
 {
     private static readonly DateTime Now = new(2026, 11, 7, 12, 0, 0, DateTimeKind.Utc);
 
-    private readonly IOptions<IdentityOptions> _identityOptions;
     private readonly ITokenFactory _tokenFactory = A.Fake<ITokenFactory>();
     private readonly UserManager<IdentityUser> _userManager = IdentityFakes.UserManager();
     private readonly IUnitOfWork _unitOfWork = A.Fake<IUnitOfWork>();
@@ -41,6 +39,7 @@ public class ExchangeLoginTicketCommandHandlerTests
         AppName = "TestApp",
         AppSecretKey = "test-secret",
         BaseUrl = "https://app.test",
+        RequireConfirmedAccount = true,
     };
 
     private readonly IdentityUser _user = new()
@@ -55,10 +54,6 @@ public class ExchangeLoginTicketCommandHandlerTests
 
     public ExchangeLoginTicketCommandHandlerTests()
     {
-        var identityOptions = new IdentityOptions();
-        identityOptions.SignIn.RequireConfirmedAccount = true;
-        _identityOptions = Options.Create(identityOptions);
-
         _timeProvider.SetUtcNow(Now);
 
         _loginTicket = new LoginTicketEntity
@@ -180,6 +175,43 @@ public class ExchangeLoginTicketCommandHandlerTests
     }
 
     [Fact]
+    public async Task Exchange_For_An_App_Without_Required_Confirmation_Starts_A_Session_For_An_Unconfirmed_User()
+    {
+        // Arrange
+        _user.EmailConfirmed = false;
+
+        var command = new ExchangeLoginTicketCommand
+        {
+            Ticket = "ticket",
+            RegisteredApp = new()
+            {
+                Id = _registeredApp.Id,
+                AppName = _registeredApp.AppName,
+                AppSecretKey = _registeredApp.AppSecretKey,
+                BaseUrl = _registeredApp.BaseUrl,
+                RequireConfirmedAccount = false,
+            },
+        };
+
+        var handler = GetHandler();
+
+        // Act
+        var vm = await handler.CreateItemAsync(command, string.Empty, TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.True(vm.IsConfirmed);
+        A.CallTo(() => _loginTicketRepository.RemoveEntityItem(_loginTicket)).MustHaveHappenedOnceExactly();
+        A.CallTo(() =>
+                _startSessionCommandHandler.CreateItemAsync(
+                    new StartSessionCommand(_user.Id, _user.UserName!, _registeredApp.AppName),
+                    A<string>._,
+                    A<CancellationToken>._
+                )
+            )
+            .MustHaveHappenedOnceExactly();
+    }
+
+    [Fact]
     public async Task Exchange_For_A_Locked_Out_User_Throws_InvalidCredentialException()
     {
         // Arrange
@@ -222,14 +254,5 @@ public class ExchangeLoginTicketCommandHandlerTests
     private ExchangeLoginTicketCommand GetCommand(string ticket = "ticket") => new() { Ticket = ticket, RegisteredApp = _registeredApp };
 
     private ExchangeLoginTicketCommandHandler GetHandler() =>
-        new(
-            _identityOptions,
-            _tokenFactory,
-            _userManager,
-            _unitOfWork,
-            _userRepository,
-            _loginTicketRepository,
-            _startSessionCommandHandler,
-            _timeProvider
-        );
+        new(_tokenFactory, _userManager, _unitOfWork, _userRepository, _loginTicketRepository, _startSessionCommandHandler, _timeProvider);
 }

@@ -2,7 +2,6 @@
 using System.Security.Authentication;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.Extensions.Options;
 using PolyzenKit.Application.Core;
 using PolyzenKit.Application.Core.Interfaces;
 using PolyzenKit.Application.Core.RegisteredApps.Shared;
@@ -29,7 +28,6 @@ public record ExchangeLoginTicketCommand : IBaseCommand
 }
 
 public class ExchangeLoginTicketCommandHandler(
-    IOptions<IdentityOptions> identityOptions,
     ITokenFactory tokenFactory,
     UserManager<IdentityUser> userManager,
     IUnitOfWork unitOfWork,
@@ -39,7 +37,6 @@ public class ExchangeLoginTicketCommandHandler(
     TimeProvider timeProvider
 ) : ICreateItemCommandHandler<ExchangeLoginTicketCommand, AuthUserViewModel>
 {
-    private readonly IdentityOptions _identityOptions = identityOptions.Value;
     private readonly ITokenFactory _tokenFactory = tokenFactory;
     private readonly UserManager<IdentityUser> _userManager = userManager;
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
@@ -74,7 +71,7 @@ public class ExchangeLoginTicketCommandHandler(
         if (await _userManager.IsLockedOutAsync(user))
             throw new InvalidCredentialException($"User {user.Id} is locked out");
 
-        if (!AccountConfirmation.IsConfirmed(_identityOptions, user))
+        if (!AccountConfirmation.IsConfirmed(registeredApp, user))
             throw new IllegalOperationException(ErrorMessages.Users.AccountNotConfirmed);
 
         var userDto =

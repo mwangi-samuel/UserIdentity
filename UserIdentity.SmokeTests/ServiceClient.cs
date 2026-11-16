@@ -30,6 +30,11 @@ public sealed class ServiceClient : IDisposable
     public void SignIn(string accessToken) =>
         _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
 
+    public async Task SignInAsBootstrapAdminAsync(CancellationToken cancellationToken) =>
+        SignIn(
+            (await LogInAsync(ImageFixture.BootstrapAdminUserName, ImageFixture.BootstrapAdminPassword, cancellationToken))!.AccessToken
+        );
+
     public Task<HttpResponseMessage> GetAsync(string path, CancellationToken cancellationToken) =>
         _httpClient.GetAsync(path, cancellationToken);
 
@@ -38,6 +43,9 @@ public sealed class ServiceClient : IDisposable
 
     public Task<HttpResponseMessage> PostAsync(string path, object body, CancellationToken cancellationToken) =>
         _httpClient.PostAsJsonAsync(path, body, cancellationToken);
+
+    public Task<HttpResponseMessage> PutAsync(string path, object body, CancellationToken cancellationToken) =>
+        _httpClient.PutAsJsonAsync(path, body, cancellationToken);
 
     public Task<HttpResponseMessage> PostRawAsync(string path, string body, CancellationToken cancellationToken) =>
         _httpClient.PostAsync(path, new StringContent(body, new MediaTypeHeaderValue("application/json")), cancellationToken);

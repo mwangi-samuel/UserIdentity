@@ -9,13 +9,14 @@ $keyFolder = Join-Path $HOME '.local-eddsa-keys'
 $keyPassPhrase = 'TestKeyPassPhrase-For-Local-Use-Only'
 $opensslImage = 'alpine/openssl:3.5.8'
 
-$serviceUrl = 'http://localhost:5050'
-$headers = @{ 'X-Api-Key' = 'TestApiKey-For-Local-Use-Only-0123456789'; 'X-App-Name' = 'testapp' }
-
-$admins = @(
-  @{ UserName = 'admin'; Password = 'Adm1n@P@ss'; FirstName = 'Admin'; LastName = 'User'; Email = 'admin@example.com'; Grant = "@app_name='testapp'" },
-  @{ UserName = 'globaladmin'; Password = 'Gl0b@lAdm1n'; FirstName = 'Global'; LastName = 'Admin'; Email = 'globaladmin@example.com'; Grant = "@role_name='global:admin'" }
-)
+$bootstrapAdmin = [ordered]@{
+  AppName    = 'TestApp'
+  AppBaseUrl = 'http://localhost:3000'
+  UserName   = 'admin'
+  FirstName  = 'Admin'
+  Email      = 'admin@example.com'
+  Password   = 'Adm1n@P@ss'
+}
 
 function Import-LocalKeyPair {
   $privateKeyPath = Join-Path $keyFolder 'private.pem'
@@ -41,37 +42,14 @@ function Import-LocalKeyPair {
   $env:EDDSA_PUBLIC_KEY = [IO.File]::ReadAllText($publicKeyPath)
 }
 
-function Add-LocalAdmins {
-  $grantScript = Get-Content -Raw (Join-Path $PSScriptRoot '.sql/add_admin_user_role.sql')
-
-  foreach ($admin in $admins) {
-    $login = @{ userName = $admin.UserName; password = $admin.Password } | ConvertTo-Json
-
-    try {
-      Invoke-RestMethod -Method Post -ErrorAction Stop -Uri "$serviceUrl/api/v1/user/login" -Headers $headers -ContentType 'application/json' -Body $login | Out-Null
-    }
-    catch {
-      $registration = @{
-        firstName    = $admin.FirstName
-        lastName     = $admin.LastName
-        userName     = $admin.UserName
-        userEmail    = $admin.Email
-        userPassword = $admin.Password
-      } | ConvertTo-Json
-
-      Invoke-RestMethod -Method Post -ErrorAction Stop -Uri "$serviceUrl/api/v1/user/register" -Headers $headers -ContentType 'application/json' -Body $registration | Out-Null
-    }
-
-    $grantScript | docker compose @composeArguments exec -T db mysql -uroot -proot "--init-command=SET @username='$($admin.UserName)', $($admin.Grant)" | Out-Null
-    if ($LASTEXITCODE -ne 0) {
-      exit $LASTEXITCODE
-    }
+function Set-BootstrapAdmin {
+  foreach ($setting in $bootstrapAdmin.GetEnumerator()) {
+    Set-Item "env:BootstrapAdminSettings__$($setting.Key)" $setting.Value
   }
-
-  Write-Host 'Admins ready: admin (Adm1n@P@ss) is testapp:admin and globaladmin (Gl0b@lAdm1n) is global:admin.'
 }
 
 Import-LocalKeyPair
+Set-BootstrapAdmin
 
 if ($UseLocal) {
 
@@ -81,32 +59,8 @@ if ($UseLocal) {
     exit $LASTEXITCODE
   }
 
-  $service = Start-Process dotnet -NoNewWindow -PassThru -ArgumentList @(
-    'run', '--project', (Join-Path $PSScriptRoot 'UserIdentity/UserIdentity.csproj'), '--launch-profile', 'UserIdentity'
-  )
-  $null = $service.Handle
-
-  $deadline = (Get-Date).AddMinutes(3)
-  $healthy = $false
-
-  while (-not $healthy -and -not $service.HasExited -and (Get-Date) -lt $deadline) {
-    try {
-      $healthy = (Invoke-WebRequest -UseBasicParsing -ErrorAction Stop -TimeoutSec 5 "$serviceUrl/health").StatusCode -eq 200
-    }
-    catch {
-      Start-Sleep -Seconds 2
-    }
-  }
-
-  if ($healthy) {
-    Add-LocalAdmins
-  }
-  else {
-    Write-Warning 'UserIdentity did not become healthy, so the admins were not set up.'
-  }
-
-  $service.WaitForExit()
-  exit $service.ExitCode
+  dotnet run --project (Join-Path $PSScriptRoot 'UserIdentity/UserIdentity.csproj') --launch-profile UserIdentity
+  exit $LASTEXITCODE
 }
 else {
 
@@ -117,5 +71,5 @@ else {
     exit $LASTEXITCODE
   }
 
-  Add-LocalAdmins
+  Write-Host "The bootstrap admin $($bootstrapAdmin.UserName) ($($bootstrapAdmin.Password)) is the global admin and an admin of $($bootstrapAdmin.AppName)."
 }

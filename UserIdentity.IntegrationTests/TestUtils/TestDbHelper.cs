@@ -31,7 +31,7 @@ public sealed class TestDbHelper(
     private readonly RoleManager<IdentityRole> _roleManager = roleManager;
     private readonly TokenFactory _tokenFactory = new();
 
-    public string DefaultRole => $"{_currentAppNameNormalized}{Separators.ServiceRole}{_roleSettings.DefaultRole}";
+    public string DefaultRole => $"{_currentAppNameNormalized}{Separators.ServiceRole}{TestingWebAppFactory.DefaultRole}";
     public HashSet<string> AdminRoles =>
         [.. _roleSettings.AdminRoles.Split(',').Select(r => $"{_currentAppNameNormalized}{Separators.ServiceRole}{r.Trim()}")];
 
