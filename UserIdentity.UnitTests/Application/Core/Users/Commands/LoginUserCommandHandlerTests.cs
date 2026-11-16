@@ -1,9 +1,7 @@
 ﻿using System.Security.Authentication;
 using FakeItEasy;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.Extensions.Options;
 using PolyzenKit.Application.Core.Interfaces;
-using PolyzenKit.Application.Core.RegisteredApps.Shared;
 using PolyzenKit.Persistence.Repositories;
 using UserIdentity.Application.Core.Tokens.Commands;
 using UserIdentity.Application.Core.Tokens.ViewModels;
@@ -17,7 +15,6 @@ namespace UserIdentity.UnitTests.Application.Core.Users.Commands;
 
 public class LoginUserCommandHandlerTests
 {
-    private readonly IOptions<IdentityOptions> _identityOptions = Options.Create(new IdentityOptions());
     private readonly UserManager<IdentityUser> _userManager = IdentityFakes.UserManager();
     private readonly IUnitOfWork _unitOfWork = A.Fake<IUnitOfWork>();
     private readonly IUserRepository _userRepository = A.Fake<IUserRepository>();
@@ -29,14 +26,6 @@ public class LoginUserCommandHandlerTests
     >();
 
     private readonly IPasswordHasher<IdentityUser> _passwordHasher = A.Fake<IPasswordHasher<IdentityUser>>();
-
-    private readonly ActiveRegisteredApp _registeredApp = new()
-    {
-        Id = 1,
-        AppName = "TestApp",
-        AppSecretKey = "test-secret",
-        BaseUrl = "https://app.test",
-    };
 
     public LoginUserCommandHandlerTests()
     {
@@ -247,10 +236,8 @@ public class LoginUserCommandHandlerTests
     public async Task Login_Of_An_Unconfirmed_User_When_Confirmation_Is_Required_Returns_A_Login_Ticket_And_No_Token()
     {
         // Arrange
-        var command = GetCommand();
+        var command = GetCommand(requireConfirmedAccount: true);
         var existingIdentityUser = GetIdentityUser();
-        var identityOptions = new IdentityOptions();
-        identityOptions.SignIn.RequireConfirmedAccount = true;
 
         A.CallTo(() => _userManager.FindByNameAsync(command.UserName)).Returns(existingIdentityUser);
         A.CallTo(() => _userManager.CheckPasswordAsync(existingIdentityUser, command.Password)).Returns(true);
@@ -258,14 +245,14 @@ public class LoginUserCommandHandlerTests
             .Returns(new UserDto { Id = existingIdentityUser.Id });
         A.CallTo(() =>
                 _createLoginTicketCommandHandler.CreateItemAsync(
-                    new CreateLoginTicketCommand(existingIdentityUser.Id, _registeredApp.Id),
+                    new CreateLoginTicketCommand(existingIdentityUser.Id, command.RegisteredApp.Id),
                     A<string>._,
                     A<CancellationToken>._
                 )
             )
             .Returns(new LoginTicketViewModel { Ticket = "login-ticket" });
 
-        var handler = GetLoginUserCommandHandler(Options.Create(identityOptions));
+        var handler = GetLoginUserCommandHandler();
 
         // Act
         var vm = await handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken);
@@ -287,23 +274,23 @@ public class LoginUserCommandHandlerTests
             .MustNotHaveHappened();
     }
 
-    private LoginUserCommand GetCommand() =>
+    private static LoginUserCommand GetCommand(bool requireConfirmedAccount = false) =>
         new()
         {
             UserName = "test",
             Password = "test",
-            RegisteredApp = _registeredApp,
+            RegisteredApp = new()
+            {
+                Id = 1,
+                AppName = "TestApp",
+                AppSecretKey = "test-secret",
+                BaseUrl = "https://app.test",
+                RequireConfirmedAccount = requireConfirmedAccount,
+            },
         };
 
-    private LoginUserCommandHandler GetLoginUserCommandHandler(IOptions<IdentityOptions>? identityOptions = null) =>
-        new(
-            identityOptions ?? _identityOptions,
-            _userManager,
-            _unitOfWork,
-            _userRepository,
-            _startSessionCommandHandler,
-            _createLoginTicketCommandHandler
-        );
+    private LoginUserCommandHandler GetLoginUserCommandHandler() =>
+        new(_userManager, _unitOfWork, _userRepository, _startSessionCommandHandler, _createLoginTicketCommandHandler);
 
     private static IdentityUser GetIdentityUser() =>
         new()

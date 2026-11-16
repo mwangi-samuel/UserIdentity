@@ -59,6 +59,8 @@ builder.Services.AddAppSetting<LoginTicketSettings>(builder.Configuration);
 
 builder.Services.AddAppSetting<PasswordResetSettings>(builder.Configuration);
 
+builder.Services.AddAppSetting<BootstrapAdminSettings>(builder.Configuration);
+
 builder.Services.AddAppCleanups(builder.Configuration);
 
 builder.Services.AddAppForwardedHeaders(builder.Configuration);
@@ -108,7 +110,8 @@ app.MapHealthChecks("/health").AllowAnonymous();
 
 await app.AppMigrateDatabaseAsync();
 await app.AppSeedEntityNamesDataAsync();
-await app.AppSeedRegisteredAppsDataAsync(builder.Configuration);
+await app.AppReencryptRegisteredAppSecretsAsync();
+await app.AppBootstrapAdminAsync();
 
 app.Run();
 

@@ -1,7 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.Extensions.Options;
 using PolyzenKit.Application.Core;
 using PolyzenKit.Application.Core.Interfaces;
 using PolyzenKit.Application.Core.RegisteredApps.Shared;
@@ -31,7 +30,6 @@ public record UpdatePasswordCommand : IBaseCommand
 }
 
 public class UpdatePasswordCommandHandler(
-    IOptions<IdentityOptions> identityOptions,
     UserManager<IdentityUser> userManager,
     ITokenFactory tokenFactory,
     IUnitOfWork unitOfWork,
@@ -48,7 +46,6 @@ public class UpdatePasswordCommandHandler(
     ),
         IUpdateItemCommandHandler<UpdatePasswordCommand, UpdatePasswordViewModel>
 {
-    private readonly IdentityOptions _identityOptions = identityOptions.Value;
     private readonly UserManager<IdentityUser> _userManager = userManager;
     private readonly ITokenFactory _tokenFactory = tokenFactory;
     private readonly IRefreshTokenRepository _refreshTokenRepository = refreshTokenRepository;
@@ -85,7 +82,7 @@ public class UpdatePasswordCommandHandler(
 
         var appName = command.RegisteredApp.AppName;
         var canSignIn =
-            AccountConfirmation.IsConfirmed(_identityOptions, userDetails)
+            AccountConfirmation.IsConfirmed(command.RegisteredApp, userDetails)
             && await _userRepository.GetUserDtoAsync(userDetails.Id, appName, cancellationToken) is not null;
         UserTokenViewModel? session = null;
 

@@ -8,7 +8,12 @@ using Microsoft.Extensions.DependencyInjection;
 using MySqlConnector;
 using NATS.Client.Core;
 using NATS.Client.JetStream;
+using PolyzenKit.Application.Core.Interfaces;
+using PolyzenKit.Application.Core.RegisteredApps.Commands;
+using PolyzenKit.Application.Core.RegisteredApps.Shared;
+using PolyzenKit.Application.Core.RegisteredApps.ViewModels;
 using PolyzenKit.Application.Interfaces;
+using PolyzenKit.Common.Utilities;
 using PolyzenKit.Domain.Entities.AppEntities;
 using PolyzenKit.Domain.Entities.RegisteredApps;
 using PolyzenKit.Infrastructure.Messaging.Shared;
@@ -28,10 +33,23 @@ namespace UserIdentity.IntegrationTests;
 
 public class TestingWebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
 {
+    public const string TestAppName = "TestApp";
+    public const string TestAppSecretKey = "S3TAG00dSeC8E7-For-Local-Use-Only-012345";
     public const string OtherAppName = "OtherApp";
     public const string CallbackAppName = "CallbackApp";
     public const string CallbackAppSecretKey = "Ca11backApp5ecretKey-For-Tests-Only-0123";
     public const string CallbackPath = "/callback";
+    public const string DefaultRole = "user";
+
+    public RegisteredAppSeed TestApp { get; } =
+        new()
+        {
+            AppName = TestAppName,
+            BaseUrl = "http://localhost:3000",
+            AppSecretKey = TestAppSecretKey,
+            RequireConfirmedAccount = true,
+            DefaultRole = DefaultRole,
+        };
 
     public StubHttpServer StubHttpServer { get; } = new();
 
@@ -91,6 +109,35 @@ public class TestingWebAppFactory : WebApplicationFactory<Program>, IAsyncLifeti
         );
 
         await NatsTestHelper.CreateStreamsAsync(new NatsJSContext(natsConnection), TestContext.Current.CancellationToken);
+
+        await using var scope = Services.CreateAsyncScope();
+
+        await scope
+            .ServiceProvider.GetRequiredService<IUpdateItemCommandHandler<SeedRegisteredAppsCommand, RegisteredAppsViewModel>>()
+            .UpdateItemAsync(
+                new SeedRegisteredAppsCommand([
+                    TestApp,
+                    new RegisteredAppSeed
+                    {
+                        AppName = OtherAppName,
+                        BaseUrl = "http://localhost:3001",
+                        AppSecretKey = "0therApp5ecretKey-For-Tests-Only-0123456",
+                        RequireConfirmedAccount = true,
+                        DefaultRole = DefaultRole,
+                    },
+                    new RegisteredAppSeed
+                    {
+                        AppName = CallbackAppName,
+                        BaseUrl = "http://localhost:3002",
+                        AppSecretKey = CallbackAppSecretKey,
+                        CallbackUrl = StubHttpServer.Url + CallbackPath,
+                        RequireConfirmedAccount = true,
+                        DefaultRole = DefaultRole,
+                    },
+                ]),
+                KnownUsers.SystemId,
+                TestContext.Current.CancellationToken
+            );
     }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -128,20 +175,6 @@ public class TestingWebAppFactory : WebApplicationFactory<Program>, IAsyncLifeti
 
         // Override Rate Limit Settings
         builder.UseSetting($"{nameof(RateLimitSettings)}:{nameof(RateLimitSettings.Enabled)}", "false");
-
-        // Override UserIdentity Settings
-        builder.UseSetting($"{nameof(IdentityUserSettings)}:{nameof(IdentityUserSettings.RequireConfirmedAccount)}", "true");
-
-        // A second app, for cross-app checks
-        builder.UseSetting("RegisteredAppsSettings:RegisteredApps:1:AppName", OtherAppName);
-        builder.UseSetting("RegisteredAppsSettings:RegisteredApps:1:BaseUrl", "http://localhost:3001");
-        builder.UseSetting("RegisteredAppsSettings:RegisteredApps:1:AppSecretKey", "0therApp5ecretKey-For-Tests-Only-0123456");
-
-        // A third app, whose sign-ups through its UI are called back on the stub server
-        builder.UseSetting("RegisteredAppsSettings:RegisteredApps:2:AppName", CallbackAppName);
-        builder.UseSetting("RegisteredAppsSettings:RegisteredApps:2:BaseUrl", "http://localhost:3002");
-        builder.UseSetting("RegisteredAppsSettings:RegisteredApps:2:AppSecretKey", CallbackAppSecretKey);
-        builder.UseSetting("RegisteredAppsSettings:RegisteredApps:2:CallbackUrl", StubHttpServer.Url + CallbackPath);
     }
 
     public async Task ResetDatabaseAsync(CancellationToken cancellationToken)

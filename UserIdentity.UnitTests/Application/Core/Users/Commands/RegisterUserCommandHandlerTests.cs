@@ -1,6 +1,5 @@
 ﻿using FakeItEasy;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Time.Testing;
 using PolyzenKit.Application.Core.Interfaces;
 using PolyzenKit.Application.Core.Messages.Commands;
@@ -8,8 +7,6 @@ using PolyzenKit.Application.Core.Messages.Events;
 using PolyzenKit.Application.Core.Messages.ViewModels;
 using PolyzenKit.Application.Core.RegisteredApps.Shared;
 using PolyzenKit.Common.Exceptions;
-using PolyzenKit.Common.Settings;
-using PolyzenKit.Common.Utilities;
 using PolyzenKit.Persistence.Repositories;
 using UserIdentity.Application.Core.Tokens.Commands;
 using UserIdentity.Application.Core.Tokens.ViewModels;
@@ -28,8 +25,8 @@ namespace UserIdentity.UnitTests.Application.Core.Users.Commands;
 
 public class RegisterUserCommandHandlerTests
 {
-    private readonly IOptions<RoleSettings> _roleSettings;
-    private readonly IOptions<IdentityOptions> _identityOptions;
+    private const string DefaultRoleName = "testapp:user";
+
     private readonly UserManager<IdentityUser> _userManager;
     private readonly RoleManager<IdentityRole> _roleManager;
     private readonly IUnitOfWork _unitOfWork;
@@ -45,8 +42,6 @@ public class RegisterUserCommandHandlerTests
 
     public RegisterUserCommandHandlerTests()
     {
-        _roleSettings = A.Fake<IOptions<RoleSettings>>();
-        _identityOptions = A.Fake<IOptions<IdentityOptions>>();
         _userManager = IdentityFakes.UserManager();
         _roleManager = A.Fake<RoleManager<IdentityRole>>();
         _unitOfWork = A.Fake<IUnitOfWork>();
@@ -68,7 +63,7 @@ public class RegisterUserCommandHandlerTests
     public async Task Create_User_When_Default_Role_Not_Created_Throws_RecordCreationException()
     {
         var command = GetRegisterUserCommand();
-        var defaultRole = GetDefaultRoleName();
+        var defaultRole = DefaultRoleName;
 
         A.CallTo(() => _roleManager.FindByNameAsync(defaultRole)).Returns((IdentityRole?)null);
         A.CallTo(() => _roleManager.CreateAsync(A<IdentityRole>.That.Matches(r => r.Name == defaultRole))).Returns(IdentityResult.Failed());
@@ -86,7 +81,7 @@ public class RegisterUserCommandHandlerTests
     public async Task Create_User_When_UserName_Exists_Throws_RecordExistsException()
     {
         var command = GetRegisterUserCommand();
-        var defaultRole = new IdentityRole(GetDefaultRoleName());
+        var defaultRole = new IdentityRole(DefaultRoleName);
 
         A.CallTo(() => _roleManager.FindByNameAsync(defaultRole.Name!)).Returns(defaultRole);
         A.CallTo(() => _userManager.FindByNameAsync(command.UserName)).Returns(new IdentityUser());
@@ -105,7 +100,7 @@ public class RegisterUserCommandHandlerTests
     public async Task Create_User_When_Email_Exists_Throws_RecordExistsException()
     {
         var command = GetRegisterUserCommand();
-        var defaultRole = new IdentityRole(GetDefaultRoleName());
+        var defaultRole = new IdentityRole(DefaultRoleName);
 
         A.CallTo(() => _roleManager.FindByNameAsync(defaultRole.Name!)).Returns(defaultRole);
         A.CallTo(() => _userManager.FindByNameAsync(command.UserName)).Returns((IdentityUser?)null);
@@ -126,7 +121,7 @@ public class RegisterUserCommandHandlerTests
     public async Task Create_User_When_Identity_User_Creation_Fails_Throws_InvalidDataException()
     {
         var command = GetRegisterUserCommand();
-        var defaultRole = new IdentityRole(GetDefaultRoleName());
+        var defaultRole = new IdentityRole(DefaultRoleName);
 
         A.CallTo(() => _roleManager.FindByNameAsync(defaultRole.Name!)).Returns(defaultRole);
         A.CallTo(() => _userManager.FindByNameAsync(command.UserName)).Returns((IdentityUser?)null);
@@ -153,7 +148,7 @@ public class RegisterUserCommandHandlerTests
     public async Task Create_User_When_Assigning_Default_Role_Fails_Throws_RecordCreationException()
     {
         var command = GetRegisterUserCommand();
-        var defaultRole = new IdentityRole(GetDefaultRoleName());
+        var defaultRole = new IdentityRole(DefaultRoleName);
 
         A.CallTo(() => _roleManager.FindByNameAsync(defaultRole.Name!)).Returns(defaultRole);
         A.CallTo(() => _userManager.FindByNameAsync(command.UserName)).Returns((IdentityUser?)null);
@@ -180,7 +175,7 @@ public class RegisterUserCommandHandlerTests
     public async Task Create_User_With_Valid_Details_Returns_AuthUser()
     {
         var command = GetRegisterUserCommand();
-        var defaultRole = new IdentityRole(GetDefaultRoleName());
+        var defaultRole = new IdentityRole(DefaultRoleName);
         var session = new UserTokenViewModel
         {
             UserToken = new UserTokenDto
@@ -254,17 +249,15 @@ public class RegisterUserCommandHandlerTests
         // Arrange
         var command = GetRegisterUserCommand();
         command.RequestSource = requestSource;
+        command.RegisteredApp = GetRegisteredApp(requireConfirmedAccount: true);
         SetUpSuccessfulSignUp(command);
-
-        var identityOptions = new IdentityOptions();
-        identityOptions.SignIn.RequireConfirmedAccount = true;
 
         A.CallTo(() =>
                 _createLoginTicketCommandHandler.CreateItemAsync(A<CreateLoginTicketCommand>._, A<string>._!, A<CancellationToken>._)
             )
             .Returns(new LoginTicketViewModel { Ticket = "login-ticket" });
 
-        var handler = GetRegisterUserCommandHandler(Options.Create(identityOptions));
+        var handler = GetRegisterUserCommandHandler();
 
         // Act
         var vm = await handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken);
@@ -290,7 +283,7 @@ public class RegisterUserCommandHandlerTests
     {
         // Arrange
         var command = GetRegisterUserCommand();
-        var defaultRole = new IdentityRole(GetDefaultRoleName());
+        var defaultRole = new IdentityRole(DefaultRoleName);
         string? userId = null;
 
         A.CallTo(() => _roleManager.FindByNameAsync(defaultRole.Name!)).Returns(defaultRole);
@@ -420,7 +413,7 @@ public class RegisterUserCommandHandlerTests
         const string inviteCode = "INVITE01";
         command = command with { InviteCode = inviteCode };
 
-        var defaultRole = new IdentityRole(GetDefaultRoleName());
+        var defaultRole = new IdentityRole(DefaultRoleName);
         var inviteCodeEntity = new InviteCodeEntity
         {
             Id = 7,
@@ -503,7 +496,7 @@ public class RegisterUserCommandHandlerTests
         const string inviteRole = "testapp:owner";
         command = command with { InviteCode = inviteCode.ToLowerInvariant() };
 
-        var defaultRole = new IdentityRole(GetDefaultRoleName());
+        var defaultRole = new IdentityRole(DefaultRoleName);
         var inviteCodeEntity = new InviteCodeEntity
         {
             Id = 7,
@@ -637,7 +630,7 @@ public class RegisterUserCommandHandlerTests
         const string inviteRole = "testapp:owner";
         command = command with { InviteCode = "INVITE01" };
 
-        var defaultRole = new IdentityRole(GetDefaultRoleName());
+        var defaultRole = new IdentityRole(DefaultRoleName);
         var inviteCodeEntity = new InviteCodeEntity
         {
             Id = 7,
@@ -683,7 +676,7 @@ public class RegisterUserCommandHandlerTests
         var command = GetRegisterUserCommand();
         command = command with { InviteCode = inviteCode };
 
-        var defaultRole = new IdentityRole(GetDefaultRoleName());
+        var defaultRole = new IdentityRole(DefaultRoleName);
 
         A.CallTo(() => _roleManager.FindByNameAsync(defaultRole.Name!)).Returns(defaultRole);
         A.CallTo(() => _userManager.FindByNameAsync(command.UserName)).Returns((IdentityUser?)null);
@@ -709,11 +702,71 @@ public class RegisterUserCommandHandlerTests
             .MustHaveHappenedOnceExactly();
     }
 
-    private RegisterUserCommandHandler GetRegisterUserCommandHandler(IOptions<IdentityOptions>? identityOptions = null)
+    [Fact]
+    public async Task Create_User_For_An_App_Without_A_Default_Role_Creates_And_Grants_No_Role()
+    {
+        // Arrange
+        var command = GetRegisterUserCommand();
+        command.RegisteredApp = GetRegisteredApp(defaultRole: null);
+        SetUpSuccessfulSignUp(command);
+
+        var handler = GetRegisterUserCommandHandler();
+
+        // Act
+        var vm = await handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(command.UserName, vm.User.UserName);
+        A.CallTo(() => _roleManager.FindByNameAsync(A<string>._)).MustNotHaveHappened();
+        A.CallTo(() => _roleManager.CreateAsync(A<IdentityRole>._)).MustNotHaveHappened();
+        A.CallTo(() => _userManager.AddToRolesAsync(A<IdentityUser>._, A<IEnumerable<string>>._)).MustNotHaveHappened();
+        A.CallTo(() => _unitOfWork.CommitTransactionAsync(A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+    }
+
+    [Fact]
+    public async Task Create_User_With_An_Invite_For_An_App_Without_A_Default_Role_Grants_Only_The_Invites_Role()
+    {
+        // Arrange
+        const string inviteRole = "testapp:owner";
+        var command = GetRegisterUserCommand() with { InviteCode = "INVITE01" };
+        command.RegisteredApp = GetRegisteredApp(defaultRole: null);
+        SetUpSuccessfulSignUp(command);
+
+        var inviteCodeEntity = new InviteCodeEntity
+        {
+            Id = 7,
+            InviteCode = "INVITE01",
+            UserEmail = command.UserEmail!,
+            Applied = false,
+            Role = inviteRole,
+        };
+
+        A.CallTo(() =>
+                _inviteCodeRepository.GetEntityByAlternateIdAsync(
+                    A<InviteCodeEntity>._,
+                    QueryCondition.MayOrMayNotExist,
+                    A<CancellationToken>._
+                )
+            )
+            .Returns(inviteCodeEntity);
+        A.CallTo(() => _roleManager.FindByNameAsync(inviteRole)).Returns(new IdentityRole(inviteRole));
+
+        var handler = GetRegisterUserCommandHandler();
+
+        // Act
+        await handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.True(inviteCodeEntity.Applied);
+        string[] expectedRoles = [inviteRole];
+        A.CallTo(() => _userManager.AddToRolesAsync(A<IdentityUser>._, A<IEnumerable<string>>.That.IsSameSequenceAs(expectedRoles)))
+            .MustHaveHappenedOnceExactly();
+        A.CallTo(() => _roleManager.CreateAsync(A<IdentityRole>._)).MustNotHaveHappened();
+    }
+
+    private RegisterUserCommandHandler GetRegisterUserCommandHandler()
     {
         return new RegisterUserCommandHandler(
-            _roleSettings,
-            identityOptions ?? _identityOptions,
             _userManager,
             _roleManager,
             _unitOfWork,
@@ -729,20 +782,13 @@ public class RegisterUserCommandHandlerTests
 
     private void SetUpSuccessfulSignUp(RegisterUserCommand command)
     {
-        var defaultRole = new IdentityRole(GetDefaultRoleName());
+        var defaultRole = new IdentityRole(DefaultRoleName);
 
         A.CallTo(() => _roleManager.FindByNameAsync(defaultRole.Name!)).Returns(defaultRole);
         A.CallTo(() => _userManager.FindByNameAsync(command.UserName)).Returns((IdentityUser?)null);
         A.CallTo(() => _userManager.FindByEmailAsync(command.UserEmail!)).Returns((IdentityUser?)null);
         A.CallTo(() => _userManager.CreateAsync(A<IdentityUser>._, command.UserPassword)).Returns(IdentityResult.Success);
         A.CallTo(() => _userManager.AddToRolesAsync(A<IdentityUser>._, A<IEnumerable<string>>._)).Returns(IdentityResult.Success);
-    }
-
-    private string GetDefaultRoleName()
-    {
-        var settings = _roleSettings.Value;
-        var command = GetRegisterUserCommand();
-        return $"{command.RegisteredApp.AppName.Trim().ToLowerInvariant()}{Separators.ServiceRole}{settings.DefaultRole.Trim().ToLowerInvariant()}";
     }
 
     private static RegisterUserCommand GetRegisterUserCommand()
@@ -760,7 +806,12 @@ public class RegisterUserCommandHandlerTests
         };
     }
 
-    private static ActiveRegisteredApp GetRegisteredApp(string? callbackUrl = null, bool requireInviteCode = false) =>
+    private static ActiveRegisteredApp GetRegisteredApp(
+        string? callbackUrl = null,
+        bool requireInviteCode = false,
+        bool requireConfirmedAccount = false,
+        string? defaultRole = "user"
+    ) =>
         new()
         {
             Id = 1,
@@ -769,5 +820,7 @@ public class RegisterUserCommandHandlerTests
             BaseUrl = "https://app.test",
             CallbackUrl = callbackUrl,
             RequireInviteCode = requireInviteCode,
+            RequireConfirmedAccount = requireConfirmedAccount,
+            DefaultRole = defaultRole,
         };
 }

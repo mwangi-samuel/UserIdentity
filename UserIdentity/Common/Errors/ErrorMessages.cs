@@ -12,6 +12,9 @@ public static class ErrorMessages
         public const string AccountNotConfirmed = "The account isn't confirmed yet.";
 
         public static string InviteRoleMissing(string role) => $"The role {role} granted by the invite code doesn't exist.";
+
+        public static string BootstrapAdminIncomplete(IEnumerable<string> missingSettings) =>
+            $"The bootstrap admin also needs {string.Join(", ", missingSettings)}.";
     }
 
     public static class Roles

@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Identity;
+using PolyzenKit.Application.Core.RegisteredApps.Shared;
 using PolyzenKit.Common.Exceptions;
 using PolyzenKit.Common.Extensions;
 using PolyzenKit.Common.Settings;
@@ -14,8 +15,8 @@ public static class AppRoleNames
 
     public static string Prefix(string appName) => $"{appName.TrimAndLowerInvariant()}{Separators.ServiceRole}";
 
-    public static string DefaultRole(string appName, RoleSettings roleSettings) =>
-        $"{Prefix(appName)}{roleSettings.DefaultRole.TrimAndLowerInvariant()}";
+    public static string? DefaultRole(ActiveRegisteredApp registeredApp) =>
+        registeredApp.DefaultRole is { } defaultRole ? $"{Prefix(registeredApp.AppName)}{defaultRole}" : null;
 
     public static bool IsAppRole(string? roleName, string appName) =>
         roleName is not null && roleName.StartsWith(Prefix(appName), StringComparison.OrdinalIgnoreCase);

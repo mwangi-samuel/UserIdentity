@@ -15,7 +15,6 @@ public record DeleteUnconfirmedUsersCommand : IBaseCommand;
 
 public class DeleteUnconfirmedUsersCommandHandler(
     UserManager<IdentityUser> userManager,
-    IOptions<IdentityOptions> identityOptions,
     IOptions<CleanupSettings> cleanupSettings,
     IUnitOfWork unitOfWork,
     IUserRepository userRepository,
@@ -24,7 +23,6 @@ public class DeleteUnconfirmedUsersCommandHandler(
 ) : IDeleteItemCommandHandler<DeleteUnconfirmedUsersCommand, DeleteRecordViewModel>
 {
     private readonly UserManager<IdentityUser> _userManager = userManager;
-    private readonly IdentityOptions _identityOptions = identityOptions.Value;
     private readonly CleanupSettings _cleanupSettings = cleanupSettings.Value;
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
     private readonly IUserRepository _userRepository = userRepository;
@@ -37,10 +35,6 @@ public class DeleteUnconfirmedUsersCommandHandler(
         CancellationToken cancellationToken = default
     )
     {
-        // Without required confirmation, unconfirmed accounts can log in and must stay
-        if (!_identityOptions.SignIn.RequireConfirmedAccount)
-            return new DeleteRecordViewModel();
-
         var createdBefore = _timeProvider.GetUtcNow().UtcDateTime.AddDays(-_cleanupSettings.UnconfirmedUserLifetimeInDays);
         List<UserEntity> entities;
 
@@ -64,7 +58,7 @@ public class DeleteUnconfirmedUsersCommandHandler(
     {
         var identityUser = await _userManager.FindByIdAsync(entity.Id);
 
-        if (identityUser is null || AccountConfirmation.IsConfirmed(_identityOptions, identityUser))
+        if (identityUser is null || AccountConfirmation.HasConfirmedContact(identityUser))
             return;
 
         await _unitOfWork.BeginTransactionAsync(cancellationToken);

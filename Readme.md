@@ -22,7 +22,7 @@ UserIdentity is an easy-to-use RESTful API that simplifies user management by pr
 
 The first run of `up.ps1` on a machine generates an Ed25519 key pair with a pinned openssl image, encrypted with the passphrase in `appsettings.json` (`TestKeyPassPhrase-For-Local-Use-Only`), and saves it in `~/.local-eddsa-keys`. Every run reads it from there into `EDDSA_PRIVATE_KEY` and `EDDSA_PUBLIC_KEY`, which `docker-compose.yml` passes to the container and `-UseLocal` to the app. Other local stacks that use the folder share the pair, so tokens issued here work there. Delete the folder to get a new pair, then log in again. Start the stack with `up.ps1`, not `docker compose up` alone, so the keys are set.
 
-Once UserIdentity is healthy, `up.ps1` registers `admin` (password `Adm1n@P@ss`) and `globaladmin` (password `Gl0b@lAdm1n`) for the app `testapp`, unless they can already log in, and gives them `testapp:admin` and `global:admin` with `.sql/add_admin_user_role.sql`. Every local client uses the API key `TestApiKey-For-Local-Use-Only-0123456789`.
+`up.ps1` also sets the [bootstrap admin](#the-first-admin), which `docker-compose.yml` passes to the container and `-UseLocal` to the app: on its first start, UserIdentity registers the app `TestApp` and creates `admin` (password `Adm1n@P@ss`), who is the global admin and `testapp:admin`. A database that already has a global admin keeps its users as they are. Every local client uses the API key `TestApiKey-For-Local-Use-Only-0123456789`.
 
 NATS monitoring is on http://localhost:8222, and NUI, a web UI for browsing streams and messages, is on http://localhost:31311 (add a connection to `nats://nats:4222` with the user below). The local NATS server has one user, `useridentity` (password `useridentity-local`), which may publish only to UserIdentity's own subjects and the JetStream API.
 
@@ -49,7 +49,24 @@ There are two kinds of admin:
 - **App admins** have the `<app>:admin` role. They manage their app's roles (names must start with `<app>:`, and are stored in lower case) and those roles' scopes, give those roles to their app's users, read their app's users, and manage their app's invite codes and wait list. Anything belonging to another app returns 404, or 400 for a role name outside the prefix.
 - **Global admins** have `RoleSettings:GlobalAdminRole` (default `global:admin`), whatever app they log in through. They manage registered apps, and every app's roles, role scopes and users. For invite codes and wait list entries they name the app in the `X-App-Name` header. The app names `global` and `service` are reserved.
 
-No user starts as an admin, so the first admins are created with `.sql/add_admin_user_role.sql`. It takes the user name or email and the app name, creates the role if it's missing, and is safe to run again. Add `@role_name='global:admin'` for a global admin:
+### Registered Apps
+Global admins register apps with `/api/v1/registered-app`. Each app makes its own sign-up choices:
+
+- `requireConfirmedAccount` (required): whether an account must confirm its email or phone number with a code before it can log in. Turn it on once the app's codes reach its users; while it's off, accounts log in as soon as they sign up.
+- `defaultRole` (optional): the role every sign-up gets, without the `<app>:` prefix (`user` gives `<app>:user`), stored in lower case and created on first use. Without one, sign-ups get no role. It can't be `admin` or one of `RoleSettings:AdminRoles`.
+- `requireInviteCode`: whether sign-up needs an [invite code](#invite-codes).
+
+### The First Admin
+No user starts as an admin. The `BootstrapAdminSettings` create the first one when the app starts:
+
+| Setting | Meaning |
+|---|---|
+| `BootstrapAdminSettings__AppName`, `BootstrapAdminSettings__AppBaseUrl` | The app the admin logs in through. Unless an app of that name exists, it's registered with a generated secret, `requireConfirmedAccount` off and no default role |
+| `BootstrapAdminSettings__UserName`, `BootstrapAdminSettings__FirstName`, `BootstrapAdminSettings__Email`, `BootstrapAdminSettings__Password` | The admin's account, created confirmed. The password must follow the password rules |
+
+Setting any of them requires all of them. The bootstrap runs only while no user has the global admin role, so later starts change nothing. It creates the account, gives it the global admin role and `<app>:admin`, and stops the app from starting if the user name or email is taken, so an account someone else signed up with never becomes an admin. Once the admin has logged in, remove the settings, or at least the password, from the environment.
+
+Without the bootstrap, `.sql/add_admin_user_role.sql` gives a role straight in the database. It takes the user name or email and the app name, creates the role if it's missing, and is safe to run again. Add `@role_name='global:admin'` for a global admin:
 
 ```
 Get-Content .sql\add_admin_user_role.sql | docker compose exec -T db mysql -uroot -proot --init-command="SET @username='<user name or email>', @app_name='testapp'"
@@ -75,7 +92,7 @@ An invite code lets one email address sign up to an app, and can give the new ac
 - `GET /api/v1/invite-code/{inviteCodeId}` and `GET /api/v1/invite-code/email/{email}` read one.
 - `DELETE /api/v1/invite-code/{inviteCodeId}` revokes an unused invite code. A used one returns 400, and another app's returns 404.
 
-Signing up with `inviteCode` checks it whether or not the app has `RequireInviteCode` on: the email is required, an invite code must exist for the app and email, the code must match (ignoring case), and it must be unused. Otherwise the request returns 400, with the same message whether the invite is missing, wrong or used, so sign-up never says whether an email has an invite. A valid code is marked used, and its role is given to the new account with the default role, so it's in the account's tokens with its scopes. If that role no longer exists, sign-up returns 400 and nothing is saved. Without `inviteCode`, sign-up only needs one when the app requires it.
+Signing up with `inviteCode` checks it whether or not the app has `RequireInviteCode` on: the email is required, an invite code must exist for the app and email, the code must match (ignoring case), and it must be unused. Otherwise the request returns 400, with the same message whether the invite is missing, wrong or used, so sign-up never says whether an email has an invite. A valid code is marked used, and its role is given to the new account with the app's default role, if it has one, so it's in the account's tokens with its scopes. If that role no longer exists, sign-up returns 400 and nothing is saved. Without `inviteCode`, sign-up only needs one when the app requires it.
 
 ## Wait List
 `POST /api/v1/wait-list` with the `X-App-Name` header and `{ "userEmail": "..." }` adds an email to the app's wait list. Anyone can call it. The email must be a valid address of up to 256 characters, and any other field in the body is ignored. App admins read their app's entries with `GET /api/v1/wait-list/{waitListId}` and `GET /api/v1/wait-list/email/{email}`, and global admins name the app in the `X-App-Name` header.
@@ -92,7 +109,7 @@ Apps should recompute the signature over the raw request body, compare it in con
 
 ## Sessions
 - Login and registration return a short-lived access token and a refresh token. A session lasts `RefreshTokenSettings:ValidForSeconds` (default 30 days) and each refresh extends it. Only hashes of refresh tokens are stored.
-- When the account isn't confirmed yet, registration from the app (not `register-for-service`) and login return a `loginTicket` instead, so the app can sign the user in once they confirm without asking for the password again. `POST /api/v1/user/login-ticket` with the `X-App-Name` header and `{ "ticket": "..." }` returns the same body as login. It answers 406 while the account is still unconfirmed, so the app can try again a moment later (the confirmation arrives over NATS JetStream shortly after the code is verified), and 401 for an unknown, used or expired ticket, or one from another app. A ticket works once and expires after `LoginTicketSettings:ValidForSeconds` (default 1 hour). Only its hash is stored.
+- When the app requires confirmed accounts and the account isn't confirmed yet, registration from the app (not `register-for-service`) and login return a `loginTicket` instead, so the app can sign the user in once they confirm without asking for the password again. `POST /api/v1/user/login-ticket` with the `X-App-Name` header and `{ "ticket": "..." }` returns the same body as login. It answers 406 while the account is still unconfirmed, so the app can try again a moment later (the confirmation arrives over NATS JetStream shortly after the code is verified), and 401 for an unknown, used or expired ticket, or one from another app. A ticket works once and expires after `LoginTicketSettings:ValidForSeconds` (default 1 hour). Only its hash is stored.
 - Each refresh returns a new refresh token, and the one sent can't be used again. If a replaced refresh token is sent again, UserIdentity treats it as copied and ends that session. Clients must keep the newest refresh token, and must not send the same refresh token twice at once (for example, from two tabs): the second of two simultaneous refreshes gets a 409.
 - `POST /api/v1/user/logout` with the access token and `{ "refreshToken": "..." }` ends that session. The access token keeps working until it expires.
 - Five wrong passwords in a row lock an account for five minutes. A locked account gets the same response as a wrong password.
@@ -102,7 +119,7 @@ Users reset their password with a code, the same way they confirm their account:
 
 1. `POST /api/v1/user/reset-password` with the `X-App-Name` header and `{ "userName": "<user name or email>" }`. The response is always 200 with a `resetRequestId`, whether or not the account exists. For an existing user, a `PasswordReset` message with the reset request id as its correlation id is stored with the request and sent to NATS JetStream. Another request for the same user within `PasswordResetSettings:RequestCooldownSeconds`, or after `PasswordResetSettings:MaxRequestsPerDay` requests (default 5) in the last 24 hours, sends nothing. Each request gets its own code and attempts, so the daily cap limits how many codes can be guessed.
 2. Once a message saying the code for that correlation id was verified is received from NATS JetStream, the reset request is marked verified.
-3. `POST /api/v1/user/update-password` with the `X-App-Name` header and `{ "resetRequestId": "...", "newPassword": "..." }`. It returns 406 if the request is unknown, not verified yet, expired (`PasswordResetSettings:ValidForSeconds`, default 15 minutes) or already used, and 400 if the new password breaks the password rules. A successful reset ends all of the user's sessions and lifts any lockout. It then signs the user in, returning a `userToken` as login does, when login would let them in: the account belongs to the app in `X-App-Name` and is confirmed. Otherwise `userToken` is null and the user signs in again.
+3. `POST /api/v1/user/update-password` with the `X-App-Name` header and `{ "resetRequestId": "...", "newPassword": "..." }`. It returns 406 if the request is unknown, not verified yet, expired (`PasswordResetSettings:ValidForSeconds`, default 15 minutes) or already used, and 400 if the new password breaks the password rules. A successful reset ends all of the user's sessions and lifts any lockout. It then signs the user in, returning a `userToken` as login does, when login would let them in: the account belongs to the app in `X-App-Name` and is confirmed, or the app doesn't require confirmed accounts. Otherwise `userToken` is null and the user signs in again.
 
 ## Rate Limiting
 Register, login, reset-password, update-password and the waitlist sign-up allow `RateLimitSettings:PermitLimit` requests per `RateLimitSettings:WindowSeconds` (default 10 per minute) for each client IP and endpoint. Requests over the limit get a 429 with a `Retry-After` header.
@@ -121,7 +138,7 @@ The check is off by default. `appsettings.json` holds Cloudflare's always-pass t
 Request bodies are limited to 64 KiB. Larger ones get a 413.
 
 ## Cleanup
-Every `CleanupSettings:IntervalInMinutes` (default 60), expired refresh tokens and login tickets are deleted, and so are password reset requests a day after they expire (kept that long for the daily cap). When confirmed accounts are required, accounts still unconfirmed after `CleanupSettings:UnconfirmedUserLifetimeInDays` (default 30) are deleted too, along with their details, sessions, login tickets, reset requests, app links and roles, and the invite code they used for their app can be used again.
+Every `CleanupSettings:IntervalInMinutes` (default 60), expired refresh tokens and login tickets are deleted, and so are password reset requests a day after they expire (kept that long for the daily cap). Accounts still unconfirmed after `CleanupSettings:UnconfirmedUserLifetimeInDays` (default 30) are deleted too when every app they belong to requires confirmed accounts, along with their details, sessions, login tickets, reset requests, app links and roles, and the invite code they used for their app can be used again.
 
 ## Settings
 Every setting has a default in `appsettings.json` that works locally. In production, set at least these:
@@ -133,7 +150,7 @@ Every setting has a default in `appsettings.json` that works locally. In product
 | `ApiKeySettings__ApiKey` | The key clients send in `X-Api-Key`, at least 32 characters |
 | `ExternalServicesSettings__ExternalServices__AppCallback__DefaultHeaders__X-Api-Key` | The `X-Api-Key` header sent with app callbacks |
 | `CaptchaSettings__Enabled`, `CaptchaSettings__SecretKey` | Turns on the Turnstile check (see [Captcha](#captcha)) with the widget's secret key. Keep the key in a secret store, and leave `CaptchaSettings__AcceptTestKeys` off |
-| `RegisteredAppsSettings__RegisteredApps__<n>__*` | The apps to seed. Each `AppSecretKey` needs 32 to 100 characters |
+| `BootstrapAdminSettings__*` | The first admin and the app they log in through, until a global admin exists (see [The First Admin](#the-first-admin)) |
 | `DatabaseSettings__*` | Database connection |
 | `MessagingSettings__NatsUrl` | The NATS server, without credentials |
 | `MessagingSettings__NatsUser`, `MessagingSettings__NatsPassword` | UserIdentity's own NATS user. Keep the password in a secret store |
@@ -144,13 +161,13 @@ Every setting has a default in `appsettings.json` that works locally. In product
 Settings are checked at startup. An invalid setting stops the app with every failure listed, such as `ValidForSeconds: The field ValidForSeconds must be between 1 and 2147483647.`
 
 ## API Requests
-`UserIdentity/UserIdentity.http` holds requests for sending by hand, in an order that works from top to bottom: health, the OpenAPI document and the key set, logging in the admins, a user, roles with their scopes and users, invite codes, the wait list, the entities that scopes can name, registered apps, a password reset, a refresh and a logout. It leaves out `register-for-service`, which needs a service's token. Open it in Visual Studio 2022 (17.8 or later), or in VS Code with the [REST Client](https://marketplace.visualstudio.com/items?itemName=humao.rest-client) extension, and select **Send Request** above a request. The tests are the automated checks.
+`UserIdentity/UserIdentity.http` holds requests for sending by hand, in an order that works from top to bottom: health, the OpenAPI document and the key set, logging in the admin, a user, roles with their scopes and users, invite codes, the wait list, the entities that scopes can name, registered apps, a password reset, a refresh and a logout. It leaves out `register-for-service`, which needs a service's token. Open it in Visual Studio 2022 (17.8 or later), or in VS Code with the [REST Client](https://marketplace.visualstudio.com/items?itemName=humao.rest-client) extension, and select **Send Request** above a request. The tests are the automated checks.
 
-- No environment needs selecting: the settings (URL, API key, app name and the admins' details) are variables at the top of the file.
+- No environment needs selecting: the settings (URL, API key, app name and the admin's details) are variables at the top of the file.
 - Requests that use an earlier response, such as an admin's token or the new role's id, need that request sent first.
 - New users, roles, invites, wait list entries and registered apps are named after the current time, so the requests can be sent again.
 - Access tokens last 3 minutes (`JwtIssuerSettings:ValidForSeconds`). When a request answers 401, send the admin's login again.
-- The stack doesn't deliver confirmation codes, so it runs with `IdentityUserSettings:RequireConfirmedAccount` off (the default in `appsettings.json`, which `docker-compose.yml` also sets), and new accounts can log in at once. `up.ps1` registers both admins and gives them their roles, so start with their logins.
+- The stack doesn't deliver confirmation codes, and `TestApp` doesn't require confirmed accounts, so new accounts can log in at once. Start with the admin's login: the bootstrap admin is the global admin and `testapp:admin`.
 - The stack doesn't verify reset codes either, so `update-password` answers 406. To see it succeed, mark the reset requests verified after sending `reset-password`:
   ```
   docker compose exec -T db mysql -uroot -proot useridentity -e "UPDATE password_resets SET verified = 1"

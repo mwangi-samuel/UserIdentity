@@ -1,6 +1,5 @@
 ﻿using FakeItEasy;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Time.Testing;
 using PolyzenKit.Application.Core.Interfaces;
 using PolyzenKit.Application.Core.RegisteredApps.Shared;
@@ -263,13 +262,22 @@ public class UpdatePasswordCommandHandlerTests
         SetUpPasswordResetEntity(true, false, _fixedNow.AddSeconds(60));
         SetUpSuccessfulReset();
 
-        var identityOptions = new IdentityOptions();
-        identityOptions.SignIn.RequireConfirmedAccount = true;
+        var command = GetUpdatePasswordCommand() with
+        {
+            RegisteredApp = new()
+            {
+                Id = _registeredApp.Id,
+                AppName = _registeredApp.AppName,
+                AppSecretKey = _registeredApp.AppSecretKey,
+                BaseUrl = _registeredApp.BaseUrl,
+                RequireConfirmedAccount = true,
+            },
+        };
 
-        var handler = GetUpdatePasswordCommandHandler(Options.Create(identityOptions));
+        var handler = GetUpdatePasswordCommandHandler();
 
         // Act
-        var vm = await handler.UpdateItemAsync(GetUpdatePasswordCommand(), TestStringHelper.UserId, TestContext.Current.CancellationToken);
+        var vm = await handler.UpdateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken);
 
         // Assert
         Assert.True(vm.UpdatePasswordResult.PasswordUpdated);
@@ -352,9 +360,8 @@ public class UpdatePasswordCommandHandlerTests
             RegisteredApp = _registeredApp,
         };
 
-    private UpdatePasswordCommandHandler GetUpdatePasswordCommandHandler(IOptions<IdentityOptions>? identityOptions = null) =>
+    private UpdatePasswordCommandHandler GetUpdatePasswordCommandHandler() =>
         new(
-            identityOptions ?? Options.Create(new IdentityOptions()),
             _userManager,
             _tokenFactory,
             _unitOfWork,

@@ -33,14 +33,7 @@ public sealed class AppCallbackServiceTests : IDisposable
         _httpRequestSender = A.Fake<IHttpRequestSender>();
         _jwtTokenHandler = A.Fake<IJwtTokenHandler>();
         _requestIdAccessor = A.Fake<IRequestIdAccessor>();
-        _roleSettingsOptions = Options.Create(
-            new RoleSettings
-            {
-                ServiceName = "useridentity",
-                AdminRoles = string.Empty,
-                DefaultRole = "user",
-            }
-        );
+        _roleSettingsOptions = Options.Create(new RoleSettings { ServiceName = "useridentity", AdminRoles = string.Empty });
         _timeProvider = new FakeTimeProvider(Now);
 
         _requestMessage = new HttpRequestMessage();

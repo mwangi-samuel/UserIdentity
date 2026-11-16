@@ -28,21 +28,15 @@ public class DeleteUnconfirmedUsersCommandHandlerTests
         _timeProvider.SetUtcNow(_fixedNow);
     }
 
-    private DeleteUnconfirmedUsersCommandHandler CreateHandler(bool requireConfirmedAccount = true)
-    {
-        var identityOptions = new IdentityOptions();
-        identityOptions.SignIn.RequireConfirmedAccount = requireConfirmedAccount;
-
-        return new(
+    private DeleteUnconfirmedUsersCommandHandler CreateHandler() =>
+        new(
             _userManager,
-            Options.Create(identityOptions),
             Options.Create(new CleanupSettings { IntervalInMinutes = 60, UnconfirmedUserLifetimeInDays = 30 }),
             _unitOfWork,
             _userRepository,
             _inviteCodeRepository,
             _timeProvider
         );
-    }
 
     [Fact]
     public async Task DeleteItemAsync_Frees_The_Invite_Of_The_Users_App_And_Deletes_The_Identity_User()
@@ -82,18 +76,6 @@ public class DeleteUnconfirmedUsersCommandHandlerTests
     }
 
     [Fact]
-    public async Task DeleteItemAsync_DoesNothing_WhenConfirmationIsNotRequired()
-    {
-        // Act
-        await CreateHandler(requireConfirmedAccount: false)
-            .DeleteItemAsync(new DeleteUnconfirmedUsersCommand(), "system", TestContext.Current.CancellationToken);
-
-        // Assert
-        A.CallTo(_userRepository).MustNotHaveHappened();
-        A.CallTo(() => _userManager.DeleteAsync(A<IdentityUser>._)).MustNotHaveHappened();
-    }
-
-    [Fact]
     public async Task DeleteItemAsync_RollsBack_WhenTheIdentityUserCannotBeDeleted()
     {
         // Arrange
@@ -114,12 +96,19 @@ public class DeleteUnconfirmedUsersCommandHandlerTests
         A.CallTo(() => _unitOfWork.CommitTransactionAsync(A<CancellationToken>._)).MustNotHaveHappened();
     }
 
-    [Fact]
-    public async Task DeleteItemAsync_Skips_A_User_Confirmed_After_The_Batch_Was_Read()
+    [Theory]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    public async Task DeleteItemAsync_Skips_A_User_Confirmed_After_The_Batch_Was_Read(bool emailConfirmed, bool phoneNumberConfirmed)
     {
         // Arrange
         var userEntity = new UserEntity { Id = Guid.NewGuid().ToString() };
-        var identityUser = new IdentityUser { Id = userEntity.Id, EmailConfirmed = true };
+        var identityUser = new IdentityUser
+        {
+            Id = userEntity.Id,
+            EmailConfirmed = emailConfirmed,
+            PhoneNumberConfirmed = phoneNumberConfirmed,
+        };
 
         A.CallTo(() => _userRepository.GetUnconfirmedEntityItemsCreatedBeforeAsync(A<DateTime>._, A<int>._, A<CancellationToken>._))
             .Returns([userEntity]);

@@ -3,8 +3,6 @@
 @AppName = testapp
 @AdminUserName = admin
 @AdminPassword = Adm1n@P@ss
-@GlobalAdminUserName = globaladmin
-@GlobalAdminPassword = Gl0b@lAdm1n
 @UserPassword = P@ssW1rd
 @NewUserPassword = N3w@P@ssW1rd
 @CaptchaToken = XXXX.DUMMY.TOKEN.XXXX
@@ -21,7 +19,7 @@ GET {{UserIdentity_HostAddress}}/api/v1/jwks/keys
 
 ###
 
-# up.ps1 registers both admins and gives them their roles
+# up.ps1 starts the service with a bootstrap admin, who is the global admin and an admin of the app
 # @name adminLogin
 POST {{UserIdentity_HostAddress}}/api/v1/user/login
 X-Api-Key: {{ApiKey}}
@@ -31,19 +29,6 @@ Content-Type: application/json
 {
   "userName": "{{AdminUserName}}",
   "password": "{{AdminPassword}}"
-}
-
-###
-
-# @name globalAdminLogin
-POST {{UserIdentity_HostAddress}}/api/v1/user/login
-X-Api-Key: {{ApiKey}}
-X-App-Name: {{AppName}}
-Content-Type: application/json
-
-{
-  "userName": "{{GlobalAdminUserName}}",
-  "password": "{{GlobalAdminPassword}}"
 }
 
 ###
@@ -167,7 +152,7 @@ Authorization: Bearer {{adminLogin.response.body.$.userToken.accessToken.token}}
 GET {{UserIdentity_HostAddress}}/api/v1/invite-code
 X-Api-Key: {{ApiKey}}
 X-App-Name: {{AppName}}
-Authorization: Bearer {{globalAdminLogin.response.body.$.userToken.accessToken.token}}
+Authorization: Bearer {{adminLogin.response.body.$.userToken.accessToken.token}}
 
 ###
 
@@ -240,46 +225,50 @@ Authorization: Bearer {{adminLogin.response.body.$.userToken.accessToken.token}}
 
 GET {{UserIdentity_HostAddress}}/api/v1/registered-app
 X-Api-Key: {{ApiKey}}
-Authorization: Bearer {{globalAdminLogin.response.body.$.userToken.accessToken.token}}
+Authorization: Bearer {{adminLogin.response.body.$.userToken.accessToken.token}}
 
 ###
 
 # @name registeredApp
 POST {{UserIdentity_HostAddress}}/api/v1/registered-app
 X-Api-Key: {{ApiKey}}
-Authorization: Bearer {{globalAdminLogin.response.body.$.userToken.accessToken.token}}
+Authorization: Bearer {{adminLogin.response.body.$.userToken.accessToken.token}}
 Content-Type: application/json
 
 {
   "appName": "demoapp{{$timestamp}}",
   "baseUrl": "http://localhost:3001",
   "appSecretKey": "An0therS3cret-For-Local-Use-Only-012345",
-  "requireInviteCode": true
+  "requireInviteCode": true,
+  "requireConfirmedAccount": false,
+  "defaultRole": "user"
 }
 
 ###
 
 GET {{UserIdentity_HostAddress}}/api/v1/registered-app/{{registeredApp.response.body.$.registeredApp.id}}
 X-Api-Key: {{ApiKey}}
-Authorization: Bearer {{globalAdminLogin.response.body.$.userToken.accessToken.token}}
+Authorization: Bearer {{adminLogin.response.body.$.userToken.accessToken.token}}
 
 ###
 
 GET {{UserIdentity_HostAddress}}/api/v1/registered-app/name/{{registeredApp.response.body.$.registeredApp.appName}}
 X-Api-Key: {{ApiKey}}
-Authorization: Bearer {{globalAdminLogin.response.body.$.userToken.accessToken.token}}
+Authorization: Bearer {{adminLogin.response.body.$.userToken.accessToken.token}}
 
 ###
 
 PUT {{UserIdentity_HostAddress}}/api/v1/registered-app/{{registeredApp.response.body.$.registeredApp.id}}
 X-Api-Key: {{ApiKey}}
-Authorization: Bearer {{globalAdminLogin.response.body.$.userToken.accessToken.token}}
+Authorization: Bearer {{adminLogin.response.body.$.userToken.accessToken.token}}
 Content-Type: application/json
 
 {
   "appName": "{{registeredApp.response.body.$.registeredApp.appName}}",
   "baseUrl": "http://localhost:3001",
   "requireInviteCode": false,
+  "requireConfirmedAccount": true,
+  "defaultRole": "member",
   "description": "A demo app"
 }
 
@@ -287,7 +276,7 @@ Content-Type: application/json
 
 DELETE {{UserIdentity_HostAddress}}/api/v1/registered-app/{{registeredApp.response.body.$.registeredApp.id}}
 X-Api-Key: {{ApiKey}}
-Authorization: Bearer {{globalAdminLogin.response.body.$.userToken.accessToken.token}}
+Authorization: Bearer {{adminLogin.response.body.$.userToken.accessToken.token}}
 
 ###
 

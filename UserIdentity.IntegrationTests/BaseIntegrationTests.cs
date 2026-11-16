@@ -4,7 +4,6 @@ using Microsoft.Extensions.DependencyInjection;
 using NATS.Client.JetStream;
 using Newtonsoft.Json.Linq;
 using PolyzenKit.Application.Core.RegisteredApps.Shared;
-using PolyzenKit.Common.Exceptions;
 using UserIdentity.IntegrationTests.TestUtils;
 using UserIdentity.Persistence;
 using Xunit;
@@ -53,9 +52,7 @@ public class BaseIntegrationTests : IAsyncLifetime
 
         NatsTestHelper = new NatsTestHelper(ServiceProvider.GetRequiredService<INatsJSContext>());
 
-        RegisteredApp =
-            Configuration.GetSetting<RegisteredAppsSettings>().RegisteredApps.FirstOrDefault()
-            ?? throw new MissingConfigurationException("At least one registered app must be provided");
+        RegisteredApp = testingWebAppFactory.TestApp;
     }
 
     public async ValueTask InitializeAsync()

@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Net;
 using System.Text;
 using System.Text.Json.Nodes;
 using DotNet.Testcontainers.Builders;
@@ -18,10 +19,13 @@ namespace UserIdentity.SmokeTests;
 public sealed class ImageFixture : IAsyncLifetime
 {
     public const string ApiKey = "TestApiKey-For-Local-Use-Only-0123456789";
+    public const string BootstrapAdminUserName = "smoke.admin";
+    public const string BootstrapAdminPassword = "Sm0ke@Adm1n";
     public const string UserRegisteredSubject = "useridentity.user.registered";
     public const string PasswordResetRequestedSubject = "useridentity.password-reset.requested";
 
     private const string CodeVerifiedSubject = "messagemanager.code.verified";
+    private const string AppBaseUrl = "http://localhost:3000";
     private const string ImageVariable = "USERIDENTITY_SMOKE_IMAGE";
     private const string LocalImage = "useridentity:smoke";
     private const string DatabaseName = "useridentity";
@@ -96,6 +100,8 @@ public sealed class ImageFixture : IAsyncLifetime
         _service = BuildService(image);
 
         await _service.StartAsync(cancellationToken);
+
+        await RequireConfirmationAndDefaultRoleAsync(cancellationToken);
     }
 
     public async ValueTask DisposeAsync()
@@ -172,6 +178,34 @@ public sealed class ImageFixture : IAsyncLifetime
         return result.ExitCode == 0 ? result.Stdout.Trim() : throw new InvalidOperationException($"SQL failed: {result.Stderr}");
     }
 
+    private async Task RequireConfirmationAndDefaultRoleAsync(CancellationToken cancellationToken)
+    {
+        using var client = new ServiceClient(ServiceUrl);
+        await client.SignInAsBootstrapAdminAsync(cancellationToken);
+
+        var app = await ServiceClient.ReadAsync(
+            await client.GetAsync($"/api/v1/registered-app/name/{ServiceClient.AppName}", cancellationToken),
+            HttpStatusCode.OK,
+            cancellationToken
+        );
+
+        await ServiceClient.ReadAsync(
+            await client.PutAsync(
+                $"/api/v1/registered-app/{app["registeredApp"]!["id"]}",
+                new
+                {
+                    appName = ServiceClient.AppName,
+                    baseUrl = AppBaseUrl,
+                    requireConfirmedAccount = true,
+                    defaultRole = "user",
+                },
+                cancellationToken
+            ),
+            HttpStatusCode.OK,
+            cancellationToken
+        );
+    }
+
     private IContainer BuildService(string image)
     {
         var privateKeyPassPhrase = "TestKeyPassPhrase-For-Local-Use-Only";
@@ -193,7 +227,12 @@ public sealed class ImageFixture : IAsyncLifetime
             .WithEnvironment("ApiKeySettings__ApiKey", ApiKey)
             .WithEnvironment("RateLimitSettings__PermitLimit", "100000")
             .WithEnvironment("CleanupSettings__IntervalInMinutes", "1")
-            .WithEnvironment("IdentityUserSettings__RequireConfirmedAccount", "true")
+            .WithEnvironment("BootstrapAdminSettings__AppName", ServiceClient.AppName)
+            .WithEnvironment("BootstrapAdminSettings__AppBaseUrl", AppBaseUrl)
+            .WithEnvironment("BootstrapAdminSettings__UserName", BootstrapAdminUserName)
+            .WithEnvironment("BootstrapAdminSettings__FirstName", "Smoke")
+            .WithEnvironment("BootstrapAdminSettings__Email", "smoke.admin@example.com")
+            .WithEnvironment("BootstrapAdminSettings__Password", BootstrapAdminPassword)
             .WithCreateParameterModifier(parameters =>
             {
                 parameters.HostConfig!.Memory = MemoryLimitBytes;

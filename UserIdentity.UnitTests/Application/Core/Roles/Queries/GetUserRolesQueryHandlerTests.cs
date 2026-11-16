@@ -15,12 +15,7 @@ public class GetUserRolesQueryHandlerTests
     private readonly UserManager<IdentityUser> _userManager;
     private readonly IUserRegisteredAppRepository _userRegisteredAppRepository;
     private readonly IOptions<RoleSettings> _roleSettings = Options.Create(
-        new RoleSettings
-        {
-            ServiceName = "useridentity",
-            AdminRoles = "admin",
-            DefaultRole = "user",
-        }
+        new RoleSettings { ServiceName = "useridentity", AdminRoles = "admin" }
     );
 
     public GetUserRolesQueryHandlerTests()

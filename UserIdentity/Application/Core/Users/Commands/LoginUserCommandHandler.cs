@@ -2,7 +2,6 @@
 using System.Security.Authentication;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.Extensions.Options;
 using PolyzenKit.Application.Core;
 using PolyzenKit.Application.Core.Interfaces;
 using PolyzenKit.Application.Core.RegisteredApps.Shared;
@@ -28,7 +27,6 @@ public record LoginUserCommand : IBaseCommand
 }
 
 public class LoginUserCommandHandler(
-    IOptions<IdentityOptions> identityOptions,
     UserManager<IdentityUser> userManager,
     IUnitOfWork unitOfWork,
     IUserRepository userRepository,
@@ -41,7 +39,6 @@ public class LoginUserCommandHandler(
         Guid.NewGuid().ToString()
     );
 
-    private readonly IdentityOptions _identityOptions = identityOptions.Value;
     private readonly UserManager<IdentityUser> _userManager = userManager;
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
     private readonly IUserRepository _userRepository = userRepository;
@@ -79,7 +76,7 @@ public class LoginUserCommandHandler(
             await _userRepository.GetUserDtoAsync(user.Id, appName, cancellationToken)
             ?? throw new InvalidCredentialException($"User {user.Id} has no profile for app {appName}");
 
-        var isConfirmed = AccountConfirmation.IsConfirmed(_identityOptions, user);
+        var isConfirmed = AccountConfirmation.IsConfirmed(command.RegisteredApp, user);
         UserTokenViewModel? session = null;
         LoginTicketViewModel? loginTicket = null;
 
