@@ -1,15 +1,14 @@
 services:
   db:
-    image: mysql:9.7.4
+    image: postgres:18.7
     volumes:
-      - mysql_data:/var/lib/mysql
+      - postgres_data:/var/lib/postgresql
     ports:
-      - 3306:3306
+      - 5432:5432
     environment:
-      MYSQL_ROOT_PASSWORD: root
+      POSTGRES_PASSWORD: postgres
     healthcheck:
-      # TCP, not the socket, so the temporary server during first-run init doesn't count as ready
-      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-proot"]
+      test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-U", "postgres"]
       interval: 5s
       timeout: 5s
       retries: 30
@@ -107,7 +106,7 @@ services:
           memory: 256M
 
 volumes:
-  mysql_data:
+  postgres_data:
   nats_data:
   nats_ui_data:
   lgtm_data:

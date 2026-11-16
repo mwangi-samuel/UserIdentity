@@ -11,6 +11,8 @@ public class InviteCodeConfiguration : IEntityTypeConfiguration<InviteCodeEntity
     {
         builder.ConfigureLongPrimaryKey();
 
+        builder.Property(e => e.UserEmail).UseCollation(AppDbContext.CaseInsensitiveCollation);
+
         builder.HasIndex(e => new { e.AppId, e.UserEmail }).IsUnique();
     }
 }

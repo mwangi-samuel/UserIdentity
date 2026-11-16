@@ -14,14 +14,14 @@ public class AppDbContextOptionsTests(TestingWebAppFactory testingWebAppFactory,
     : BaseIntegrationTests(testingWebAppFactory, outputHelper)
 {
     [Fact]
-    public void UseAppMysql_Adds_The_Unique_Violation_Interceptor_And_Snake_Case_Names()
+    public void UseAppPostgreSql_Adds_The_Unique_Violation_Interceptor_And_Snake_Case_Names()
     {
         // Arrange
         var databaseSettings = Configuration.GetRequiredSetting<DatabaseSettings>();
         var builder = new DbContextOptionsBuilder<AppDbContext>();
 
         // Act
-        builder.UseAppMysql(databaseSettings);
+        builder.UseAppPostgreSql(databaseSettings);
 
         // Assert
         var interceptors = builder.Options.FindExtension<CoreOptionsExtension>()?.Interceptors;

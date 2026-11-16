@@ -120,6 +120,7 @@ Authorization: Bearer {{adminLogin.response.body.$.userToken.accessToken.token}}
 # @name invite
 POST {{UserIdentity_HostAddress}}/api/v1/invite-code
 X-Api-Key: {{ApiKey}}
+X-App-Name: {{AppName}}
 Authorization: Bearer {{adminLogin.response.body.$.userToken.accessToken.token}}
 Content-Type: application/json
 
@@ -133,23 +134,19 @@ Content-Type: application/json
 
 GET {{UserIdentity_HostAddress}}/api/v1/invite-code?page=1&pageSize=50&search=invitee&applied=false
 X-Api-Key: {{ApiKey}}
+X-App-Name: {{AppName}}
 Authorization: Bearer {{adminLogin.response.body.$.userToken.accessToken.token}}
 
 ###
 
 GET {{UserIdentity_HostAddress}}/api/v1/invite-code/{{invite.response.body.$.inviteCode.id}}
 X-Api-Key: {{ApiKey}}
+X-App-Name: {{AppName}}
 Authorization: Bearer {{adminLogin.response.body.$.userToken.accessToken.token}}
 
 ###
 
 GET {{UserIdentity_HostAddress}}/api/v1/invite-code/email/{{invite.response.body.$.inviteCode.userEmail}}
-X-Api-Key: {{ApiKey}}
-Authorization: Bearer {{adminLogin.response.body.$.userToken.accessToken.token}}
-
-###
-
-GET {{UserIdentity_HostAddress}}/api/v1/invite-code
 X-Api-Key: {{ApiKey}}
 X-App-Name: {{AppName}}
 Authorization: Bearer {{adminLogin.response.body.$.userToken.accessToken.token}}
@@ -176,6 +173,7 @@ Content-Type: application/json
 # @name unusedInvite
 POST {{UserIdentity_HostAddress}}/api/v1/invite-code
 X-Api-Key: {{ApiKey}}
+X-App-Name: {{AppName}}
 Authorization: Bearer {{adminLogin.response.body.$.userToken.accessToken.token}}
 Content-Type: application/json
 
@@ -188,6 +186,7 @@ Content-Type: application/json
 
 DELETE {{UserIdentity_HostAddress}}/api/v1/invite-code/{{unusedInvite.response.body.$.inviteCode.id}}
 X-Api-Key: {{ApiKey}}
+X-App-Name: {{AppName}}
 Authorization: Bearer {{adminLogin.response.body.$.userToken.accessToken.token}}
 
 ###
@@ -207,12 +206,14 @@ Content-Type: application/json
 
 GET {{UserIdentity_HostAddress}}/api/v1/wait-list/{{waitList.response.body.$.waitList.id}}
 X-Api-Key: {{ApiKey}}
+X-App-Name: {{AppName}}
 Authorization: Bearer {{adminLogin.response.body.$.userToken.accessToken.token}}
 
 ###
 
 GET {{UserIdentity_HostAddress}}/api/v1/wait-list/email/{{waitList.response.body.$.waitList.userEmail}}
 X-Api-Key: {{ApiKey}}
+X-App-Name: {{AppName}}
 Authorization: Bearer {{adminLogin.response.body.$.userToken.accessToken.token}}
 
 ###

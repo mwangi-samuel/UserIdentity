@@ -5,7 +5,6 @@ using UserIdentity.Application.Core.Users.Events;
 
 namespace UserIdentity.Infrastructure.Messaging;
 
-[MessageSubject("messagemanager.code.verified")]
 public class CodeVerifiedMessageHandler(IEventHandler<CodeVerifiedEvent> codeVerifiedEventHandler) : IMessageHandler
 {
     private const string VerifiedStatus = "Verified";

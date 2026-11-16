@@ -18,7 +18,7 @@ internal sealed class AppDbContextFactory : IDesignTimeDbContextFactory<AppDbCon
         var databaseSettings = configuration.GetRequiredSetting<DatabaseSettings>();
 
         var options = new DbContextOptionsBuilder<AppDbContext>();
-        options.UseAppMysql(databaseSettings);
+        options.UseAppPostgreSql(databaseSettings);
 
         return new AppDbContext(options.Options);
     }

@@ -12,7 +12,7 @@
     <PackageReference Include="FakeItEasy" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" />
     <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
-    <PackageReference Include="Microting.EntityFrameworkCore.MySql" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
     <PackageReference Include="PolyzenKit" />
     <PackageReference Include="xunit.v3" />
   </ItemGroup>

@@ -1,12 +1,9 @@
-﻿using System.Reflection;
-using System.Text.Json;
+﻿using System.Text.Json;
 using NATS.Client.JetStream;
 using NATS.Client.JetStream.Models;
 using PolyzenKit.Application.Core.Messages.Events;
 using PolyzenKit.Common.Enums;
 using PolyzenKit.Common.Utilities;
-using PolyzenKit.Infrastructure.Messaging.Receiving;
-using UserIdentity.Infrastructure.Messaging;
 using Xunit;
 
 namespace UserIdentity.IntegrationTests.TestUtils;
@@ -17,9 +14,7 @@ public sealed class NatsTestHelper(INatsJSContext jetStream)
     public const string UserRegisteredSubject = "useridentity.user.registered";
     public const string PasswordResetRequestedSubject = "useridentity.password-reset.requested";
     public const string CallbackRequestedSubject = "useridentity.callback.requested";
-    public static readonly string CodeVerifiedSubject = typeof(CodeVerifiedMessageHandler)
-        .GetCustomAttribute<MessageSubjectAttribute>()!
-        .Subject;
+    public const string CodeVerifiedSubject = "messagemanager.code.verified";
 
     private static readonly string _codeVerifiedSender = CodeVerifiedSubject.Split('.')[0];
     private static readonly string _codeVerifiedConsumer = $"useridentity_{CodeVerifiedSubject.Replace('.', '_')}";

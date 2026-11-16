@@ -54,7 +54,7 @@ public class BootstrapAdminCommandHandlerTests
     {
         _timeProvider.SetUtcNow(_fixedNow);
 
-        A.CallTo(() => _userManager.GetUsersInRoleAsync(GlobalAdminRole)).Returns(new List<IdentityUser>());
+        A.CallTo(() => _userManager.GetUsersInRoleAsync(GlobalAdminRole)).Returns([]);
         A.CallTo(() => _userManager.FindByNameAsync(A<string>._)).Returns((IdentityUser?)null);
         A.CallTo(() => _userManager.FindByEmailAsync(A<string>._)).Returns((IdentityUser?)null);
         A.CallTo(() => _userManager.CreateAsync(A<IdentityUser>._, A<string>._)).Returns(IdentityResult.Success);
@@ -98,7 +98,7 @@ public class BootstrapAdminCommandHandlerTests
     public async Task CreateItemAsync_Does_Nothing_When_A_Global_Admin_Exists()
     {
         // Arrange
-        A.CallTo(() => _userManager.GetUsersInRoleAsync(GlobalAdminRole)).Returns(new List<IdentityUser> { new() { Id = "admin-1" } });
+        A.CallTo(() => _userManager.GetUsersInRoleAsync(GlobalAdminRole)).Returns([new() { Id = "admin-1" }]);
 
         // Act
         var vm = await CreateHandler().CreateItemAsync(new BootstrapAdminCommand(), "system", TestContext.Current.CancellationToken);

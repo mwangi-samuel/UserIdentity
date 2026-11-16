@@ -19,9 +19,9 @@ builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = 
 
 builder.AddAppLogging();
 
-builder.AddAppTelemetry("MySqlConnector");
+builder.AddAppTelemetry("Npgsql");
 
-builder.Services.AddAppMysql<AppDbContext>(builder.Configuration);
+builder.Services.AddAppPostgreSql<AppDbContext>(builder.Configuration);
 
 builder.Services.AddAppIdentity<AppDbContext>(builder.Configuration);
 

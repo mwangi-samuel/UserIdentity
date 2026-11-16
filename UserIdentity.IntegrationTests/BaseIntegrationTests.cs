@@ -3,7 +3,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using NATS.Client.JetStream;
 using Newtonsoft.Json.Linq;
-using PolyzenKit.Application.Core.RegisteredApps.Shared;
+using PolyzenKit.Application.Core.RegisteredApps.Commands;
 using UserIdentity.IntegrationTests.TestUtils;
 using UserIdentity.Persistence;
 using Xunit;
@@ -25,7 +25,7 @@ public class BaseIntegrationTests : IAsyncLifetime
 
     protected StubCaptchaVerifier CaptchaVerifier => _testingWebAppFactory.CaptchaVerifier;
 
-    protected RegisteredAppSeed RegisteredApp { get; }
+    protected CreateRegisteredAppCommand RegisteredApp { get; }
 
     protected IConfiguration Configuration { get; }
 

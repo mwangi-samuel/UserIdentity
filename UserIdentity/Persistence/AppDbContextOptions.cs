@@ -1,5 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using MySqlConnector;
+using Npgsql;
 using PolyzenKit.Persistence.Infrastructure;
 using PolyzenKit.Persistence.Settings;
 
@@ -7,9 +7,11 @@ namespace UserIdentity.Persistence;
 
 public static class AppDbContextOptions
 {
-    public static DbContextOptionsBuilder UseAppMysql(this DbContextOptionsBuilder options, DatabaseSettings databaseSettings) =>
+    public static DbContextOptionsBuilder UseAppPostgreSql(this DbContextOptionsBuilder options, DatabaseSettings databaseSettings) =>
         options
-            .UseMySql(databaseSettings.ConnectionString, ServerVersion.AutoDetect(databaseSettings.ConnectionString))
+            .UseNpgsql(databaseSettings.ConnectionString)
             .UseSnakeCaseNamingConvention()
-            .AddInterceptors(new UniqueViolationInterceptor(exception => exception is MySqlException { Number: 1062 }));
+            .AddInterceptors(
+                new UniqueViolationInterceptor(exception => exception is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation })
+            );
 }

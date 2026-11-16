@@ -3,7 +3,6 @@ using Microsoft.Extensions.DependencyInjection;
 using PolyzenKit.Application.Core;
 using PolyzenKit.Application.Core.Interfaces;
 using PolyzenKit.Application.Core.RegisteredApps.Commands;
-using PolyzenKit.Application.Core.RegisteredApps.Shared;
 using PolyzenKit.Application.Core.RegisteredApps.ViewModels;
 using UserIdentity.Application.Core.Tokens.Commands;
 using UserIdentity.Application.Core.Users.Commands;
@@ -69,17 +68,15 @@ public class UserCleanupTests(TestingWebAppFactory testingWebAppFactory, ITestOu
         const string appName = "NoConfirmationApp";
 
         await ServiceProvider
-            .GetRequiredService<IUpdateItemCommandHandler<SeedRegisteredAppsCommand, RegisteredAppsViewModel>>()
-            .UpdateItemAsync(
-                new SeedRegisteredAppsCommand([
-                    new RegisteredAppSeed
-                    {
-                        AppName = appName,
-                        BaseUrl = "http://localhost:3004",
-                        AppSecretKey = "N0Conf1rmationApp-Secret-For-Tests-Only-01",
-                        RequireConfirmedAccount = false,
-                    },
-                ]),
+            .GetRequiredService<ICreateItemCommandHandler<CreateRegisteredAppCommand, RegisteredAppViewModel>>()
+            .CreateItemAsync(
+                new CreateRegisteredAppCommand
+                {
+                    AppName = appName,
+                    BaseUrl = "http://localhost:3004",
+                    AppSecretKey = "N0Conf1rmationApp-Secret-For-Tests-Only-01",
+                    RequireConfirmedAccount = false,
+                },
                 "system",
                 TestContext.Current.CancellationToken
             );
