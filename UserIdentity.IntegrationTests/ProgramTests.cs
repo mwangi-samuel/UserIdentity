@@ -17,7 +17,6 @@ public class ProgramTests(TestingWebAppFactory testingWebAppFactory, ITestOutput
     : BaseIntegrationTests(testingWebAppFactory, outputHelper)
 {
     private const string RegisteredAppUri = "/api/v1/registered-app";
-    private const string AppSecretKey = "S3TAG00dSeC8E7-For-Local-Use-Only-012345";
     private const string BootstrapAppName = "BootstrapApp";
     private const string BootstrapUserName = "bootstrap.admin";
     private const string BootstrapPassword = "B00tstr@p-Adm1n";
@@ -61,7 +60,7 @@ public class ProgramTests(TestingWebAppFactory testingWebAppFactory, ITestOutput
         var entityNames = await context.AppEntity.Select(entity => entity.EntityName).ToListAsync(TestContext.Current.CancellationToken);
 
         // Assert
-        Assert.Superset(new HashSet<string> { "user", "role", "invite-code", "wait-list" }, entityNames.ToHashSet());
+        Assert.Superset(new HashSet<string> { "user", "role", "invite-code", "wait-list", "sign-in-settings" }, entityNames.ToHashSet());
     }
 
     [Fact]
@@ -71,12 +70,7 @@ public class ProgramTests(TestingWebAppFactory testingWebAppFactory, ITestOutput
         TestDbHelper.SeedDatabase();
         TestDbHelper.ConfigureIdentityUserAsGlobalAdmin();
 
-        var requestPayload = new
-        {
-            AppSecretKey,
-            BaseUrl = "http://localhost:3001",
-            RequireConfirmedAccount = true,
-        };
+        var requestPayload = new { BaseUrl = "http://localhost:3001" };
 
         // Act
         var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Post, RegisteredAppUri, requestPayload);
@@ -98,149 +92,6 @@ public class ProgramTests(TestingWebAppFactory testingWebAppFactory, ITestOutput
         var error = Assert.Single(errorList);
         Assert.Equal("AppName", error.Field);
         Assert.Equal("The AppName field is required.", error.Message);
-    }
-
-    [Fact]
-    public async Task Create_Registered_App_Without_Require_Confirmed_Account_Returns_Validation_Error()
-    {
-        // Arrange
-        TestDbHelper.SeedDatabase();
-        TestDbHelper.ConfigureIdentityUserAsGlobalAdmin();
-
-        var requestPayload = new
-        {
-            AppName = "UndecidedConfirmationApp",
-            AppSecretKey,
-            BaseUrl = "http://localhost:3001",
-        };
-
-        // Act
-        var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Post, RegisteredAppUri, requestPayload);
-
-        // Assert
-        var responseString = await response.ValidateRequestResponseAsync();
-
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-
-        var errorList = SerDeHelper.Deserialize<JObject>(responseString)?["error"]?["errorList"]?.ToObject<List<ValidationError>>();
-
-        Assert.NotNull(errorList);
-        var error = Assert.Single(errorList);
-        Assert.Equal("RequireConfirmedAccount", error.Field);
-        Assert.Equal("The RequireConfirmedAccount field is required.", error.Message);
-    }
-
-    [Fact]
-    public async Task Created_Registered_App_Keeps_Its_Lower_Case_Default_Role_And_Confirmation_Setting()
-    {
-        // Arrange
-        TestDbHelper.SeedDatabase();
-        TestDbHelper.ConfigureIdentityUserAsGlobalAdmin();
-
-        var requestPayload = new
-        {
-            AppName = "DefaultRoleApp",
-            AppSecretKey,
-            BaseUrl = "http://localhost:3001",
-            RequireConfirmedAccount = true,
-            DefaultRole = "Member",
-        };
-
-        var createResponse = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Post, RegisteredAppUri, requestPayload);
-        Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
-
-        var registeredAppId = SerDeHelper
-            .Deserialize<JObject>(await createResponse.ValidateRequestResponseAsync())
-            ?["registeredApp"]?["id"];
-
-        // Act
-        var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Get, $"{RegisteredAppUri}/{registeredAppId}");
-
-        // Assert
-        var jsonObject = SerDeHelper.Deserialize<JObject>(await response.ValidateRequestResponseAsync());
-
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.NotNull(jsonObject);
-        Assert.Equal("member", $"{jsonObject["registeredApp"]?["defaultRole"]}");
-        Assert.Equal("True", $"{jsonObject["registeredApp"]?["requireConfirmedAccount"]}");
-    }
-
-    [Fact]
-    public async Task Update_Registered_App_Replaces_Its_Default_Role_And_Confirmation_Setting()
-    {
-        // Arrange
-        TestDbHelper.SeedDatabase();
-        TestDbHelper.ConfigureIdentityUserAsGlobalAdmin();
-
-        var createResponse = await HttpClient.SendValidAuthRequestAsync(
-            HttpMethod.Post,
-            RegisteredAppUri,
-            new
-            {
-                AppName = "UpdatedSignUpApp",
-                AppSecretKey,
-                BaseUrl = "http://localhost:3001",
-                RequireConfirmedAccount = true,
-                DefaultRole = "member",
-            }
-        );
-        Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
-
-        var registeredAppId = SerDeHelper
-            .Deserialize<JObject>(await createResponse.ValidateRequestResponseAsync())
-            ?["registeredApp"]?["id"];
-
-        // Act
-        var response = await HttpClient.SendValidAuthRequestAsync(
-            HttpMethod.Put,
-            $"{RegisteredAppUri}/{registeredAppId}",
-            new
-            {
-                AppName = "UpdatedSignUpApp",
-                BaseUrl = "http://localhost:3001",
-                RequireConfirmedAccount = false,
-            }
-        );
-
-        // Assert
-        var jsonObject = SerDeHelper.Deserialize<JObject>(await response.ValidateRequestResponseAsync());
-
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.NotNull(jsonObject);
-        Assert.Equal(string.Empty, $"{jsonObject["registeredApp"]?["defaultRole"]}");
-        Assert.Equal("False", $"{jsonObject["registeredApp"]?["requireConfirmedAccount"]}");
-    }
-
-    [Fact]
-    public async Task Create_Registered_App_With_An_Admin_Default_Role_Returns_Bad_Request()
-    {
-        // Arrange
-        TestDbHelper.SeedDatabase();
-        TestDbHelper.ConfigureIdentityUserAsGlobalAdmin();
-
-        var requestPayload = new
-        {
-            AppName = "AdminDefaultRoleApp",
-            AppSecretKey,
-            BaseUrl = "http://localhost:3001",
-            RequireConfirmedAccount = true,
-            DefaultRole = "Admin",
-        };
-
-        // Act
-        var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Post, RegisteredAppUri, requestPayload);
-
-        // Assert
-        var jsonObject = SerDeHelper.Deserialize<JObject>(await response.ValidateRequestResponseAsync());
-
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        Assert.NotNull(jsonObject);
-        Assert.Equal("The default role Admin is an admin role, which sign-up can't grant.", $"{jsonObject["error"]?["message"]}");
-
-        var context = ServiceProvider.GetRequiredService<AppDbContext>();
-        Assert.False(
-            await context.RegisteredApp.AnyAsync(app => app.AppName == "AdminDefaultRoleApp", TestContext.Current.CancellationToken)
-        );
     }
 
     [Fact]
@@ -270,6 +121,17 @@ public class ProgramTests(TestingWebAppFactory testingWebAppFactory, ITestOutput
 
         Assert.Contains(KnownRoles.GlobalAdmin, roles);
         Assert.Contains("bootstrapapp:admin", roles);
+        Assert.Equal("Session", $"{jsonObject?["nextStep"]}");
+
+        var context = ServiceProvider.GetRequiredService<AppDbContext>();
+        var bootstrapApp = await context
+            .RegisteredApp.AsNoTracking()
+            .SingleAsync(app => app.AppName == BootstrapAppName, TestContext.Current.CancellationToken);
+
+        Assert.Null(bootstrapApp.AppSecretKey);
+        Assert.False(
+            await context.AppSignInSettings.AnyAsync(settings => settings.AppId == bootstrapApp.Id, TestContext.Current.CancellationToken)
+        );
     }
 
     [Fact]

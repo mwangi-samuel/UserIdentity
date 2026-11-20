@@ -4,10 +4,13 @@ using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
 using PolyzenKit.Application.Core;
 using PolyzenKit.Application.Core.Interfaces;
+using PolyzenKit.Application.Core.RegisteredApps.Shared;
 using PolyzenKit.Application.Interfaces;
 using PolyzenKit.Persistence.Repositories;
 using UserIdentity.Application.Core.Tokens.Shared;
 using UserIdentity.Application.Core.Tokens.ViewModels;
+using UserIdentity.Application.Core.TwoFactor.Queries;
+using UserIdentity.Application.Core.TwoFactor.ViewModels;
 using UserIdentity.Domain.RefreshTokens;
 using UserIdentity.Persistence.Repositories.RefreshTokens;
 
@@ -29,6 +32,8 @@ public class ExchangeRefreshTokenCommandHandler(
     IUnitOfWork unitOfWork,
     IRefreshTokenRepository refreshTokenRepository,
     TimeProvider timeProvider,
+    IRegisteredAppResolver registeredAppResolver,
+    IGetItemQueryHandler<GetTwoFactorStatusQuery, TwoFactorStatusViewModel> getTwoFactorStatusQueryHandler,
     ICreateItemCommandHandler<CreateAccessTokenCommand, AccessTokenViewModel> createAccessTokenCommandHandler
 )
     : BaseAuditableItemCommandHandler<Guid, RefreshTokenEntity, IRefreshTokenRepository>(unitOfWork, refreshTokenRepository, timeProvider),
@@ -37,6 +42,10 @@ public class ExchangeRefreshTokenCommandHandler(
     private readonly RefreshTokenSettings _refreshTokenSettings = refreshTokenSettingsOptions.Value;
     private readonly IJwtTokenHandler _jwtTokenHandler = jwtTokenHandler;
     private readonly ITokenFactory _tokenFactory = tokenFactory;
+    private readonly IRegisteredAppResolver _registeredAppResolver = registeredAppResolver;
+
+    private readonly IGetItemQueryHandler<GetTwoFactorStatusQuery, TwoFactorStatusViewModel> _getTwoFactorStatusQueryHandler =
+        getTwoFactorStatusQueryHandler;
 
     private readonly ICreateItemCommandHandler<CreateAccessTokenCommand, AccessTokenViewModel> _createAccessTokenCommandHandler =
         createAccessTokenCommandHandler;
@@ -87,6 +96,20 @@ public class ExchangeRefreshTokenCommandHandler(
             await RemoveRefreshTokenAsync(existingEntity, cancellationToken);
 
             throw new SecurityTokenException("Invalid refresh token provided");
+        }
+
+        var registeredApp = await _registeredAppResolver.GetActiveAppAsync(azp, cancellationToken);
+
+        var twoFactorStatus = await _getTwoFactorStatusQueryHandler.GetItemAsync(
+            new GetTwoFactorStatusQuery(tokenUserId, registeredApp),
+            cancellationToken
+        );
+
+        if (twoFactorStatus.Required && twoFactorStatus.Method is null)
+        {
+            await RemoveRefreshTokenAsync(existingEntity, cancellationToken);
+
+            throw new SecurityTokenException("Two-step sign-in is required and not set up");
         }
 
         var accessToken = await _createAccessTokenCommandHandler.CreateItemAsync(

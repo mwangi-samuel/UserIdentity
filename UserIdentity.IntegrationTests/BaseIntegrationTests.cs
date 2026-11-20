@@ -3,6 +3,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using NATS.Client.JetStream;
 using Newtonsoft.Json.Linq;
+using PolyzenKit.Application.Core.Messages.Events;
 using PolyzenKit.Application.Core.RegisteredApps.Commands;
 using UserIdentity.IntegrationTests.TestUtils;
 using UserIdentity.Persistence;
@@ -24,6 +25,10 @@ public class BaseIntegrationTests : IAsyncLifetime
     protected NatsTestHelper NatsTestHelper { get; }
 
     protected StubCaptchaVerifier CaptchaVerifier => _testingWebAppFactory.CaptchaVerifier;
+
+    protected StubHttpServer StubHttpServer => _testingWebAppFactory.StubHttpServer;
+
+    protected TestBackend TestBackend => _testingWebAppFactory.TestBackend;
 
     protected CreateRegisteredAppCommand RegisteredApp { get; }
 
@@ -62,9 +67,19 @@ public class BaseIntegrationTests : IAsyncLifetime
         await _testingWebAppFactory.ResetDatabaseAsync(TestContext.Current.CancellationToken);
 
         CaptchaVerifier.Reset();
+        StubHttpServer.Reset();
+
+        await _testingWebAppFactory.ResetSignInSettingsAsync(TestContext.Current.CancellationToken);
 
         TestDbHelper.CreateIdentityRole(TestDbHelper.AdminRoles.First());
     }
+
+    protected Task<MessageEvent?> FindMessageSentToAsync(string subject, string email, TimeSpan? waitTime = null) =>
+        NatsTestHelper.FindMessageAsync(
+            subject,
+            message => message.Recipient?.Email == email && message.OccurredAt >= TestStartedAt.AddSeconds(-1),
+            waitTime
+        );
 
     protected void AssertErrorTimestamp(JObject jsonObject)
     {

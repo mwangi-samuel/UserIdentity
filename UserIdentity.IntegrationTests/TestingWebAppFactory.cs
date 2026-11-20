@@ -10,6 +10,7 @@ using NATS.Client.JetStream;
 using Npgsql;
 using PolyzenKit.Application.Core.Interfaces;
 using PolyzenKit.Application.Core.RegisteredApps.Commands;
+using PolyzenKit.Application.Core.RegisteredApps.Shared;
 using PolyzenKit.Application.Core.RegisteredApps.ViewModels;
 using PolyzenKit.Application.Interfaces;
 using PolyzenKit.Common.Utilities;
@@ -24,6 +25,10 @@ using PolyzenKit.Presentation.Settings;
 using Respawn;
 using Testcontainers.Nats;
 using Testcontainers.PostgreSql;
+using UserIdentity.Application.Core.SignInSettings.Commands;
+using UserIdentity.Application.Core.SignInSettings.ViewModels;
+using UserIdentity.Application.Core.Users.Shared;
+using UserIdentity.Domain.AppSignInSettings;
 using UserIdentity.IntegrationTests.TestUtils;
 using UserIdentity.Persistence;
 using Xunit;
@@ -33,22 +38,12 @@ namespace UserIdentity.IntegrationTests;
 public class TestingWebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
 {
     public const string TestAppName = "TestApp";
-    public const string TestAppSecretKey = "S3TAG00dSeC8E7-For-Local-Use-Only-012345";
     public const string OtherAppName = "OtherApp";
-    public const string CallbackAppName = "CallbackApp";
-    public const string CallbackAppSecretKey = "Ca11backApp5ecretKey-For-Tests-Only-0123";
-    public const string CallbackPath = "/callback";
     public const string DefaultRole = "user";
 
-    public CreateRegisteredAppCommand TestApp { get; } =
-        new()
-        {
-            AppName = TestAppName,
-            BaseUrl = "http://localhost:3000",
-            AppSecretKey = TestAppSecretKey,
-            RequireConfirmedAccount = true,
-            DefaultRole = DefaultRole,
-        };
+    public TestBackend TestBackend { get; } = new();
+
+    public CreateRegisteredAppCommand TestApp { get; }
 
     public StubHttpServer StubHttpServer { get; } = new();
 
@@ -75,6 +70,13 @@ public class TestingWebAppFactory : WebApplicationFactory<Program>, IAsyncLifeti
 
     public TestingWebAppFactory()
     {
+        TestApp = new()
+        {
+            AppName = TestAppName,
+            BaseUrl = "http://localhost:3000",
+            Backends = [new RegisteredAppBackendInput { Name = TestBackend.Name, PublicKey = TestBackend.PublicKeyPem }],
+        };
+
         _postgreSqlContainer = new PostgreSqlBuilder("postgres:18.7")
             .WithUsername(_dbUserName)
             .WithPassword(_dbUserPassword)
@@ -98,7 +100,6 @@ public class TestingWebAppFactory : WebApplicationFactory<Program>, IAsyncLifeti
             StubHttpServer.StartAsync(TestContext.Current.CancellationToken)
         );
 
-        // Without the streams, the app's consumers back off for up to 30 seconds before they attach
         await using var natsConnection = new NatsConnection(
             NatsOpts.Default with
             {
@@ -107,7 +108,7 @@ public class TestingWebAppFactory : WebApplicationFactory<Program>, IAsyncLifeti
             }
         );
 
-        await NatsTestHelper.CreateStreamsAsync(new NatsJSContext(natsConnection), TestContext.Current.CancellationToken);
+        await NatsTestHelper.CreateStreamAsync(new NatsJSContext(natsConnection), TestContext.Current.CancellationToken);
 
         await using var scope = Services.CreateAsyncScope();
 
@@ -115,33 +116,44 @@ public class TestingWebAppFactory : WebApplicationFactory<Program>, IAsyncLifeti
             ICreateItemCommandHandler<CreateRegisteredAppCommand, RegisteredAppViewModel>
         >();
 
-        CreateRegisteredAppCommand[] registeredApps =
-        [
-            TestApp,
-            new()
-            {
-                AppName = OtherAppName,
-                BaseUrl = "http://localhost:3001",
-                AppSecretKey = "0therApp5ecretKey-For-Tests-Only-0123456",
-                RequireConfirmedAccount = true,
-                DefaultRole = DefaultRole,
-            },
-            new()
-            {
-                AppName = CallbackAppName,
-                BaseUrl = "http://localhost:3002",
-                AppSecretKey = CallbackAppSecretKey,
-                CallbackUrl = StubHttpServer.Url + CallbackPath,
-                RequireConfirmedAccount = true,
-                DefaultRole = DefaultRole,
-            },
-        ];
+        CreateRegisteredAppCommand[] registeredApps = [TestApp, new() { AppName = OtherAppName, BaseUrl = "http://localhost:3001" }];
 
         foreach (var registeredApp in registeredApps)
             await createRegisteredAppCommandHandler.CreateItemAsync(
                 registeredApp,
                 KnownUsers.SystemId,
                 TestContext.Current.CancellationToken
+            );
+
+        await ResetSignInSettingsAsync(TestContext.Current.CancellationToken);
+    }
+
+    public async Task<AppSignInSettingsDto> UpdateSignInSettingsAsync(
+        string appName,
+        UpdateSignInSettingsCommand command,
+        CancellationToken cancellationToken
+    )
+    {
+        await using var scope = Services.CreateAsyncScope();
+
+        command.RegisteredApp = await scope
+            .ServiceProvider.GetRequiredService<IRegisteredAppResolver>()
+            .GetActiveAppAsync(appName, cancellationToken);
+
+        var vm = await scope
+            .ServiceProvider.GetRequiredService<IUpdateItemCommandHandler<UpdateSignInSettingsCommand, SignInSettingsViewModel>>()
+            .UpdateItemAsync(command, KnownUsers.SystemId, cancellationToken);
+
+        return vm.SignInSettings;
+    }
+
+    public async Task ResetSignInSettingsAsync(CancellationToken cancellationToken)
+    {
+        foreach (var appName in new[] { TestAppName, OtherAppName })
+            await UpdateSignInSettingsAsync(
+                appName,
+                new UpdateSignInSettingsCommand { RequireConfirmedAccount = true, DefaultRole = DefaultRole },
+                cancellationToken
             );
     }
 
@@ -177,6 +189,15 @@ public class TestingWebAppFactory : WebApplicationFactory<Program>, IAsyncLifeti
         // Override app secret encryption key - "key1" is the CurrentKeyId in appsettings.json
         builder.UseSetting($"{nameof(AppSecretSettings)}:{nameof(AppSecretSettings.Keys)}:key1", _appSecretKey);
 
+        builder.UseSetting(
+            $"{nameof(CodeCheckSettings)}:{nameof(CodeCheckSettings.VerifyUrl)}",
+            StubHttpServer.Url + CodeCheckStub.VerifyPath
+        );
+        builder.UseSetting(
+            $"{nameof(CodeCheckSettings)}:{nameof(CodeCheckSettings.ResendUrl)}",
+            StubHttpServer.Url + CodeCheckStub.RetryPath
+        );
+
         // Override Rate Limit Settings
         builder.UseSetting($"{nameof(RateLimitSettings)}:{nameof(RateLimitSettings.Enabled)}", "false");
     }
@@ -201,6 +222,8 @@ public class TestingWebAppFactory : WebApplicationFactory<Program>, IAsyncLifeti
                     [
                         appDbContext.GetTableName<AppEntity>()!,
                         appDbContext.GetTableName<RegisteredAppEntity>()!,
+                        appDbContext.GetTableName<RegisteredAppBackendEntity>()!,
+                        appDbContext.GetTableName<AppSignInSettingsEntity>()!,
                         HistoryRepository.DefaultTableName,
                     ],
                 }

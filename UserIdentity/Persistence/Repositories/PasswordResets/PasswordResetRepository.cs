@@ -17,7 +17,7 @@ public class PasswordResetRepository(AppDbContext dbContext)
     {
         var requestId = ObjectExtensions.RequireNonNullValue(entity.RequestId, nameof(entity.RequestId));
 
-        var existingEntity = await DbSet.SingleOrDefaultAsync(e => e.RequestId == requestId, cancellationToken);
+        var existingEntity = await DbSet.SingleOrDefaultAsync(e => e.RequestId == requestId && e.AppId == entity.AppId, cancellationToken);
 
         return queryCondition.Apply(existingEntity, requestId);
     }

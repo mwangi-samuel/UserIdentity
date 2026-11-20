@@ -11,17 +11,20 @@ public class CaptchaRequirementTests(TestingWebAppFactory testingWebAppFactory, 
 {
     private const string RegisterUri = "/api/v1/user/register";
     private const string ResetPasswordUri = "/api/v1/user/reset-password";
+    private const string ResendCodeUri = "/api/v1/user/resend-code";
     private const string WaitListUri = "/api/v1/wait-list";
     private const string CaptchaToken = "captcha-token";
 
     [Theory]
     [InlineData(RegisterUri, "register")]
     [InlineData(ResetPasswordUri, "reset-password")]
+    [InlineData(ResendCodeUri, "resend-code")]
     [InlineData(WaitListUri, "wait-list")]
     public async Task Endpoint_Checks_The_Captcha_Token_For_Its_Action(string uri, string action)
     {
         // Arrange
         TestDbHelper.SeedDatabase();
+        StubHttpServer.AnswerRetry("NotFound");
 
         // Act
         await SendAsync(uri);
@@ -33,11 +36,13 @@ public class CaptchaRequirementTests(TestingWebAppFactory testingWebAppFactory, 
     [Theory]
     [InlineData(RegisterUri, "register")]
     [InlineData(ResetPasswordUri, "reset-password")]
+    [InlineData(ResendCodeUri, "resend-code")]
     [InlineData(WaitListUri, "wait-list")]
     public async Task Endpoint_Refuses_A_Failed_Captcha_Check(string uri, string action)
     {
         // Arrange
         TestDbHelper.SeedDatabase();
+        StubHttpServer.AnswerRetry("NotFound");
 
         CaptchaVerifier.Passes = false;
 
@@ -79,6 +84,7 @@ public class CaptchaRequirementTests(TestingWebAppFactory testingWebAppFactory, 
                 UserSettingHelper.UserPassword,
             },
             ResetPasswordUri => new { UserSettingHelper.UserName },
+            ResendCodeUri => new { Ticket = "unknown-ticket" },
             _ => new { UserSettingHelper.UserEmail },
         };
 }

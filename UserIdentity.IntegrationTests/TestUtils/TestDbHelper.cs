@@ -7,7 +7,11 @@ using PolyzenKit.Common.Settings;
 using PolyzenKit.Common.Utilities;
 using PolyzenKit.Domain.Entities.RegisteredApps;
 using PolyzenKit.Infrastructure.Security.Tokens;
+using UserIdentity.Common.Enums;
+using UserIdentity.Domain.AccountLimitEvents;
+using UserIdentity.Domain.EmailChanges;
 using UserIdentity.Domain.InviteCodes;
+using UserIdentity.Domain.LoginTickets;
 using UserIdentity.Domain.PasswordResets;
 using UserIdentity.Domain.RefreshTokens;
 using UserIdentity.Domain.UserRegisteredApps;
@@ -285,6 +289,26 @@ public sealed class TestDbHelper(
         return refreshToken;
     }
 
+    public RefreshTokenEntity CreateRefreshTokenEntity(string userId)
+    {
+        var refreshToken = new RefreshTokenEntity
+        {
+            Id = Guid.CreateVersion7(),
+            UserId = userId,
+            Token = RandomStrings.Generate(32),
+            Expires = DateTime.UtcNow.AddDays(1),
+            CreatedBy = userId,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedBy = userId,
+            UpdatedAt = DateTime.UtcNow,
+        };
+
+        _appDbContext.RefreshToken.Add(refreshToken);
+        _appDbContext.SaveChanges();
+
+        return refreshToken;
+    }
+
     public RefreshTokenEntity? GetRefreshTokenEntity(string userId) => _appDbContext.RefreshToken.FirstOrDefault(r => r.UserId == userId);
 
     public List<RefreshTokenEntity> GetRefreshTokenEntitiesWithNoTracking(string userId) =>
@@ -312,20 +336,15 @@ public sealed class TestDbHelper(
     #endregion
 
     #region PasswordResetEntity Related
-    public PasswordResetEntity CreatePasswordResetEntity(
-        string resetRequestId,
-        bool verified = true,
-        bool applied = false,
-        DateTime? expires = null
-    )
+    public PasswordResetEntity CreatePasswordResetEntity(string resetRequestId, bool applied = false, DateTime? expires = null)
     {
         var entity = new PasswordResetEntity
         {
             Id = Guid.CreateVersion7(),
             RequestId = _tokenFactory.HashToken(resetRequestId),
+            AppId = _appDbContext.RegisteredApp.Single(a => a.AppName == _currentAppNameNormalized).Id,
             UserId = UserSettingHelper.UserId,
             Expires = expires ?? DateTime.UtcNow.AddMinutes(15),
-            Verified = verified,
             Applied = applied,
             CreatedBy = UserSettingHelper.UserId,
             CreatedAt = DateTime.UtcNow,
@@ -338,6 +357,11 @@ public sealed class TestDbHelper(
 
         return entity;
     }
+
+    public int CountLoginTicketEntities(string userId) => _appDbContext.LoginTicket.AsNoTracking().Count(x => x.UserId == userId);
+
+    public List<LoginTicketEntity> GetLoginTicketEntitiesWithNoTracking(string userId) =>
+        [.. _appDbContext.LoginTicket.AsNoTracking().Where(x => x.UserId == userId)];
 
     public int CountPasswordResetEntities(string userId) => _appDbContext.PasswordReset.AsNoTracking().Count(x => x.UserId == userId);
 
@@ -472,6 +496,49 @@ public sealed class TestDbHelper(
             _appDbContext.SaveChanges();
         }
     }
+
+    #endregion
+
+    #region Two-step sign-in Related
+
+    public void SetTwoFactorMethod(string userId, TwoFactorMethod? method)
+    {
+        var userDetails = _appDbContext.AppUser.Single(x => x.Id == userId);
+        userDetails.TwoFactorMethod = method;
+
+        var user = _appDbContext.Users.Single(x => x.Id == userId);
+        user.TwoFactorEnabled = method is not null;
+
+        _appDbContext.SaveChanges();
+    }
+
+    public TwoFactorMethod? GetTwoFactorMethod(string userId) =>
+        _appDbContext.AppUser.AsNoTracking().Single(x => x.Id == userId).TwoFactorMethod;
+
+    public List<IdentityUserToken<string>> GetUserTokensWithNoTracking(string userId) =>
+        [.. _appDbContext.UserTokens.AsNoTracking().Where(x => x.UserId == userId)];
+
+    public int CountAccountLimitEvents(string userId, AccountLimitKind kind) =>
+        _appDbContext.AccountLimitEvent.AsNoTracking().Count(x => x.UserId == userId && x.Kind == kind);
+
+    public void CreateAccountLimitEvents(string userId, AccountLimitKind kind, int count)
+    {
+        _appDbContext.AccountLimitEvent.AddRange(
+            Enumerable
+                .Range(0, count)
+                .Select(index => new AccountLimitEventEntity
+                {
+                    Id = Guid.CreateVersion7(),
+                    UserId = userId,
+                    Kind = kind,
+                    CreatedAt = DateTime.UtcNow.AddMinutes(-index - 1),
+                })
+        );
+        _appDbContext.SaveChanges();
+    }
+
+    public EmailChangeEntity? GetEmailChangeEntityWithNoTracking(string userId) =>
+        _appDbContext.EmailChange.AsNoTracking().FirstOrDefault(x => x.UserId == userId);
 
     #endregion
 

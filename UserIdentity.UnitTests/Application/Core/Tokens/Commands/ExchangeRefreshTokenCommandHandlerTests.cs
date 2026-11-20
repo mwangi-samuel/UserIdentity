@@ -5,11 +5,15 @@ using Microsoft.Extensions.Time.Testing;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
 using PolyzenKit.Application.Core.Interfaces;
+using PolyzenKit.Application.Core.RegisteredApps.Shared;
 using PolyzenKit.Application.Interfaces;
 using PolyzenKit.Persistence.Repositories;
 using UserIdentity.Application.Core.Tokens.Commands;
 using UserIdentity.Application.Core.Tokens.Shared;
 using UserIdentity.Application.Core.Tokens.ViewModels;
+using UserIdentity.Application.Core.TwoFactor.Queries;
+using UserIdentity.Application.Core.TwoFactor.ViewModels;
+using UserIdentity.Common.Enums;
 using UserIdentity.Domain.RefreshTokens;
 using UserIdentity.Persistence.Repositories.RefreshTokens;
 using UserIdentity.UnitTests.TestUtils;
@@ -38,6 +42,19 @@ public class ExchangeRefreshTokenCommandHandlerTests
         ICreateItemCommandHandler<CreateAccessTokenCommand, AccessTokenViewModel>
     >();
 
+    private readonly IRegisteredAppResolver _registeredAppResolver = A.Fake<IRegisteredAppResolver>();
+
+    private readonly IGetItemQueryHandler<GetTwoFactorStatusQuery, TwoFactorStatusViewModel> _getTwoFactorStatusQueryHandler = A.Fake<
+        IGetItemQueryHandler<GetTwoFactorStatusQuery, TwoFactorStatusViewModel>
+    >();
+
+    private readonly ActiveRegisteredApp _registeredApp = new()
+    {
+        Id = 1,
+        AppName = "TestApp",
+        BaseUrl = "https://app.test",
+    };
+
     public ExchangeRefreshTokenCommandHandlerTests()
     {
         _refreshTokenSettings = Options.Create(new RefreshTokenSettings { ValidForSeconds = RefreshTokenValidForSeconds });
@@ -49,6 +66,77 @@ public class ExchangeRefreshTokenCommandHandlerTests
         _timeProvider.SetUtcNow(_now);
 
         A.CallTo(() => _tokenFactory.HashToken(RefreshToken)).Returns(RefreshTokenHash);
+        A.CallTo(() => _registeredAppResolver.GetActiveAppAsync("TestApp", A<CancellationToken>._)).Returns(_registeredApp);
+        A.CallTo(() =>
+                _getTwoFactorStatusQueryHandler.GetItemAsync(
+                    new GetTwoFactorStatusQuery(TestStringHelper.UserId, _registeredApp),
+                    A<CancellationToken>._
+                )
+            )
+            .Returns(new TwoFactorStatusViewModel { AllowedMethods = [] });
+    }
+
+    [Fact]
+    public async Task ExchangeRefreshToken_When_Two_Step_Sign_In_Is_Required_And_Not_Set_Up_Ends_The_Session_And_Throws_SecurityTokenException()
+    {
+        // Arrange
+        var command = GetExchangeRefreshTokenCommand();
+        var dbRefreshToken = new RefreshTokenEntity
+        {
+            Id = Guid.NewGuid(),
+            UserId = TestStringHelper.UserId,
+            Token = RefreshTokenHash,
+            Expires = _now.AddMinutes(5),
+        };
+
+        SetUpValidAccessToken(command);
+        SetUpRefreshTokenLookup((dbRefreshToken, true));
+        A.CallTo(() => _getTwoFactorStatusQueryHandler.GetItemAsync(A<GetTwoFactorStatusQuery>._, A<CancellationToken>._))
+            .Returns(new TwoFactorStatusViewModel { Required = true, AllowedMethods = [TwoFactorMethod.Authenticator] });
+
+        // Act & Assert
+        await Assert.ThrowsAsync<SecurityTokenException>(() =>
+            GetExchangeRefreshTokenCommandHandler().UpdateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken)
+        );
+
+        A.CallTo(() => _refreshTokenRepository.RemoveEntityItem(dbRefreshToken)).MustHaveHappenedOnceExactly();
+        A.CallTo(() => _createAccessTokenCommandHandler.CreateItemAsync(A<CreateAccessTokenCommand>._, A<string>._, A<CancellationToken>._))
+            .MustNotHaveHappened();
+    }
+
+    [Fact]
+    public async Task ExchangeRefreshToken_When_Two_Step_Sign_In_Is_Required_And_Set_Up_Issues_A_New_Token()
+    {
+        // Arrange
+        var command = GetExchangeRefreshTokenCommand();
+        var dbRefreshToken = new RefreshTokenEntity
+        {
+            Id = Guid.NewGuid(),
+            UserId = TestStringHelper.UserId,
+            Token = RefreshTokenHash,
+            Expires = _now.AddMinutes(5),
+        };
+
+        SetUpValidAccessToken(command);
+        SetUpRefreshTokenLookup((dbRefreshToken, true));
+        SetUpNewAccessToken("new-access-token", 180);
+        A.CallTo(() => _getTwoFactorStatusQueryHandler.GetItemAsync(A<GetTwoFactorStatusQuery>._, A<CancellationToken>._))
+            .Returns(
+                new TwoFactorStatusViewModel
+                {
+                    Required = true,
+                    Method = TwoFactorMethod.Authenticator,
+                    AllowedMethods = [TwoFactorMethod.Authenticator],
+                }
+            );
+
+        // Act
+        var vm = await GetExchangeRefreshTokenCommandHandler()
+            .UpdateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal("new-access-token", vm.UserToken.AccessToken.Token);
+        A.CallTo(() => _refreshTokenRepository.RemoveEntityItem(A<RefreshTokenEntity>._)).MustNotHaveHappened();
     }
 
     [Theory]
@@ -333,6 +421,8 @@ public class ExchangeRefreshTokenCommandHandlerTests
             _unitOfWork,
             _refreshTokenRepository,
             _timeProvider,
+            _registeredAppResolver,
+            _getTwoFactorStatusQueryHandler,
             _createAccessTokenCommandHandler
         );
     }

@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Identity;
-using PolyzenKit.Application.Core.RegisteredApps.Shared;
 using UserIdentity.Application.Core.Users.Shared;
+using UserIdentity.Domain.AppSignInSettings;
 using Xunit;
 
 namespace UserIdentity.UnitTests.Application.Core.Users.Shared;
@@ -36,17 +36,10 @@ public class AccountConfirmationTests
     )
     {
         // Arrange
-        var registeredApp = new ActiveRegisteredApp
-        {
-            Id = 1,
-            AppName = "TestApp",
-            AppSecretKey = "test-secret",
-            BaseUrl = "https://app.test",
-            RequireConfirmedAccount = requireConfirmedAccount,
-        };
+        var signInSettings = new AppSignInSettingsDto { AppId = 1, RequireConfirmedAccount = requireConfirmedAccount };
         var user = new IdentityUser { EmailConfirmed = emailConfirmed };
 
         // Act & Assert
-        Assert.Equal(expected, AccountConfirmation.IsConfirmed(registeredApp, user));
+        Assert.Equal(expected, AccountConfirmation.IsConfirmed(signInSettings, user));
     }
 }

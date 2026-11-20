@@ -6,6 +6,7 @@
 @UserPassword = P@ssW1rd
 @NewUserPassword = N3w@P@ssW1rd
 @CaptchaToken = XXXX.DUMMY.TOKEN.XXXX
+@Code = 000000
 
 GET {{UserIdentity_HostAddress}}/health
 
@@ -238,11 +239,7 @@ Content-Type: application/json
 
 {
   "appName": "demoapp{{$timestamp}}",
-  "baseUrl": "http://localhost:3001",
-  "appSecretKey": "An0therS3cret-For-Local-Use-Only-012345",
-  "requireInviteCode": true,
-  "requireConfirmedAccount": false,
-  "defaultRole": "user"
+  "baseUrl": "http://localhost:3001"
 }
 
 ###
@@ -267,10 +264,192 @@ Content-Type: application/json
 {
   "appName": "{{registeredApp.response.body.$.registeredApp.appName}}",
   "baseUrl": "http://localhost:3001",
-  "requireInviteCode": false,
-  "requireConfirmedAccount": true,
-  "defaultRole": "member",
   "description": "A demo app"
+}
+
+###
+
+GET {{UserIdentity_HostAddress}}/api/v1/sign-in-settings
+X-Api-Key: {{ApiKey}}
+X-App-Name: {{registeredApp.response.body.$.registeredApp.appName}}
+Authorization: Bearer {{adminLogin.response.body.$.userToken.accessToken.token}}
+
+###
+
+PUT {{UserIdentity_HostAddress}}/api/v1/sign-in-settings
+X-Api-Key: {{ApiKey}}
+X-App-Name: {{registeredApp.response.body.$.registeredApp.appName}}
+Authorization: Bearer {{adminLogin.response.body.$.userToken.accessToken.token}}
+Content-Type: application/json
+
+{
+  "requireConfirmedAccount": true,
+  "requireInviteCode": false,
+  "defaultRole": "user",
+  "requireTwoFactor": false,
+  "requireTwoFactorForAdmins": false,
+  "allowAuthenticatorTwoFactor": true,
+  "allowEmailTwoFactor": true,
+  "allowSmsTwoFactor": false
+}
+
+###
+
+# @name demoSignUp
+POST {{UserIdentity_HostAddress}}/api/v1/user/register
+X-Api-Key: {{ApiKey}}
+X-App-Name: {{registeredApp.response.body.$.registeredApp.appName}}
+X-Captcha-Token: {{CaptchaToken}}
+Content-Type: application/json
+
+{
+  "firstName": "Demo",
+  "lastName": "User",
+  "userName": "demo{{$timestamp}}",
+  "userEmail": "demo{{$timestamp}}@example.com",
+  "userPassword": "{{UserPassword}}"
+}
+
+###
+
+POST {{UserIdentity_HostAddress}}/api/v1/user/resend-code
+X-Api-Key: {{ApiKey}}
+X-App-Name: {{registeredApp.response.body.$.registeredApp.appName}}
+X-Captcha-Token: {{CaptchaToken}}
+Content-Type: application/json
+
+{
+  "ticket": "{{demoSignUp.response.body.$.ticket}}"
+}
+
+###
+
+# @name demoConfirm
+POST {{UserIdentity_HostAddress}}/api/v1/user/confirm
+X-Api-Key: {{ApiKey}}
+X-App-Name: {{registeredApp.response.body.$.registeredApp.appName}}
+Content-Type: application/json
+
+{
+  "ticket": "{{demoSignUp.response.body.$.ticket}}",
+  "code": "{{Code}}"
+}
+
+###
+
+GET {{UserIdentity_HostAddress}}/api/v1/user/two-factor
+X-Api-Key: {{ApiKey}}
+Authorization: Bearer {{demoConfirm.response.body.$.userToken.accessToken.token}}
+
+###
+
+# @name demoChange
+POST {{UserIdentity_HostAddress}}/api/v1/user/two-factor/change
+X-Api-Key: {{ApiKey}}
+Authorization: Bearer {{demoConfirm.response.body.$.userToken.accessToken.token}}
+Content-Type: application/json
+
+{
+  "password": "{{UserPassword}}"
+}
+
+###
+
+# @name demoChangeConfirm
+POST {{UserIdentity_HostAddress}}/api/v1/user/confirm
+X-Api-Key: {{ApiKey}}
+X-App-Name: {{registeredApp.response.body.$.registeredApp.appName}}
+Content-Type: application/json
+
+{
+  "ticket": "{{demoChange.response.body.$.ticket}}",
+  "code": "{{Code}}"
+}
+
+###
+
+POST {{UserIdentity_HostAddress}}/api/v1/user/two-factor/setup
+X-Api-Key: {{ApiKey}}
+X-App-Name: {{registeredApp.response.body.$.registeredApp.appName}}
+Content-Type: application/json
+
+{
+  "ticket": "{{demoChangeConfirm.response.body.$.ticket}}",
+  "method": "Authenticator"
+}
+
+###
+
+POST {{UserIdentity_HostAddress}}/api/v1/user/two-factor/setup/confirm
+X-Api-Key: {{ApiKey}}
+X-App-Name: {{registeredApp.response.body.$.registeredApp.appName}}
+Content-Type: application/json
+
+{
+  "ticket": "{{demoChangeConfirm.response.body.$.ticket}}",
+  "code": "{{Code}}"
+}
+
+###
+
+# @name demoLogin
+POST {{UserIdentity_HostAddress}}/api/v1/user/login
+X-Api-Key: {{ApiKey}}
+X-App-Name: {{registeredApp.response.body.$.registeredApp.appName}}
+Content-Type: application/json
+
+{
+  "userName": "{{demoSignUp.response.body.$.user.userName}}",
+  "password": "{{UserPassword}}"
+}
+
+###
+
+# @name demoSecondStep
+POST {{UserIdentity_HostAddress}}/api/v1/user/two-factor/verify
+X-Api-Key: {{ApiKey}}
+X-App-Name: {{registeredApp.response.body.$.registeredApp.appName}}
+Content-Type: application/json
+
+{
+  "ticket": "{{demoLogin.response.body.$.ticket}}",
+  "code": "{{Code}}"
+}
+
+###
+
+PUT {{UserIdentity_HostAddress}}/api/v1/user/{{demoSignUp.response.body.$.user.id}}
+X-Api-Key: {{ApiKey}}
+Authorization: Bearer {{demoSecondStep.response.body.$.userToken.accessToken.token}}
+Content-Type: application/json
+
+{
+  "firstName": "Renamed",
+  "lastName": "User",
+  "phoneNumber": "+254700000123"
+}
+
+###
+
+POST {{UserIdentity_HostAddress}}/api/v1/user/{{demoSignUp.response.body.$.user.id}}/email
+X-Api-Key: {{ApiKey}}
+Authorization: Bearer {{demoSecondStep.response.body.$.userToken.accessToken.token}}
+Content-Type: application/json
+
+{
+  "email": "renamed{{$timestamp}}@example.com",
+  "password": "{{UserPassword}}"
+}
+
+###
+
+POST {{UserIdentity_HostAddress}}/api/v1/user/{{demoSignUp.response.body.$.user.id}}/email/confirm
+X-Api-Key: {{ApiKey}}
+Authorization: Bearer {{demoSecondStep.response.body.$.userToken.accessToken.token}}
+Content-Type: application/json
+
+{
+  "code": "{{Code}}"
 }
 
 ###
@@ -343,6 +522,7 @@ Content-Type: application/json
 
 {
   "resetRequestId": "{{passwordReset.response.body.$.resetPasswordDetails.resetRequestId}}",
+  "code": "{{Code}}",
   "newPassword": "{{NewUserPassword}}"
 }
 

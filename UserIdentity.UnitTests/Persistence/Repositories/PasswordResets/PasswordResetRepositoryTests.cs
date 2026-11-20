@@ -42,13 +42,35 @@ public class PasswordResetRepositoryTests
 
         // Act
         var result = await repository.GetEntityByAlternateIdAsync(
-            new PasswordResetEntity { RequestId = passwordReset.RequestId },
+            new PasswordResetEntity { RequestId = passwordReset.RequestId, AppId = passwordReset.AppId },
             QueryCondition.MustExist,
             TestContext.Current.CancellationToken
         );
 
         // Assert
         Assert.Equal(passwordReset.Id, result!.Id);
+    }
+
+    [Fact]
+    public async Task GetEntityByAlternateIdAsync_For_Another_App_Returns_Null()
+    {
+        // Arrange
+        var context = AppDbContextTestFactory.GetAppDbContext();
+        var repository = new PasswordResetRepository(context);
+        var passwordReset = BuildPasswordReset();
+
+        context.PasswordReset.Add(passwordReset);
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+
+        // Act
+        var result = await repository.GetEntityByAlternateIdAsync(
+            new PasswordResetEntity { RequestId = passwordReset.RequestId, AppId = passwordReset.AppId + 1 },
+            QueryCondition.MayOrMayNotExist,
+            TestContext.Current.CancellationToken
+        );
+
+        // Assert
+        Assert.Null(result);
     }
 
     [Fact]
@@ -140,6 +162,7 @@ public class PasswordResetRepositoryTests
             Id = Guid.NewGuid(),
             RequestId = Guid.NewGuid().ToString(),
             UserId = Guid.NewGuid().ToString(),
+            AppId = 1,
             Expires = DateTime.UtcNow.AddMinutes(15),
             CreatedAt = DateTime.UtcNow,
         };

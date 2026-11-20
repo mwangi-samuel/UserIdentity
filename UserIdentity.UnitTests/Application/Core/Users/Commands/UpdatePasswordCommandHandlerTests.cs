@@ -2,15 +2,20 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Time.Testing;
 using PolyzenKit.Application.Core.Interfaces;
+using PolyzenKit.Application.Core.Messages.Commands;
+using PolyzenKit.Application.Core.Messages.ViewModels;
 using PolyzenKit.Application.Core.RegisteredApps.Shared;
 using PolyzenKit.Application.Interfaces;
 using PolyzenKit.Persistence.Repositories;
-using UserIdentity.Application.Core.Tokens.Commands;
-using UserIdentity.Application.Core.Tokens.ViewModels;
 using UserIdentity.Application.Core.Users.Commands;
+using UserIdentity.Application.Core.Users.Shared;
 using UserIdentity.Application.Core.Users.ViewModels;
+using UserIdentity.Application.Interfaces;
+using UserIdentity.Common.Enums;
+using UserIdentity.Common.Errors;
 using UserIdentity.Domain.PasswordResets;
 using UserIdentity.Domain.Users;
+using UserIdentity.Persistence.Repositories.LoginTickets;
 using UserIdentity.Persistence.Repositories.PasswordResets;
 using UserIdentity.Persistence.Repositories.RefreshTokens;
 using UserIdentity.Persistence.Repositories.Users;
@@ -21,209 +26,126 @@ namespace UserIdentity.UnitTests.Application.Core.Users.Commands;
 
 public class UpdatePasswordCommandHandlerTests
 {
-    private const string ResetRequestId = "SampleResetRequestId";
-    private const string ResetRequestIdHash = "SampleResetRequestIdHash";
-    private const string NewPassword = "NewP@ssw0rd";
+    private static readonly DateTime _now = new(2026, 11, 11, 12, 0, 0, DateTimeKind.Utc);
 
-    private readonly UserManager<IdentityUser> _userManager;
-    private readonly ITokenFactory _tokenFactory;
-    private readonly IUnitOfWork _unitOfWork;
-    private readonly IPasswordResetRepository _passwordResetRepository;
-    private readonly IRefreshTokenRepository _refreshTokenRepository;
-    private readonly IUserRepository _userRepository;
-    private readonly ICreateItemCommandHandler<StartSessionCommand, UserTokenViewModel> _startSessionCommandHandler;
-    private readonly FakeTimeProvider _timeProvider;
-
-    private readonly DateTime _fixedNow = new(2024, 01, 01, 10, 0, 0, DateTimeKind.Utc);
-    private readonly IdentityUser _identityUser = new()
-    {
-        Id = Guid.NewGuid().ToString(),
-        UserName = "test.user",
-        Email = "test@ml.clm",
-    };
+    private readonly UserManager<IdentityUser> _userManager = IdentityFakes.UserManager();
+    private readonly ITokenFactory _tokenFactory = A.Fake<ITokenFactory>();
+    private readonly IUnitOfWork _unitOfWork = A.Fake<IUnitOfWork>();
+    private readonly IPasswordResetRepository _passwordResetRepository = A.Fake<IPasswordResetRepository>();
+    private readonly IRefreshTokenRepository _refreshTokenRepository = A.Fake<IRefreshTokenRepository>();
+    private readonly ILoginTicketRepository _loginTicketRepository = A.Fake<ILoginTicketRepository>();
+    private readonly IUserRepository _userRepository = A.Fake<IUserRepository>();
+    private readonly ICodeCheckService _codeCheckService = A.Fake<ICodeCheckService>();
+    private readonly ICreateItemCommandHandler<CreateOutboxMessageCommand, OutboxMessageViewModel> _createOutboxMessageCommandHandler =
+        A.Fake<ICreateItemCommandHandler<CreateOutboxMessageCommand, OutboxMessageViewModel>>();
+    private readonly ICreateItemCommandHandler<SignInUserCommand, AuthUserViewModel> _signInUserCommandHandler = A.Fake<
+        ICreateItemCommandHandler<SignInUserCommand, AuthUserViewModel>
+    >();
+    private readonly FakeTimeProvider _timeProvider = new(_now);
 
     private readonly ActiveRegisteredApp _registeredApp = new()
     {
         Id = 1,
         AppName = "TestApp",
-        AppSecretKey = "test-secret",
         BaseUrl = "https://app.test",
     };
 
-    private readonly UserTokenViewModel _session = new()
+    private readonly IdentityUser _user = new()
     {
-        UserToken = new UserTokenDto
-        {
-            AccessToken = new AccessTokenDto { Token = "access-token", ExpiresIn = 180 },
-            RefreshToken = "refresh-token",
-        },
+        Id = "user-1",
+        UserName = "test",
+        Email = "test@example.com",
+        AccessFailedCount = 3,
     };
+
+    private readonly PasswordResetEntity _passwordReset;
 
     public UpdatePasswordCommandHandlerTests()
     {
-        _userManager = IdentityFakes.UserManager();
-        _tokenFactory = A.Fake<ITokenFactory>();
-        _unitOfWork = A.Fake<IUnitOfWork>();
-        _passwordResetRepository = A.Fake<IPasswordResetRepository>();
-        _refreshTokenRepository = A.Fake<IRefreshTokenRepository>();
-        _userRepository = A.Fake<IUserRepository>();
-        _startSessionCommandHandler = A.Fake<ICreateItemCommandHandler<StartSessionCommand, UserTokenViewModel>>();
-        _timeProvider = new FakeTimeProvider();
+        _passwordReset = new PasswordResetEntity
+        {
+            Id = Guid.NewGuid(),
+            RequestId = "reset-hash",
+            UserId = _user.Id,
+            AppId = _registeredApp.Id,
+            Expires = _now.AddMinutes(10),
+        };
 
-        _timeProvider.SetUtcNow(_fixedNow);
-        A.CallTo(() => _tokenFactory.HashToken(ResetRequestId)).Returns(ResetRequestIdHash);
-        A.CallTo(() => _userManager.FindByIdAsync(_identityUser.Id)).Returns(_identityUser);
-        A.CallTo(() => _userRepository.GetUserDtoAsync(_identityUser.Id, _registeredApp.AppName, A<CancellationToken>._))
-            .Returns(new UserDto { Id = _identityUser.Id });
-        A.CallTo(() =>
-                _startSessionCommandHandler.CreateItemAsync(
-                    new StartSessionCommand(_identityUser.Id, _identityUser.UserName!, _registeredApp.AppName),
-                    _identityUser.Id,
-                    A<CancellationToken>._
-                )
-            )
-            .Returns(_session);
-    }
-
-    [Fact]
-    public async Task UpdatePassword_When_No_Existing_Request_Returns_False()
-    {
-        // Arrange
+        A.CallTo(() => _tokenFactory.HashToken("reset")).Returns("reset-hash");
         A.CallTo(() =>
                 _passwordResetRepository.GetEntityByAlternateIdAsync(
-                    A<PasswordResetEntity>._,
+                    A<PasswordResetEntity>.That.Matches(e => e.RequestId == "reset-hash" && e.AppId == _registeredApp.Id),
                     QueryCondition.MayOrMayNotExist,
                     A<CancellationToken>._
                 )
             )
-            .Returns((PasswordResetEntity?)null);
-
-        var handler = GetUpdatePasswordCommandHandler();
-
-        // Act
-        var vm = await handler.UpdateItemAsync(GetUpdatePasswordCommand(), TestStringHelper.UserId, TestContext.Current.CancellationToken);
-
-        // Assert
-        Assert.IsType<UpdatePasswordViewModel>(vm);
-        Assert.False(vm.UpdatePasswordResult.PasswordUpdated);
-        A.CallTo(() => _unitOfWork.BeginTransactionAsync(A<CancellationToken>._)).MustNotHaveHappened();
-    }
-
-    [Theory]
-    [InlineData(false, false, 60)]
-    [InlineData(true, true, 60)]
-    [InlineData(true, false, -1)]
-    public async Task UpdatePassword_When_Request_Is_Not_Verified_Already_Applied_Or_Expired_Returns_False(
-        bool verified,
-        bool applied,
-        int expiresInSeconds
-    )
-    {
-        // Arrange
-        SetUpPasswordResetEntity(verified, applied, _fixedNow.AddSeconds(expiresInSeconds));
-
-        var handler = GetUpdatePasswordCommandHandler();
-
-        // Act
-        var vm = await handler.UpdateItemAsync(GetUpdatePasswordCommand(), TestStringHelper.UserId, TestContext.Current.CancellationToken);
-
-        // Assert
-        Assert.False(vm.UpdatePasswordResult.PasswordUpdated);
-        A.CallTo(() => _userManager.ResetPasswordAsync(A<IdentityUser>._, A<string>._, A<string>._)).MustNotHaveHappened();
-        A.CallTo(() => _unitOfWork.BeginTransactionAsync(A<CancellationToken>._)).MustNotHaveHappened();
+            .Returns(_passwordReset);
+        A.CallTo(() => _userManager.FindByIdAsync(_user.Id)).Returns(_user);
+        A.CallTo(() => _userManager.GeneratePasswordResetTokenAsync(_user)).Returns("reset-token");
+        A.CallTo(() => _userManager.ResetPasswordAsync(_user, "reset-token", "N3wP@ssword")).Returns(IdentityResult.Success);
+        A.CallTo(() => _userRepository.GetUserDtoAsync(_user.Id, null, A<CancellationToken>._))
+            .Returns(new UserDto { Id = _user.Id, FirstName = "Test" });
+        A.CallTo(() => _codeCheckService.CheckAsync(A<string>._, A<string>._, A<string>._, A<string>._, A<CancellationToken>._))
+            .Returns(CodeCheckOutcome.Verified);
+        A.CallTo(() => _signInUserCommandHandler.CreateItemAsync(A<SignInUserCommand>._, A<string>._, A<CancellationToken>._))
+            .Returns(new AuthUserViewModel { User = new UserDto(), NextStep = SignInStep.Session });
     }
 
     [Fact]
-    public async Task UpdatePassword_When_No_Existing_User_Returns_False()
+    public async Task Update_Password_With_The_Right_Code_Applies_It_Ends_Sessions_Notifies_And_Signs_In_With_The_Email_Proved()
     {
         // Arrange
-        var existingEntity = SetUpPasswordResetEntity(true, false, _fixedNow.AddSeconds(60));
-
-        A.CallTo(() => _userManager.FindByIdAsync(existingEntity.UserId)).Returns(default(IdentityUser));
-
-        var handler = GetUpdatePasswordCommandHandler();
+        var command = GetCommand();
+        command.RequestContext = RequestContext.Create("203.0.113.7", "Test Browser");
 
         // Act
-        var vm = await handler.UpdateItemAsync(GetUpdatePasswordCommand(), TestStringHelper.UserId, TestContext.Current.CancellationToken);
+        var vm = await GetHandler().UpdateItemAsync(command, string.Empty, TestContext.Current.CancellationToken);
 
         // Assert
-        Assert.False(vm.UpdatePasswordResult.PasswordUpdated);
-        A.CallTo(() => _unitOfWork.BeginTransactionAsync(A<CancellationToken>._)).MustNotHaveHappened();
-    }
-
-    [Fact]
-    public async Task UpdatePassword_With_Password_Not_Meeting_Rules_Throws_InvalidDataException_And_Rolls_Back()
-    {
-        // Arrange
-        var existingEntity = SetUpPasswordResetEntity(true, false, _fixedNow.AddSeconds(60));
-
-        A.CallTo(() => _userManager.GeneratePasswordResetTokenAsync(_identityUser)).Returns("identity-reset-token");
-        A.CallTo(() => _userManager.ResetPasswordAsync(_identityUser, "identity-reset-token", NewPassword))
-            .Returns(IdentityResult.Failed(new IdentityError { Description = "Passwords must have at least one digit ('0'-'9')." }));
-
-        var handler = GetUpdatePasswordCommandHandler();
-
-        // Act & Assert
-        var exception = await Assert.ThrowsAsync<InvalidDataException>(() =>
-            handler.UpdateItemAsync(GetUpdatePasswordCommand(), TestStringHelper.UserId, TestContext.Current.CancellationToken)
-        );
-
-        Assert.Equal("Passwords must have at least one digit ('0'-'9').", exception.Message);
-        Assert.False(existingEntity.Applied);
-        A.CallTo(() => _unitOfWork.RollbackTransactionAsync(A<CancellationToken>._)).MustHaveHappenedOnceExactly();
-        A.CallTo(() => _unitOfWork.CommitTransactionAsync(A<CancellationToken>._)).MustNotHaveHappened();
-        A.CallTo(() => _refreshTokenRepository.DeleteEntityItemsAsync(A<string>._, A<CancellationToken>._)).MustNotHaveHappened();
-    }
-
-    [Fact]
-    public async Task UpdatePassword_With_Verified_Request_Updates_Password_And_Ends_Sessions()
-    {
-        // Arrange
-        var existingEntity = SetUpPasswordResetEntity(true, false, _fixedNow.AddSeconds(60));
-
-        A.CallTo(() => _userManager.GeneratePasswordResetTokenAsync(_identityUser)).Returns("identity-reset-token");
-        A.CallTo(() => _userManager.ResetPasswordAsync(_identityUser, "identity-reset-token", NewPassword)).Returns(IdentityResult.Success);
-
-        var handler = GetUpdatePasswordCommandHandler();
-
-        // Act
-        var vm = await handler.UpdateItemAsync(GetUpdatePasswordCommand(), TestStringHelper.UserId, TestContext.Current.CancellationToken);
-
-        // Assert
-        Assert.True(vm.UpdatePasswordResult.PasswordUpdated);
-        Assert.True(existingEntity.Applied);
-        Assert.Equal(_identityUser.Id, existingEntity.UpdatedBy);
-
-        A.CallTo(() => _passwordResetRepository.UpdateEntityItem(existingEntity)).MustHaveHappenedOnceExactly();
-        A.CallTo(() => _refreshTokenRepository.DeleteEntityItemsAsync(_identityUser.Id, A<CancellationToken>._))
-            .MustHaveHappenedOnceExactly();
-        A.CallTo(() => _unitOfWork.CommitTransactionAsync(A<CancellationToken>._)).MustHaveHappenedOnceExactly();
-        A.CallTo(() => _unitOfWork.RollbackTransactionAsync(A<CancellationToken>._)).MustNotHaveHappened();
-    }
-
-    [Fact]
-    public async Task UpdatePassword_Signs_In_A_Confirmed_User_Of_The_App_After_Ending_The_Old_Sessions()
-    {
-        // Arrange
-        SetUpPasswordResetEntity(true, false, _fixedNow.AddSeconds(60));
-        SetUpSuccessfulReset();
-
-        var handler = GetUpdatePasswordCommandHandler();
-
-        // Act
-        var vm = await handler.UpdateItemAsync(GetUpdatePasswordCommand(), TestStringHelper.UserId, TestContext.Current.CancellationToken);
-
-        // Assert
-        Assert.True(vm.UpdatePasswordResult.PasswordUpdated);
-        Assert.Same(_session.UserToken, vm.UserToken);
-
-        A.CallTo(() => _refreshTokenRepository.DeleteEntityItemsAsync(_identityUser.Id, A<CancellationToken>._))
+        Assert.Equal(SignInStep.Session, vm.NextStep);
+        Assert.True(_passwordReset.Applied);
+        Assert.Equal(0, _user.AccessFailedCount);
+        A.CallTo(() =>
+                _codeCheckService.CheckAsync(
+                    _registeredApp.AppName,
+                    UserMessages.PasswordResetAction,
+                    _passwordReset.Id.ToString(),
+                    "123456",
+                    A<CancellationToken>._
+                )
+            )
             .MustHaveHappenedOnceExactly()
+            .Then(A.CallTo(() => _unitOfWork.BeginTransactionAsync(A<CancellationToken>._)).MustHaveHappenedOnceExactly())
+            .Then(A.CallTo(() => _userManager.ResetPasswordAsync(_user, "reset-token", "N3wP@ssword")).MustHaveHappenedOnceExactly())
+            .Then(
+                A.CallTo(() => _refreshTokenRepository.DeleteEntityItemsAsync(_user.Id, A<CancellationToken>._))
+                    .MustHaveHappenedOnceExactly()
+            )
+            .Then(
+                A.CallTo(() => _loginTicketRepository.DeleteEntityItemsAsync(_user.Id, A<CancellationToken>._))
+                    .MustHaveHappenedOnceExactly()
+            )
             .Then(
                 A.CallTo(() =>
-                        _startSessionCommandHandler.CreateItemAsync(
-                            new StartSessionCommand(_identityUser.Id, _identityUser.UserName!, _registeredApp.AppName),
-                            _identityUser.Id,
+                        _createOutboxMessageCommandHandler.CreateItemAsync(
+                            A<CreateOutboxMessageCommand>.That.Matches(c =>
+                                c.Name == UserMessages.PasswordChanged
+                                && c.Message.Action == UserMessages.PasswordChangedAction
+                                && c.Message.Recipient!.Email == _user.Email
+                                && c.Message.GetData<UserMessageData>()!.ChangedAt == _now
+                                && c.Message.GetData<UserMessageData>()!.IpAddress == "203.0.113.7"
+                            ),
+                            _user.Id,
+                            A<CancellationToken>._
+                        )
+                    )
+                    .MustHaveHappenedOnceExactly()
+            )
+            .Then(
+                A.CallTo(() =>
+                        _signInUserCommandHandler.CreateItemAsync(
+                            A<SignInUserCommand>.That.Matches(c => c.User == _user && c.EmailProven && !c.SecondFactorPassed),
+                            _user.Id,
                             A<CancellationToken>._
                         )
                     )
@@ -232,143 +154,98 @@ public class UpdatePasswordCommandHandlerTests
             .Then(A.CallTo(() => _unitOfWork.CommitTransactionAsync(A<CancellationToken>._)).MustHaveHappenedOnceExactly());
     }
 
-    [Fact]
-    public async Task UpdatePassword_Of_A_User_Of_Another_App_Updates_The_Password_Without_Signing_In()
+    [Theory]
+    [InlineData(CodeCheckOutcome.WrongCode)]
+    [InlineData(CodeCheckOutcome.Expired)]
+    [InlineData(CodeCheckOutcome.NoAttemptsLeft)]
+    [InlineData(CodeCheckOutcome.NotFound)]
+    public async Task Update_Password_With_A_Code_That_Fails_Changes_Nothing(CodeCheckOutcome outcome)
     {
         // Arrange
-        SetUpPasswordResetEntity(true, false, _fixedNow.AddSeconds(60));
-        SetUpSuccessfulReset();
+        A.CallTo(() => _codeCheckService.CheckAsync(A<string>._, A<string>._, A<string>._, A<string>._, A<CancellationToken>._))
+            .Returns(outcome);
 
-        A.CallTo(() => _userRepository.GetUserDtoAsync(_identityUser.Id, _registeredApp.AppName, A<CancellationToken>._))
-            .Returns(default(UserDto));
+        // Act & Assert
+        var exception = await Assert.ThrowsAsync<InvalidDataException>(() =>
+            GetHandler().UpdateItemAsync(GetCommand(), string.Empty, TestContext.Current.CancellationToken)
+        );
 
-        var handler = GetUpdatePasswordCommandHandler();
-
-        // Act
-        var vm = await handler.UpdateItemAsync(GetUpdatePasswordCommand(), TestStringHelper.UserId, TestContext.Current.CancellationToken);
-
-        // Assert
-        Assert.True(vm.UpdatePasswordResult.PasswordUpdated);
-        Assert.Null(vm.UserToken);
-        A.CallTo(() => _startSessionCommandHandler.CreateItemAsync(A<StartSessionCommand>._, A<string>._, A<CancellationToken>._))
-            .MustNotHaveHappened();
-        A.CallTo(() => _unitOfWork.CommitTransactionAsync(A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+        Assert.Equal(ErrorMessages.Codes.NotAccepted, exception.Message);
+        Assert.False(_passwordReset.Applied);
+        A.CallTo(() => _userManager.ResetPasswordAsync(A<IdentityUser>._, A<string>._, A<string>._)).MustNotHaveHappened();
     }
 
-    [Fact]
-    public async Task UpdatePassword_Of_An_Unconfirmed_User_When_Confirmation_Is_Required_Updates_The_Password_Without_Signing_In()
+    [Theory]
+    [InlineData("applied")]
+    [InlineData("expired")]
+    public async Task Update_Password_For_A_Used_Or_Expired_Reset_Still_Checks_A_Code_Then_Refuses(string resetState)
     {
         // Arrange
-        SetUpPasswordResetEntity(true, false, _fixedNow.AddSeconds(60));
-        SetUpSuccessfulReset();
+        if (resetState == "applied")
+            _passwordReset.Applied = true;
+        else
+            _passwordReset.Expires = _now;
 
-        var command = GetUpdatePasswordCommand() with
-        {
-            RegisteredApp = new()
-            {
-                Id = _registeredApp.Id,
-                AppName = _registeredApp.AppName,
-                AppSecretKey = _registeredApp.AppSecretKey,
-                BaseUrl = _registeredApp.BaseUrl,
-                RequireConfirmedAccount = true,
-            },
-        };
+        // Act & Assert
+        var exception = await Assert.ThrowsAsync<InvalidDataException>(() =>
+            GetHandler().UpdateItemAsync(GetCommand(), string.Empty, TestContext.Current.CancellationToken)
+        );
 
-        var handler = GetUpdatePasswordCommandHandler();
-
-        // Act
-        var vm = await handler.UpdateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken);
-
-        // Assert
-        Assert.True(vm.UpdatePasswordResult.PasswordUpdated);
-        Assert.Null(vm.UserToken);
-        A.CallTo(() => _startSessionCommandHandler.CreateItemAsync(A<StartSessionCommand>._, A<string>._, A<CancellationToken>._))
-            .MustNotHaveHappened();
-    }
-
-    [Fact]
-    public async Task UpdatePassword_Clears_The_Lockout_And_Failed_Attempts_In_The_Password_Update()
-    {
-        // Arrange
-        SetUpPasswordResetEntity(true, false, _fixedNow.AddSeconds(60));
-
-        _identityUser.LockoutEnd = _fixedNow.AddMinutes(5);
-        _identityUser.AccessFailedCount = 3;
-
-        DateTimeOffset? lockoutEndAtUpdate = _identityUser.LockoutEnd;
-        var accessFailedCountAtUpdate = _identityUser.AccessFailedCount;
-
-        A.CallTo(() => _userManager.GeneratePasswordResetTokenAsync(_identityUser)).Returns("identity-reset-token");
-        A.CallTo(() => _userManager.ResetPasswordAsync(_identityUser, "identity-reset-token", NewPassword))
-            .Invokes(
-                (IdentityUser user, string _, string _) =>
-                {
-                    lockoutEndAtUpdate = user.LockoutEnd;
-                    accessFailedCountAtUpdate = user.AccessFailedCount;
-                }
-            )
-            .Returns(IdentityResult.Success);
-
-        var handler = GetUpdatePasswordCommandHandler();
-
-        // Act
-        await handler.UpdateItemAsync(GetUpdatePasswordCommand(), TestStringHelper.UserId, TestContext.Current.CancellationToken);
-
-        // Assert
-        Assert.Null(lockoutEndAtUpdate);
-        Assert.Equal(0, accessFailedCountAtUpdate);
-        A.CallTo(() => _userManager.SetLockoutEndDateAsync(A<IdentityUser>._, A<DateTimeOffset?>._)).MustNotHaveHappened();
-        A.CallTo(() => _userManager.ResetAccessFailedCountAsync(A<IdentityUser>._)).MustNotHaveHappened();
-        A.CallTo(() => _userManager.UpdateAsync(A<IdentityUser>._)).MustNotHaveHappened();
-    }
-
-    private PasswordResetEntity SetUpPasswordResetEntity(bool verified, bool applied, DateTime expires)
-    {
-        var existingEntity = new PasswordResetEntity
-        {
-            Id = Guid.NewGuid(),
-            RequestId = ResetRequestIdHash,
-            UserId = _identityUser.Id,
-            Verified = verified,
-            Applied = applied,
-            Expires = expires,
-        };
-
+        Assert.Equal(ErrorMessages.Codes.NotAccepted, exception.Message);
         A.CallTo(() =>
-                _passwordResetRepository.GetEntityByAlternateIdAsync(
-                    A<PasswordResetEntity>.That.Matches(e => e.RequestId == ResetRequestIdHash),
-                    QueryCondition.MayOrMayNotExist,
+                _codeCheckService.CheckAsync(
+                    _registeredApp.AppName,
+                    UserMessages.PasswordResetAction,
+                    A<string>.That.Not.IsEqualTo(_passwordReset.Id.ToString()),
+                    "123456",
                     A<CancellationToken>._
                 )
             )
-            .Returns(existingEntity);
-
-        return existingEntity;
+            .MustHaveHappenedOnceExactly();
+        A.CallTo(() => _userManager.ResetPasswordAsync(A<IdentityUser>._, A<string>._, A<string>._)).MustNotHaveHappened();
     }
 
-    private void SetUpSuccessfulReset()
+    [Fact]
+    public async Task Update_Password_With_A_Weak_Password_Throws_Before_Checking_The_Code()
     {
-        A.CallTo(() => _userManager.GeneratePasswordResetTokenAsync(_identityUser)).Returns("identity-reset-token");
-        A.CallTo(() => _userManager.ResetPasswordAsync(_identityUser, "identity-reset-token", NewPassword)).Returns(IdentityResult.Success);
+        // Arrange
+        var passwordValidator = A.Fake<IPasswordValidator<IdentityUser>>();
+
+        A.CallTo(() => passwordValidator.ValidateAsync(_userManager, A<IdentityUser>._, "N3wP@ssword"))
+            .Returns(IdentityResult.Failed(new IdentityError { Description = "Too weak." }));
+        _userManager.PasswordValidators.Add(passwordValidator);
+
+        // Act & Assert
+        var exception = await Assert.ThrowsAsync<InvalidDataException>(() =>
+            GetHandler().UpdateItemAsync(GetCommand(), string.Empty, TestContext.Current.CancellationToken)
+        );
+
+        Assert.Equal("Too weak.", exception.Message);
+        A.CallTo(() => _codeCheckService.CheckAsync(A<string>._, A<string>._, A<string>._, A<string>._, A<CancellationToken>._))
+            .MustNotHaveHappened();
     }
 
-    private UpdatePasswordCommand GetUpdatePasswordCommand() =>
+    private UpdatePasswordCommand GetCommand() =>
         new()
         {
-            ResetRequestId = ResetRequestId,
-            NewPassword = NewPassword,
+            ResetRequestId = "reset",
+            Code = "123456",
+            NewPassword = "N3wP@ssword",
             RegisteredApp = _registeredApp,
         };
 
-    private UpdatePasswordCommandHandler GetUpdatePasswordCommandHandler() =>
+    private UpdatePasswordCommandHandler GetHandler() =>
         new(
             _userManager,
             _tokenFactory,
             _unitOfWork,
             _passwordResetRepository,
             _refreshTokenRepository,
+            _loginTicketRepository,
             _userRepository,
-            _startSessionCommandHandler,
+            _codeCheckService,
+            _createOutboxMessageCommandHandler,
+            _signInUserCommandHandler,
             _timeProvider
         );
 }

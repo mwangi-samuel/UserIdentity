@@ -1,5 +1,11 @@
-﻿using System.Net;
+﻿using System.Globalization;
+using System.Net;
+using System.Net.Http.Headers;
+using System.Text;
+using System.Text.Json;
 using System.Text.Json.Nodes;
+using Org.BouncyCastle.Crypto.Signers;
+using UserIdentity.IntegrationTests.TestUtils;
 using Xunit;
 
 namespace UserIdentity.SmokeTests;
@@ -10,7 +16,6 @@ public class ImageSmokeTests(ImageFixture fixture) : IClassFixture<ImageFixture>
 
     // The cleanups run on a one-minute timer
     private static readonly TimeSpan _cleanupWait = TimeSpan.FromSeconds(90);
-    private static readonly TimeSpan _messageEffectWait = TimeSpan.FromSeconds(30);
     private static readonly TimeSpan _pollInterval = TimeSpan.FromMilliseconds(500);
 
     private readonly ImageFixture _fixture = fixture;
@@ -101,7 +106,7 @@ public class ImageSmokeTests(ImageFixture fixture) : IClassFixture<ImageFixture>
     }
 
     [Fact]
-    public async Task SignUp_ConfirmedByMessage_StartsASessionThatRefreshesAndEnds()
+    public async Task SignUp_ConfirmedWithACode_StartsASessionThatRefreshesAndEnds()
     {
         // Arrange
         using var client = new ServiceClient(_fixture.ServiceUrl);
@@ -131,7 +136,8 @@ public class ImageSmokeTests(ImageFixture fixture) : IClassFixture<ImageFixture>
         // Assert
         Assert.Equal("WelcomeUser", $"{welcome["action"]}");
         Assert.Equal(user.Email, $"{welcome["recipient"]!["email"]}");
-        Assert.Equal(user.Id, $"{welcome["data"]!["userId"]}");
+        Assert.Equal("Smoke", $"{welcome["data"]!["firstName"]}");
+        Assert.NotNull(welcome["data"]!["requestedAt"]);
         Assert.Null(sessionBeforeConfirming);
 
         var profileBody = await ServiceClient.ReadAsync(profile, HttpStatusCode.OK, _cancellationToken);
@@ -144,27 +150,34 @@ public class ImageSmokeTests(ImageFixture fixture) : IClassFixture<ImageFixture>
     }
 
     [Fact]
-    public async Task PasswordReset_VerifiedByMessage_ChangesThePassword()
+    public async Task PasswordReset_WithACheckedCode_ChangesThePasswordAndSaysSo()
     {
         // Arrange
         using var client = new ServiceClient(_fixture.ServiceUrl);
         const string newPassword = "N3wP@ssW1rd";
         var user = await CreateConfirmedUserAsync(client);
 
+        _fixture.CodeCheck.AnswerVerify("Verified");
+
         // Act
         var resetResponse = await client.PostAsync("/api/v1/user/reset-password", new { userName = user.UserName }, _cancellationToken);
         var resetBody = await ServiceClient.ReadAsync(resetResponse, HttpStatusCode.OK, _cancellationToken);
         var resetRequestId = $"{resetBody["resetPasswordDetails"]!["resetRequestId"]}";
-        var message = await _fixture.FindMessageAsync(ImageFixture.PasswordResetRequestedSubject, resetRequestId, _cancellationToken);
+        var resetId = await _fixture.RunSqlAsync($"SELECT id FROM password_resets WHERE user_id = '{user.Id}';", _cancellationToken);
+        var message = await _fixture.FindMessageAsync(ImageFixture.PasswordResetRequestedSubject, resetId, _cancellationToken);
 
-        await _fixture.PublishCodeVerifiedAsync(resetRequestId, "PasswordReset", _cancellationToken);
-
-        var updated = await WaitUntilAsync(
-            async () =>
-                (await client.PostAsync("/api/v1/user/update-password", new { resetRequestId, newPassword }, _cancellationToken)).StatusCode
-                == HttpStatusCode.OK,
-            _messageEffectWait
+        var updated = await client.PostAsync(
+            "/api/v1/user/update-password",
+            new
+            {
+                resetRequestId,
+                code = "123456",
+                newPassword,
+            },
+            _cancellationToken
         );
+        var updatedBody = await ServiceClient.ReadAsync(updated, HttpStatusCode.OK, _cancellationToken);
+        var changed = await _fixture.FindMessageSentToAsync(ImageFixture.PasswordChangedSubject, user.Email, _cancellationToken);
 
         var oldPassword = await client.PostAsync(
             "/api/v1/user/login",
@@ -175,9 +188,16 @@ public class ImageSmokeTests(ImageFixture fixture) : IClassFixture<ImageFixture>
 
         // Assert
         Assert.Equal("PasswordReset", $"{message["action"]}");
-        Assert.True(updated);
+        Assert.NotNull(message["expiresAt"]);
+        Assert.Equal("Session", $"{updatedBody["nextStep"]}");
+        Assert.False(string.IsNullOrEmpty($"{updatedBody["userToken"]!["accessToken"]!["token"]}"));
+        Assert.Equal("PasswordChanged", $"{changed["action"]}");
         Assert.Equal(HttpStatusCode.Unauthorized, oldPassword.StatusCode);
         Assert.NotNull(session);
+
+        var check = _fixture.CodeCheck.ReceivedBodies(CodeCheckStub.VerifyPath).Last();
+        Assert.Equal("PasswordReset", $"{check["action"]}");
+        Assert.Equal(resetId, $"{check["correlationId"]}");
     }
 
     [Fact]
@@ -240,7 +260,7 @@ public class ImageSmokeTests(ImageFixture fixture) : IClassFixture<ImageFixture>
     }
 
     [Fact]
-    public async Task BootstrapAdmin_ReadsTheRegisteredApps()
+    public async Task BootstrapAdmin_ReadsTheRegisteredAppsAndTheirSignInSettings()
     {
         // Arrange
         using var client = new ServiceClient(_fixture.ServiceUrl);
@@ -248,14 +268,64 @@ public class ImageSmokeTests(ImageFixture fixture) : IClassFixture<ImageFixture>
 
         // Act
         var registeredApps = await ReadOkAsync(client, "/api/v1/registered-app");
+        var signInSettings = await ReadOkAsync(client, "/api/v1/sign-in-settings");
 
         // Assert
-        var app = Assert.Single(
+        Assert.Single(
             registeredApps["registeredApps"]!.AsArray(),
             item => string.Equals($"{item!["appName"]}", ServiceClient.AppName, StringComparison.OrdinalIgnoreCase)
         );
-        Assert.True(app!["requireConfirmedAccount"]!.GetValue<bool>());
-        Assert.Equal("user", $"{app["defaultRole"]}");
+        Assert.True(signInSettings["signInSettings"]!["requireConfirmedAccount"]!.GetValue<bool>());
+        Assert.Equal("user", $"{signInSettings["signInSettings"]!["defaultRole"]}");
+    }
+
+    [Fact]
+    public async Task RegisterForService_SignedByTheAppsBackend_CreatesTheAccount()
+    {
+        // Arrange
+        const string backendName = "otherservice";
+        const string path = "/api/v1/user/register-for-service";
+
+        var keyPair = EdDsaHelper.GenerateEd25519KeyPair();
+        await _fixture.AddBackendAsync(backendName, EdDsaHelper.ConvertToPem(keyPair.Public), _cancellationToken);
+
+        var userName = $"moved{Guid.NewGuid():N}";
+        var body = Encoding.UTF8.GetBytes(
+            JsonSerializer.Serialize(
+                new
+                {
+                    firstName = "Moved",
+                    userName,
+                    userEmail = $"{userName}@example.com",
+                    userPassword = ServiceClient.Password,
+                }
+            )
+        );
+        var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture);
+
+        Ed25519Signer signer = new();
+        signer.Init(true, keyPair.Private);
+        byte[] signedBytes = [.. Encoding.UTF8.GetBytes($"{timestamp}\nPOST\n{path}\n"), .. body];
+        signer.BlockUpdate(signedBytes, 0, signedBytes.Length);
+
+        using var httpClient = new HttpClient { BaseAddress = _fixture.ServiceUrl };
+        using var request = new HttpRequestMessage(HttpMethod.Post, path) { Content = new ByteArrayContent(body) };
+        request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
+        request.Headers.Add("X-Api-Key", ImageFixture.ApiKey);
+        request.Headers.Add("X-App-Name", ServiceClient.AppName);
+        request.Headers.Add("X-App-Backend", backendName);
+        request.Headers.Add("X-Timestamp", timestamp);
+        request.Headers.Add("X-Signature", Convert.ToBase64String(signer.GenerateSignature()));
+
+        // Act
+        var response = await httpClient.SendAsync(request, _cancellationToken);
+
+        // Assert
+        var created = await ServiceClient.ReadAsync(response, HttpStatusCode.Created, _cancellationToken);
+
+        Assert.Equal(userName, $"{created["user"]!["userName"]}");
+        Assert.Null(created["userToken"]);
+        Assert.Null(created["ticket"]);
     }
 
     [Fact]
@@ -306,14 +376,13 @@ public class ImageSmokeTests(ImageFixture fixture) : IClassFixture<ImageFixture>
 
     private async Task ConfirmAsync(ServiceClient client, SmokeUser user)
     {
-        await _fixture.PublishCodeVerifiedAsync(user.Id, "WelcomeUser", _cancellationToken);
+        _fixture.CodeCheck.AnswerVerify("Verified");
 
-        var confirmed = await WaitUntilAsync(
-            async () => await client.LogInAsync(user.UserName, ServiceClient.Password, _cancellationToken) is not null,
-            _messageEffectWait
-        );
+        var response = await client.PostAsync("/api/v1/user/confirm", new { ticket = user.Ticket, code = "123456" }, _cancellationToken);
+        var body = await ServiceClient.ReadAsync(response, HttpStatusCode.OK, _cancellationToken);
 
-        Assert.True(confirmed);
+        Assert.Equal("Session", $"{body["nextStep"]}");
+        Assert.False(string.IsNullOrEmpty($"{body["userToken"]!["accessToken"]!["token"]}"));
     }
 
     private async Task SignInWithRoleAsync(ServiceClient client, string roleName)

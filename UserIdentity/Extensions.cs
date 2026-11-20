@@ -5,6 +5,7 @@ using PolyzenKit.Application.Core.Interfaces;
 using PolyzenKit.Common.Utilities;
 using PolyzenKit.Infrastructure.Configurations;
 using PolyzenKit.Persistence.Settings;
+using UserIdentity.Application.Core.AccountLimits.Commands;
 using UserIdentity.Application.Core.Tokens.Commands;
 using UserIdentity.Application.Core.Users.Commands;
 using UserIdentity.Application.Core.Users.Shared;
@@ -48,6 +49,8 @@ public static class Extensions
         services.AddAppPeriodicDeleteCommand<DeleteExpiredLoginTicketsCommand>(interval);
         services.AddAppPeriodicDeleteCommand<DeleteExpiredPasswordResetsCommand>(interval);
         services.AddAppPeriodicDeleteCommand<DeleteUnconfirmedUsersCommand>(interval);
+        services.AddAppPeriodicDeleteCommand<DeleteExpiredEmailChangesCommand>(interval);
+        services.AddAppPeriodicDeleteCommand<DeleteExpiredAccountLimitEventsCommand>(interval);
     }
 
     public static async Task AppBootstrapAdminAsync(this WebApplication app, CancellationToken cancellationToken = default)

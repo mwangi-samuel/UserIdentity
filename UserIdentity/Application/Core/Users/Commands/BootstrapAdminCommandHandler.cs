@@ -4,7 +4,6 @@ using PolyzenKit.Application.Core;
 using PolyzenKit.Application.Core.Interfaces;
 using PolyzenKit.Application.Core.RegisteredApps.Commands;
 using PolyzenKit.Application.Core.RegisteredApps.ViewModels;
-using PolyzenKit.Application.Interfaces;
 using PolyzenKit.Common.Exceptions;
 using PolyzenKit.Common.Extensions;
 using PolyzenKit.Common.Settings;
@@ -35,7 +34,6 @@ public class BootstrapAdminCommandHandler(
     IUserRegisteredAppRepository userRegisteredAppRepository,
     IRegisteredAppRepository registeredAppRepository,
     ICreateItemCommandHandler<CreateRegisteredAppCommand, RegisteredAppViewModel> createRegisteredAppCommandHandler,
-    ITokenFactory tokenFactory,
     TimeProvider timeProvider
 ) : ICreateItemCommandHandler<BootstrapAdminCommand, BootstrappedAdminViewModel>
 {
@@ -49,7 +47,6 @@ public class BootstrapAdminCommandHandler(
     private readonly IRegisteredAppRepository _registeredAppRepository = registeredAppRepository;
     private readonly ICreateItemCommandHandler<CreateRegisteredAppCommand, RegisteredAppViewModel> _createRegisteredAppCommandHandler =
         createRegisteredAppCommandHandler;
-    private readonly ITokenFactory _tokenFactory = tokenFactory;
     private readonly TimeProvider _timeProvider = timeProvider;
 
     public async Task<BootstrappedAdminViewModel> CreateItemAsync(
@@ -136,13 +133,7 @@ public class BootstrapAdminCommandHandler(
             return registeredApp.Id;
 
         var createdApp = await _createRegisteredAppCommandHandler.CreateItemAsync(
-            new CreateRegisteredAppCommand
-            {
-                AppName = settings.AppName!,
-                BaseUrl = settings.AppBaseUrl!,
-                AppSecretKey = _tokenFactory.GenerateToken(),
-                RequireConfirmedAccount = false,
-            },
+            new CreateRegisteredAppCommand { AppName = settings.AppName!, BaseUrl = settings.AppBaseUrl! },
             adminId,
             cancellationToken
         );

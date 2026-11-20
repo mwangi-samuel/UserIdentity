@@ -1,13 +1,17 @@
-﻿using Microsoft.IdentityModel.Logging;
+﻿using Microsoft.AspNetCore.Identity;
+using Microsoft.IdentityModel.Logging;
 using PolyzenKit;
 using PolyzenKit.Presentation.Endpoints;
 using PolyzenKit.Presentation.Middlewares;
 using UserIdentity;
+using UserIdentity.Application.Core.AccountLimits.Shared;
 using UserIdentity.Application.Core.Tokens.Shared;
+using UserIdentity.Application.Core.TwoFactor.Shared;
 using UserIdentity.Application.Core.Users.Shared;
 using UserIdentity.Application.Interfaces;
 using UserIdentity.Infrastructure.ExternalServices;
 using UserIdentity.Persistence;
+using UserIdentity.Persistence.Repositories.Users;
 using UserIdentity.Presentation.Endpoints;
 
 const long MaxRequestBodyBytes = 64 * 1024;
@@ -24,6 +28,8 @@ builder.AddAppTelemetry("Npgsql");
 builder.Services.AddAppPostgreSql<AppDbContext>(builder.Configuration);
 
 builder.Services.AddAppIdentity<AppDbContext>(builder.Configuration);
+
+builder.Services.AddScoped<IUserStore<IdentityUser>, ProtectedUserStore>();
 
 builder.Services.AddAppRepositories(assembly);
 
@@ -51,11 +57,17 @@ builder.Services.AddAppExternalServices(builder.Configuration);
 
 builder.Services.AddAppCaptcha(builder.Configuration);
 
-builder.Services.AddScoped<IAppCallbackService, AppCallbackService>();
+builder.Services.AddScoped<ICodeCheckService, CodeCheckService>();
+
+builder.Services.AddAppSetting<CodeCheckSettings>(builder.Configuration);
 
 builder.Services.AddAppSetting<RefreshTokenSettings>(builder.Configuration);
 
 builder.Services.AddAppSetting<LoginTicketSettings>(builder.Configuration);
+
+builder.Services.AddAppSetting<TwoFactorSettings>(builder.Configuration);
+
+builder.Services.AddAppSetting<AccountLimitSettings>(builder.Configuration);
 
 builder.Services.AddAppSetting<PasswordResetSettings>(builder.Configuration);
 
@@ -100,6 +112,7 @@ app.UseAuthorization();
 
 app.MapUserEndpoints();
 app.MapRoleEndpoints();
+app.MapSignInSettingsEndpoints();
 app.MapInviteCodeEndpoints();
 app.MapWaitListEndpoints();
 app.MapJwksEndpoints();

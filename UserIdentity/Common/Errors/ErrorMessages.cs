@@ -9,12 +9,46 @@ public static class ErrorMessages
         public const string UserNameCannotBeAnotherEmail = "A user name can only look like an email address when it matches UserEmail.";
         public const string EmailRequiredForInviteCode = "An email is required when signing up with an invite code.";
         public const string InviteCodeRequired = "A valid invite code is required when signing up.";
-        public const string AccountNotConfirmed = "The account isn't confirmed yet.";
+        public const string AccountNotCreated = "We couldn't create this account.";
+        public const string TicketOrResetRequestIdRequired = "Send either ticket or resetRequestId, not both.";
+        public const string WrongPassword = "That password isn't right.";
+        public const string AccountLocked = "Too many failed attempts. Try again later.";
+        public const string PasswordRequired = "Your password is required to change your email.";
+        public const string EmailNotChanged = "The new email is the same as the current one.";
+        public const string EmailNotChangedByAdmin = "We couldn't change this email.";
+        public const string PhoneUsedForTwoFactor =
+            "This phone number receives your two-step sign-in codes. Change your two-step sign-in method first.";
+        public const string TooManyCodes = "Too many codes were sent today. Try again tomorrow.";
 
         public static string InviteRoleMissing(string role) => $"The role {role} granted by the invite code doesn't exist.";
 
         public static string BootstrapAdminIncomplete(IEnumerable<string> missingSettings) =>
             $"The bootstrap admin also needs {string.Join(", ", missingSettings)}.";
+    }
+
+    public static class Codes
+    {
+        public const string NotAccepted = "That code didn't work. Check it, or send a new code.";
+    }
+
+    public static class TwoFactor
+    {
+        public const string CodeOrRecoveryCodeRequired = "Send either code or recoveryCode, not both.";
+        public const string MethodNotAllowed = "That two-step sign-in method isn't available.";
+        public const string PhoneNumberRequired = "A phone number is required for text messages.";
+        public const string ChooseMethodFirst = "Choose a two-step sign-in method first.";
+        public const string CodeRequired = "Enter the code to finish setting up two-step sign-in.";
+        public const string Required = "Two-step sign-in is required for this account, so it can't be turned off.";
+        public const string NotOn = "Two-step sign-in isn't on for this account.";
+    }
+
+    public static class SignInSettings
+    {
+        public const string DefaultRoleFormat = "The {0} field must be a role name without the app prefix, spaces or colons.";
+        public const string TwoFactorWithoutMethod = "Allow at least one two-step sign-in method before requiring two-step sign-in.";
+
+        public static string AdminDefaultRole(string defaultRole) =>
+            $"The default role {defaultRole} is an admin role, which sign-up can't grant.";
     }
 
     public static class Roles

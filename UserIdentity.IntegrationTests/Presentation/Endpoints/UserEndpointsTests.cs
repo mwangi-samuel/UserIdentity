@@ -2,13 +2,17 @@
 using System.Net;
 using System.Net.Mime;
 using System.Text;
+using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
 using Newtonsoft.Json.Linq;
+using PolyzenKit.Application.Core.Interfaces;
 using PolyzenKit.Application.Core.Messages.Events;
+using PolyzenKit.Application.Core.RegisteredApps.Commands;
+using PolyzenKit.Application.Core.RegisteredApps.ViewModels;
 using PolyzenKit.Common.Utilities;
 using PolyzenKit.Infrastructure.Security.Tokens;
 using PolyzenKit.Presentation.Settings;
@@ -16,6 +20,8 @@ using PolyzenKit.Presentation.Validation;
 using UserIdentity.Application.Core.Tokens.ViewModels;
 using UserIdentity.Application.Core.Users.Shared;
 using UserIdentity.Application.Core.Users.ViewModels;
+using UserIdentity.Common.Enums;
+using UserIdentity.Common.Errors;
 using UserIdentity.Domain.InviteCodes;
 using UserIdentity.Domain.Users;
 using UserIdentity.IntegrationTests.TestUtils;
@@ -103,7 +109,7 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
     }
 
     [Fact]
-    public async Task Login_Runs_Five_Sql_Commands()
+    public async Task Login_Runs_Seven_Sql_Commands()
     {
         // Arrange
         TestDbHelper.SeedDatabase();
@@ -120,11 +126,11 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
         await response.ValidateRequestResponseAsync();
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Equal(5, _testingWebAppFactory.SqlCommandCounter.CountFor(requestId));
+        Assert.Equal(7, _testingWebAppFactory.SqlCommandCounter.CountFor(requestId));
     }
 
     [Fact]
-    public async Task Refresh_Token_Runs_Three_Sql_Commands()
+    public async Task Refresh_Token_Runs_Eight_Sql_Commands()
     {
         // Arrange
         TestDbHelper.SeedDatabase();
@@ -143,7 +149,7 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
         await response.ValidateRequestResponseAsync();
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Equal(3, _testingWebAppFactory.SqlCommandCounter.CountFor(requestId));
+        Assert.Equal(8, _testingWebAppFactory.SqlCommandCounter.CountFor(requestId));
     }
 
     [Fact]
@@ -386,16 +392,21 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
         Assert.Equal(userDetails?.Id, userDetails?.CreatedBy);
         Assert.Equal(userDetails?.Id, userDetails?.UpdatedBy);
 
-        var userToken = jsonObject["userToken"]?.ToObject<UserTokenDto>();
-
-        Assert.Null(userToken);
-
-        Assert.False(jsonObject["isConfirmed"]?.Value<bool>() ?? false);
+        Assert.Null(jsonObject["userToken"]?.ToObject<UserTokenDto>());
+        Assert.Equal("ConfirmEmail", $"{jsonObject["nextStep"]}");
+        Assert.False(string.IsNullOrEmpty($"{jsonObject["ticket"]}"));
+        Assert.Equal("t***@domain.com", $"{jsonObject["codeSentTo"]}");
 
         Assert.Contains(CaptchaVerifier.Checks, check => check.Action == "register");
 
-        // Confirm the message reached the stream
-        var message = await NatsTestHelper.FindMessageAsync(NatsTestHelper.UserRegisteredSubject, userDetails!.Id);
+        var loginTicket = Assert.Single(TestDbHelper.GetLoginTicketEntitiesWithNoTracking(userDetails!.Id));
+
+        Assert.Equal(SignInStep.ConfirmEmail, loginTicket.Step);
+        Assert.Equal(UserMessages.WelcomeUserAction, loginTicket.CodeAction);
+        Assert.Equal(userDetails.Id, loginTicket.CodeCorrelationId);
+        Assert.True(loginTicket.Expires > DateTime.UtcNow.AddMinutes(50));
+
+        var message = await NatsTestHelper.FindMessageAsync(NatsTestHelper.UserRegisteredSubject, userDetails.Id);
 
         Assert.NotNull(message);
         Assert.Equal(RegisteredApp.AppName, message.RegisteredApp);
@@ -410,16 +421,12 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
             },
             message.Recipient
         );
-        Assert.Equal(
-            new UserMessageData
-            {
-                UserId = userDetails.Id,
-                UserName = requestPayload.UserName,
-                FirstName = requestPayload.FirstName,
-                LastName = requestPayload.LastName,
-            },
-            message.GetData<UserMessageData>()
-        );
+
+        var data = message.GetData<UserMessageData>();
+
+        Assert.Equal(requestPayload.FirstName, data?.FirstName);
+        Assert.NotNull(data?.RequestedAt);
+        Assert.False(message.Data.TryGetProperty("userId", out _));
     }
 
     [Theory]
@@ -600,15 +607,12 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
         Assert.Equal(userDetails?.Id, userDetails?.CreatedBy);
         Assert.Equal(userDetails?.Id, userDetails?.UpdatedBy);
 
-        var userToken = jsonObject["userToken"]?.ToObject<UserTokenDto>();
-
-        Assert.Null(userToken);
-
-        Assert.False(jsonObject["isConfirmed"]?.Value<bool>() ?? false);
+        Assert.Null(jsonObject["userToken"]?.ToObject<UserTokenDto>());
+        Assert.Equal("ConfirmEmail", $"{jsonObject["nextStep"]}");
+        Assert.Equal(string.IsNullOrEmpty(UserEmail) ? "***212" : "r***@test.com", $"{jsonObject["codeSentTo"]}");
 
         Assert.Contains(CaptchaVerifier.Checks, check => check.Action == "register");
 
-        // Confirm the message reached the stream
         var message = await NatsTestHelper.FindMessageAsync(NatsTestHelper.UserRegisteredSubject, userDetails!.Id);
 
         Assert.NotNull(message);
@@ -624,20 +628,14 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
             },
             message.Recipient
         );
-        Assert.Equal(
-            new UserMessageData
-            {
-                UserId = userDetails.Id,
-                UserName = requestPayload.UserName,
-                FirstName = requestPayload.FirstName,
-            },
-            message.GetData<UserMessageData>()
-        );
+        Assert.Equal(requestPayload.FirstName, message.GetData<UserMessageData>()?.FirstName);
         Assert.False(message.Data.TryGetProperty("lastName", out _));
     }
 
-    [Fact]
-    public async Task Register_Existing_User_With_Valid_Request_Payload_Does_Not_Create_User()
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Register_With_A_Taken_User_Name_Or_Email_Answers_Like_A_New_Sign_Up_And_Tells_The_Account_Owner(bool sameUserName)
     {
         // Arrange
         TestDbHelper.SeedDatabase();
@@ -645,10 +643,8 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
         var requestPayload = new
         {
             UserSettingHelper.FirstName,
-            UserSettingHelper.LastName,
-            UserSettingHelper.UserName,
-            UserSettingHelper.PhoneNumber,
-            UserSettingHelper.UserEmail,
+            UserName = sameUserName ? UserSettingHelper.UserName : "someone.else",
+            UserEmail = sameUserName ? "someone.else@example.com" : UserSettingHelper.UserEmail,
             UserSettingHelper.UserPassword,
         };
 
@@ -656,19 +652,163 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
         var response = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/register", requestPayload);
 
         // Assert
-        var responseString = await response.ValidateRequestResponseAsync();
+        var jsonObject = SerDeHelper.Deserialize<JObject>(await response.ValidateRequestResponseAsync());
+        var userId = $"{jsonObject?["user"]?["id"]}";
+        var ticket = $"{jsonObject?["ticket"]}";
 
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        var jsonObject = SerDeHelper.Deserialize<JObject>(responseString);
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        Assert.Equal("ConfirmEmail", $"{jsonObject?["nextStep"]}");
+        Assert.Equal(ContactMask.Email(requestPayload.UserEmail), $"{jsonObject?["codeSentTo"]}");
+        Assert.True(Guid.TryParse(userId, out _));
+        Assert.NotEqual(UserSettingHelper.UserId, userId);
+        Assert.False(string.IsNullOrEmpty(ticket));
+        Assert.Equal(requestPayload.UserName, $"{jsonObject?["user"]?["userName"]}");
+        Assert.Equal(1, TestDbHelper.CountIdentityUsers());
+        Assert.Equal(0, TestDbHelper.CountLoginTicketEntities(UserSettingHelper.UserId));
+        Assert.Equal(1, TestDbHelper.CountAccountLimitEvents(UserSettingHelper.UserId, AccountLimitKind.SignUpAttemptNotice));
 
-        Assert.NotNull(jsonObject);
+        var attempt = await FindMessageSentToAsync(NatsTestHelper.SignUpAttemptedSubject, UserSettingHelper.UserEmail);
 
-        Assert.Equal("Request Failed", $"{jsonObject["requestStatus"]}");
-        Assert.Equal("400 - BAD REQUEST", $"{jsonObject["statusMessage"]}");
+        Assert.NotNull(attempt);
+        Assert.Equal(UserMessages.SignUpAttemptedAction, attempt.Action);
+        Assert.NotNull(attempt.GetData<UserMessageData>()?.AttemptedAt);
+        Assert.Null(await NatsTestHelper.FindMessageAsync(NatsTestHelper.UserRegisteredSubject, userId, TimeSpan.FromSeconds(1)));
 
-        Assert.Equal($"A record identified with - {requestPayload.UserName} - exists", $"{jsonObject["error"]?["message"]}");
+        StubHttpServer.AnswerVerify("Verified");
+        StubHttpServer.AnswerRetry("Sent");
 
-        AssertErrorTimestamp(jsonObject);
+        var confirmResponse = await HttpClient.SendNoAuthRequestAsync(
+            HttpMethod.Post,
+            _baseUri + "/confirm",
+            new { Ticket = ticket, Code = "123456" }
+        );
+        var resendResponse = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/resend-code", new { Ticket = ticket });
+
+        await AssertCodeErrorAsync(confirmResponse, ErrorMessages.Codes.NotAccepted);
+        Assert.Equal(HttpStatusCode.OK, resendResponse.StatusCode);
+        Assert.Equal(string.Empty, await resendResponse.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
+
+        var check = Assert.Single(StubHttpServer.ReceivedBodies(CodeCheckStub.VerifyPath));
+        var resend = Assert.Single(StubHttpServer.ReceivedBodies(CodeCheckStub.RetryPath));
+
+        Assert.NotEqual(UserSettingHelper.UserId, $"{check["correlationId"]}");
+        Assert.NotEqual(userId, $"{check["correlationId"]}");
+        Assert.NotEqual(userId, $"{resend["correlationId"]}");
+    }
+
+    [Fact]
+    public async Task Register_With_A_Taken_Email_Twice_Within_The_Cooldown_Tells_The_Account_Owner_Once()
+    {
+        // Arrange
+        TestDbHelper.SeedDatabase();
+
+        var requestPayload = new
+        {
+            UserSettingHelper.FirstName,
+            UserName = "someone.else",
+            UserSettingHelper.UserEmail,
+            UserSettingHelper.UserPassword,
+        };
+
+        // Act
+        var first = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/register", requestPayload);
+        var second = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/register", requestPayload);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.Created, first.StatusCode);
+        Assert.Equal(HttpStatusCode.Created, second.StatusCode);
+        Assert.Equal("ConfirmEmail", $"{SerDeHelper.Deserialize<JObject>(await second.ValidateRequestResponseAsync())?["nextStep"]}");
+        Assert.Equal(1, TestDbHelper.CountAccountLimitEvents(UserSettingHelper.UserId, AccountLimitKind.SignUpAttemptNotice));
+    }
+
+    [Fact]
+    public async Task Register_With_A_Taken_Email_Past_The_Daily_Notice_Cap_Answers_The_Same_And_Sends_Nothing()
+    {
+        // Arrange
+        TestDbHelper.SeedDatabase();
+        TestDbHelper.CreateAccountLimitEvents(UserSettingHelper.UserId, AccountLimitKind.SignUpAttemptNotice, 5);
+
+        // Act
+        var response = await HttpClient.SendNoAuthRequestAsync(
+            HttpMethod.Post,
+            _baseUri + "/register",
+            new
+            {
+                UserSettingHelper.FirstName,
+                UserName = "someone.else",
+                UserSettingHelper.UserEmail,
+                UserSettingHelper.UserPassword,
+            }
+        );
+
+        // Assert
+        var jsonObject = SerDeHelper.Deserialize<JObject>(await response.ValidateRequestResponseAsync());
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        Assert.Equal("ConfirmEmail", $"{jsonObject?["nextStep"]}");
+        Assert.Equal(5, TestDbHelper.CountAccountLimitEvents(UserSettingHelper.UserId, AccountLimitKind.SignUpAttemptNotice));
+        Assert.Null(
+            await FindMessageSentToAsync(NatsTestHelper.SignUpAttemptedSubject, UserSettingHelper.UserEmail, TimeSpan.FromSeconds(1))
+        );
+    }
+
+    [Fact]
+    public async Task Register_With_A_Taken_User_Name_Or_Email_For_An_App_Without_Confirmation_Gives_One_Generic_Error()
+    {
+        // Arrange
+        TestDbHelper.SeedDatabase();
+
+        const string openAppName = "OpenApp";
+
+        var createRegisteredAppCommandHandler = ServiceProvider.GetRequiredService<
+            ICreateItemCommandHandler<CreateRegisteredAppCommand, RegisteredAppViewModel>
+        >();
+
+        await createRegisteredAppCommandHandler.CreateItemAsync(
+            new CreateRegisteredAppCommand { AppName = openAppName, BaseUrl = "http://localhost:3003" },
+            KnownUsers.SystemId,
+            TestContext.Current.CancellationToken
+        );
+
+        object[] payloads =
+        [
+            new
+            {
+                UserSettingHelper.FirstName,
+                UserSettingHelper.UserName,
+                UserEmail = "someone.else@example.com",
+                UserSettingHelper.UserPassword,
+            },
+            new
+            {
+                UserSettingHelper.FirstName,
+                UserName = "someone.else",
+                UserSettingHelper.UserEmail,
+                UserSettingHelper.UserPassword,
+            },
+        ];
+
+        List<HttpResponseMessage> responses = [];
+
+        // Act
+        foreach (var payload in payloads)
+        {
+            var httpRequest = new HttpRequestMessage(HttpMethod.Post, _baseUri + "/register")
+            {
+                Content = SerDeHelper.ConvertToHttpContent(payload),
+            };
+            httpRequest.AddXApiKey();
+            httpRequest.Headers.Add("X-App-Name", openAppName);
+
+            responses.Add(await HttpClient.SendAsync(httpRequest, TestContext.Current.CancellationToken));
+        }
+
+        // Assert
+        foreach (var response in responses)
+            await AssertCodeErrorAsync(response, ErrorMessages.Users.AccountNotCreated);
+
+        Assert.Equal(1, TestDbHelper.CountIdentityUsers());
+        Assert.Equal(0, TestDbHelper.CountOutboxMessages());
     }
 
     [Fact]
@@ -707,10 +847,9 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
         Assert.NotNull(TestDbHelper.GetIdentityUserRole(ownerRole, userDetails.Id));
         Assert.True(TestDbHelper.GetInviteCodeEntityWithNoTracking(inviteCode.Id)?.Applied);
 
-        // Simulate the code being verified for the welcome message
-        await NatsTestHelper.PublishCodeVerifiedAsync(userDetails.Id, RegisteredApp.AppName, UserMessages.WelcomeUserAction);
-
-        await Eventually.HoldsAsync(() => TestDbHelper.GetIdentityUserWithNoTracking(userDetails.Id)?.EmailConfirmed == true);
+        var invitedUser = TestDbHelper.GetIdentityUser(userDetails.Id)!;
+        invitedUser.EmailConfirmed = true;
+        TestDbHelper.UpdateIdentityUser(invitedUser);
 
         (var token, _) = await HttpClient.LoginUserAsync(userName, UserSettingHelper.UserPassword);
 
@@ -936,46 +1075,129 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
     }
 
     [Fact]
-    public async Task Login_Ticket_From_Sign_Up_Starts_A_Session_Once_The_User_Is_Confirmed_And_Only_Once()
+    public async Task Confirm_With_The_Right_Code_Confirms_The_Account_And_Starts_A_Session_Only_Once()
     {
         // Arrange
-        var requestPayload = new
-        {
-            UserSettingHelper.FirstName,
-            UserSettingHelper.UserName,
-            UserSettingHelper.UserEmail,
-            UserSettingHelper.UserPassword,
-        };
+        (var userId, var ticket) = await SignUpUnconfirmedAsync();
 
-        var registerResponse = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/register", requestPayload);
-        var registered = SerDeHelper.Deserialize<JObject>(await registerResponse.ValidateRequestResponseAsync());
-        var userId = $"{registered?["user"]?["id"]}";
-        var ticketPayload = new { Ticket = $"{registered?["loginTicket"]}" };
+        StubHttpServer.AnswerVerify("Verified");
+
+        var confirmPayload = new { Ticket = ticket, Code = "123456" };
 
         // Act
-        var beforeConfirming = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/login-ticket", ticketPayload);
-
-        await NatsTestHelper.PublishCodeVerifiedAsync(userId, RegisteredApp.AppName, UserMessages.WelcomeUserAction);
-        await Eventually.HoldsAsync(() => TestDbHelper.GetIdentityUserWithNoTracking(userId)?.EmailConfirmed == true);
-
-        var afterConfirming = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/login-ticket", ticketPayload);
-        var reused = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/login-ticket", ticketPayload);
+        var response = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/confirm", confirmPayload);
+        var reused = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/confirm", confirmPayload);
 
         // Assert
-        Assert.False(string.IsNullOrEmpty(ticketPayload.Ticket));
-        Assert.Equal(HttpStatusCode.NotAcceptable, beforeConfirming.StatusCode);
-        Assert.Equal(HttpStatusCode.OK, afterConfirming.StatusCode);
-        Assert.Equal(HttpStatusCode.Unauthorized, reused.StatusCode);
+        var session = SerDeHelper.Deserialize<JObject>(await response.ValidateRequestResponseAsync());
 
-        var session = SerDeHelper.Deserialize<JObject>(await afterConfirming.ValidateRequestResponseAsync());
-        var accessToken = $"{session?["userToken"]?["accessToken"]?["token"]}";
-
-        Assert.Equal(userId, new JsonWebToken(accessToken).Subject);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("Account confirmed", $"{session?["statusMessage"]}");
+        Assert.Equal("Session", $"{session?["nextStep"]}");
+        Assert.Equal(userId, new JsonWebToken($"{session?["userToken"]?["accessToken"]?["token"]}").Subject);
         Assert.False(string.IsNullOrEmpty($"{session?["userToken"]?["refreshToken"]}"));
+        Assert.True(TestDbHelper.GetIdentityUserWithNoTracking(userId)?.EmailConfirmed);
+        Assert.Equal(0, TestDbHelper.CountLoginTicketEntities(userId));
+
+        var verifyRequest = StubHttpServer.Requests[0];
+        var check = JsonNode.Parse(verifyRequest.Body)!;
+
+        Assert.Equal(CodeCheckStub.VerifyPath, verifyRequest.Path);
+        Assert.StartsWith("Bearer ", verifyRequest.Headers["Authorization"], StringComparison.Ordinal);
+        Assert.Equal("TestApiKey-For-Local-Use-Only-0123456789", verifyRequest.Headers["X-Api-Key"]);
+        Assert.Equal(UserMessages.WelcomeUserAction, $"{check["action"]}");
+        Assert.Equal(userId, $"{check["correlationId"]}");
+        Assert.Equal("123456", $"{check["code"]}");
+
+        var serviceToken = new JsonWebToken(verifyRequest.Headers["Authorization"]["Bearer ".Length..]);
+
+        Assert.Equal("useridentity", serviceToken.Subject);
+        Assert.Equal("testapp", serviceToken.GetClaim(JwtRegisteredClaimNames.Azp).Value.ToLowerInvariant());
+        Assert.Contains(serviceToken.Claims, claim => claim.Type == JwtCustomClaimNames.Roles && claim.Value == KnownRoles.InternalService);
+        Assert.Contains(
+            serviceToken.Claims,
+            claim => claim.Type == JwtCustomClaimNames.Scope && claim.Value == "messagemanager-message:create"
+        );
+
+        await AssertCodeErrorAsync(reused, ErrorMessages.Codes.NotAccepted);
+    }
+
+    [Theory]
+    [InlineData("WrongCode", 2)]
+    [InlineData("Expired", 0)]
+    [InlineData("NoAttemptsLeft", 0)]
+    [InlineData("NotFound", 0)]
+    public async Task Confirm_With_A_Code_That_Isnt_Verified_Gives_One_Message_And_Keeps_The_Account_Unconfirmed_And_The_Ticket(
+        string outcome,
+        int attemptsLeft
+    )
+    {
+        // Arrange
+        (var userId, var ticket) = await SignUpUnconfirmedAsync();
+
+        StubHttpServer.AnswerVerify(outcome, attemptsLeft);
+
+        // Act
+        var response = await HttpClient.SendNoAuthRequestAsync(
+            HttpMethod.Post,
+            _baseUri + "/confirm",
+            new { Ticket = ticket, Code = "000000" }
+        );
+
+        // Assert
+        await AssertCodeErrorAsync(response, ErrorMessages.Codes.NotAccepted);
+        Assert.False(TestDbHelper.GetIdentityUserWithNoTracking(userId)?.EmailConfirmed);
+        Assert.Equal(1, TestDbHelper.CountLoginTicketEntities(userId));
     }
 
     [Fact]
-    public async Task Login_Ticket_Is_Refused_For_Another_App()
+    public async Task Confirm_When_The_Code_Cant_Be_Checked_Fails_Closed()
+    {
+        // Arrange
+        (var userId, var ticket) = await SignUpUnconfirmedAsync();
+
+        // Act
+        var response = await HttpClient.SendNoAuthRequestAsync(
+            HttpMethod.Post,
+            _baseUri + "/confirm",
+            new { Ticket = ticket, Code = "123456" }
+        );
+
+        // Assert
+        Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
+        Assert.False(TestDbHelper.GetIdentityUserWithNoTracking(userId)?.EmailConfirmed);
+        Assert.Equal(1, TestDbHelper.CountLoginTicketEntities(userId));
+    }
+
+    [Fact]
+    public async Task Confirm_With_A_Ticket_Of_Another_App_Is_Refused_And_Checks_No_Code_Of_The_User()
+    {
+        // Arrange
+        (var userId, var ticket) = await SignUpUnconfirmedAsync();
+
+        StubHttpServer.AnswerVerify("Verified");
+
+        var httpRequest = new HttpRequestMessage(HttpMethod.Post, _baseUri + "/confirm")
+        {
+            Content = SerDeHelper.ConvertToHttpContent(new { Ticket = ticket, Code = "123456" }),
+        };
+        httpRequest.AddXApiKey();
+        httpRequest.Headers.Add("X-App-Name", TestingWebAppFactory.OtherAppName);
+
+        // Act
+        var response = await HttpClient.SendAsync(httpRequest, TestContext.Current.CancellationToken);
+
+        // Assert
+        await AssertCodeErrorAsync(response, ErrorMessages.Codes.NotAccepted);
+
+        var check = Assert.Single(StubHttpServer.ReceivedBodies(CodeCheckStub.VerifyPath));
+
+        Assert.NotEqual(userId, $"{check["correlationId"]}");
+        Assert.False(TestDbHelper.GetIdentityUserWithNoTracking(userId)?.EmailConfirmed);
+    }
+
+    [Fact]
+    public async Task Login_Of_An_Unconfirmed_User_Sends_A_Login_Code_And_Returns_A_Ticket_That_Confirm_Accepts()
     {
         // Arrange
         TestDbHelper.SeedDatabase();
@@ -989,21 +1211,226 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
             _baseUri + "/login",
             new { UserSettingHelper.UserName, Password = UserSettingHelper.UserPassword }
         );
-        var ticket = $"{SerDeHelper.Deserialize<JObject>(await loginResponse.ValidateRequestResponseAsync())?["loginTicket"]}";
+        var login = SerDeHelper.Deserialize<JObject>(await loginResponse.ValidateRequestResponseAsync());
+        var loginTicket = Assert.Single(TestDbHelper.GetLoginTicketEntitiesWithNoTracking(UserSettingHelper.UserId));
 
-        var httpRequest = new HttpRequestMessage(HttpMethod.Post, _baseUri + "/login-ticket")
-        {
-            Content = SerDeHelper.ConvertToHttpContent(new { Ticket = ticket }),
-        };
-        httpRequest.AddXApiKey();
-        httpRequest.Headers.Add("X-App-Name", TestingWebAppFactory.OtherAppName);
+        StubHttpServer.AnswerVerify("Verified");
 
         // Act
-        var response = await HttpClient.SendAsync(httpRequest, TestContext.Current.CancellationToken);
+        var response = await HttpClient.SendNoAuthRequestAsync(
+            HttpMethod.Post,
+            _baseUri + "/confirm",
+            new { Ticket = $"{login?["ticket"]}", Code = "123456" }
+        );
 
         // Assert
-        Assert.False(string.IsNullOrEmpty(ticket));
+        Assert.Equal("ConfirmEmail", $"{login?["nextStep"]}");
+        Assert.Equal("t***@domain.com", $"{login?["codeSentTo"]}");
+        Assert.True(string.IsNullOrEmpty($"{login?["userToken"]}"));
+        Assert.Equal(UserMessages.LoginCodeAction, loginTicket.CodeAction);
+        Assert.Equal(loginTicket.Id.ToString(), loginTicket.CodeCorrelationId);
+        Assert.True(loginTicket.Expires < DateTime.UtcNow.AddMinutes(11));
+
+        var loginCode = await NatsTestHelper.FindMessageAsync(NatsTestHelper.LoginCodeRequestedSubject, loginTicket.Id.ToString());
+
+        Assert.NotNull(loginCode);
+        Assert.Equal(UserMessages.LoginCodeAction, loginCode.Action);
+        Assert.Equal(LoginCodePurpose.ConfirmEmail, loginCode.GetData<UserMessageData>()?.Purpose);
+        Assert.Equal(UserSettingHelper.UserEmail, loginCode.Recipient?.Email);
+        Assert.Null(loginCode.Recipient?.Phone);
+        Assert.Equal(loginTicket.Expires, loginCode.ExpiresAt!.Value, TimeSpan.FromSeconds(1));
+
+        var check = Assert.Single(StubHttpServer.ReceivedBodies(CodeCheckStub.VerifyPath));
+
+        Assert.Equal(UserMessages.LoginCodeAction, $"{check["action"]}");
+        Assert.Equal(loginTicket.Id.ToString(), $"{check["correlationId"]}");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("Session", $"{SerDeHelper.Deserialize<JObject>(await response.ValidateRequestResponseAsync())?["nextStep"]}");
+        Assert.True(TestDbHelper.GetIdentityUserWithNoTracking(UserSettingHelper.UserId)?.EmailConfirmed);
+    }
+
+    [Fact]
+    public async Task Login_Past_The_Daily_Login_Code_Cap_Answers_The_Lockout_And_Sends_No_Code()
+    {
+        // Arrange
+        TestDbHelper.SeedDatabase();
+
+        var user = TestDbHelper.GetIdentityUser(UserSettingHelper.UserId)!;
+        user.EmailConfirmed = false;
+        TestDbHelper.UpdateIdentityUser(user);
+
+        TestDbHelper.CreateAccountLimitEvents(UserSettingHelper.UserId, AccountLimitKind.LoginCodeSent, 10);
+
+        // Act
+        var response = await HttpClient.SendNoAuthRequestAsync(
+            HttpMethod.Post,
+            _baseUri + "/login",
+            new { UserSettingHelper.UserName, Password = UserSettingHelper.UserPassword }
+        );
+
+        // Assert
+        var jsonObject = SerDeHelper.Deserialize<JObject>(await response.ValidateRequestResponseAsync());
+
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Equal("Provided credentials are invalid", $"{jsonObject?["error"]?["message"]}");
+        Assert.Equal(0, TestDbHelper.CountLoginTicketEntities(UserSettingHelper.UserId));
+        Assert.Equal(10, TestDbHelper.CountAccountLimitEvents(UserSettingHelper.UserId, AccountLimitKind.LoginCodeSent));
+    }
+
+    [Fact]
+    public async Task Login_With_The_Right_Password_Keeps_The_Failure_Count_Until_A_Session_Starts()
+    {
+        // Arrange
+        TestDbHelper.SeedDatabase();
+
+        var user = TestDbHelper.GetIdentityUser(UserSettingHelper.UserId)!;
+        user.EmailConfirmed = false;
+        user.LockoutEnabled = true;
+        TestDbHelper.UpdateIdentityUser(user);
+
+        await HttpClient.SendNoAuthRequestAsync(
+            HttpMethod.Post,
+            _baseUri + "/login",
+            new { UserSettingHelper.UserName, Password = UserSettingHelper.UserPassword + "123" }
+        );
+
+        // Act
+        var confirmStep = await HttpClient.SendNoAuthRequestAsync(
+            HttpMethod.Post,
+            _baseUri + "/login",
+            new { UserSettingHelper.UserName, Password = UserSettingHelper.UserPassword }
+        );
+        var countAfterConfirmStep = TestDbHelper.GetIdentityUserWithNoTracking(UserSettingHelper.UserId)?.AccessFailedCount;
+
+        StubHttpServer.AnswerVerify("Verified");
+
+        var session = await HttpClient.SendNoAuthRequestAsync(
+            HttpMethod.Post,
+            _baseUri + "/confirm",
+            new
+            {
+                Ticket = $"{SerDeHelper.Deserialize<JObject>(await confirmStep.ValidateRequestResponseAsync())?["ticket"]}",
+                Code = "123456",
+            }
+        );
+
+        // Assert
+        Assert.Equal(1, countAfterConfirmStep);
+        Assert.Equal(HttpStatusCode.OK, session.StatusCode);
+        Assert.Equal(0, TestDbHelper.GetIdentityUserWithNoTracking(UserSettingHelper.UserId)?.AccessFailedCount);
+    }
+
+    [Fact]
+    public async Task Resend_Code_With_A_Sign_Up_Ticket_Asks_For_The_Welcome_Code_Of_Its_User()
+    {
+        // Arrange
+        (var userId, var ticket) = await SignUpUnconfirmedAsync();
+
+        StubHttpServer.AnswerRetry("Sent");
+
+        // Act
+        var response = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/resend-code", new { Ticket = ticket });
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(string.Empty, await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
+
+        var resend = Assert.Single(StubHttpServer.ReceivedBodies(CodeCheckStub.RetryPath));
+        Assert.Equal(UserMessages.WelcomeUserAction, $"{resend["action"]}");
+        Assert.Equal(userId, $"{resend["correlationId"]}");
+    }
+
+    [Theory]
+    [InlineData("TooSoon", 42)]
+    [InlineData("NoResendsLeft", 0)]
+    [InlineData("NotFound", 0)]
+    public async Task Resend_Code_That_Isnt_Sent_Answers_The_Same_Empty_Ok(string outcome, int retryAfterSeconds)
+    {
+        // Arrange
+        (_, var ticket) = await SignUpUnconfirmedAsync();
+
+        StubHttpServer.AnswerRetry(outcome, retryAfterSeconds);
+
+        // Act
+        var response = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/resend-code", new { Ticket = ticket });
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(string.Empty, await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task Resend_Code_With_An_Unknown_Ticket_Or_Reset_Answers_Ok_And_Asks_For_No_Real_Code()
+    {
+        // Arrange
+        StubHttpServer.AnswerRetry("NotFound");
+
+        // Act
+        var ticketResponse = await HttpClient.SendNoAuthRequestAsync(
+            HttpMethod.Post,
+            _baseUri + "/resend-code",
+            new { Ticket = RandomStrings.Generate(32) }
+        );
+        var resetResponse = await HttpClient.SendNoAuthRequestAsync(
+            HttpMethod.Post,
+            _baseUri + "/resend-code",
+            new { ResetRequestId = RandomStrings.Generate(32) }
+        );
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, ticketResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, resetResponse.StatusCode);
+
+        var resends = StubHttpServer.ReceivedBodies(CodeCheckStub.RetryPath);
+
+        Assert.Equal(2, resends.Count);
+        Assert.All(resends, resend => Assert.True(Guid.TryParse($"{resend["correlationId"]}", out _)));
+    }
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, true)]
+    public async Task Resend_Code_Needs_Exactly_One_Of_Ticket_And_Reset_Request_Id(bool withTicket, bool withResetRequestId)
+    {
+        // Act
+        var response = await HttpClient.SendNoAuthRequestAsync(
+            HttpMethod.Post,
+            _baseUri + "/resend-code",
+            new { Ticket = withTicket ? "ticket" : null, ResetRequestId = withResetRequestId ? "reset" : null }
+        );
+
+        // Assert
+        var jsonObject = SerDeHelper.Deserialize<JObject>(await response.ValidateRequestResponseAsync());
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+
+        var errorList = jsonObject?["error"]?["errorList"]?.ToObject<List<ValidationError>>();
+
+        Assert.Contains(errorList ?? [], error => error.Message == ErrorMessages.Users.TicketOrResetRequestIdRequired);
+        Assert.Empty(StubHttpServer.Requests);
+    }
+
+    private async Task<(string UserId, string Ticket)> SignUpUnconfirmedAsync()
+    {
+        var registerResponse = await HttpClient.SendNoAuthRequestAsync(
+            HttpMethod.Post,
+            _baseUri + "/register",
+            new
+            {
+                UserSettingHelper.FirstName,
+                UserSettingHelper.UserName,
+                UserSettingHelper.UserEmail,
+                UserSettingHelper.UserPassword,
+            }
+        );
+        var registered = SerDeHelper.Deserialize<JObject>(await registerResponse.ValidateRequestResponseAsync());
+        var ticket = $"{registered?["ticket"]}";
+
+        Assert.Equal(HttpStatusCode.Created, registerResponse.StatusCode);
+        Assert.Equal("ConfirmEmail", $"{registered?["nextStep"]}");
+        Assert.False(string.IsNullOrEmpty(ticket));
+
+        return ($"{registered?["user"]?["id"]}", ticket);
     }
 
     [Fact]
@@ -1244,6 +1671,11 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
     [InlineData("/api/v1/user/register")]
     [InlineData("/api/v1/wait-list")]
     [InlineData("/api/v1/user/reset-password")]
+    [InlineData("/api/v1/user/confirm")]
+    [InlineData("/api/v1/user/resend-code")]
+    [InlineData("/api/v1/user/two-factor/verify")]
+    [InlineData("/api/v1/user/two-factor/setup")]
+    [InlineData("/api/v1/user/two-factor/setup/confirm")]
     public async Task Anonymous_Endpoint_Beyond_Rate_Limit_Returns_Too_Many_Requests(string uri)
     {
         // Arrange
@@ -1452,8 +1884,18 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
 
         Assert.NotNull(passwordResetEntity);
         Assert.Equal(new TokenFactory().HashToken(resetPasswordDto.ResetRequestId), passwordResetEntity.RequestId);
-        Assert.False(passwordResetEntity.Verified);
+        Assert.Equal(TestDbHelper.GetRegisteredAppEntityByAppName(RegisteredApp.AppName).Id, passwordResetEntity.AppId);
         Assert.False(passwordResetEntity.Applied);
+
+        var message = await NatsTestHelper.FindMessageAsync(
+            NatsTestHelper.PasswordResetRequestedSubject,
+            passwordResetEntity.Id.ToString()
+        );
+
+        Assert.NotNull(message);
+        Assert.Equal(UserMessages.PasswordResetAction, message.Action);
+        Assert.NotNull(message.ExpiresAt);
+        Assert.NotNull(message.GetData<UserMessageData>()?.RequestedAt);
     }
 
     [Fact]
@@ -1473,20 +1915,11 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
 
         // Assert
         Assert.All(responses, response => Assert.Equal(HttpStatusCode.OK, response.StatusCode));
-
-        var resetRequestIds = await Task.WhenAll(
-            responses.Select(async response =>
-                $"{SerDeHelper.Deserialize<JObject>(await response.ValidateRequestResponseAsync())?["resetPasswordDetails"]?["resetRequestId"]}"
-            )
-        );
-        var messages = await Task.WhenAll(
-            resetRequestIds.Select(resetRequestId =>
-                NatsTestHelper.FindMessageAsync(NatsTestHelper.PasswordResetRequestedSubject, resetRequestId)
-            )
-        );
-
         Assert.Equal(1, TestDbHelper.CountPasswordResetEntities(UserSettingHelper.UserId));
-        Assert.Single(messages, message => message is not null);
+
+        var passwordReset = TestDbHelper.GetPasswordResetEntityWithNoTracking(UserSettingHelper.UserId)!;
+
+        Assert.NotNull(await NatsTestHelper.FindMessageAsync(NatsTestHelper.PasswordResetRequestedSubject, passwordReset.Id.ToString()));
     }
 
     [Fact]
@@ -1536,64 +1969,77 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
     }
 
     [Fact]
-    public async Task Reset_Password_With_Verified_Code_Updates_Password_And_Ends_Sessions()
+    public async Task Update_Password_With_The_Right_Code_Updates_Password_Ends_Sessions_And_Tickets_And_Signs_In()
     {
         // Arrange
         TestDbHelper.SeedDatabase();
 
         (var userToken, var refreshToken) = await HttpClient.LoginUserAsync(UserSettingHelper.UserName, UserSettingHelper.UserPassword);
 
-        var resetResponse = await HttpClient.SendNoAuthRequestAsync(
+        var user = TestDbHelper.GetIdentityUser(UserSettingHelper.UserId)!;
+        user.EmailConfirmed = false;
+        TestDbHelper.UpdateIdentityUser(user);
+
+        await HttpClient.SendNoAuthRequestAsync(
             HttpMethod.Post,
-            _baseUri + "/reset-password",
-            new { UserSettingHelper.UserName }
+            _baseUri + "/login",
+            new { UserSettingHelper.UserName, Password = UserSettingHelper.UserPassword }
         );
-        var resetRequestId = SerDeHelper
-            .Deserialize<JObject>(await resetResponse.ValidateRequestResponseAsync())
-            ?["resetPasswordDetails"]?["resetRequestId"]?.ToString();
 
-        Assert.NotNull(resetRequestId);
+        user.EmailConfirmed = true;
+        user.LockoutEnabled = true;
+        user.LockoutEnd = DateTimeOffset.UtcNow.AddMinutes(5);
+        user.AccessFailedCount = 3;
+        TestDbHelper.UpdateIdentityUser(user);
 
-        // Simulate the message saying a code was verified
-        await NatsTestHelper.PublishCodeVerifiedAsync(resetRequestId, RegisteredApp.AppName, UserMessages.PasswordResetAction);
-
-        await Eventually.HoldsAsync(() => TestDbHelper.GetPasswordResetEntityWithNoTracking(UserSettingHelper.UserId)?.Verified == true);
-
-        var lockedOutUser = TestDbHelper.GetIdentityUser(UserSettingHelper.UserId)!;
-        lockedOutUser.LockoutEnabled = true;
-        lockedOutUser.LockoutEnd = DateTimeOffset.UtcNow.AddMinutes(5);
-        lockedOutUser.AccessFailedCount = 3;
-        TestDbHelper.UpdateIdentityUser(lockedOutUser);
-
+        var resetRequestId = await RequestPasswordResetAsync();
+        var passwordReset = TestDbHelper.GetPasswordResetEntityWithNoTracking(UserSettingHelper.UserId)!;
         var newPassword = "N3wP@ssword!";
+
+        StubHttpServer.AnswerVerify("Verified");
 
         // Act
         var response = await HttpClient.SendNoAuthRequestAsync(
             HttpMethod.Post,
             _baseUri + "/update-password",
-            new { ResetRequestId = resetRequestId, NewPassword = newPassword }
+            new
+            {
+                ResetRequestId = resetRequestId,
+                Code = "123456",
+                NewPassword = newPassword,
+            }
         );
 
         // Assert
-        var responseString = await response.ValidateRequestResponseAsync();
+        var jsonObject = SerDeHelper.Deserialize<JObject>(await response.ValidateRequestResponseAsync());
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var jsonObject = SerDeHelper.Deserialize<JObject>(responseString);
-
         Assert.NotNull(jsonObject);
-
-        Assert.Equal("Request Successful", $"{jsonObject["requestStatus"]}");
         Assert.Equal("Password updated successfully", $"{jsonObject["statusMessage"]}");
-        Assert.True(jsonObject["updatePasswordResult"]?.ToObject<UpdatePasswordDto>()?.PasswordUpdated);
+        Assert.Equal("Session", $"{jsonObject["nextStep"]}");
+        Assert.Equal(UserSettingHelper.UserId, $"{jsonObject["user"]?["id"]}");
         Assert.False(string.IsNullOrEmpty($"{jsonObject["userToken"]?["accessToken"]?["token"]}"));
         Assert.False(string.IsNullOrEmpty($"{jsonObject["userToken"]?["refreshToken"]}"));
 
+        var check = Assert.Single(StubHttpServer.ReceivedBodies(CodeCheckStub.VerifyPath));
+        Assert.Equal(UserMessages.PasswordResetAction, $"{check["action"]}");
+        Assert.Equal(passwordReset.Id.ToString(), $"{check["correlationId"]}");
+        Assert.Equal("123456", $"{check["code"]}");
+
         Assert.True(TestDbHelper.GetPasswordResetEntityWithNoTracking(UserSettingHelper.UserId)?.Applied);
+        Assert.Equal(0, TestDbHelper.CountLoginTicketEntities(UserSettingHelper.UserId));
 
         var updatedUser = TestDbHelper.GetIdentityUserWithNoTracking(UserSettingHelper.UserId);
 
         Assert.Null(updatedUser?.LockoutEnd);
         Assert.Equal(0, updatedUser?.AccessFailedCount);
+
+        var passwordChanged = await FindMessageSentToAsync(NatsTestHelper.PasswordChangedSubject, UserSettingHelper.UserEmail);
+
+        Assert.NotNull(passwordChanged);
+        Assert.Equal(UserMessages.PasswordChangedAction, passwordChanged.Action);
+        Assert.Equal(UserSettingHelper.UserEmail, passwordChanged.Recipient?.Email);
+        Assert.NotNull(passwordChanged.GetData<UserMessageData>()?.ChangedAt);
 
         await HttpClient.LoginUserAsync(UserSettingHelper.UserName, newPassword);
 
@@ -1608,10 +2054,44 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
         var reuseResponse = await HttpClient.SendNoAuthRequestAsync(
             HttpMethod.Post,
             _baseUri + "/update-password",
-            new { ResetRequestId = resetRequestId, NewPassword = "An0therP@ssword!" }
+            new
+            {
+                ResetRequestId = resetRequestId,
+                Code = "123456",
+                NewPassword = "An0therP@ssword!",
+            }
         );
 
-        Assert.Equal(HttpStatusCode.NotAcceptable, reuseResponse.StatusCode);
+        await AssertCodeErrorAsync(reuseResponse, ErrorMessages.Codes.NotAccepted);
+    }
+
+    [Fact]
+    public async Task Update_Password_With_A_Wrong_Code_Keeps_The_Password_And_Gives_The_One_Code_Message()
+    {
+        // Arrange
+        TestDbHelper.SeedDatabase();
+
+        var resetRequestId = await RequestPasswordResetAsync();
+
+        StubHttpServer.AnswerVerify("WrongCode", 4);
+
+        // Act
+        var response = await HttpClient.SendNoAuthRequestAsync(
+            HttpMethod.Post,
+            _baseUri + "/update-password",
+            new
+            {
+                ResetRequestId = resetRequestId,
+                Code = "000000",
+                NewPassword = "N3wP@ssword!",
+            }
+        );
+
+        // Assert
+        await AssertCodeErrorAsync(response, ErrorMessages.Codes.NotAccepted);
+        Assert.False(TestDbHelper.GetPasswordResetEntityWithNoTracking(UserSettingHelper.UserId)?.Applied);
+
+        await HttpClient.LoginUserAsync(UserSettingHelper.UserName, UserSettingHelper.UserPassword);
     }
 
     [Fact]
@@ -1625,6 +2105,8 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
 
         var originalPasswordHash = TestDbHelper.GetIdentityUserWithNoTracking(UserSettingHelper.UserId)?.PasswordHash;
 
+        StubHttpServer.AnswerVerify("Verified");
+
         await using var failingFactory = _testingWebAppFactory.WithWebHostBuilder(builder =>
             builder.ConfigureTestServices(services =>
                 services.ConfigureDbContext<AppDbContext>((_, options) => options.AddInterceptors(new FailsDeletingSessionsInterceptor()))
@@ -1637,7 +2119,12 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
         var response = await failingClient.SendNoAuthRequestAsync(
             HttpMethod.Post,
             _baseUri + "/update-password",
-            new { ResetRequestId = resetRequestId, NewPassword = "N3wP@ssword!" }
+            new
+            {
+                ResetRequestId = resetRequestId,
+                Code = "123456",
+                NewPassword = "N3wP@ssword!",
+            }
         );
 
         // Assert
@@ -1673,46 +2160,45 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
 
         var errorList = jsonObject["error"]?["errorList"]?.ToObject<List<ValidationError>>();
 
-        Assert.Equal(2, errorList?.Count);
+        Assert.Equal(3, errorList?.Count);
 
         Assert.True(errorList?.Any(x => x.Field == "NewPassword" && x.Message == "The NewPassword field is required.") ?? false);
         Assert.True(errorList?.Any(x => x.Field == "ResetRequestId" && x.Message == "The ResetRequestId field is required.") ?? false);
+        Assert.True(errorList?.Any(x => x.Field == "Code" && x.Message == "The Code field is required.") ?? false);
     }
 
     [Fact]
-    public async Task Update_Password_With_Unknown_Reset_Request_Does_Not_Update_Password()
+    public async Task Update_Password_With_Unknown_Reset_Request_Checks_Only_A_Random_Code_And_Keeps_The_Password()
     {
         // Arrange
         TestDbHelper.SeedDatabase();
 
-        var requestPayload = new { ResetRequestId = RandomStrings.Generate(32), NewPassword = "N3wP@ssword!" };
+        StubHttpServer.AnswerVerify("Verified");
+
+        var requestPayload = new
+        {
+            ResetRequestId = RandomStrings.Generate(32),
+            Code = "123456",
+            NewPassword = "N3wP@ssword!",
+        };
 
         // Act
         var response = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/update-password", requestPayload);
 
         // Assert
-        var responseString = await response.ValidateRequestResponseAsync();
+        await AssertCodeErrorAsync(response, ErrorMessages.Codes.NotAccepted);
 
-        Assert.Equal(HttpStatusCode.NotAcceptable, response.StatusCode);
-        var jsonObject = SerDeHelper.Deserialize<JObject>(responseString);
+        var check = Assert.Single(StubHttpServer.ReceivedBodies(CodeCheckStub.VerifyPath));
 
-        Assert.NotNull(jsonObject);
+        Assert.True(Guid.TryParse($"{check["correlationId"]}", out _));
 
-        Assert.Equal("Request Failed", $"{jsonObject["requestStatus"]}");
-        Assert.Equal("Password update failed", $"{jsonObject["statusMessage"]}");
-
-        var updatePasswordDto = jsonObject["updatePasswordResult"]?.ToObject<UpdatePasswordDto>();
-
-        Assert.NotNull(updatePasswordDto);
-        Assert.False(updatePasswordDto?.PasswordUpdated);
+        await HttpClient.LoginUserAsync(UserSettingHelper.UserName, UserSettingHelper.UserPassword);
     }
 
     [Theory]
-    [InlineData(false, false, 15)]
-    [InlineData(true, true, 15)]
-    [InlineData(true, false, -1)]
-    public async Task Update_Password_With_Unverified_Used_Or_Expired_Reset_Request_Does_Not_Update_Password(
-        bool verified,
+    [InlineData(true, 15)]
+    [InlineData(false, -1)]
+    public async Task Update_Password_With_Used_Or_Expired_Reset_Request_Checks_Only_A_Random_Code_And_Keeps_The_Password(
         bool applied,
         int expiresInMinutes
     )
@@ -1720,30 +2206,70 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
         // Arrange
         TestDbHelper.SeedDatabase();
 
-        var resetRequestId = RandomStrings.Generate(32);
-        TestDbHelper.CreatePasswordResetEntity(resetRequestId, verified, applied, DateTime.UtcNow.AddMinutes(expiresInMinutes));
+        StubHttpServer.AnswerVerify("Verified");
 
-        var requestPayload = new { ResetRequestId = resetRequestId, NewPassword = "N3wP@ssword!" };
+        var resetRequestId = RandomStrings.Generate(32);
+        var passwordReset = TestDbHelper.CreatePasswordResetEntity(resetRequestId, applied, DateTime.UtcNow.AddMinutes(expiresInMinutes));
+
+        var requestPayload = new
+        {
+            ResetRequestId = resetRequestId,
+            Code = "123456",
+            NewPassword = "N3wP@ssword!",
+        };
 
         // Act
         var response = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/update-password", requestPayload);
 
         // Assert
-        var responseString = await response.ValidateRequestResponseAsync();
+        await AssertCodeErrorAsync(response, ErrorMessages.Codes.NotAccepted);
 
-        Assert.Equal(HttpStatusCode.NotAcceptable, response.StatusCode);
-        var jsonObject = SerDeHelper.Deserialize<JObject>(responseString);
+        var check = Assert.Single(StubHttpServer.ReceivedBodies(CodeCheckStub.VerifyPath));
 
-        Assert.NotNull(jsonObject);
-
-        Assert.Equal("Password update failed", $"{jsonObject["statusMessage"]}");
-        Assert.False(jsonObject["updatePasswordResult"]?.ToObject<UpdatePasswordDto>()?.PasswordUpdated);
+        Assert.NotEqual(passwordReset.Id.ToString(), $"{check["correlationId"]}");
 
         await HttpClient.LoginUserAsync(UserSettingHelper.UserName, UserSettingHelper.UserPassword);
     }
 
     [Fact]
-    public async Task Update_Password_With_Password_Not_Meeting_Rules_Returns_Validation_Errors()
+    public async Task Update_Password_With_Another_Apps_Reset_Request_Checks_Only_A_Random_Code()
+    {
+        // Arrange
+        TestDbHelper.SeedDatabase();
+
+        StubHttpServer.AnswerVerify("Verified");
+
+        var resetRequestId = RandomStrings.Generate(32);
+        var passwordReset = TestDbHelper.CreatePasswordResetEntity(resetRequestId);
+
+        var httpRequest = new HttpRequestMessage(HttpMethod.Post, _baseUri + "/update-password")
+        {
+            Content = SerDeHelper.ConvertToHttpContent(
+                new
+                {
+                    ResetRequestId = resetRequestId,
+                    Code = "123456",
+                    NewPassword = "N3wP@ssword!",
+                }
+            ),
+        };
+        httpRequest.AddXApiKey();
+        httpRequest.Headers.Add("X-App-Name", TestingWebAppFactory.OtherAppName);
+
+        // Act
+        var response = await HttpClient.SendAsync(httpRequest, TestContext.Current.CancellationToken);
+
+        // Assert
+        await AssertCodeErrorAsync(response, ErrorMessages.Codes.NotAccepted);
+
+        var check = Assert.Single(StubHttpServer.ReceivedBodies(CodeCheckStub.VerifyPath));
+
+        Assert.NotEqual(passwordReset.Id.ToString(), $"{check["correlationId"]}");
+        Assert.False(TestDbHelper.GetPasswordResetEntityWithNoTracking(UserSettingHelper.UserId)?.Applied);
+    }
+
+    [Fact]
+    public async Task Update_Password_With_Password_Not_Meeting_Rules_Returns_Validation_Errors_Before_Checking_The_Code()
     {
         // Arrange
         TestDbHelper.SeedDatabase();
@@ -1751,7 +2277,12 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
         var resetRequestId = RandomStrings.Generate(32);
         TestDbHelper.CreatePasswordResetEntity(resetRequestId);
 
-        var requestPayload = new { ResetRequestId = resetRequestId, NewPassword = "12345" };
+        var requestPayload = new
+        {
+            ResetRequestId = resetRequestId,
+            Code = "123456",
+            NewPassword = "12345",
+        };
 
         // Act
         var response = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/update-password", requestPayload);
@@ -1768,7 +2299,59 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
         Assert.Equal("400 - BAD REQUEST", $"{jsonObject["statusMessage"]}");
         Assert.Contains("Passwords must be at least 8 characters.", $"{jsonObject["error"]?["message"]}");
 
+        Assert.Empty(StubHttpServer.Requests);
         Assert.False(TestDbHelper.GetPasswordResetEntityWithNoTracking(UserSettingHelper.UserId)?.Applied);
+    }
+
+    [Fact]
+    public async Task Resend_Code_With_A_Reset_Request_Id_Asks_For_The_Reset_Code_By_The_Reset_Id()
+    {
+        // Arrange
+        TestDbHelper.SeedDatabase();
+
+        var resetRequestId = await RequestPasswordResetAsync();
+        var passwordReset = TestDbHelper.GetPasswordResetEntityWithNoTracking(UserSettingHelper.UserId)!;
+
+        StubHttpServer.AnswerRetry("Sent");
+
+        // Act
+        var response = await HttpClient.SendNoAuthRequestAsync(
+            HttpMethod.Post,
+            _baseUri + "/resend-code",
+            new { ResetRequestId = resetRequestId }
+        );
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var resend = Assert.Single(StubHttpServer.ReceivedBodies(CodeCheckStub.RetryPath));
+        Assert.Equal(UserMessages.PasswordResetAction, $"{resend["action"]}");
+        Assert.Equal(passwordReset.Id.ToString(), $"{resend["correlationId"]}");
+    }
+
+    private async Task<string> RequestPasswordResetAsync()
+    {
+        var resetResponse = await HttpClient.SendNoAuthRequestAsync(
+            HttpMethod.Post,
+            _baseUri + "/reset-password",
+            new { UserSettingHelper.UserName }
+        );
+
+        var resetRequestId = SerDeHelper
+            .Deserialize<JObject>(await resetResponse.ValidateRequestResponseAsync())
+            ?["resetPasswordDetails"]?["resetRequestId"]?.ToString();
+
+        Assert.NotNull(resetRequestId);
+
+        return resetRequestId;
+    }
+
+    private static async Task AssertCodeErrorAsync(HttpResponseMessage response, string message)
+    {
+        var jsonObject = SerDeHelper.Deserialize<JObject>(await response.ValidateRequestResponseAsync());
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal(message, $"{jsonObject?["error"]?["message"]}");
     }
 
     private sealed class FailsDeletingSessionsInterceptor : DbCommandInterceptor

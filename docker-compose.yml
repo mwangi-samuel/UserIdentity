@@ -4,7 +4,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql
     ports:
-      - 5432:5432
+      - 127.0.0.1:5432:5432
     environment:
       POSTGRES_PASSWORD: postgres
     healthcheck:
@@ -18,8 +18,8 @@ services:
     volumes:
       - nats_data:/data
     ports:
-      - 4222:4222
-      - 8222:8222
+      - 127.0.0.1:4222:4222
+      - 127.0.0.1:8222:8222
     configs:
       - source: nats_config
         target: /etc/nats/nats-server.conf
@@ -35,7 +35,7 @@ services:
     volumes:
       - nats_ui_data:/db
     ports:
-      - 31311:31311
+      - 127.0.0.1:31311:31311
     configs:
       - source: nats_ui_context
         target: /nats-cli-contexts/local.json
@@ -48,7 +48,7 @@ services:
     volumes:
       - lgtm_data:/data
     ports:
-      - 3030:3000
+      - 127.0.0.1:3030:3000
     healthcheck:
       test: ["CMD", "/otel-lgtm/docker/healthcheck.sh"]
       interval: 5s
@@ -64,10 +64,12 @@ services:
       context: .
       dockerfile: UserIdentity/Dockerfile
     ports:
-      - 5050:8080
+      - 127.0.0.1:5050:8080
     environment:
       DatabaseSettings__Host: db
       MessagingSettings__NatsUrl: nats://nats:4222
+      CodeCheckSettings__VerifyUrl: http://code-service.invalid/api/v1/message/verify
+      CodeCheckSettings__ResendUrl: http://code-service.invalid/api/v1/message/retry
       EDDSA_PRIVATE_KEY:
       EDDSA_PUBLIC_KEY:
       BootstrapAdminSettings__AppName:
@@ -133,7 +135,13 @@ configs:
 
       authorization {
         users: [
-          { user: useridentity, password: useridentity-local, permissions: { publish: ["useridentity.>", "$$JS.API.>", "$$JS.ACK.>"], subscribe: ["_INBOX.>"] } },
+          {
+            user: useridentity, password: useridentity-local,
+            permissions: {
+              publish: ["useridentity.>", "$$JS.API.STREAM.UPDATE.USERIDENTITY", "$$JS.API.STREAM.CREATE.USERIDENTITY"]
+              subscribe: ["_INBOX_useridentity.>"]
+            }
+          },
           { user: ui, password: ui-local }
         ]
       }
