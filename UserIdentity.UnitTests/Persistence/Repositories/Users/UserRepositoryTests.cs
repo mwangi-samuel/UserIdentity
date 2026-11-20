@@ -2,6 +2,7 @@
 using Microsoft.EntityFrameworkCore;
 using PolyzenKit.Common.Utilities;
 using PolyzenKit.Domain.Entities.RegisteredApps;
+using UserIdentity.Domain.AppSignInSettings;
 using UserIdentity.Domain.UserRegisteredApps;
 using UserIdentity.Domain.Users;
 using UserIdentity.Persistence;
@@ -112,25 +113,32 @@ public class UserRepositoryTests
         // Arrange
         var createdAt = DateTime.UtcNow.AddDays(-40);
         var context = AppDbContextTestFactory.GetAppDbContext();
-        var confirmingApp = BuildApp(1, "ConfirmingApp", requireConfirmedAccount: true);
-        var openApp = BuildApp(2, "OpenApp", requireConfirmedAccount: false);
+        var confirmingApp = BuildApp(1, "ConfirmingApp");
+        var openApp = BuildApp(2, "OpenApp");
+        var unsetApp = BuildApp(3, "UnsetApp");
+        var unsetAppUser = BuildUser();
         var confirmingAppUser = BuildUser();
         var openAppUser = BuildUser();
         var bothAppsUser = BuildUser();
 
-        foreach (var user in new[] { confirmingAppUser, openAppUser, bothAppsUser })
+        foreach (var user in new[] { confirmingAppUser, openAppUser, bothAppsUser, unsetAppUser })
         {
             user.CreatedAt = createdAt;
             context.AppUser.Add(user);
             context.Users.Add(new IdentityUser { Id = user.Id });
         }
 
-        context.RegisteredApp.AddRange(confirmingApp, openApp);
+        context.RegisteredApp.AddRange(confirmingApp, openApp, unsetApp);
+        context.AppSignInSettings.AddRange(
+            new AppSignInSettingsEntity { AppId = confirmingApp.Id, RequireConfirmedAccount = true },
+            new AppSignInSettingsEntity { AppId = openApp.Id, RequireConfirmedAccount = false }
+        );
         context.UserRegisteredApp.AddRange(
             new UserRegisteredAppEntity { UserId = confirmingAppUser.Id, AppId = confirmingApp.Id },
             new UserRegisteredAppEntity { UserId = openAppUser.Id, AppId = openApp.Id },
             new UserRegisteredAppEntity { UserId = bothAppsUser.Id, AppId = confirmingApp.Id },
-            new UserRegisteredAppEntity { UserId = bothAppsUser.Id, AppId = openApp.Id }
+            new UserRegisteredAppEntity { UserId = bothAppsUser.Id, AppId = openApp.Id },
+            new UserRegisteredAppEntity { UserId = unsetAppUser.Id, AppId = unsetApp.Id }
         );
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
@@ -232,14 +240,12 @@ public class UserRepositoryTests
         return (user, details);
     }
 
-    private static RegisteredAppEntity BuildApp(int id, string appName, bool requireConfirmedAccount) =>
+    private static RegisteredAppEntity BuildApp(int id, string appName) =>
         new()
         {
             Id = id,
             AppName = appName,
-            AppSecretKey = "secret-key",
             BaseUrl = "https://app.test",
-            RequireConfirmedAccount = requireConfirmedAccount,
         };
 
     private static UserEntity BuildUser()

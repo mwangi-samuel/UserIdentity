@@ -20,6 +20,9 @@ public class LoginTicketRepository(AppDbContext dbContext) : EntityRepository<Lo
         return queryCondition.Apply(existingEntity, ticket);
     }
 
+    public async Task DeleteEntityItemsAsync(string userId, CancellationToken cancellationToken = default) =>
+        await DbSet.Where(e => e.UserId == userId).ExecuteDeleteAsync(cancellationToken);
+
     public async Task<int> DeleteEntityItemsExpiredBeforeAsync(
         DateTime expiredBefore,
         int count,

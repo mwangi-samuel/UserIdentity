@@ -95,11 +95,17 @@ public class ResetPasswordCommandHandlerTests
     {
         // Arrange
         var existingIdentityUser = GetIdentityUser();
-        var command = GetResetPasswordCommand(existingIdentityUser.Email!);
+        var command = GetResetPasswordCommand(existingIdentityUser.Email!) with
+        {
+            RequestContext = RequestContext.Create("203.0.113.7", "Test Browser"),
+        };
         var existingEntity = SetUpUserRecord(existingIdentityUser);
+        var resetId = Guid.NewGuid();
 
         A.CallTo(() => _userManager.FindByNameAsync(command.UserName)).Returns(default(IdentityUser));
         A.CallTo(() => _userManager.FindByEmailAsync(command.UserName)).Returns(existingIdentityUser);
+        A.CallTo(() => _passwordResetRepository.CreateEntityItem(A<PasswordResetEntity>._))
+            .Invokes((PasswordResetEntity passwordReset) => passwordReset.Id = resetId);
         SetUpRequestHistory(existingIdentityUser, null, 0);
 
         var handler = GetResetPasswordCommandHandler();
@@ -116,7 +122,7 @@ public class ResetPasswordCommandHandlerTests
                         e.RequestId == ResetRequestIdHash
                         && e.UserId == existingIdentityUser.Id
                         && e.Expires == _fixedNow.AddSeconds(900)
-                        && !e.Verified
+                        && e.AppId == _registeredApp.Id
                         && !e.Applied
                         && e.CreatedBy == existingIdentityUser.Id
                         && e.CreatedAt == _fixedNow
@@ -137,10 +143,10 @@ public class ResetPasswordCommandHandlerTests
         };
         var data = new UserMessageData
         {
-            UserId = existingIdentityUser.Id,
-            UserName = existingIdentityUser.UserName,
             FirstName = existingEntity.FirstName,
-            LastName = existingEntity.LastName,
+            RequestedAt = _fixedNow,
+            IpAddress = "203.0.113.7",
+            Device = "Test Browser",
         };
 
         A.CallTo(() =>
@@ -148,7 +154,8 @@ public class ResetPasswordCommandHandlerTests
                     A<CreateOutboxMessageCommand>.That.Matches(c =>
                         c.Name == UserMessages.PasswordResetRequested
                         && c.Message.Action == UserMessages.PasswordResetAction
-                        && c.Message.CorrelationId == ResetRequestId
+                        && c.Message.CorrelationId == resetId.ToString()
+                        && c.Message.ExpiresAt == _fixedNow.AddSeconds(900)
                         && c.Message.RegisteredApp == _registeredApp.AppName
                         && c.Message.Recipient == recipient
                         && c.Message.GetData<UserMessageData>() == data

@@ -17,6 +17,14 @@ internal static class ApiRequestFactory
         string? appName = null,
         string? authorizedParty = "testapp",
         string[]? roles = null
+    ) => ApiRequest.For(CreateHttpContext(entityName, userId, appName, authorizedParty, roles));
+
+    public static HttpContext CreateHttpContext(
+        string entityName,
+        string? userId = null,
+        string? appName = null,
+        string? authorizedParty = "testapp",
+        string[]? roles = null
     )
     {
         List<Claim> claims = [];
@@ -43,6 +51,6 @@ internal static class ApiRequestFactory
 
         httpContext.SetEndpoint(new Endpoint(null, new EndpointMetadataCollection(new ScopeEntityMetadata(entityName)), entityName));
 
-        return ApiRequest.For(httpContext);
+        return httpContext;
     }
 }

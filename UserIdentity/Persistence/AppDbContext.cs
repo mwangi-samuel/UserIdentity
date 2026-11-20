@@ -5,6 +5,9 @@ using PolyzenKit.Domain.Entities.AppEntities;
 using PolyzenKit.Domain.Entities.OutboxMessages;
 using PolyzenKit.Domain.Entities.RegisteredApps;
 using PolyzenKit.Persistence.Configurations;
+using UserIdentity.Domain.AccountLimitEvents;
+using UserIdentity.Domain.AppSignInSettings;
+using UserIdentity.Domain.EmailChanges;
 using UserIdentity.Domain.InviteCodes;
 using UserIdentity.Domain.LoginTickets;
 using UserIdentity.Domain.PasswordResets;
@@ -36,6 +39,10 @@ public class AppDbContext : IdentityDbContext<IdentityUser>
 
     public DbSet<RegisteredAppEntity> RegisteredApp => Set<RegisteredAppEntity>();
 
+    public DbSet<RegisteredAppBackendEntity> RegisteredAppBackend => Set<RegisteredAppBackendEntity>();
+
+    public DbSet<AppSignInSettingsEntity> AppSignInSettings => Set<AppSignInSettingsEntity>();
+
     public DbSet<UserRegisteredAppEntity> UserRegisteredApp => Set<UserRegisteredAppEntity>();
 
     public DbSet<WaitListEntity> WaitList => Set<WaitListEntity>();
@@ -45,6 +52,10 @@ public class AppDbContext : IdentityDbContext<IdentityUser>
     public DbSet<PasswordResetEntity> PasswordReset => Set<PasswordResetEntity>();
 
     public DbSet<LoginTicketEntity> LoginTicket => Set<LoginTicketEntity>();
+
+    public DbSet<AccountLimitEventEntity> AccountLimitEvent => Set<AccountLimitEventEntity>();
+
+    public DbSet<EmailChangeEntity> EmailChange => Set<EmailChangeEntity>();
 
     public DbSet<OutboxMessageEntity> OutboxMessage => Set<OutboxMessageEntity>();
 
@@ -58,11 +69,15 @@ public class AppDbContext : IdentityDbContext<IdentityUser>
         builder.ApplyConfiguration(new RefreshTokenConfiguration());
         builder.ApplyConfiguration(new AppEntityConfiguration());
         builder.ApplyConfiguration(new RegisteredAppConfiguration());
+        builder.ApplyConfiguration(new RegisteredAppBackendConfiguration());
+        builder.ApplyConfiguration(new AppSignInSettingsConfiguration());
         builder.ApplyConfiguration(new UserRegisteredAppConfiguration());
         builder.ApplyConfiguration(new WaitListConfiguration());
         builder.ApplyConfiguration(new InviteCodeConfiguration());
         builder.ApplyConfiguration(new PasswordResetConfiguration());
         builder.ApplyConfiguration(new LoginTicketConfiguration());
+        builder.ApplyConfiguration(new AccountLimitEventConfiguration());
+        builder.ApplyConfiguration(new EmailChangeConfiguration());
         builder.ApplyConfiguration(new OutboxMessageConfiguration());
 
         builder.HasCollation(CaseInsensitiveCollation, locale: "und-u-ks-level2", provider: "icu", deterministic: false);
@@ -72,11 +87,15 @@ public class AppDbContext : IdentityDbContext<IdentityUser>
         builder.Entity<RefreshTokenEntity>().ToTable("refresh_tokens");
         builder.Entity<AppEntity>().ToTable("app_entities");
         builder.Entity<RegisteredAppEntity>().ToTable("registered_apps");
+        builder.Entity<RegisteredAppBackendEntity>().ToTable("registered_app_backends");
+        builder.Entity<AppSignInSettingsEntity>().ToTable("app_sign_in_settings");
         builder.Entity<UserRegisteredAppEntity>().ToTable("user_registered_apps");
         builder.Entity<WaitListEntity>().ToTable("wait_lists");
         builder.Entity<InviteCodeEntity>().ToTable("invite_codes");
         builder.Entity<PasswordResetEntity>().ToTable("password_resets");
         builder.Entity<LoginTicketEntity>().ToTable("login_tickets");
+        builder.Entity<AccountLimitEventEntity>().ToTable("account_limit_events");
+        builder.Entity<EmailChangeEntity>().ToTable("email_changes");
         builder.Entity<OutboxMessageEntity>().ToTable("outbox_messages");
 
         builder.Entity<IdentityUser>().ToTable("users");

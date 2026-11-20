@@ -5,7 +5,6 @@ using Microsoft.Extensions.Time.Testing;
 using PolyzenKit.Application.Core.Interfaces;
 using PolyzenKit.Application.Core.RegisteredApps.Commands;
 using PolyzenKit.Application.Core.RegisteredApps.ViewModels;
-using PolyzenKit.Application.Interfaces;
 using PolyzenKit.Common.Exceptions;
 using PolyzenKit.Common.Settings;
 using PolyzenKit.Domain.Entities.RegisteredApps;
@@ -26,7 +25,6 @@ public class BootstrapAdminCommandHandlerTests
 {
     private const string GlobalAdminRole = "global:admin";
     private const string AppAdminRole = "bootstrapapp:admin";
-    private const string GeneratedSecret = "generated-app-secret";
 
     private readonly DateTime _fixedNow = new(2026, 11, 16, 12, 0, 0, DateTimeKind.Utc);
     private readonly UserManager<IdentityUser> _userManager = IdentityFakes.UserManager();
@@ -37,7 +35,6 @@ public class BootstrapAdminCommandHandlerTests
     private readonly IRegisteredAppRepository _registeredAppRepository = A.Fake<IRegisteredAppRepository>();
     private readonly ICreateItemCommandHandler<CreateRegisteredAppCommand, RegisteredAppViewModel> _createRegisteredAppCommandHandler =
         A.Fake<ICreateItemCommandHandler<CreateRegisteredAppCommand, RegisteredAppViewModel>>();
-    private readonly ITokenFactory _tokenFactory = A.Fake<ITokenFactory>();
     private readonly FakeTimeProvider _timeProvider = new();
 
     private readonly BootstrapAdminSettings _settings = new()
@@ -69,7 +66,6 @@ public class BootstrapAdminCommandHandlerTests
                 )
             )
             .Returns((RegisteredAppEntity?)null);
-        A.CallTo(() => _tokenFactory.GenerateToken(A<int>._)).Returns(GeneratedSecret);
         A.CallTo(() =>
                 _createRegisteredAppCommandHandler.CreateItemAsync(A<CreateRegisteredAppCommand>._, A<string>._, A<CancellationToken>._)
             )
@@ -173,11 +169,7 @@ public class BootstrapAdminCommandHandlerTests
         A.CallTo(() =>
                 _createRegisteredAppCommandHandler.CreateItemAsync(
                     A<CreateRegisteredAppCommand>.That.Matches(command =>
-                        command.AppName == _settings.AppName
-                        && command.BaseUrl == _settings.AppBaseUrl
-                        && command.AppSecretKey == GeneratedSecret
-                        && command.RequireConfirmedAccount == false
-                        && command.DefaultRole == null
+                        command.AppName == _settings.AppName && command.BaseUrl == _settings.AppBaseUrl && command.AppSecretKey == null
                     ),
                     createdUser.Id,
                     A<CancellationToken>._
@@ -225,7 +217,6 @@ public class BootstrapAdminCommandHandlerTests
                 _createRegisteredAppCommandHandler.CreateItemAsync(A<CreateRegisteredAppCommand>._, A<string>._, A<CancellationToken>._)
             )
             .MustNotHaveHappened();
-        A.CallTo(() => _tokenFactory.GenerateToken(A<int>._)).MustNotHaveHappened();
     }
 
     [Fact]
@@ -270,7 +261,6 @@ public class BootstrapAdminCommandHandlerTests
             _userRegisteredAppRepository,
             _registeredAppRepository,
             _createRegisteredAppCommandHandler,
-            _tokenFactory,
             _timeProvider
         );
 }

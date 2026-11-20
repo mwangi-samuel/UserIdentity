@@ -7,6 +7,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="BouncyCastle.Cryptography" />
     <PackageReference Include="NATS.Client.JetStream" />
     <PackageReference Include="Testcontainers.Nats" />
@@ -18,6 +22,18 @@
     <Compile
       Include="..\UserIdentity.IntegrationTests\TestUtils\EdDsaHelper.cs"
       Link="EdDsaHelper.cs"
+    />
+    <Compile
+      Include="..\UserIdentity.IntegrationTests\TestUtils\StubHttpServer.cs"
+      Link="StubHttpServer.cs"
+    />
+    <Compile
+      Include="..\UserIdentity.IntegrationTests\TestUtils\StubHttpRequest.cs"
+      Link="StubHttpRequest.cs"
+    />
+    <Compile
+      Include="..\UserIdentity.IntegrationTests\TestUtils\CodeCheckStub.cs"
+      Link="CodeCheckStub.cs"
     />
   </ItemGroup>
 </Project>

@@ -3,14 +3,18 @@ using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Identity;
 using PolyzenKit.Application.Core;
 using PolyzenKit.Application.Core.Interfaces;
+using PolyzenKit.Application.Core.Messages.Commands;
+using PolyzenKit.Application.Core.Messages.ViewModels;
 using PolyzenKit.Application.Core.RegisteredApps.Shared;
 using PolyzenKit.Application.Interfaces;
 using PolyzenKit.Persistence.Repositories;
-using UserIdentity.Application.Core.Tokens.Commands;
-using UserIdentity.Application.Core.Tokens.ViewModels;
 using UserIdentity.Application.Core.Users.Shared;
 using UserIdentity.Application.Core.Users.ViewModels;
+using UserIdentity.Application.Interfaces;
+using UserIdentity.Common.Errors;
 using UserIdentity.Domain.PasswordResets;
+using UserIdentity.Domain.Users;
+using UserIdentity.Persistence.Repositories.LoginTickets;
 using UserIdentity.Persistence.Repositories.PasswordResets;
 using UserIdentity.Persistence.Repositories.RefreshTokens;
 using UserIdentity.Persistence.Repositories.Users;
@@ -22,8 +26,14 @@ public record UpdatePasswordCommand : IBaseCommand
     [JsonIgnore]
     public ActiveRegisteredApp RegisteredApp { get; internal set; } = null!;
 
+    [JsonIgnore]
+    public RequestContext RequestContext { get; internal set; } = new();
+
     [Required]
     public string ResetRequestId { get; init; } = null!;
+
+    [Required]
+    public string Code { get; init; } = null!;
 
     [Required]
     public string NewPassword { get; init; } = null!;
@@ -35,8 +45,11 @@ public class UpdatePasswordCommandHandler(
     IUnitOfWork unitOfWork,
     IPasswordResetRepository passwordResetRepository,
     IRefreshTokenRepository refreshTokenRepository,
+    ILoginTicketRepository loginTicketRepository,
     IUserRepository userRepository,
-    ICreateItemCommandHandler<StartSessionCommand, UserTokenViewModel> startSessionCommandHandler,
+    ICodeCheckService codeCheckService,
+    ICreateItemCommandHandler<CreateOutboxMessageCommand, OutboxMessageViewModel> createOutboxMessageCommandHandler,
+    ICreateItemCommandHandler<SignInUserCommand, AuthUserViewModel> signInUserCommandHandler,
     TimeProvider timeProvider
 )
     : BaseAuditableItemCommandHandler<Guid, PasswordResetEntity, IPasswordResetRepository>(
@@ -44,96 +57,104 @@ public class UpdatePasswordCommandHandler(
         passwordResetRepository,
         timeProvider
     ),
-        IUpdateItemCommandHandler<UpdatePasswordCommand, UpdatePasswordViewModel>
+        IUpdateItemCommandHandler<UpdatePasswordCommand, AuthUserViewModel>
 {
     private readonly UserManager<IdentityUser> _userManager = userManager;
     private readonly ITokenFactory _tokenFactory = tokenFactory;
     private readonly IRefreshTokenRepository _refreshTokenRepository = refreshTokenRepository;
+    private readonly ILoginTicketRepository _loginTicketRepository = loginTicketRepository;
     private readonly IUserRepository _userRepository = userRepository;
-    private readonly ICreateItemCommandHandler<StartSessionCommand, UserTokenViewModel> _startSessionCommandHandler =
-        startSessionCommandHandler;
+    private readonly ICodeCheckService _codeCheckService = codeCheckService;
+    private readonly ICreateItemCommandHandler<CreateOutboxMessageCommand, OutboxMessageViewModel> _createOutboxMessageCommandHandler =
+        createOutboxMessageCommandHandler;
+    private readonly ICreateItemCommandHandler<SignInUserCommand, AuthUserViewModel> _signInUserCommandHandler = signInUserCommandHandler;
 
-    public async Task<UpdatePasswordViewModel> UpdateItemAsync(
+    public async Task<AuthUserViewModel> UpdateItemAsync(
         UpdatePasswordCommand command,
         string userId,
         CancellationToken cancellationToken = default
     )
     {
-        var passwordResetEntity = new PasswordResetEntity { RequestId = _tokenFactory.HashToken(command.ResetRequestId) };
+        var registeredApp = command.RegisteredApp;
 
-        var existingEntity = await Repository.GetEntityByAlternateIdAsync(
-            passwordResetEntity,
+        var passwordReset = await Repository.GetEntityByAlternateIdAsync(
+            new PasswordResetEntity { RequestId = _tokenFactory.HashToken(command.ResetRequestId), AppId = registeredApp.Id },
             QueryCondition.MayOrMayNotExist,
             cancellationToken
         );
 
-        if (
-            existingEntity is null
-            || !existingEntity.Verified
-            || existingEntity.Applied
-            || existingEntity.Expires <= TimeProvider.GetUtcNow().UtcDateTime
-        )
-            return GetUpdatePasswordViewModel(false);
+        var user =
+            passwordReset is null || passwordReset.Applied || passwordReset.Expires <= TimeProvider.GetUtcNow().UtcDateTime
+                ? null
+                : await _userManager.FindByIdAsync(passwordReset.UserId);
 
-        var userDetails = await _userManager.FindByIdAsync(existingEntity.UserId);
+        await PasswordStrength.EnsureValidAsync(_userManager, user ?? new IdentityUser(), command.NewPassword);
 
-        if (userDetails is null)
-            return GetUpdatePasswordViewModel(false);
+        var outcome = await _codeCheckService.CheckAsync(
+            registeredApp.AppName,
+            UserMessages.PasswordResetAction,
+            user is null ? Guid.CreateVersion7().ToString() : passwordReset!.Id.ToString(),
+            command.Code,
+            cancellationToken
+        );
 
-        var appName = command.RegisteredApp.AppName;
-        var canSignIn =
-            AccountConfirmation.IsConfirmed(command.RegisteredApp, userDetails)
-            && await _userRepository.GetUserDtoAsync(userDetails.Id, appName, cancellationToken) is not null;
-        UserTokenViewModel? session = null;
+        if (user is null)
+            throw new InvalidDataException(ErrorMessages.Codes.NotAccepted);
 
-        // Start DB Transaction
+        CodeOutcomes.EnsureVerified(outcome);
+
         await UnitOfWork.BeginTransactionAsync(cancellationToken);
 
         try
         {
-            var resetPasswordToken = await _userManager.GeneratePasswordResetTokenAsync(userDetails);
+            var resetPasswordToken = await _userManager.GeneratePasswordResetTokenAsync(user);
 
-            userDetails.LockoutEnd = null;
-            userDetails.AccessFailedCount = 0;
+            user.LockoutEnd = null;
+            user.AccessFailedCount = 0;
 
-            var resetPasswordResult = await _userManager.ResetPasswordAsync(userDetails, resetPasswordToken, command.NewPassword);
+            var resetPasswordResult = await _userManager.ResetPasswordAsync(user, resetPasswordToken, command.NewPassword);
 
             if (!resetPasswordResult.Succeeded)
                 throw new InvalidDataException(string.Join(" ", resetPasswordResult.Errors.Select(e => e.Description)));
 
-            existingEntity.Applied = true;
+            passwordReset!.Applied = true;
 
-            await UpdateEntityItemAsync(existingEntity, userDetails.Id, cancellationToken);
+            await UpdateEntityItemAsync(passwordReset, user.Id, cancellationToken);
 
-            await _refreshTokenRepository.DeleteEntityItemsAsync(userDetails.Id, cancellationToken);
+            await _refreshTokenRepository.DeleteEntityItemsAsync(user.Id, cancellationToken);
+            await _loginTicketRepository.DeleteEntityItemsAsync(user.Id, cancellationToken);
 
-            if (canSignIn)
-            {
-                session = await _startSessionCommandHandler.CreateItemAsync(
-                    new StartSessionCommand(userDetails.Id, userDetails.UserName!, appName),
-                    userDetails.Id,
-                    cancellationToken
-                );
+            var userDetails = await _userRepository.GetUserDtoAsync(user.Id, null, cancellationToken) ?? new UserDto();
 
-                await UnitOfWork.SaveChangesAsync(cancellationToken);
-            }
+            await _createOutboxMessageCommandHandler.CreateItemAsync(
+                new CreateOutboxMessageCommand(
+                    UserMessages.PasswordChanged,
+                    UserMessages.PasswordChange(
+                        user,
+                        userDetails,
+                        registeredApp.AppName,
+                        command.RequestContext,
+                        TimeProvider.GetUtcNow().UtcDateTime
+                    )
+                ),
+                user.Id,
+                cancellationToken
+            );
 
-            // Commit DB Transaction
+            var vm = await _signInUserCommandHandler.CreateItemAsync(
+                new SignInUserCommand(user, registeredApp, command.RequestContext) { EmailProven = true },
+                user.Id,
+                cancellationToken
+            );
+
             await UnitOfWork.CommitTransactionAsync(cancellationToken);
+
+            return vm;
         }
         catch
         {
             await UnitOfWork.RollbackTransactionAsync(CancellationToken.None);
             throw;
         }
-
-        return GetUpdatePasswordViewModel(true, session?.UserToken);
     }
-
-    private static UpdatePasswordViewModel GetUpdatePasswordViewModel(bool passwordUpdated, UserTokenDto? userToken = null) =>
-        new()
-        {
-            UpdatePasswordResult = new UpdatePasswordDto { PasswordUpdated = passwordUpdated },
-            UserToken = userToken,
-        };
 }

@@ -5,7 +5,7 @@ using System.Text.Json.Nodes;
 
 namespace UserIdentity.SmokeTests;
 
-public sealed record SmokeUser(string Id, string UserName, string Email);
+public sealed record SmokeUser(string Id, string UserName, string Email, string Ticket);
 
 public sealed record SmokeSession(string AccessToken, string RefreshToken);
 
@@ -80,7 +80,7 @@ public sealed class ServiceClient : IDisposable
 
         var body = await ReadAsync(response, HttpStatusCode.Created, cancellationToken);
 
-        return new SmokeUser($"{body["user"]!["id"]}", userName, email);
+        return new SmokeUser($"{body["user"]!["id"]}", userName, email, $"{body["ticket"]}");
     }
 
     public async Task<SmokeSession?> LogInAsync(string userName, string password, CancellationToken cancellationToken)
@@ -88,7 +88,7 @@ public sealed class ServiceClient : IDisposable
         var response = await PostAsync("/api/v1/user/login", new { userName, password }, cancellationToken);
         var body = await ReadAsync(response, HttpStatusCode.OK, cancellationToken);
 
-        return body["isConfirmed"]!.GetValue<bool>() ? ReadSession(body["userToken"]!) : null;
+        return $"{body["nextStep"]}" == "Session" ? ReadSession(body["userToken"]!) : null;
     }
 
     public async Task<SmokeSession> RefreshAsync(SmokeSession session, CancellationToken cancellationToken)

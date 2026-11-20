@@ -13,6 +13,9 @@ public class LoginTicketConfiguration : IEntityTypeConfiguration<LoginTicketEnti
     {
         builder.ConfigureGuidPrimaryKey();
 
+        builder.Property(e => e.Step).HasConversion<string>().HasMaxLength(LoginTicketLimits.StepMaxLength);
+        builder.Property(e => e.Method).HasConversion<string>().HasMaxLength(LoginTicketLimits.MethodMaxLength);
+
         builder.HasIndex(e => e.Ticket).IsUnique();
 
         builder.HasOne<IdentityUser>().WithMany().HasForeignKey(e => e.UserId).OnDelete(DeleteBehavior.Cascade);

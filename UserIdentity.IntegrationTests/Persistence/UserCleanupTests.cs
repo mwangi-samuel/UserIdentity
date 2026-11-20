@@ -4,9 +4,13 @@ using PolyzenKit.Application.Core;
 using PolyzenKit.Application.Core.Interfaces;
 using PolyzenKit.Application.Core.RegisteredApps.Commands;
 using PolyzenKit.Application.Core.RegisteredApps.ViewModels;
+using UserIdentity.Application.Core.AccountLimits.Commands;
 using UserIdentity.Application.Core.Tokens.Commands;
 using UserIdentity.Application.Core.Users.Commands;
 using UserIdentity.Application.Core.Users.Shared;
+using UserIdentity.Common.Enums;
+using UserIdentity.Domain.AccountLimitEvents;
+using UserIdentity.Domain.EmailChanges;
 using UserIdentity.Domain.InviteCodes;
 using UserIdentity.Domain.RefreshTokens;
 using UserIdentity.IntegrationTests.TestUtils;
@@ -70,13 +74,7 @@ public class UserCleanupTests(TestingWebAppFactory testingWebAppFactory, ITestOu
         await ServiceProvider
             .GetRequiredService<ICreateItemCommandHandler<CreateRegisteredAppCommand, RegisteredAppViewModel>>()
             .CreateItemAsync(
-                new CreateRegisteredAppCommand
-                {
-                    AppName = appName,
-                    BaseUrl = "http://localhost:3004",
-                    AppSecretKey = "N0Conf1rmationApp-Secret-For-Tests-Only-01",
-                    RequireConfirmedAccount = false,
-                },
+                new CreateRegisteredAppCommand { AppName = appName, BaseUrl = "http://localhost:3004" },
                 "system",
                 TestContext.Current.CancellationToken
             );
@@ -171,6 +169,73 @@ public class UserCleanupTests(TestingWebAppFactory testingWebAppFactory, ITestOu
             .ToListAsync(TestContext.Current.CancellationToken);
         Assert.Equal([recentlyExpired.Id, active.Id], remaining.Order());
     }
+
+    [Fact]
+    public async Task DeleteExpiredEmailChanges_Deletes_Only_Expired_Changes()
+    {
+        // Arrange
+        TestDbHelper.CreateIdentityUser();
+        var otherUserId = TestDbHelper.CreateUserOfApp(RegisteredApp.AppName);
+        var now = DateTime.UtcNow;
+        var context = ServiceProvider.GetRequiredService<AppDbContext>();
+
+        context.EmailChange.AddRange(
+            BuildEmailChange(UserSettingHelper.UserId, now.AddMinutes(-1)),
+            BuildEmailChange(otherUserId, now.AddMinutes(10))
+        );
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+
+        // Act
+        await ServiceProvider
+            .GetRequiredService<IDeleteItemCommandHandler<DeleteExpiredEmailChangesCommand, DeleteRecordViewModel>>()
+            .DeleteItemAsync(new DeleteExpiredEmailChangesCommand(), "system", TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Null(TestDbHelper.GetEmailChangeEntityWithNoTracking(UserSettingHelper.UserId));
+        Assert.NotNull(TestDbHelper.GetEmailChangeEntityWithNoTracking(otherUserId));
+    }
+
+    [Fact]
+    public async Task DeleteExpiredAccountLimitEvents_Deletes_Only_Events_Older_Than_A_Day()
+    {
+        // Arrange
+        TestDbHelper.CreateIdentityUser();
+        var context = ServiceProvider.GetRequiredService<AppDbContext>();
+
+        context.AccountLimitEvent.AddRange(
+            Enumerable
+                .Range(0, CleanupBatch.Size + 20)
+                .Select(index => new AccountLimitEventEntity
+                {
+                    Id = Guid.CreateVersion7(),
+                    UserId = UserSettingHelper.UserId,
+                    Kind = AccountLimitKind.LoginCodeSent,
+                    CreatedAt = DateTime.UtcNow.AddDays(-2).AddMinutes(-index),
+                })
+        );
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+
+        TestDbHelper.CreateAccountLimitEvents(UserSettingHelper.UserId, AccountLimitKind.LoginCodeSent, 2);
+
+        // Act
+        await ServiceProvider
+            .GetRequiredService<IDeleteItemCommandHandler<DeleteExpiredAccountLimitEventsCommand, DeleteRecordViewModel>>()
+            .DeleteItemAsync(new DeleteExpiredAccountLimitEventsCommand(), "system", TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(2, TestDbHelper.CountAccountLimitEvents(UserSettingHelper.UserId, AccountLimitKind.LoginCodeSent));
+    }
+
+    private static EmailChangeEntity BuildEmailChange(string userId, DateTime expires) =>
+        new()
+        {
+            Id = Guid.CreateVersion7(),
+            UserId = userId,
+            NewEmail = $"{userId}@example.com",
+            Expires = expires,
+            CreatedBy = userId,
+            CreatedAt = DateTime.UtcNow,
+        };
 
     private static RefreshTokenEntity BuildRefreshToken(DateTime expires) =>
         new()

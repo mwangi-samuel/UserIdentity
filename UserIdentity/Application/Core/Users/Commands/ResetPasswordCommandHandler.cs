@@ -24,6 +24,9 @@ public record ResetPasswordCommand : IBaseCommand
     [JsonIgnore]
     public ActiveRegisteredApp RegisteredApp { get; internal set; } = null!;
 
+    [JsonIgnore]
+    public RequestContext RequestContext { get; internal set; } = new();
+
     [Required]
     public string UserName { get; init; } = null!;
 }
@@ -112,21 +115,29 @@ public class ResetPasswordCommandHandler(
             {
                 RequestId = _tokenFactory.HashToken(resetRequestId),
                 UserId = existingUser.Id,
+                AppId = command.RegisteredApp.Id,
                 Expires = now.AddSeconds(_passwordResetSettings.ValidForSeconds),
             };
 
             passwordResetEntity.SetEntityAuditFields(existingUser.Id, now);
 
+            Repository.CreateEntityItem(passwordResetEntity);
+
             await _createOutboxMessageCommandHandler.CreateItemAsync(
                 new CreateOutboxMessageCommand(
                     UserMessages.PasswordResetRequested,
-                    UserMessages.PasswordReset(resetRequestId, existingUser, userEntity, command.RegisteredApp.AppName)
+                    UserMessages.PasswordReset(
+                        passwordResetEntity,
+                        existingUser,
+                        userEntity,
+                        command.RegisteredApp.AppName,
+                        command.RequestContext,
+                        now
+                    )
                 ),
                 existingUser.Id,
                 cancellationToken
             );
-
-            Repository.CreateEntityItem(passwordResetEntity);
 
             await UnitOfWork.CommitTransactionAsync(cancellationToken);
         }

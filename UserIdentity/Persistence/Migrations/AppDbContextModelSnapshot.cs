@@ -338,6 +338,46 @@ namespace UserIdentity.Persistence.Migrations
                     b.ToTable("outbox_messages", (string)null);
                 });
 
+            modelBuilder.Entity("PolyzenKit.Domain.Entities.RegisteredApps.RegisteredAppBackendEntity", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("name");
+
+                    b.Property<string>("NextPublicKey")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("next_public_key");
+
+                    b.Property<string>("PublicKey")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("public_key");
+
+                    b.Property<int>("RegisteredAppId")
+                        .HasColumnType("integer")
+                        .HasColumnName("registered_app_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_registered_app_backends");
+
+                    b.HasIndex("RegisteredAppId", "Name")
+                        .IsUnique()
+                        .HasDatabaseName("ix_registered_app_backends_registered_app_id_name");
+
+                    b.ToTable("registered_app_backends", (string)null);
+                });
+
             modelBuilder.Entity("PolyzenKit.Domain.Entities.RegisteredApps.RegisteredAppEntity", b =>
                 {
                     b.Property<int>("Id")
@@ -360,7 +400,6 @@ namespace UserIdentity.Persistence.Migrations
                         .UseCollation("case_insensitive");
 
                     b.Property<string>("AppSecretKey")
-                        .IsRequired()
                         .HasMaxLength(600)
                         .HasColumnType("character varying(600)")
                         .HasColumnName("app_secret_key");
@@ -371,15 +410,6 @@ namespace UserIdentity.Persistence.Migrations
                         .HasColumnType("character varying(600)")
                         .HasColumnName("base_url");
 
-                    b.Property<string>("CallbackHeaders")
-                        .HasColumnType("text")
-                        .HasColumnName("callback_headers");
-
-                    b.Property<string>("CallbackUrl")
-                        .HasMaxLength(600)
-                        .HasColumnType("character varying(600)")
-                        .HasColumnName("callback_url");
-
                     b.Property<DateTime?>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
@@ -389,19 +419,10 @@ namespace UserIdentity.Persistence.Migrations
                         .HasColumnType("character varying(50)")
                         .HasColumnName("created_by");
 
-                    b.Property<string>("DefaultRole")
-                        .HasMaxLength(155)
-                        .HasColumnType("character varying(155)")
-                        .HasColumnName("default_role");
-
                     b.Property<string>("Description")
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)")
                         .HasColumnName("description");
-
-                    b.Property<bool>("ForwardServiceToken")
-                        .HasColumnType("boolean")
-                        .HasColumnName("forward_service_token");
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean")
@@ -421,14 +442,6 @@ namespace UserIdentity.Persistence.Migrations
                         .HasMaxLength(10)
                         .HasColumnType("character varying(10)")
                         .HasColumnName("primary_color");
-
-                    b.Property<bool>("RequireConfirmedAccount")
-                        .HasColumnType("boolean")
-                        .HasColumnName("require_confirmed_account");
-
-                    b.Property<bool>("RequireInviteCode")
-                        .HasColumnType("boolean")
-                        .HasColumnName("require_invite_code");
 
                     b.Property<string>("SecondaryColor")
                         .HasMaxLength(10)
@@ -452,6 +465,173 @@ namespace UserIdentity.Persistence.Migrations
                         .HasDatabaseName("ix_registered_apps_app_name");
 
                     b.ToTable("registered_apps", (string)null);
+                });
+
+            modelBuilder.Entity("UserIdentity.Domain.AccountLimitEvents.AccountLimitEventEntity", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("kind");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_account_limit_events");
+
+                    b.HasIndex("CreatedAt")
+                        .HasDatabaseName("ix_account_limit_events_created_at");
+
+                    b.HasIndex("UserId", "Kind", "CreatedAt")
+                        .HasDatabaseName("ix_account_limit_events_user_id_kind_created_at");
+
+                    b.ToTable("account_limit_events", (string)null);
+                });
+
+            modelBuilder.Entity("UserIdentity.Domain.AppSignInSettings.AppSignInSettingsEntity", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<bool>("AllowAuthenticatorTwoFactor")
+                        .HasColumnType("boolean")
+                        .HasColumnName("allow_authenticator_two_factor");
+
+                    b.Property<bool>("AllowEmailTwoFactor")
+                        .HasColumnType("boolean")
+                        .HasColumnName("allow_email_two_factor");
+
+                    b.Property<bool>("AllowSmsTwoFactor")
+                        .HasColumnType("boolean")
+                        .HasColumnName("allow_sms_two_factor");
+
+                    b.Property<int>("AppId")
+                        .HasColumnType("integer")
+                        .HasColumnName("app_id");
+
+                    b.Property<DateTime?>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("created_by");
+
+                    b.Property<string>("DefaultRole")
+                        .HasMaxLength(155)
+                        .HasColumnType("character varying(155)")
+                        .HasColumnName("default_role");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_deleted");
+
+                    b.Property<bool>("RequireConfirmedAccount")
+                        .HasColumnType("boolean")
+                        .HasColumnName("require_confirmed_account");
+
+                    b.Property<bool>("RequireInviteCode")
+                        .HasColumnType("boolean")
+                        .HasColumnName("require_invite_code");
+
+                    b.Property<bool>("RequireTwoFactor")
+                        .HasColumnType("boolean")
+                        .HasColumnName("require_two_factor");
+
+                    b.Property<bool>("RequireTwoFactorForAdmins")
+                        .HasColumnType("boolean")
+                        .HasColumnName("require_two_factor_for_admins");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("updated_by");
+
+                    b.HasKey("Id")
+                        .HasName("pk_app_sign_in_settings");
+
+                    b.HasIndex("AppId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_app_sign_in_settings_app_id");
+
+                    b.ToTable("app_sign_in_settings", (string)null);
+                });
+
+            modelBuilder.Entity("UserIdentity.Domain.EmailChanges.EmailChangeEntity", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTime?>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTime>("Expires")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_deleted");
+
+                    b.Property<string>("NewEmail")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("new_email");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("updated_by");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_email_changes");
+
+                    b.HasIndex("Expires")
+                        .HasDatabaseName("ix_email_changes_expires");
+
+                    b.HasIndex("UserId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_email_changes_user_id");
+
+                    b.ToTable("email_changes", (string)null);
                 });
 
             modelBuilder.Entity("UserIdentity.Domain.InviteCodes.InviteCodeEntity", b =>
@@ -532,6 +712,20 @@ namespace UserIdentity.Persistence.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("app_id");
 
+                    b.Property<bool>("ChangingMethod")
+                        .HasColumnType("boolean")
+                        .HasColumnName("changing_method");
+
+                    b.Property<string>("CodeAction")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("code_action");
+
+                    b.Property<string>("CodeCorrelationId")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("code_correlation_id");
+
                     b.Property<DateTime?>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
@@ -541,6 +735,10 @@ namespace UserIdentity.Persistence.Migrations
                         .HasColumnType("character varying(50)")
                         .HasColumnName("created_by");
 
+                    b.Property<bool>("EmailProven")
+                        .HasColumnType("boolean")
+                        .HasColumnName("email_proven");
+
                     b.Property<DateTime>("Expires")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("expires");
@@ -548,6 +746,22 @@ namespace UserIdentity.Persistence.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean")
                         .HasColumnName("is_deleted");
+
+                    b.Property<string>("Method")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("method");
+
+                    b.Property<string>("PhoneNumber")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("phone_number");
+
+                    b.Property<string>("Step")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("step");
 
                     b.Property<string>("Ticket")
                         .IsRequired()
@@ -595,6 +809,10 @@ namespace UserIdentity.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<int>("AppId")
+                        .HasColumnType("integer")
+                        .HasColumnName("app_id");
+
                     b.Property<bool>("Applied")
                         .HasColumnType("boolean")
                         .HasColumnName("applied");
@@ -636,12 +854,11 @@ namespace UserIdentity.Persistence.Migrations
                         .HasColumnType("text")
                         .HasColumnName("user_id");
 
-                    b.Property<bool>("Verified")
-                        .HasColumnType("boolean")
-                        .HasColumnName("verified");
-
                     b.HasKey("Id")
                         .HasName("pk_password_resets");
+
+                    b.HasIndex("AppId")
+                        .HasDatabaseName("ix_password_resets_app_id");
 
                     b.HasIndex("Expires")
                         .HasDatabaseName("ix_password_resets_expires");
@@ -813,6 +1030,11 @@ namespace UserIdentity.Persistence.Migrations
                         .HasColumnType("character varying(20)")
                         .HasColumnName("last_name");
 
+                    b.Property<string>("TwoFactorMethod")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("two_factor_method");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
@@ -940,6 +1162,46 @@ namespace UserIdentity.Persistence.Migrations
                         .HasConstraintName("fk_user_tokens_users_user_id");
                 });
 
+            modelBuilder.Entity("PolyzenKit.Domain.Entities.RegisteredApps.RegisteredAppBackendEntity", b =>
+                {
+                    b.HasOne("PolyzenKit.Domain.Entities.RegisteredApps.RegisteredAppEntity", null)
+                        .WithMany("BackendItems")
+                        .HasForeignKey("RegisteredAppId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_registered_app_backends_registered_apps_registered_app_id");
+                });
+
+            modelBuilder.Entity("UserIdentity.Domain.AccountLimitEvents.AccountLimitEventEntity", b =>
+                {
+                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_account_limit_events_asp_net_users_user_id");
+                });
+
+            modelBuilder.Entity("UserIdentity.Domain.AppSignInSettings.AppSignInSettingsEntity", b =>
+                {
+                    b.HasOne("PolyzenKit.Domain.Entities.RegisteredApps.RegisteredAppEntity", null)
+                        .WithMany()
+                        .HasForeignKey("AppId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_app_sign_in_settings_registered_app_app_id");
+                });
+
+            modelBuilder.Entity("UserIdentity.Domain.EmailChanges.EmailChangeEntity", b =>
+                {
+                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_email_changes_asp_net_users_user_id");
+                });
+
             modelBuilder.Entity("UserIdentity.Domain.InviteCodes.InviteCodeEntity", b =>
                 {
                     b.HasOne("PolyzenKit.Domain.Entities.RegisteredApps.RegisteredAppEntity", "App")
@@ -971,6 +1233,13 @@ namespace UserIdentity.Persistence.Migrations
 
             modelBuilder.Entity("UserIdentity.Domain.PasswordResets.PasswordResetEntity", b =>
                 {
+                    b.HasOne("PolyzenKit.Domain.Entities.RegisteredApps.RegisteredAppEntity", null)
+                        .WithMany()
+                        .HasForeignKey("AppId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_password_resets_registered_apps_app_id");
+
                     b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser", null)
                         .WithMany()
                         .HasForeignKey("UserId")
@@ -1030,6 +1299,11 @@ namespace UserIdentity.Persistence.Migrations
                         .HasConstraintName("fk_wait_lists_registered_apps_app_id");
 
                     b.Navigation("App");
+                });
+
+            modelBuilder.Entity("PolyzenKit.Domain.Entities.RegisteredApps.RegisteredAppEntity", b =>
+                {
+                    b.Navigation("BackendItems");
                 });
 #pragma warning restore 612, 618
         }

@@ -1,9 +1,9 @@
 ﻿using Microsoft.AspNetCore.Identity;
-using PolyzenKit.Application.Core.RegisteredApps.Shared;
 using PolyzenKit.Common.Exceptions;
 using PolyzenKit.Common.Extensions;
 using PolyzenKit.Common.Settings;
 using PolyzenKit.Common.Utilities;
+using UserIdentity.Domain.AppSignInSettings;
 
 namespace UserIdentity.Application.Core.Roles.Shared;
 
@@ -15,8 +15,8 @@ public static class AppRoleNames
 
     public static string Prefix(string appName) => $"{appName.TrimAndLowerInvariant()}{Separators.ServiceRole}";
 
-    public static string? DefaultRole(ActiveRegisteredApp registeredApp) =>
-        registeredApp.DefaultRole is { } defaultRole ? $"{Prefix(registeredApp.AppName)}{defaultRole}" : null;
+    public static string? DefaultRole(string appName, AppSignInSettingsDto signInSettings) =>
+        signInSettings.DefaultRole is { } defaultRole ? $"{Prefix(appName)}{defaultRole}" : null;
 
     public static bool IsAppRole(string? roleName, string appName) =>
         roleName is not null && roleName.StartsWith(Prefix(appName), StringComparison.OrdinalIgnoreCase);
@@ -45,6 +45,9 @@ public static class AppRoleNames
 
     public static bool IsGlobalAdminRole(string? roleName, string? globalAdminRole) =>
         !string.IsNullOrWhiteSpace(globalAdminRole) && string.Equals(roleName, globalAdminRole.Trim(), StringComparison.OrdinalIgnoreCase);
+
+    public static bool HoldsAdminRole(IEnumerable<string> roles, string appName, RoleSettings roleSettings) =>
+        roles.Any(role => IsAppAdminRole(role, appName, roleSettings) || IsGlobalAdminRole(role, roleSettings.GlobalAdminRole));
 
     // Tokens and app admins only see the app's own roles, plus the global admin role, which isn't tied to an app
     public static List<string> ForApp(IEnumerable<string> roles, string appName, string? globalAdminRole) =>

@@ -1,6 +1,6 @@
-﻿using PolyzenKit.Application.Core.RegisteredApps.Shared;
-using PolyzenKit.Common.Settings;
+﻿using PolyzenKit.Common.Settings;
 using UserIdentity.Application.Core.Roles.Shared;
+using UserIdentity.Domain.AppSignInSettings;
 using Xunit;
 
 namespace UserIdentity.UnitTests.Application.Core.Roles.Shared;
@@ -50,17 +50,30 @@ public class AppRoleNamesTests
     public void DefaultRole_Prefixes_The_Apps_Default_Role_Or_Is_Null_Without_One(string? defaultRole, string? expected)
     {
         // Arrange
-        var registeredApp = new ActiveRegisteredApp
+        var signInSettings = new AppSignInSettingsDto { AppId = 1, DefaultRole = defaultRole };
+
+        // Act & Assert
+        Assert.Equal(expected, AppRoleNames.DefaultRole(" TestApp ", signInSettings));
+    }
+
+    [Theory]
+    [InlineData("testapp:admin", true)]
+    [InlineData("testapp:owner", true)]
+    [InlineData("global:admin", true)]
+    [InlineData("otherapp:admin", false)]
+    [InlineData("testapp:user", false)]
+    public void HoldsAdminRole_Counts_The_Apps_Admin_Roles_And_The_Global_Admin_Role(string role, bool expected)
+    {
+        // Arrange
+        var roleSettings = new RoleSettings
         {
-            Id = 1,
-            AppName = " TestApp ",
-            AppSecretKey = "test-secret",
-            BaseUrl = "https://app.test",
-            DefaultRole = defaultRole,
+            ServiceName = "useridentity",
+            AdminRoles = "admin,owner",
+            GlobalAdminRole = "global:admin",
         };
 
         // Act & Assert
-        Assert.Equal(expected, AppRoleNames.DefaultRole(registeredApp));
+        Assert.Equal(expected, AppRoleNames.HoldsAdminRole([role, "testapp:viewer"], "TestApp", roleSettings));
     }
 
     [Fact]

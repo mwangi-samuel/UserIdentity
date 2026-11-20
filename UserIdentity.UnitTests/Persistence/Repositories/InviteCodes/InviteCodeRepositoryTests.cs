@@ -278,7 +278,6 @@ public class InviteCodeRepositoryTests
             AppName = "TestApp",
             AppSecretKey = "test-secret-key",
             BaseUrl = "https://test.com",
-            RequireInviteCode = true,
         };
         context.RegisteredApp.Add(app);
         await context.SaveChangesAsync();

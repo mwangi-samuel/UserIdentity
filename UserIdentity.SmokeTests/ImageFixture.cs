@@ -1,13 +1,12 @@
 ﻿using System.Diagnostics;
 using System.Net;
-using System.Text;
 using System.Text.Json.Nodes;
 using DotNet.Testcontainers.Builders;
+using DotNet.Testcontainers.Configurations;
 using DotNet.Testcontainers.Containers;
 using DotNet.Testcontainers.Networks;
 using NATS.Client.Core;
 using NATS.Client.JetStream;
-using NATS.Client.JetStream.Models;
 using Testcontainers.Nats;
 using Testcontainers.PostgreSql;
 using UserIdentity.IntegrationTests.TestUtils;
@@ -23,8 +22,8 @@ public sealed class ImageFixture : IAsyncLifetime
     public const string BootstrapAdminPassword = "Sm0ke@Adm1n";
     public const string UserRegisteredSubject = "useridentity.user.registered";
     public const string PasswordResetRequestedSubject = "useridentity.password-reset.requested";
+    public const string PasswordChangedSubject = "useridentity.password.changed";
 
-    private const string CodeVerifiedSubject = "messagemanager.code.verified";
     private const string AppBaseUrl = "http://localhost:3000";
     private const string ImageVariable = "USERIDENTITY_SMOKE_IMAGE";
     private const string LocalImage = "useridentity:smoke";
@@ -75,7 +74,11 @@ public sealed class ImageFixture : IAsyncLifetime
             .Build();
     }
 
+    public StubHttpServer CodeCheck { get; } = new();
+
     public Uri ServiceUrl => new($"http://{_service!.Hostname}:{_service.GetMappedPublicPort(ServicePort)}");
+
+    private ushort CodeCheckPort => (ushort)new Uri(CodeCheck.Url).Port;
 
     public async ValueTask InitializeAsync()
     {
@@ -83,7 +86,12 @@ public sealed class ImageFixture : IAsyncLifetime
         var image = await ResolveImageAsync(cancellationToken);
 
         await _network.CreateAsync(cancellationToken);
-        await Task.WhenAll(_postgreSql.StartAsync(cancellationToken), _nats.StartAsync(cancellationToken));
+        await Task.WhenAll(
+            _postgreSql.StartAsync(cancellationToken),
+            _nats.StartAsync(cancellationToken),
+            CodeCheck.StartAsync(cancellationToken)
+        );
+        await TestcontainersSettings.ExposeHostPortsAsync(CodeCheckPort, cancellationToken);
 
         _natsConnection = new NatsConnection(
             NatsOpts.Default with
@@ -93,9 +101,6 @@ public sealed class ImageFixture : IAsyncLifetime
             }
         );
         _jetStream = new NatsJSContext(_natsConnection);
-
-        // The sending service owns this stream. Without it, the service's consumer backs off for up to 30 seconds
-        await _jetStream.CreateOrUpdateStreamAsync(new StreamConfig("MESSAGEMANAGER", ["messagemanager.>"]), cancellationToken);
 
         _service = BuildService(image);
 
@@ -116,13 +121,20 @@ public sealed class ImageFixture : IAsyncLifetime
 
         await _nats.DisposeAsync();
         await _postgreSql.DisposeAsync();
+        await CodeCheck.DisposeAsync();
         await _network.DisposeAsync();
 
         if (errors.Count > 0)
             Assert.Fail(string.Join('\n', errors));
     }
 
-    public async Task<JsonNode> FindMessageAsync(string subject, string correlationId, CancellationToken cancellationToken)
+    public Task<JsonNode> FindMessageAsync(string subject, string correlationId, CancellationToken cancellationToken) =>
+        FindMessageAsync(subject, message => $"{message["correlationId"]}" == correlationId, cancellationToken);
+
+    public Task<JsonNode> FindMessageSentToAsync(string subject, string email, CancellationToken cancellationToken) =>
+        FindMessageAsync(subject, message => $"{message["recipient"]?["email"]}" == email, cancellationToken);
+
+    private async Task<JsonNode> FindMessageAsync(string subject, Func<JsonNode, bool> matches, CancellationToken cancellationToken)
     {
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeout.CancelAfter(_messageWait);
@@ -133,32 +145,11 @@ public sealed class ImageFixture : IAsyncLifetime
         {
             var message = JsonNode.Parse(delivery.Data);
 
-            if ($"{message?["correlationId"]}" == correlationId)
-                return message!;
+            if (message is not null && matches(message))
+                return message;
         }
 
-        throw new InvalidOperationException($"No message on {subject} for {correlationId}.");
-    }
-
-    public async Task PublishCodeVerifiedAsync(string correlationId, string action, CancellationToken cancellationToken)
-    {
-        var message = new JsonObject
-        {
-            ["eventType"] = "Update",
-            ["correlationId"] = correlationId,
-            ["registeredApp"] = ServiceClient.AppName,
-            ["action"] = action,
-            ["data"] = new JsonObject { ["status"] = "Verified", ["channel"] = "Email" },
-            ["occurredAt"] = DateTime.UtcNow,
-        };
-
-        var ack = await _jetStream!.PublishAsync(
-            CodeVerifiedSubject,
-            Encoding.UTF8.GetBytes(message.ToJsonString()),
-            cancellationToken: cancellationToken
-        );
-
-        ack.EnsureSuccess();
+        throw new InvalidOperationException($"No matching message on {subject}.");
     }
 
     public async Task GrantRoleAsync(string userId, string roleName, CancellationToken cancellationToken)
@@ -207,6 +198,22 @@ public sealed class ImageFixture : IAsyncLifetime
         using var client = new ServiceClient(ServiceUrl);
         await client.SignInAsBootstrapAdminAsync(cancellationToken);
 
+        await ServiceClient.ReadAsync(
+            await client.PutAsync(
+                "/api/v1/sign-in-settings",
+                new { requireConfirmedAccount = true, defaultRole = "user" },
+                cancellationToken
+            ),
+            HttpStatusCode.OK,
+            cancellationToken
+        );
+    }
+
+    public async Task AddBackendAsync(string backendName, string publicKeyPem, CancellationToken cancellationToken)
+    {
+        using var client = new ServiceClient(ServiceUrl);
+        await client.SignInAsBootstrapAdminAsync(cancellationToken);
+
         var app = await ServiceClient.ReadAsync(
             await client.GetAsync($"/api/v1/registered-app/name/{ServiceClient.AppName}", cancellationToken),
             HttpStatusCode.OK,
@@ -220,8 +227,7 @@ public sealed class ImageFixture : IAsyncLifetime
                 {
                     appName = ServiceClient.AppName,
                     baseUrl = AppBaseUrl,
-                    requireConfirmedAccount = true,
-                    defaultRole = "user",
+                    backends = new[] { new { name = backendName, publicKey = publicKeyPem } },
                 },
                 cancellationToken
             ),
@@ -245,6 +251,14 @@ public sealed class ImageFixture : IAsyncLifetime
             .WithEnvironment("MessagingSettings__NatsUrl", $"nats://{NatsAlias}:{NatsPort}")
             .WithEnvironment("MessagingSettings__NatsUser", NatsUser)
             .WithEnvironment("MessagingSettings__NatsPassword", NatsPassword)
+            .WithEnvironment(
+                "CodeCheckSettings__VerifyUrl",
+                $"http://host.testcontainers.internal:{CodeCheckPort}{CodeCheckStub.VerifyPath}"
+            )
+            .WithEnvironment(
+                "CodeCheckSettings__ResendUrl",
+                $"http://host.testcontainers.internal:{CodeCheckPort}{CodeCheckStub.RetryPath}"
+            )
             .WithEnvironment("EDDSA_PRIVATE_KEY", EdDsaHelper.ConvertToPem(keyPair.Private, privateKeyPassPhrase))
             .WithEnvironment("EDDSA_PUBLIC_KEY", EdDsaHelper.ConvertToPem(keyPair.Public))
             .WithEnvironment("KeySetSettings__PrivateKeyPassPhrase", privateKeyPassPhrase)

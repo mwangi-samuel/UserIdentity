@@ -3,17 +3,26 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Time.Testing;
 using PolyzenKit.Application.Core.Interfaces;
 using PolyzenKit.Application.Core.Messages.Commands;
-using PolyzenKit.Application.Core.Messages.Events;
 using PolyzenKit.Application.Core.Messages.ViewModels;
 using PolyzenKit.Application.Core.RegisteredApps.Shared;
+using PolyzenKit.Application.Interfaces;
 using PolyzenKit.Common.Exceptions;
+using PolyzenKit.Common.Utilities;
 using PolyzenKit.Persistence.Repositories;
+using UserIdentity.Application.Core.AccountLimits.Commands;
+using UserIdentity.Application.Core.AccountLimits.ViewModels;
+using UserIdentity.Application.Core.SignInSettings.Queries;
+using UserIdentity.Application.Core.SignInSettings.ViewModels;
 using UserIdentity.Application.Core.Tokens.Commands;
 using UserIdentity.Application.Core.Tokens.ViewModels;
 using UserIdentity.Application.Core.Users.Commands;
 using UserIdentity.Application.Core.Users.Shared;
+using UserIdentity.Application.Core.Users.ViewModels;
 using UserIdentity.Common.Enums;
+using UserIdentity.Common.Errors;
+using UserIdentity.Domain.AppSignInSettings;
 using UserIdentity.Domain.InviteCodes;
+using UserIdentity.Domain.UserRegisteredApps;
 using UserIdentity.Domain.Users;
 using UserIdentity.Persistence.Repositories.InviteCodes;
 using UserIdentity.Persistence.Repositories.UserRegisteredApps;
@@ -27,117 +36,165 @@ public class RegisterUserCommandHandlerTests
 {
     private const string DefaultRoleName = "testapp:user";
 
-    private readonly UserManager<IdentityUser> _userManager;
-    private readonly RoleManager<IdentityRole> _roleManager;
-    private readonly IUnitOfWork _unitOfWork;
-    private readonly IUserRepository _userRepository;
-    private readonly IUserRegisteredAppRepository _userRegisteredAppRepository;
-    private readonly IInviteCodeRepository _inviteCodeRepository;
     private static readonly DateTime _now = new(2026, 11, 11, 12, 0, 0, DateTimeKind.Utc);
 
-    private readonly FakeTimeProvider _timeProvider = new();
-    private readonly ICreateItemCommandHandler<CreateOutboxMessageCommand, OutboxMessageViewModel> _createOutboxMessageCommandHandler;
-    private readonly ICreateItemCommandHandler<StartSessionCommand, UserTokenViewModel> _startSessionCommandHandler;
-    private readonly ICreateItemCommandHandler<CreateLoginTicketCommand, LoginTicketViewModel> _createLoginTicketCommandHandler;
+    private readonly UserManager<IdentityUser> _userManager = IdentityFakes.UserManager();
+    private readonly RoleManager<IdentityRole> _roleManager = A.Fake<RoleManager<IdentityRole>>();
+    private readonly IUnitOfWork _unitOfWork = A.Fake<IUnitOfWork>();
+    private readonly IUserRepository _userRepository = A.Fake<IUserRepository>();
+    private readonly IUserRegisteredAppRepository _userRegisteredAppRepository = A.Fake<IUserRegisteredAppRepository>();
+    private readonly IInviteCodeRepository _inviteCodeRepository = A.Fake<IInviteCodeRepository>();
+    private readonly ITokenFactory _tokenFactory = A.Fake<ITokenFactory>();
+    private readonly IPasswordHasher<IdentityUser> _passwordHasher = A.Fake<IPasswordHasher<IdentityUser>>();
+    private readonly FakeTimeProvider _timeProvider = new(_now);
+
+    private readonly IGetItemQueryHandler<GetSignInSettingsQuery, SignInSettingsViewModel> _getSignInSettingsQueryHandler = A.Fake<
+        IGetItemQueryHandler<GetSignInSettingsQuery, SignInSettingsViewModel>
+    >();
+    private readonly ICreateItemCommandHandler<
+        CreateAccountLimitEventCommand,
+        AccountLimitViewModel
+    > _createAccountLimitEventCommandHandler = A.Fake<ICreateItemCommandHandler<CreateAccountLimitEventCommand, AccountLimitViewModel>>();
+    private readonly ICreateItemCommandHandler<CreateOutboxMessageCommand, OutboxMessageViewModel> _createOutboxMessageCommandHandler =
+        A.Fake<ICreateItemCommandHandler<CreateOutboxMessageCommand, OutboxMessageViewModel>>();
+    private readonly ICreateItemCommandHandler<CreateLoginTicketCommand, LoginTicketViewModel> _createLoginTicketCommandHandler = A.Fake<
+        ICreateItemCommandHandler<CreateLoginTicketCommand, LoginTicketViewModel>
+    >();
+    private readonly ICreateItemCommandHandler<SignInUserCommand, AuthUserViewModel> _signInUserCommandHandler = A.Fake<
+        ICreateItemCommandHandler<SignInUserCommand, AuthUserViewModel>
+    >();
+
+    private readonly ActiveRegisteredApp _registeredApp = new()
+    {
+        Id = 1,
+        AppName = "TestApp",
+        BaseUrl = "https://app.test",
+    };
+
+    private AppSignInSettingsDto _signInSettings = new() { AppId = 1, DefaultRole = "user" };
 
     public RegisterUserCommandHandlerTests()
     {
-        _userManager = IdentityFakes.UserManager();
-        _roleManager = A.Fake<RoleManager<IdentityRole>>();
-        _unitOfWork = A.Fake<IUnitOfWork>();
-        _userRepository = A.Fake<IUserRepository>();
-        _userRegisteredAppRepository = A.Fake<IUserRegisteredAppRepository>();
-        _inviteCodeRepository = A.Fake<IInviteCodeRepository>();
-        _timeProvider.SetUtcNow(_now);
-        _createOutboxMessageCommandHandler = A.Fake<ICreateItemCommandHandler<CreateOutboxMessageCommand, OutboxMessageViewModel>>();
-        _startSessionCommandHandler = A.Fake<ICreateItemCommandHandler<StartSessionCommand, UserTokenViewModel>>();
-        _createLoginTicketCommandHandler = A.Fake<ICreateItemCommandHandler<CreateLoginTicketCommand, LoginTicketViewModel>>();
+        _userManager.PasswordHasher = _passwordHasher;
 
-        A.CallTo(() => _unitOfWork.BeginTransactionAsync(A<CancellationToken>._)).Returns(Task.CompletedTask);
-        A.CallTo(() => _unitOfWork.CommitTransactionAsync(A<CancellationToken>._)).Returns(Task.CompletedTask);
-        A.CallTo(() => _unitOfWork.RollbackTransactionAsync(A<CancellationToken>._)).Returns(Task.CompletedTask);
-        A.CallTo(() => _unitOfWork.SaveChangesAsync(A<CancellationToken>._)).Returns(Task.CompletedTask);
+        A.CallTo(() => _getSignInSettingsQueryHandler.GetItemAsync(A<GetSignInSettingsQuery>._, A<CancellationToken>._))
+            .ReturnsLazily(() => new SignInSettingsViewModel { SignInSettings = _signInSettings });
+        A.CallTo(() =>
+                _createAccountLimitEventCommandHandler.CreateItemAsync(
+                    A<CreateAccountLimitEventCommand>._,
+                    A<string>._,
+                    A<CancellationToken>._
+                )
+            )
+            .Returns(new AccountLimitViewModel { IsReached = false });
+        A.CallTo(() => _createLoginTicketCommandHandler.CreateItemAsync(A<CreateLoginTicketCommand>._, A<string>._, A<CancellationToken>._))
+            .Returns(new LoginTicketViewModel { Ticket = "login-ticket", Expires = _now.AddHours(1) });
+        A.CallTo(() => _tokenFactory.GenerateToken(A<int>._)).Returns("unsaved-ticket");
     }
 
     [Fact]
-    public async Task Create_User_When_Default_Role_Not_Created_Throws_RecordCreationException()
+    public async Task Sign_Up_When_The_Default_Role_Cannot_Be_Created_Throws_RecordCreationException()
     {
+        // Arrange
         var command = GetRegisterUserCommand();
-        var defaultRole = DefaultRoleName;
 
-        A.CallTo(() => _roleManager.FindByNameAsync(defaultRole)).Returns((IdentityRole?)null);
-        A.CallTo(() => _roleManager.CreateAsync(A<IdentityRole>.That.Matches(r => r.Name == defaultRole))).Returns(IdentityResult.Failed());
+        SetUpSuccessfulSignUp(command);
+        A.CallTo(() => _roleManager.FindByNameAsync(DefaultRoleName)).Returns((IdentityRole?)null);
+        A.CallTo(() => _roleManager.CreateAsync(A<IdentityRole>.That.Matches(r => r.Name == DefaultRoleName)))
+            .Returns(IdentityResult.Failed());
 
-        var handler = GetRegisterUserCommandHandler();
-
+        // Act & Assert
         await Assert.ThrowsAsync<RecordCreationException>(() =>
-            handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken)
+            GetHandler().CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken)
         );
-        A.CallTo(() => _roleManager.FindByNameAsync(defaultRole)).MustHaveHappenedOnceExactly();
-        A.CallTo(() => _roleManager.CreateAsync(A<IdentityRole>.That.Matches(r => r.Name == defaultRole))).MustHaveHappenedOnceExactly();
+
+        A.CallTo(() => _unitOfWork.RollbackTransactionAsync(A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+    }
+
+    [Theory]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    public async Task Sign_Up_With_A_Taken_Name_Or_Email_When_Confirmation_Is_Required_Answers_Like_A_New_Sign_Up(
+        bool userNameTaken,
+        bool emailTaken
+    )
+    {
+        // Arrange
+        _signInSettings = new AppSignInSettingsDto { AppId = 1, RequireConfirmedAccount = true };
+        var command = GetRegisterUserCommand();
+        command.RequestContext = RequestContext.Create("203.0.113.7", "Test Browser");
+        var existingUser = new IdentityUser
+        {
+            Id = "existing-user",
+            UserName = "existing.user",
+            Email = "existing@domain.com",
+        };
+
+        SetUpSuccessfulSignUp(command);
+        A.CallTo(() => _userManager.FindByNameAsync(command.UserName)).Returns(userNameTaken ? existingUser : null);
+        A.CallTo(() => _userManager.FindByEmailAsync(command.UserEmail!)).Returns(emailTaken ? existingUser : null);
+        A.CallTo(() => _userRepository.GetUserDtoAsync(existingUser.Id, null, A<CancellationToken>._))
+            .Returns(new UserDto { Id = existingUser.Id, FirstName = "Existing" });
+
+        // Act
+        var vm = await GetHandler().CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(SignInStep.ConfirmEmail, vm.NextStep);
+        Assert.Equal("unsaved-ticket", vm.Ticket);
+        Assert.Equal("t***@domain.com", vm.CodeSentTo);
+        Assert.Null(vm.UserToken);
+        Assert.NotEqual(existingUser.Id, vm.User.Id);
+        Assert.Equal(command.UserName, vm.User.UserName);
+        Assert.Equal(_now, vm.User.CreatedAt);
+        A.CallTo(() => _passwordHasher.HashPassword(A<IdentityUser>._, command.UserPassword)).MustHaveHappenedOnceExactly();
+        A.CallTo(() =>
+                _createOutboxMessageCommandHandler.CreateItemAsync(
+                    A<CreateOutboxMessageCommand>.That.Matches(c =>
+                        c.Name == UserMessages.SignUpAttempted
+                        && c.Message.Action == UserMessages.SignUpAttemptedAction
+                        && c.Message.Recipient!.Email == existingUser.Email
+                        && c.Message.GetData<UserMessageData>()!.FirstName == "Existing"
+                        && c.Message.GetData<UserMessageData>()!.AttemptedAt == _now
+                        && c.Message.GetData<UserMessageData>()!.IpAddress == "203.0.113.7"
+                        && c.Message.GetData<UserMessageData>()!.Device == "Test Browser"
+                    ),
+                    existingUser.Id,
+                    A<CancellationToken>._
+                )
+            )
+            .MustHaveHappenedOnceExactly();
+        A.CallTo(() => _userManager.CreateAsync(A<IdentityUser>._)).MustNotHaveHappened();
+        A.CallTo(() => _createLoginTicketCommandHandler.CreateItemAsync(A<CreateLoginTicketCommand>._, A<string>._, A<CancellationToken>._))
+            .MustNotHaveHappened();
+        A.CallTo(() => _unitOfWork.CommitTransactionAsync(A<CancellationToken>._)).MustHaveHappenedOnceExactly();
     }
 
     [Fact]
-    public async Task Create_User_When_UserName_Exists_Throws_RecordExistsException()
+    public async Task Sign_Up_With_A_Taken_Email_Past_The_Notice_Cap_Sends_No_Notice_And_Answers_The_Same()
     {
+        // Arrange
+        _signInSettings = new AppSignInSettingsDto { AppId = 1, RequireConfirmedAccount = true };
         var command = GetRegisterUserCommand();
-        var defaultRole = new IdentityRole(DefaultRoleName);
+        var existingUser = new IdentityUser { Id = "existing-user", Email = command.UserEmail };
 
-        A.CallTo(() => _roleManager.FindByNameAsync(defaultRole.Name!)).Returns(defaultRole);
-        A.CallTo(() => _userManager.FindByNameAsync(command.UserName)).Returns(new IdentityUser());
+        SetUpSuccessfulSignUp(command);
+        A.CallTo(() => _userManager.FindByEmailAsync(command.UserEmail!)).Returns(existingUser);
+        A.CallTo(() =>
+                _createAccountLimitEventCommandHandler.CreateItemAsync(
+                    new CreateAccountLimitEventCommand(existingUser.Id, AccountLimitKind.SignUpAttemptNotice),
+                    A<string>._,
+                    A<CancellationToken>._
+                )
+            )
+            .Returns(new AccountLimitViewModel { IsReached = true });
 
-        var handler = GetRegisterUserCommandHandler();
+        // Act
+        var vm = await GetHandler().CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken);
 
-        await Assert.ThrowsAsync<RecordExistsException>(() =>
-            handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken)
-        );
-
-        A.CallTo(() => _roleManager.FindByNameAsync(defaultRole.Name!)).MustHaveHappenedOnceExactly();
-        A.CallTo(() => _userManager.FindByNameAsync(command.UserName)).MustHaveHappenedOnceExactly();
-    }
-
-    [Fact]
-    public async Task Create_User_When_Email_Exists_Throws_RecordExistsException()
-    {
-        var command = GetRegisterUserCommand();
-        var defaultRole = new IdentityRole(DefaultRoleName);
-
-        A.CallTo(() => _roleManager.FindByNameAsync(defaultRole.Name!)).Returns(defaultRole);
-        A.CallTo(() => _userManager.FindByNameAsync(command.UserName)).Returns((IdentityUser?)null);
-        A.CallTo(() => _userManager.FindByEmailAsync(command.UserEmail!)).Returns(new IdentityUser());
-
-        var handler = GetRegisterUserCommandHandler();
-
-        await Assert.ThrowsAsync<RecordExistsException>(() =>
-            handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken)
-        );
-
-        A.CallTo(() => _roleManager.FindByNameAsync(defaultRole.Name!)).MustHaveHappenedOnceExactly();
-        A.CallTo(() => _userManager.FindByNameAsync(command.UserName)).MustHaveHappenedOnceExactly();
-        A.CallTo(() => _userManager.FindByEmailAsync(command.UserEmail!)).MustHaveHappenedOnceExactly();
-    }
-
-    [Fact]
-    public async Task Create_User_When_Identity_User_Creation_Fails_Throws_InvalidDataException()
-    {
-        var command = GetRegisterUserCommand();
-        var defaultRole = new IdentityRole(DefaultRoleName);
-
-        A.CallTo(() => _roleManager.FindByNameAsync(defaultRole.Name!)).Returns(defaultRole);
-        A.CallTo(() => _userManager.FindByNameAsync(command.UserName)).Returns((IdentityUser?)null);
-        A.CallTo(() => _userManager.FindByEmailAsync(command.UserEmail!)).Returns((IdentityUser?)null);
-        A.CallTo(() => _userManager.CreateAsync(A<IdentityUser>._, command.UserPassword)).Returns(IdentityResult.Failed());
-
-        var handler = GetRegisterUserCommandHandler();
-
-        await Assert.ThrowsAsync<InvalidDataException>(() =>
-            handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken)
-        );
-
-        A.CallTo(() => _roleManager.FindByNameAsync(defaultRole.Name!)).MustHaveHappenedOnceExactly();
-        A.CallTo(() => _userManager.FindByNameAsync(command.UserName)).MustHaveHappenedOnceExactly();
-        A.CallTo(() => _userManager.FindByEmailAsync(command.UserEmail!)).MustHaveHappenedOnceExactly();
-        A.CallTo(() => _userManager.CreateAsync(A<IdentityUser>._, command.UserPassword)).MustHaveHappenedOnceExactly();
+        // Assert
+        Assert.Equal(SignInStep.ConfirmEmail, vm.NextStep);
+        Assert.Equal("unsaved-ticket", vm.Ticket);
         A.CallTo(() =>
                 _createOutboxMessageCommandHandler.CreateItemAsync(A<CreateOutboxMessageCommand>._, A<string>._, A<CancellationToken>._)
             )
@@ -145,453 +202,275 @@ public class RegisterUserCommandHandlerTests
     }
 
     [Fact]
-    public async Task Create_User_When_Assigning_Default_Role_Fails_Throws_RecordCreationException()
+    public async Task Sign_Up_With_A_Taken_Email_When_Confirmation_Is_Not_Required_Throws_The_Generic_Error()
     {
+        // Arrange
         var command = GetRegisterUserCommand();
-        var defaultRole = new IdentityRole(DefaultRoleName);
 
-        A.CallTo(() => _roleManager.FindByNameAsync(defaultRole.Name!)).Returns(defaultRole);
-        A.CallTo(() => _userManager.FindByNameAsync(command.UserName)).Returns((IdentityUser?)null);
-        A.CallTo(() => _userManager.FindByEmailAsync(command.UserEmail!)).Returns((IdentityUser?)null);
-        A.CallTo(() => _userManager.CreateAsync(A<IdentityUser>._, command.UserPassword)).Returns(IdentityResult.Success);
-        A.CallTo(() => _userManager.AddToRolesAsync(A<IdentityUser>._, A<IEnumerable<string>>._)).Returns(IdentityResult.Failed());
+        SetUpSuccessfulSignUp(command);
+        A.CallTo(() => _userManager.FindByEmailAsync(command.UserEmail!)).Returns(new IdentityUser { Id = "existing-user" });
 
-        var handler = GetRegisterUserCommandHandler();
-
-        await Assert.ThrowsAsync<RecordCreationException>(() =>
-            handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken)
+        // Act & Assert
+        var exception = await Assert.ThrowsAsync<InvalidDataException>(() =>
+            GetHandler().CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken)
         );
 
-        A.CallTo(() => _roleManager.FindByNameAsync(defaultRole.Name!)).MustHaveHappenedOnceExactly();
-        A.CallTo(() => _userManager.FindByNameAsync(command.UserName)).MustHaveHappenedOnceExactly();
-        A.CallTo(() => _userManager.FindByEmailAsync(command.UserEmail!)).MustHaveHappenedOnceExactly();
-        A.CallTo(() => _userManager.CreateAsync(A<IdentityUser>._, command.UserPassword)).MustHaveHappenedOnceExactly();
-        string[] expectedRoles = [defaultRole.Name!];
-        A.CallTo(() => _userManager.AddToRolesAsync(A<IdentityUser>._, A<IEnumerable<string>>.That.IsSameSequenceAs(expectedRoles)))
-            .MustHaveHappenedOnceExactly();
+        Assert.Equal(ErrorMessages.Users.AccountNotCreated, exception.Message);
+        A.CallTo(() => _passwordHasher.HashPassword(A<IdentityUser>._, command.UserPassword)).MustHaveHappenedOnceExactly();
+        A.CallTo(() => _userManager.CreateAsync(A<IdentityUser>._)).MustNotHaveHappened();
+        A.CallTo(() =>
+                _createOutboxMessageCommandHandler.CreateItemAsync(A<CreateOutboxMessageCommand>._, A<string>._, A<CancellationToken>._)
+            )
+            .MustNotHaveHappened();
+        A.CallTo(() => _unitOfWork.RollbackTransactionAsync(A<CancellationToken>._)).MustHaveHappenedOnceExactly();
     }
 
     [Fact]
-    public async Task Create_User_With_Valid_Details_Returns_AuthUser()
-    {
-        var command = GetRegisterUserCommand();
-        var defaultRole = new IdentityRole(DefaultRoleName);
-        var session = new UserTokenViewModel
-        {
-            UserToken = new UserTokenDto
-            {
-                AccessToken = new AccessTokenDto { Token = "access-token", ExpiresIn = 1200 },
-                RefreshToken = "refresh-token",
-            },
-        };
-
-        string? userId = null;
-        IdentityUser? createdUser = null;
-
-        A.CallTo(() => _roleManager.FindByNameAsync(defaultRole.Name!)).Returns(defaultRole);
-        A.CallTo(() => _userManager.FindByNameAsync(command.UserName)).Returns((IdentityUser?)null);
-        A.CallTo(() => _userManager.FindByEmailAsync(command.UserEmail!)).Returns((IdentityUser?)null);
-        A.CallTo(() => _userManager.CreateAsync(A<IdentityUser>._, command.UserPassword))
-            .Invokes(
-                (IdentityUser u, string _) =>
-                {
-                    createdUser = u;
-                    userId = u.Id;
-                }
-            )
-            .Returns(IdentityResult.Success);
-        A.CallTo(() => _userManager.AddToRolesAsync(A<IdentityUser>._, A<IEnumerable<string>>._)).Returns(IdentityResult.Success);
-        A.CallTo(() => _userRepository.CreateEntityItem(A<UserEntity>.That.Matches(u => u.FirstName == command.FirstName))).DoesNothing();
-        A.CallTo(() =>
-                _startSessionCommandHandler.CreateItemAsync(
-                    A<StartSessionCommand>.That.Matches(c =>
-                        c.UserId == userId && c.UserName == command.UserName && c.AppName == command.RegisteredApp.AppName
-                    ),
-                    A<string>._,
-                    A<CancellationToken>._
-                )
-            )
-            .Returns(session);
-        A.CallTo(() => _unitOfWork.CommitTransactionAsync(A<CancellationToken>._)).DoesNothing();
-
-        var handler = GetRegisterUserCommandHandler();
-
-        var vm = await handler.CreateItemAsync(command, userId!, TestContext.Current.CancellationToken);
-
-        Assert.Equal(userId, vm.User.Id);
-        Assert.Equal(command.FirstName, vm.User.FirstName);
-        Assert.Equal(command.LastName, vm.User.LastName);
-        Assert.Equal(command.UserEmail, vm.User.Email);
-        Assert.Equal(_now, vm.User.CreatedAt);
-        Assert.Equal(_now, vm.User.UpdatedAt);
-        Assert.Same(session.UserToken, vm.UserToken);
-        Assert.Null(vm.LoginTicket);
-
-        A.CallTo(() => _roleManager.FindByNameAsync(defaultRole.Name!)).MustHaveHappenedOnceExactly();
-        A.CallTo(() => _userManager.FindByNameAsync(command.UserName)).MustHaveHappenedOnceExactly();
-        A.CallTo(() => _userManager.FindByEmailAsync(command.UserEmail!)).MustHaveHappenedOnceExactly();
-        A.CallTo(() => _userManager.CreateAsync(A<IdentityUser>._, command.UserPassword)).MustHaveHappenedOnceExactly();
-        string[] expectedRoles = [defaultRole.Name!];
-        A.CallTo(() => _userManager.AddToRolesAsync(A<IdentityUser>._, A<IEnumerable<string>>.That.IsSameSequenceAs(expectedRoles)))
-            .MustHaveHappenedOnceExactly();
-        A.CallTo(() => _userRepository.CreateEntityItem(A<UserEntity>.That.Matches(u => u.FirstName == command.FirstName)))
-            .MustHaveHappenedOnceExactly();
-        A.CallTo(() => _createLoginTicketCommandHandler.CreateItemAsync(A<CreateLoginTicketCommand>._, A<string>._, A<CancellationToken>._))
-            .MustNotHaveHappened();
-        A.CallTo(() => _unitOfWork.CommitTransactionAsync(A<CancellationToken>._)).MustHaveHappenedOnceExactly();
-    }
-
-    [Theory]
-    [InlineData(RequestSource.UI, true)]
-    [InlineData(RequestSource.Api, false)]
-    public async Task Create_Unconfirmed_User_Gets_A_Login_Ticket_Only_From_The_Apps_UI(RequestSource requestSource, bool getsTicket)
+    public async Task Sign_Up_With_A_Weak_Password_Throws_Before_Looking_For_Existing_Accounts()
     {
         // Arrange
         var command = GetRegisterUserCommand();
-        command.RequestSource = requestSource;
-        command.RegisteredApp = GetRegisteredApp(requireConfirmedAccount: true);
+        var passwordValidator = A.Fake<IPasswordValidator<IdentityUser>>();
+
         SetUpSuccessfulSignUp(command);
+        A.CallTo(() => passwordValidator.ValidateAsync(_userManager, A<IdentityUser>._, command.UserPassword))
+            .Returns(IdentityResult.Failed(new IdentityError { Description = "Passwords must have at least one digit." }));
+        _userManager.PasswordValidators.Add(passwordValidator);
 
-        A.CallTo(() =>
-                _createLoginTicketCommandHandler.CreateItemAsync(A<CreateLoginTicketCommand>._, A<string>._!, A<CancellationToken>._)
-            )
-            .Returns(new LoginTicketViewModel { Ticket = "login-ticket" });
+        // Act & Assert
+        var exception = await Assert.ThrowsAsync<InvalidDataException>(() =>
+            GetHandler().CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken)
+        );
 
-        var handler = GetRegisterUserCommandHandler();
+        Assert.Equal("Passwords must have at least one digit.", exception.Message);
+        A.CallTo(() => _userManager.FindByNameAsync(A<string>._)).MustNotHaveHappened();
+        A.CallTo(() => _userManager.FindByEmailAsync(A<string>._)).MustNotHaveHappened();
+    }
+
+    [Fact]
+    public async Task Sign_Up_When_Identity_Refuses_The_User_Throws_InvalidDataException()
+    {
+        // Arrange
+        var command = GetRegisterUserCommand();
+
+        SetUpSuccessfulSignUp(command);
+        A.CallTo(() => _userManager.CreateAsync(A<IdentityUser>._)).Returns(IdentityResult.Failed());
+
+        // Act & Assert
+        await Assert.ThrowsAsync<InvalidDataException>(() =>
+            GetHandler().CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken)
+        );
+
+        A.CallTo(() => _userRepository.CreateEntityItem(A<UserEntity>._)).MustNotHaveHappened();
+    }
+
+    [Fact]
+    public async Task Sign_Up_When_Granting_The_Default_Role_Fails_Throws_RecordCreationException()
+    {
+        // Arrange
+        var command = GetRegisterUserCommand();
+
+        SetUpSuccessfulSignUp(command);
+        A.CallTo(() => _userManager.AddToRolesAsync(A<IdentityUser>._, A<IEnumerable<string>>._)).Returns(IdentityResult.Failed());
+
+        // Act & Assert
+        await Assert.ThrowsAsync<RecordCreationException>(() =>
+            GetHandler().CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken)
+        );
+
+        string[] expectedRoles = [DefaultRoleName];
+        A.CallTo(() => _userManager.AddToRolesAsync(A<IdentityUser>._, A<IEnumerable<string>>.That.IsSameSequenceAs(expectedRoles)))
+            .MustHaveHappenedOnceExactly();
+    }
+
+    [Fact]
+    public async Task Sign_Up_When_Confirmation_Is_Not_Required_Continues_Through_Sign_In()
+    {
+        // Arrange
+        var command = GetRegisterUserCommand();
+        var signedIn = new AuthUserViewModel { User = new UserDto(), NextStep = SignInStep.Session };
+
+        SetUpSuccessfulSignUp(command);
+        A.CallTo(() => _signInUserCommandHandler.CreateItemAsync(A<SignInUserCommand>._, A<string>._, A<CancellationToken>._))
+            .Returns(signedIn);
 
         // Act
-        var vm = await handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken);
+        var vm = await GetHandler().CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken);
 
         // Assert
-        Assert.False(vm.IsConfirmed);
-        Assert.Null(vm.UserToken);
-        Assert.Equal(getsTicket ? "login-ticket" : null, vm.LoginTicket);
-        A.CallTo(() =>
-                _createLoginTicketCommandHandler.CreateItemAsync(
-                    A<CreateLoginTicketCommand>.That.Matches(c => c.UserId == vm.User.Id && c.AppId == command.RegisteredApp.Id),
-                    A<string>._!,
-                    A<CancellationToken>._
-                )
+        Assert.Same(signedIn, vm);
+        A.CallTo(() => _unitOfWork.SaveChangesAsync(A<CancellationToken>._))
+            .MustHaveHappenedOnceExactly()
+            .Then(
+                A.CallTo(() =>
+                        _signInUserCommandHandler.CreateItemAsync(
+                            A<SignInUserCommand>.That.Matches(c =>
+                                c.User.UserName == command.UserName
+                                && c.RegisteredApp == _registeredApp
+                                && !c.EmailProven
+                                && !c.SecondFactorPassed
+                            ),
+                            A<string>._,
+                            A<CancellationToken>._
+                        )
+                    )
+                    .MustHaveHappenedOnceExactly()
             )
-            .MustHaveHappened(getsTicket ? 1 : 0, Times.Exactly);
-        A.CallTo(() => _startSessionCommandHandler.CreateItemAsync(A<StartSessionCommand>._, A<string>._!, A<CancellationToken>._))
+            .Then(A.CallTo(() => _unitOfWork.CommitTransactionAsync(A<CancellationToken>._)).MustHaveHappenedOnceExactly());
+        A.CallTo(() =>
+                _createOutboxMessageCommandHandler.CreateItemAsync(A<CreateOutboxMessageCommand>._, A<string>._, A<CancellationToken>._)
+            )
             .MustNotHaveHappened();
     }
 
     [Fact]
-    public async Task Create_User_Adds_A_Welcome_Message_Before_Committing()
+    public async Task Sign_Up_When_Confirmation_Is_Required_Sends_The_Welcome_Code_And_Answers_ConfirmEmail()
     {
         // Arrange
+        _signInSettings = new AppSignInSettingsDto
+        {
+            AppId = 1,
+            RequireConfirmedAccount = true,
+            DefaultRole = "user",
+        };
         var command = GetRegisterUserCommand();
-        var defaultRole = new IdentityRole(DefaultRoleName);
+        command.RequestContext = RequestContext.Create("203.0.113.7", "Test Browser");
         string? userId = null;
 
-        A.CallTo(() => _roleManager.FindByNameAsync(defaultRole.Name!)).Returns(defaultRole);
-        A.CallTo(() => _userManager.FindByNameAsync(command.UserName)).Returns((IdentityUser?)null);
-        A.CallTo(() => _userManager.FindByEmailAsync(command.UserEmail!)).Returns((IdentityUser?)null);
-        A.CallTo(() => _userManager.CreateAsync(A<IdentityUser>._, command.UserPassword))
-            .Invokes((IdentityUser u, string _) => userId = u.Id)
+        SetUpSuccessfulSignUp(command);
+        A.CallTo(() => _userManager.CreateAsync(A<IdentityUser>._))
+            .Invokes((IdentityUser user) => userId = user.Id)
             .Returns(IdentityResult.Success);
-        A.CallTo(() => _userManager.AddToRolesAsync(A<IdentityUser>._, A<IEnumerable<string>>._)).Returns(IdentityResult.Success);
-
-        var handler = GetRegisterUserCommandHandler();
 
         // Act
-        await handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken);
+        var vm = await GetHandler().CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken);
 
         // Assert
-        var recipient = new MessageRecipient
-        {
-            Email = command.UserEmail,
-            Phone = command.PhoneNumber,
-            Name = $"{command.FirstName} {command.LastName}",
-        };
-        var data = new UserMessageData
-        {
-            UserId = userId,
-            UserName = command.UserName,
-            FirstName = command.FirstName,
-            LastName = command.LastName,
-        };
-
+        Assert.Equal(SignInStep.ConfirmEmail, vm.NextStep);
+        Assert.Equal("login-ticket", vm.Ticket);
+        Assert.Equal("t***@domain.com", vm.CodeSentTo);
+        Assert.Equal(userId, vm.User.Id);
         A.CallTo(() =>
                 _createOutboxMessageCommandHandler.CreateItemAsync(
                     A<CreateOutboxMessageCommand>.That.Matches(c =>
                         c.Name == UserMessages.UserRegistered
                         && c.Message.Action == UserMessages.WelcomeUserAction
                         && c.Message.CorrelationId == userId
-                        && c.Message.RegisteredApp == command.RegisteredApp.AppName
-                        && c.Message.Recipient == recipient
-                        && c.Message.GetData<UserMessageData>() == data
+                        && c.Message.GetData<UserMessageData>()!.FirstName == command.FirstName
+                        && c.Message.GetData<UserMessageData>()!.IpAddress == "203.0.113.7"
                     ),
-                    A<string>._,
-                    A<CancellationToken>._
-                )
-            )
-            .MustHaveHappenedOnceExactly()
-            .Then(A.CallTo(() => _unitOfWork.CommitTransactionAsync(A<CancellationToken>._)).MustHaveHappenedOnceExactly());
-        A.CallTo(() =>
-                _createOutboxMessageCommandHandler.CreateItemAsync(A<CreateOutboxMessageCommand>._, A<string>._, A<CancellationToken>._)
-            )
-            .MustHaveHappenedOnceExactly();
-    }
-
-    [Fact]
-    public async Task Create_User_For_A_Service_With_A_Callback_Url_Adds_A_Callback_Message()
-    {
-        // Arrange
-        var command = GetRegisterUserCommand();
-        command.RequestSource = RequestSource.Api;
-        command.RegisteredApp = GetRegisteredApp(callbackUrl: "https://callback.test");
-        SetUpSuccessfulSignUp(command);
-
-        var handler = GetRegisterUserCommandHandler();
-
-        // Act
-        var vm = await handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken);
-
-        // Assert
-        A.CallTo(() =>
-                _createOutboxMessageCommandHandler.CreateItemAsync(
-                    A<CreateOutboxMessageCommand>.That.Matches(c =>
-                        c.Name == UserMessages.CallbackRequested
-                        && c.Message.Action == UserMessages.WelcomeUserAction
-                        && c.Message.CorrelationId == vm.User.Id
-                        && c.Message.RegisteredApp == command.RegisteredApp.AppName
-                    ),
-                    A<string>._!,
-                    A<CancellationToken>._
-                )
-            )
-            .MustHaveHappenedOnceExactly()
-            .Then(A.CallTo(() => _unitOfWork.CommitTransactionAsync(A<CancellationToken>._)).MustHaveHappenedOnceExactly());
-    }
-
-    [Theory]
-    [InlineData(RequestSource.UI, "https://callback.test")]
-    [InlineData(RequestSource.Api, null)]
-    public async Task Create_User_From_The_Apps_UI_Or_For_An_App_Without_A_Callback_Url_Adds_No_Callback_Message(
-        RequestSource requestSource,
-        string? callbackUrl
-    )
-    {
-        // Arrange
-        var command = GetRegisterUserCommand();
-        command.RequestSource = requestSource;
-        command.RegisteredApp = GetRegisteredApp(callbackUrl: callbackUrl);
-        SetUpSuccessfulSignUp(command);
-
-        var handler = GetRegisterUserCommandHandler();
-
-        // Act
-        await handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken);
-
-        // Assert
-        A.CallTo(() =>
-                _createOutboxMessageCommandHandler.CreateItemAsync(
-                    A<CreateOutboxMessageCommand>.That.Matches(c => c.Name == UserMessages.UserRegistered),
-                    A<string>._!,
+                    userId!,
                     A<CancellationToken>._
                 )
             )
             .MustHaveHappenedOnceExactly();
         A.CallTo(() =>
-                _createOutboxMessageCommandHandler.CreateItemAsync(
-                    A<CreateOutboxMessageCommand>.That.Matches(c => c.Name == UserMessages.CallbackRequested),
-                    A<string>._!,
+                _createLoginTicketCommandHandler.CreateItemAsync(
+                    A<CreateLoginTicketCommand>.That.Matches(c =>
+                        c.UserId == userId
+                        && c.AppId == _registeredApp.Id
+                        && c.Step == SignInStep.ConfirmEmail
+                        && c.CodeAction == UserMessages.WelcomeUserAction
+                        && c.CodeCorrelationId == userId
+                    ),
+                    userId!,
                     A<CancellationToken>._
                 )
             )
+            .MustHaveHappenedOnceExactly();
+        A.CallTo(() => _signInUserCommandHandler.CreateItemAsync(A<SignInUserCommand>._, A<string>._, A<CancellationToken>._))
             .MustNotHaveHappened();
     }
 
     [Fact]
-    public async Task Create_User_With_Invite_Code_Marks_Invite_Code_Applied_By_New_User()
+    public async Task Sign_Up_Creates_The_Details_And_The_App_Link_Audited_By_The_New_User()
     {
+        // Arrange
         var command = GetRegisterUserCommand();
-        command.RegisteredApp = GetRegisteredApp(requireInviteCode: true);
-        const string inviteCode = "INVITE01";
-        command = command with { InviteCode = inviteCode };
-
-        var defaultRole = new IdentityRole(DefaultRoleName);
-        var inviteCodeEntity = new InviteCodeEntity
-        {
-            Id = 7,
-            InviteCode = inviteCode,
-            UserEmail = command.UserEmail!,
-            Applied = false,
-        };
         string? userId = null;
 
-        A.CallTo(() =>
-                _inviteCodeRepository.GetEntityByAlternateIdAsync(
-                    A<InviteCodeEntity>.That.Matches(e => e.UserEmail == command.UserEmail),
-                    QueryCondition.MayOrMayNotExist,
-                    A<CancellationToken>._
-                )
-            )
-            .Returns(inviteCodeEntity);
-        A.CallTo(() => _roleManager.FindByNameAsync(defaultRole.Name!)).Returns(defaultRole);
-        A.CallTo(() => _userManager.FindByNameAsync(command.UserName)).Returns((IdentityUser?)null);
-        A.CallTo(() => _userManager.FindByEmailAsync(command.UserEmail!)).Returns((IdentityUser?)null);
-        A.CallTo(() => _userManager.CreateAsync(A<IdentityUser>._, command.UserPassword))
-            .Invokes((IdentityUser u, string _) => userId = u.Id)
+        SetUpSuccessfulSignUp(command);
+        A.CallTo(() => _userManager.CreateAsync(A<IdentityUser>._))
+            .Invokes((IdentityUser user) => userId = user.Id)
             .Returns(IdentityResult.Success);
-        A.CallTo(() => _userManager.AddToRolesAsync(A<IdentityUser>._, A<IEnumerable<string>>._)).Returns(IdentityResult.Success);
-
-        var handler = GetRegisterUserCommandHandler();
-
-        await handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken);
-
-        Assert.True(inviteCodeEntity.Applied);
-        Assert.NotNull(userId);
-        Assert.Equal(userId, inviteCodeEntity.UpdatedBy);
-        Assert.Equal(_now, inviteCodeEntity.UpdatedAt);
-
-        A.CallTo(() => _inviteCodeRepository.UpdateEntityItem(inviteCodeEntity)).MustHaveHappenedOnceExactly();
-        A.CallTo(() => _unitOfWork.CommitTransactionAsync(A<CancellationToken>._)).MustHaveHappenedOnceExactly();
-    }
-
-    [Fact]
-    public async Task Create_User_With_Applied_Invite_Code_Throws_InvalidDataException()
-    {
-        var command = GetRegisterUserCommand();
-        command.RegisteredApp = GetRegisteredApp(requireInviteCode: true);
-        const string inviteCode = "INVITE01";
-        command = command with { InviteCode = inviteCode };
-
-        var inviteCodeEntity = new InviteCodeEntity
-        {
-            Id = 7,
-            InviteCode = inviteCode,
-            UserEmail = command.UserEmail!,
-            Applied = true,
-        };
-
-        A.CallTo(() =>
-                _inviteCodeRepository.GetEntityByAlternateIdAsync(
-                    A<InviteCodeEntity>._,
-                    QueryCondition.MayOrMayNotExist,
-                    A<CancellationToken>._
-                )
-            )
-            .Returns(inviteCodeEntity);
-
-        var handler = GetRegisterUserCommandHandler();
-
-        await Assert.ThrowsAsync<InvalidDataException>(() =>
-            handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken)
-        );
-
-        A.CallTo(() => _inviteCodeRepository.UpdateEntityItem(A<InviteCodeEntity>._)).MustNotHaveHappened();
-        A.CallTo(() => _userManager.CreateAsync(A<IdentityUser>._, A<string>._)).MustNotHaveHappened();
-    }
-
-    [Fact]
-    public async Task Create_User_With_Optional_Invite_Code_Grants_The_Invites_Role()
-    {
-        // Arrange
-        var command = GetRegisterUserCommand();
-        const string inviteCode = "INVITE01";
-        const string inviteRole = "testapp:owner";
-        command = command with { InviteCode = inviteCode.ToLowerInvariant() };
-
-        var defaultRole = new IdentityRole(DefaultRoleName);
-        var inviteCodeEntity = new InviteCodeEntity
-        {
-            Id = 7,
-            InviteCode = inviteCode,
-            UserEmail = command.UserEmail!,
-            Applied = false,
-            Role = inviteRole,
-        };
-
-        A.CallTo(() =>
-                _inviteCodeRepository.GetEntityByAlternateIdAsync(
-                    A<InviteCodeEntity>.That.Matches(e => e.UserEmail == command.UserEmail && e.AppId == command.RegisteredApp.Id),
-                    QueryCondition.MayOrMayNotExist,
-                    A<CancellationToken>._
-                )
-            )
-            .Returns(inviteCodeEntity);
-        A.CallTo(() => _roleManager.FindByNameAsync(defaultRole.Name!)).Returns(defaultRole);
-        A.CallTo(() => _roleManager.FindByNameAsync(inviteRole)).Returns(new IdentityRole(inviteRole));
-        A.CallTo(() => _userManager.FindByNameAsync(command.UserName)).Returns((IdentityUser?)null);
-        A.CallTo(() => _userManager.FindByEmailAsync(command.UserEmail!)).Returns((IdentityUser?)null);
-        A.CallTo(() => _userManager.CreateAsync(A<IdentityUser>._, command.UserPassword)).Returns(IdentityResult.Success);
-        A.CallTo(() => _userManager.AddToRolesAsync(A<IdentityUser>._, A<IEnumerable<string>>._)).Returns(IdentityResult.Success);
-
-        var handler = GetRegisterUserCommandHandler();
 
         // Act
-        var vm = await handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken);
+        await GetHandler().CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken);
 
         // Assert
-        Assert.Equal(command.UserEmail, vm.User.Email);
-        Assert.True(inviteCodeEntity.Applied);
-
-        string[] expectedRoles = [defaultRole.Name!, inviteRole];
-        A.CallTo(() => _userManager.AddToRolesAsync(A<IdentityUser>._, A<IEnumerable<string>>.That.IsSameSequenceAs(expectedRoles)))
+        A.CallTo(() =>
+                _userRepository.CreateEntityItem(
+                    A<UserEntity>.That.Matches(e =>
+                        e.Id == userId && e.FirstName == command.FirstName && e.LastName == command.LastName && e.CreatedBy == userId
+                    )
+                )
+            )
             .MustHaveHappenedOnceExactly();
-        A.CallTo(() => _inviteCodeRepository.UpdateEntityItem(inviteCodeEntity)).MustHaveHappenedOnceExactly();
-        A.CallTo(() => _unitOfWork.CommitTransactionAsync(A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+        A.CallTo(() =>
+                _userRegisteredAppRepository.CreateEntityItem(
+                    A<UserRegisteredAppEntity>.That.Matches(e =>
+                        e.UserId == userId && e.AppId == _registeredApp.Id && e.CreatedBy == userId
+                    )
+                )
+            )
+            .MustHaveHappenedOnceExactly();
     }
 
     [Fact]
-    public async Task Create_User_With_Invalid_Optional_Invite_Code_Throws_InvalidDataException()
+    public async Task Sign_Up_With_An_Invite_Code_Marks_It_Used_And_Grants_Its_Role()
     {
         // Arrange
-        var command = GetRegisterUserCommand();
-        command = command with { InviteCode = "WRONGCODE" };
-
+        const string inviteRole = "testapp:owner";
+        _signInSettings = new AppSignInSettingsDto
+        {
+            AppId = 1,
+            RequireInviteCode = true,
+            DefaultRole = "user",
+        };
+        var command = GetRegisterUserCommand() with { InviteCode = "invite01" };
         var inviteCodeEntity = new InviteCodeEntity
         {
             Id = 7,
             InviteCode = "INVITE01",
             UserEmail = command.UserEmail!,
-            Applied = false,
-            Role = "testapp:owner",
+            Role = inviteRole,
         };
+        string? userId = null;
 
-        A.CallTo(() =>
-                _inviteCodeRepository.GetEntityByAlternateIdAsync(
-                    A<InviteCodeEntity>._,
-                    QueryCondition.MayOrMayNotExist,
-                    A<CancellationToken>._
-                )
-            )
-            .Returns(inviteCodeEntity);
+        SetUpSuccessfulSignUp(command);
+        SetUpInvite(command, inviteCodeEntity);
+        A.CallTo(() => _roleManager.FindByNameAsync(inviteRole)).Returns(new IdentityRole(inviteRole));
+        A.CallTo(() => _userManager.CreateAsync(A<IdentityUser>._))
+            .Invokes((IdentityUser user) => userId = user.Id)
+            .Returns(IdentityResult.Success);
 
-        var handler = GetRegisterUserCommandHandler();
+        // Act
+        await GetHandler().CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken);
 
-        // Act & Assert
-        await Assert.ThrowsAsync<InvalidDataException>(() =>
-            handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken)
-        );
-
-        A.CallTo(() => _userManager.CreateAsync(A<IdentityUser>._, A<string>._)).MustNotHaveHappened();
-        A.CallTo(() => _inviteCodeRepository.UpdateEntityItem(A<InviteCodeEntity>._)).MustNotHaveHappened();
+        // Assert
+        Assert.True(inviteCodeEntity.Applied);
+        Assert.Equal(userId, inviteCodeEntity.UpdatedBy);
+        string[] expectedRoles = [DefaultRoleName, inviteRole];
+        A.CallTo(() => _userManager.AddToRolesAsync(A<IdentityUser>._, A<IEnumerable<string>>.That.IsSameSequenceAs(expectedRoles)))
+            .MustHaveHappenedOnceExactly();
+        A.CallTo(() => _inviteCodeRepository.UpdateEntityItem(inviteCodeEntity)).MustHaveHappenedOnceExactly();
     }
 
     [Theory]
     [InlineData("missing")]
     [InlineData("wrong")]
     [InlineData("used")]
-    public async Task Create_User_With_A_Missing_Wrong_Or_Used_Invite_Code_Gives_The_Same_Error(string inviteState)
+    public async Task Sign_Up_With_A_Missing_Wrong_Or_Used_Invite_Code_Gives_The_Same_Error(string inviteState)
     {
         // Arrange
-        var command = GetRegisterUserCommand();
-        command = command with { InviteCode = "ABCDEFGHJK" };
-
+        var command = GetRegisterUserCommand() with
+        {
+            InviteCode = "ABCDEFGHJK",
+        };
         var inviteCodeEntity = inviteState switch
         {
             "missing" => null,
-            "wrong" => new InviteCodeEntity
-            {
-                InviteCode = "KJHGFEDCBA",
-                UserEmail = command.UserEmail!,
-                Applied = false,
-            },
+            "wrong" => new InviteCodeEntity { InviteCode = "KJHGFEDCBA", UserEmail = command.UserEmail! },
             _ => new InviteCodeEntity
             {
                 InviteCode = "ABCDEFGHJK",
@@ -600,200 +479,174 @@ public class RegisterUserCommandHandlerTests
             },
         };
 
-        A.CallTo(() =>
-                _inviteCodeRepository.GetEntityByAlternateIdAsync(
-                    A<InviteCodeEntity>._,
-                    QueryCondition.MayOrMayNotExist,
-                    A<CancellationToken>._
-                )
-            )
-            .Returns(inviteCodeEntity);
-
-        var handler = GetRegisterUserCommandHandler();
+        SetUpSuccessfulSignUp(command);
+        SetUpInvite(command, inviteCodeEntity);
 
         // Act & Assert
         var exception = await Assert.ThrowsAsync<InvalidDataException>(() =>
-            handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken)
+            GetHandler().CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken)
         );
 
-        Assert.Equal("A valid invite code is required when signing up.", exception.Message);
-        A.CallTo(() => _userManager.CreateAsync(A<IdentityUser>._, A<string>._)).MustNotHaveHappened();
-        A.CallTo(() => _unitOfWork.RollbackTransactionAsync(A<CancellationToken>._)).MustHaveHappenedOnceExactly();
-        A.CallTo(() => _unitOfWork.CommitTransactionAsync(A<CancellationToken>._)).MustNotHaveHappened();
+        Assert.Equal(ErrorMessages.Users.InviteCodeRequired, exception.Message);
+        A.CallTo(() => _userManager.CreateAsync(A<IdentityUser>._)).MustNotHaveHappened();
     }
 
     [Fact]
-    public async Task Create_User_When_The_Invites_Role_Is_Missing_Throws_InvalidDataException_And_Rolls_Back()
+    public async Task Sign_Up_Without_An_Invite_Code_When_The_App_Requires_One_Throws_InvalidDataException()
     {
         // Arrange
+        _signInSettings = new AppSignInSettingsDto { AppId = 1, RequireInviteCode = true };
         var command = GetRegisterUserCommand();
-        const string inviteRole = "testapp:owner";
-        command = command with { InviteCode = "INVITE01" };
-
-        var defaultRole = new IdentityRole(DefaultRoleName);
-        var inviteCodeEntity = new InviteCodeEntity
-        {
-            Id = 7,
-            InviteCode = "INVITE01",
-            UserEmail = command.UserEmail!,
-            Applied = false,
-            Role = inviteRole,
-        };
-
-        A.CallTo(() =>
-                _inviteCodeRepository.GetEntityByAlternateIdAsync(
-                    A<InviteCodeEntity>._,
-                    QueryCondition.MayOrMayNotExist,
-                    A<CancellationToken>._
-                )
-            )
-            .Returns(inviteCodeEntity);
-        A.CallTo(() => _roleManager.FindByNameAsync(defaultRole.Name!)).Returns(defaultRole);
-        A.CallTo(() => _roleManager.FindByNameAsync(inviteRole)).Returns((IdentityRole?)null);
-        A.CallTo(() => _userManager.FindByNameAsync(command.UserName)).Returns((IdentityUser?)null);
-        A.CallTo(() => _userManager.FindByEmailAsync(command.UserEmail!)).Returns((IdentityUser?)null);
-        A.CallTo(() => _userManager.CreateAsync(A<IdentityUser>._, command.UserPassword)).Returns(IdentityResult.Success);
-        A.CallTo(() => _userManager.AddToRolesAsync(A<IdentityUser>._, A<IEnumerable<string>>._)).Returns(IdentityResult.Success);
-
-        var handler = GetRegisterUserCommandHandler();
 
         // Act & Assert
-        await Assert.ThrowsAsync<InvalidDataException>(() =>
-            handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken)
+        var exception = await Assert.ThrowsAsync<InvalidDataException>(() =>
+            GetHandler().CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken)
         );
 
-        A.CallTo(() => _userManager.AddToRolesAsync(A<IdentityUser>._, A<IEnumerable<string>>._)).MustNotHaveHappened();
-        A.CallTo(() => _unitOfWork.RollbackTransactionAsync(A<CancellationToken>._)).MustHaveHappenedOnceExactly();
-        A.CallTo(() => _unitOfWork.CommitTransactionAsync(A<CancellationToken>._)).MustNotHaveHappened();
-    }
-
-    [Theory]
-    [InlineData(null)]
-    [InlineData("")]
-    public async Task Create_User_Without_Invite_Code_When_Not_Required_Does_Not_Check_Invites(string? inviteCode)
-    {
-        // Arrange
-        var command = GetRegisterUserCommand();
-        command = command with { InviteCode = inviteCode };
-
-        var defaultRole = new IdentityRole(DefaultRoleName);
-
-        A.CallTo(() => _roleManager.FindByNameAsync(defaultRole.Name!)).Returns(defaultRole);
-        A.CallTo(() => _userManager.FindByNameAsync(command.UserName)).Returns((IdentityUser?)null);
-        A.CallTo(() => _userManager.FindByEmailAsync(command.UserEmail!)).Returns((IdentityUser?)null);
-        A.CallTo(() => _userManager.CreateAsync(A<IdentityUser>._, command.UserPassword)).Returns(IdentityResult.Success);
-        A.CallTo(() => _userManager.AddToRolesAsync(A<IdentityUser>._, A<IEnumerable<string>>._)).Returns(IdentityResult.Success);
-
-        var handler = GetRegisterUserCommandHandler();
-
-        // Act
-        var vm = await handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken);
-
-        // Assert
-        Assert.Equal(command.UserName, vm.User.UserName);
-
-        A.CallTo(() =>
-                _inviteCodeRepository.GetEntityByAlternateIdAsync(A<InviteCodeEntity>._, A<QueryCondition>._, A<CancellationToken>._)
-            )
-            .MustNotHaveHappened();
-        A.CallTo(() => _inviteCodeRepository.UpdateEntityItem(A<InviteCodeEntity>._)).MustNotHaveHappened();
-        string[] expectedRoles = [defaultRole.Name!];
-        A.CallTo(() => _userManager.AddToRolesAsync(A<IdentityUser>._, A<IEnumerable<string>>.That.IsSameSequenceAs(expectedRoles)))
-            .MustHaveHappenedOnceExactly();
+        Assert.Equal(ErrorMessages.Users.InviteCodeRequired, exception.Message);
     }
 
     [Fact]
-    public async Task Create_User_For_An_App_Without_A_Default_Role_Creates_And_Grants_No_Role()
-    {
-        // Arrange
-        var command = GetRegisterUserCommand();
-        command.RegisteredApp = GetRegisteredApp(defaultRole: null);
-        SetUpSuccessfulSignUp(command);
-
-        var handler = GetRegisterUserCommandHandler();
-
-        // Act
-        var vm = await handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken);
-
-        // Assert
-        Assert.Equal(command.UserName, vm.User.UserName);
-        A.CallTo(() => _roleManager.FindByNameAsync(A<string>._)).MustNotHaveHappened();
-        A.CallTo(() => _roleManager.CreateAsync(A<IdentityRole>._)).MustNotHaveHappened();
-        A.CallTo(() => _userManager.AddToRolesAsync(A<IdentityUser>._, A<IEnumerable<string>>._)).MustNotHaveHappened();
-        A.CallTo(() => _unitOfWork.CommitTransactionAsync(A<CancellationToken>._)).MustHaveHappenedOnceExactly();
-    }
-
-    [Fact]
-    public async Task Create_User_With_An_Invite_For_An_App_Without_A_Default_Role_Grants_Only_The_Invites_Role()
+    public async Task Sign_Up_When_The_Invites_Role_Is_Missing_Throws_And_Rolls_Back()
     {
         // Arrange
         const string inviteRole = "testapp:owner";
         var command = GetRegisterUserCommand() with { InviteCode = "INVITE01" };
-        command.RegisteredApp = GetRegisteredApp(defaultRole: null);
-        SetUpSuccessfulSignUp(command);
-
         var inviteCodeEntity = new InviteCodeEntity
         {
-            Id = 7,
             InviteCode = "INVITE01",
             UserEmail = command.UserEmail!,
-            Applied = false,
             Role = inviteRole,
         };
 
-        A.CallTo(() =>
-                _inviteCodeRepository.GetEntityByAlternateIdAsync(
-                    A<InviteCodeEntity>._,
-                    QueryCondition.MayOrMayNotExist,
-                    A<CancellationToken>._
-                )
-            )
-            .Returns(inviteCodeEntity);
-        A.CallTo(() => _roleManager.FindByNameAsync(inviteRole)).Returns(new IdentityRole(inviteRole));
+        SetUpSuccessfulSignUp(command);
+        SetUpInvite(command, inviteCodeEntity);
+        A.CallTo(() => _roleManager.FindByNameAsync(inviteRole)).Returns((IdentityRole?)null);
 
-        var handler = GetRegisterUserCommandHandler();
+        // Act & Assert
+        var exception = await Assert.ThrowsAsync<InvalidDataException>(() =>
+            GetHandler().CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken)
+        );
 
-        // Act
-        await handler.CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken);
-
-        // Assert
-        Assert.True(inviteCodeEntity.Applied);
-        string[] expectedRoles = [inviteRole];
-        A.CallTo(() => _userManager.AddToRolesAsync(A<IdentityUser>._, A<IEnumerable<string>>.That.IsSameSequenceAs(expectedRoles)))
-            .MustHaveHappenedOnceExactly();
-        A.CallTo(() => _roleManager.CreateAsync(A<IdentityRole>._)).MustNotHaveHappened();
+        Assert.Equal(ErrorMessages.Users.InviteRoleMissing(inviteRole), exception.Message);
+        A.CallTo(() => _unitOfWork.RollbackTransactionAsync(A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+        A.CallTo(() => _unitOfWork.CommitTransactionAsync(A<CancellationToken>._)).MustNotHaveHappened();
     }
 
-    private RegisterUserCommandHandler GetRegisterUserCommandHandler()
+    [Fact]
+    public async Task Sign_Up_For_An_App_Without_A_Default_Role_Grants_No_Role()
     {
-        return new RegisterUserCommandHandler(
+        // Arrange
+        _signInSettings = new AppSignInSettingsDto { AppId = 1 };
+        var command = GetRegisterUserCommand();
+
+        SetUpSuccessfulSignUp(command);
+
+        // Act
+        await GetHandler().CreateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken);
+
+        // Assert
+        A.CallTo(() => _roleManager.FindByNameAsync(A<string>._)).MustNotHaveHappened();
+        A.CallTo(() => _userManager.AddToRolesAsync(A<IdentityUser>._, A<IEnumerable<string>>._)).MustNotHaveHappened();
+    }
+
+    [Fact]
+    public async Task Sign_Up_For_A_Service_Creates_The_Account_In_The_Signed_App_And_Publishes_Nothing()
+    {
+        // Arrange
+        _signInSettings = new AppSignInSettingsDto
+        {
+            AppId = 1,
+            RequireConfirmedAccount = true,
+            DefaultRole = "user",
+        };
+        var command = GetRegisterServiceUserCommand();
+        string? userId = null;
+
+        SetUpSuccessfulSignUp(command);
+        A.CallTo(() => _userManager.CreateAsync(A<IdentityUser>._))
+            .Invokes((IdentityUser user) => userId = user.Id)
+            .Returns(IdentityResult.Success);
+
+        // Act
+        var vm = await GetHandler().CreateItemAsync(command, KnownUsers.SystemId, TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(userId, vm.User.Id);
+        Assert.Equal(command.UserEmail, vm.User.Email);
+        A.CallTo(() =>
+                _userRegisteredAppRepository.CreateEntityItem(
+                    A<UserRegisteredAppEntity>.That.Matches(e => e.AppId == _registeredApp.Id && e.CreatedBy == KnownUsers.SystemId)
+                )
+            )
+            .MustHaveHappenedOnceExactly();
+        A.CallTo(() =>
+                _createOutboxMessageCommandHandler.CreateItemAsync(A<CreateOutboxMessageCommand>._, A<string>._, A<CancellationToken>._)
+            )
+            .MustNotHaveHappened();
+        A.CallTo(() => _createLoginTicketCommandHandler.CreateItemAsync(A<CreateLoginTicketCommand>._, A<string>._, A<CancellationToken>._))
+            .MustNotHaveHappened();
+        A.CallTo(() => _signInUserCommandHandler.CreateItemAsync(A<SignInUserCommand>._, A<string>._, A<CancellationToken>._))
+            .MustNotHaveHappened();
+        A.CallTo(() => _unitOfWork.CommitTransactionAsync(A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+    }
+
+    [Fact]
+    public async Task Sign_Up_For_A_Service_With_A_Taken_Email_Throws_RecordExistsException()
+    {
+        // Arrange
+        var command = GetRegisterServiceUserCommand();
+
+        SetUpSuccessfulSignUp(command);
+        A.CallTo(() => _userManager.FindByEmailAsync(command.UserEmail!)).Returns(new IdentityUser { Id = "existing-user" });
+
+        // Act & Assert
+        await Assert.ThrowsAsync<RecordExistsException>(() =>
+            GetHandler().CreateItemAsync(command, KnownUsers.SystemId, TestContext.Current.CancellationToken)
+        );
+
+        A.CallTo(() => _userManager.CreateAsync(A<IdentityUser>._)).MustNotHaveHappened();
+        A.CallTo(() => _unitOfWork.RollbackTransactionAsync(A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+    }
+
+    private RegisterUserCommandHandler GetHandler() =>
+        new(
             _userManager,
             _roleManager,
             _unitOfWork,
             _userRepository,
             _userRegisteredAppRepository,
             _inviteCodeRepository,
+            _tokenFactory,
             _timeProvider,
+            _getSignInSettingsQueryHandler,
+            _createAccountLimitEventCommandHandler,
             _createOutboxMessageCommandHandler,
-            _startSessionCommandHandler,
-            _createLoginTicketCommandHandler
+            _createLoginTicketCommandHandler,
+            _signInUserCommandHandler
         );
-    }
 
-    private void SetUpSuccessfulSignUp(RegisterUserCommand command)
+    private void SetUpSuccessfulSignUp(RegisterUserInput input)
     {
-        var defaultRole = new IdentityRole(DefaultRoleName);
-
-        A.CallTo(() => _roleManager.FindByNameAsync(defaultRole.Name!)).Returns(defaultRole);
-        A.CallTo(() => _userManager.FindByNameAsync(command.UserName)).Returns((IdentityUser?)null);
-        A.CallTo(() => _userManager.FindByEmailAsync(command.UserEmail!)).Returns((IdentityUser?)null);
-        A.CallTo(() => _userManager.CreateAsync(A<IdentityUser>._, command.UserPassword)).Returns(IdentityResult.Success);
+        A.CallTo(() => _roleManager.FindByNameAsync(DefaultRoleName)).Returns(new IdentityRole(DefaultRoleName));
+        A.CallTo(() => _userManager.FindByNameAsync(input.UserName)).Returns((IdentityUser?)null);
+        A.CallTo(() => _userManager.FindByEmailAsync(input.UserEmail!)).Returns((IdentityUser?)null);
+        A.CallTo(() => _userManager.CreateAsync(A<IdentityUser>._)).Returns(IdentityResult.Success);
         A.CallTo(() => _userManager.AddToRolesAsync(A<IdentityUser>._, A<IEnumerable<string>>._)).Returns(IdentityResult.Success);
     }
 
-    private static RegisterUserCommand GetRegisterUserCommand()
-    {
-        return new RegisterUserCommand
+    private void SetUpInvite(RegisterUserInput input, InviteCodeEntity? inviteCodeEntity) =>
+        A.CallTo(() =>
+                _inviteCodeRepository.GetEntityByAlternateIdAsync(
+                    A<InviteCodeEntity>.That.Matches(e => e.UserEmail == input.UserEmail && e.AppId == _registeredApp.Id),
+                    QueryCondition.MayOrMayNotExist,
+                    A<CancellationToken>._
+                )
+            )
+            .Returns(inviteCodeEntity);
+
+    private RegisterUserCommand GetRegisterUserCommand() =>
+        new()
         {
             FirstName = "Test",
             LastName = "User",
@@ -801,26 +654,17 @@ public class RegisterUserCommandHandlerTests
             PhoneNumber = "0712345678",
             UserEmail = "test.user@domain.com",
             UserPassword = "Password123",
-            RegisteredApp = GetRegisteredApp(),
-            RequestSource = RequestSource.Api,
+            RegisteredApp = _registeredApp,
         };
-    }
 
-    private static ActiveRegisteredApp GetRegisteredApp(
-        string? callbackUrl = null,
-        bool requireInviteCode = false,
-        bool requireConfirmedAccount = false,
-        string? defaultRole = "user"
-    ) =>
+    private RegisterServiceUserCommand GetRegisterServiceUserCommand() =>
         new()
         {
-            Id = 1,
-            AppName = "TestApp",
-            AppSecretKey = "test-secret",
-            BaseUrl = "https://app.test",
-            CallbackUrl = callbackUrl,
-            RequireInviteCode = requireInviteCode,
-            RequireConfirmedAccount = requireConfirmedAccount,
-            DefaultRole = defaultRole,
+            FirstName = "Test",
+            LastName = "User",
+            UserName = "test.user",
+            UserEmail = "test.user@domain.com",
+            UserPassword = "Password123",
+            RegisteredApp = _registeredApp,
         };
 }

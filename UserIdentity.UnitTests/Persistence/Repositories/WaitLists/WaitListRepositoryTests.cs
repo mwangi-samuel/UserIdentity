@@ -183,7 +183,6 @@ public class WaitListRepositoryTests
             AppName = "TestApp",
             AppSecretKey = "test-secret-key",
             BaseUrl = "https://test.com",
-            RequireInviteCode = false,
         };
         context.RegisteredApp.Add(app);
         await context.SaveChangesAsync();
