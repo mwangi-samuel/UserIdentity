@@ -1,7 +1,7 @@
 using FakeItEasy;
 using Microsoft.Extensions.Time.Testing;
-using PolyzenKit.Application.Core.RegisteredApps.Shared;
 using PolyzenKit.Application.Interfaces;
+using PolyzenKit.Domain.Entities.RegisteredApps;
 using PolyzenKit.Persistence.Repositories;
 using UserIdentity.Application.Core.Users.Commands;
 using UserIdentity.Application.Core.Users.Shared;
@@ -25,7 +25,7 @@ public class ResendCodeCommandHandlerTests
     private readonly ICodeCheckService _codeCheckService = A.Fake<ICodeCheckService>();
     private readonly FakeTimeProvider _timeProvider = new(_now);
 
-    private readonly ActiveRegisteredApp _registeredApp = new()
+    private readonly RegisteredAppDto _registeredApp = new()
     {
         Id = 1,
         AppName = "TestApp",

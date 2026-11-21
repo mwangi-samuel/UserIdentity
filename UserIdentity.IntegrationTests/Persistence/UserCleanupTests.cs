@@ -167,7 +167,7 @@ public class UserCleanupTests(TestingWebAppFactory testingWebAppFactory, ITestOu
             .PasswordReset.AsNoTracking()
             .Select(reset => reset.Id)
             .ToListAsync(TestContext.Current.CancellationToken);
-        Assert.Equal([recentlyExpired.Id, active.Id], remaining.Order());
+        Assert.Equal(new[] { recentlyExpired.Id, active.Id }.Order(), remaining.Order());
     }
 
     [Fact]

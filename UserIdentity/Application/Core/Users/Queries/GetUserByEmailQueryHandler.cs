@@ -2,9 +2,9 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Options;
 using PolyzenKit.Application.Core;
 using PolyzenKit.Application.Core.Interfaces;
-using PolyzenKit.Application.Core.RegisteredApps.Shared;
 using PolyzenKit.Common.Exceptions;
 using PolyzenKit.Common.Settings;
+using PolyzenKit.Domain.Entities.RegisteredApps;
 using UserIdentity.Application.Core.Users.Shared;
 using UserIdentity.Application.Core.Users.ViewModels;
 using UserIdentity.Persistence.Repositories.UserRegisteredApps;
@@ -16,7 +16,7 @@ public record GetUserByEmailQuery : IBaseQuery
 {
     public required string Email { get; init; }
 
-    public required ActiveRegisteredApp RegisteredApp { get; init; }
+    public required RegisteredAppDto RegisteredApp { get; init; }
 
     public required UserChanger Changer { get; init; }
 }

@@ -3,7 +3,8 @@ using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using PolyzenKit.Application.Core;
 using PolyzenKit.Application.Core.Interfaces;
-using PolyzenKit.Application.Core.RegisteredApps.Shared;
+using PolyzenKit.Application.Core.RegisteredApps.Queries;
+using PolyzenKit.Application.Core.RegisteredApps.ViewModels;
 using PolyzenKit.Common.Paging;
 using PolyzenKit.Common.Utilities;
 using PolyzenKit.Presentation.Endpoints;
@@ -31,7 +32,7 @@ public static class InviteCodeEndpoints
 
     internal static async Task<JsonHttpResult<InviteCodesViewModel>> GetInviteCodesAsync(
         ApiRequest request,
-        IRegisteredAppResolver registeredAppResolver,
+        IGetItemQueryHandler<GetRegisteredAppQuery, RegisteredAppViewModel> getRegisteredAppHandler,
         IGetItemsQueryHandler<GetInviteCodesQuery, InviteCodesViewModel> handler,
         CancellationToken cancellationToken,
         [FromQuery, Range(1, PagingLimits.MaxPage)] int page = 1,
@@ -40,7 +41,7 @@ public static class InviteCodeEndpoints
         [FromQuery] bool? applied = null
     )
     {
-        var registeredApp = await AdminApp.GetAsync(request, registeredAppResolver, cancellationToken);
+        var registeredApp = await AdminApp.GetAsync(request, getRegisteredAppHandler, cancellationToken);
 
         var query = new GetInviteCodesQuery
         {
@@ -59,12 +60,12 @@ public static class InviteCodeEndpoints
     internal static async Task<JsonHttpResult<InviteCodeViewModel>> GetInviteCodeAsync(
         long inviteCodeId,
         ApiRequest request,
-        IRegisteredAppResolver registeredAppResolver,
+        IGetItemQueryHandler<GetRegisteredAppQuery, RegisteredAppViewModel> getRegisteredAppHandler,
         IGetItemQueryHandler<GetInviteCodeQuery, InviteCodeViewModel> handler,
         CancellationToken cancellationToken
     )
     {
-        var registeredApp = await AdminApp.GetAsync(request, registeredAppResolver, cancellationToken);
+        var registeredApp = await AdminApp.GetAsync(request, getRegisteredAppHandler, cancellationToken);
 
         var vm = await handler.GetItemAsync(
             new GetInviteCodeQuery { InviteCodeId = inviteCodeId, AppId = registeredApp.Id },
@@ -77,12 +78,12 @@ public static class InviteCodeEndpoints
     internal static async Task<JsonHttpResult<InviteCodeViewModel>> GetInviteCodeByEmailAsync(
         string email,
         ApiRequest request,
-        IRegisteredAppResolver registeredAppResolver,
+        IGetItemQueryHandler<GetRegisteredAppQuery, RegisteredAppViewModel> getRegisteredAppHandler,
         IGetItemQueryHandler<GetInviteCodeQuery, InviteCodeViewModel> handler,
         CancellationToken cancellationToken
     )
     {
-        var registeredApp = await AdminApp.GetAsync(request, registeredAppResolver, cancellationToken);
+        var registeredApp = await AdminApp.GetAsync(request, getRegisteredAppHandler, cancellationToken);
 
         var vm = await handler.GetItemAsync(new GetInviteCodeQuery { UserEmail = email, AppId = registeredApp.Id }, cancellationToken);
 
@@ -92,12 +93,12 @@ public static class InviteCodeEndpoints
     internal static async Task<JsonHttpResult<InviteCodeViewModel>> CreateInviteCodeAsync(
         CreateInviteCodeCommand command,
         ApiRequest request,
-        IRegisteredAppResolver registeredAppResolver,
+        IGetItemQueryHandler<GetRegisteredAppQuery, RegisteredAppViewModel> getRegisteredAppHandler,
         ICreateItemCommandHandler<CreateInviteCodeCommand, InviteCodeViewModel> handler,
         CancellationToken cancellationToken
     )
     {
-        var registeredApp = await AdminApp.GetAsync(request, registeredAppResolver, cancellationToken);
+        var registeredApp = await AdminApp.GetAsync(request, getRegisteredAppHandler, cancellationToken);
 
         command.AppId = registeredApp.Id;
         command.AppName = registeredApp.AppName;
@@ -110,12 +111,12 @@ public static class InviteCodeEndpoints
     internal static async Task<JsonHttpResult<DeleteRecordViewModel>> DeleteInviteCodeAsync(
         long inviteCodeId,
         ApiRequest request,
-        IRegisteredAppResolver registeredAppResolver,
+        IGetItemQueryHandler<GetRegisteredAppQuery, RegisteredAppViewModel> getRegisteredAppHandler,
         IDeleteItemCommandHandler<DeleteInviteCodeCommand, DeleteRecordViewModel> handler,
         CancellationToken cancellationToken
     )
     {
-        var registeredApp = await AdminApp.GetAsync(request, registeredAppResolver, cancellationToken);
+        var registeredApp = await AdminApp.GetAsync(request, getRegisteredAppHandler, cancellationToken);
 
         var vm = await handler.DeleteItemAsync(
             new DeleteInviteCodeCommand { InviteCodeId = inviteCodeId, AppId = registeredApp.Id },

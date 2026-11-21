@@ -3,9 +3,11 @@ using FakeItEasy;
 using Microsoft.AspNetCore.Http;
 using PolyzenKit.Application.Core;
 using PolyzenKit.Application.Core.Interfaces;
-using PolyzenKit.Application.Core.RegisteredApps.Shared;
+using PolyzenKit.Application.Core.RegisteredApps.Queries;
+using PolyzenKit.Application.Core.RegisteredApps.ViewModels;
 using PolyzenKit.Common.Enums;
 using PolyzenKit.Common.Utilities;
+using PolyzenKit.Domain.Entities.RegisteredApps;
 using PolyzenKit.Presentation.Endpoints;
 using UserIdentity.Application.Core.Tokens.Commands;
 using UserIdentity.Application.Core.Tokens.ViewModels;
@@ -26,9 +28,11 @@ namespace UserIdentity.UnitTests.Presentation.Endpoints;
 
 public class UserEndpointsTests
 {
-    private readonly IRegisteredAppResolver _registeredAppResolver = A.Fake<IRegisteredAppResolver>();
+    private readonly IGetItemQueryHandler<GetRegisteredAppQuery, RegisteredAppViewModel> _getRegisteredAppHandler = A.Fake<
+        IGetItemQueryHandler<GetRegisteredAppQuery, RegisteredAppViewModel>
+    >();
 
-    private readonly ActiveRegisteredApp _registeredApp = new()
+    private readonly RegisteredAppDto _registeredApp = new()
     {
         Id = 1,
         AppName = "test-app",
@@ -43,7 +47,8 @@ public class UserEndpointsTests
 
     public UserEndpointsTests()
     {
-        A.CallTo(() => _registeredAppResolver.GetActiveAppAsync(A<string>._, A<CancellationToken>._)).Returns(_registeredApp);
+        A.CallTo(() => _getRegisteredAppHandler.GetItemAsync(A<GetRegisteredAppQuery>._, A<CancellationToken>._))
+            .Returns(new RegisteredAppViewModel { RegisteredApp = _registeredApp });
     }
 
     [Fact]
@@ -94,7 +99,7 @@ public class UserEndpointsTests
         var result = await UserEndpoints.GetUserByEmailAsync(
             "user@test.com",
             request,
-            _registeredAppResolver,
+            _getRegisteredAppHandler,
             handler,
             TestContext.Current.CancellationToken
         );
@@ -102,7 +107,13 @@ public class UserEndpointsTests
         // Assert
         Assert.Equal((int)HttpStatusCode.OK, result.StatusCode);
         Assert.Equal("user-id", result.Value?.User.Id);
-        A.CallTo(() => _registeredAppResolver.GetActiveAppAsync("testapp", A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+        A.CallTo(() =>
+                _getRegisteredAppHandler.GetItemAsync(
+                    A<GetRegisteredAppQuery>.That.Matches(query => query.AppName == "testapp"),
+                    A<CancellationToken>._
+                )
+            )
+            .MustHaveHappenedOnceExactly();
         A.CallTo(() =>
                 handler.GetItemAsync(
                     A<GetUserByEmailQuery>.That.Matches(q =>
@@ -132,7 +143,7 @@ public class UserEndpointsTests
             command,
             ApiRequest.For(httpContext),
             httpContext,
-            _registeredAppResolver,
+            _getRegisteredAppHandler,
             handler,
             TestContext.Current.CancellationToken
         );
@@ -166,7 +177,7 @@ public class UserEndpointsTests
         var result = await UserEndpoints.CreateUserForServiceAsync(
             command,
             request,
-            _registeredAppResolver,
+            _getRegisteredAppHandler,
             handler,
             TestContext.Current.CancellationToken
         );
@@ -174,7 +185,13 @@ public class UserEndpointsTests
         // Assert
         Assert.Equal((int)HttpStatusCode.Created, result.StatusCode);
         Assert.Same(_registeredApp, command.RegisteredApp);
-        A.CallTo(() => _registeredAppResolver.GetActiveAppAsync("signedapp", A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+        A.CallTo(() =>
+                _getRegisteredAppHandler.GetItemAsync(
+                    A<GetRegisteredAppQuery>.That.Matches(query => query.AppName == "signedapp"),
+                    A<CancellationToken>._
+                )
+            )
+            .MustHaveHappenedOnceExactly();
         A.CallTo(() => handler.CreateItemAsync(command, KnownUsers.SystemId, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
     }
 
@@ -194,7 +211,7 @@ public class UserEndpointsTests
             command,
             ApiRequest.For(httpContext),
             httpContext,
-            _registeredAppResolver,
+            _getRegisteredAppHandler,
             handler,
             TestContext.Current.CancellationToken
         );
@@ -253,7 +270,7 @@ public class UserEndpointsTests
             command,
             ApiRequest.For(httpContext),
             httpContext,
-            _registeredAppResolver,
+            _getRegisteredAppHandler,
             handler,
             TestContext.Current.CancellationToken
         );
@@ -279,7 +296,7 @@ public class UserEndpointsTests
         var result = await UserEndpoints.ResendCodeAsync(
             command,
             request,
-            _registeredAppResolver,
+            _getRegisteredAppHandler,
             handler,
             TestContext.Current.CancellationToken
         );
@@ -333,7 +350,7 @@ public class UserEndpointsTests
             command,
             ApiRequest.For(httpContext),
             httpContext,
-            _registeredAppResolver,
+            _getRegisteredAppHandler,
             handler,
             TestContext.Current.CancellationToken
         );
@@ -365,7 +382,7 @@ public class UserEndpointsTests
             command,
             ApiRequest.For(httpContext),
             httpContext,
-            _registeredAppResolver,
+            _getRegisteredAppHandler,
             handler,
             TestContext.Current.CancellationToken
         );
@@ -399,7 +416,7 @@ public class UserEndpointsTests
             command,
             ApiRequest.For(httpContext),
             httpContext,
-            _registeredAppResolver,
+            _getRegisteredAppHandler,
             handler,
             TestContext.Current.CancellationToken
         );
@@ -410,7 +427,13 @@ public class UserEndpointsTests
         Assert.Same(_registeredApp, command.RegisteredApp);
         Assert.Equal(new UserChanger(TestStringHelper.UserId, false), command.Changer);
         Assert.Equal(RequestContext.Create("203.0.113.7", "Test Browser"), command.RequestContext);
-        A.CallTo(() => _registeredAppResolver.GetActiveAppAsync("testapp", A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+        A.CallTo(() =>
+                _getRegisteredAppHandler.GetItemAsync(
+                    A<GetRegisteredAppQuery>.That.Matches(query => query.AppName == "testapp"),
+                    A<CancellationToken>._
+                )
+            )
+            .MustHaveHappenedOnceExactly();
     }
 
     [Fact]
@@ -437,7 +460,7 @@ public class UserEndpointsTests
             command,
             ApiRequest.For(httpContext),
             httpContext,
-            _registeredAppResolver,
+            _getRegisteredAppHandler,
             handler,
             TestContext.Current.CancellationToken
         );
@@ -466,7 +489,7 @@ public class UserEndpointsTests
             command,
             ApiRequest.For(httpContext),
             httpContext,
-            _registeredAppResolver,
+            _getRegisteredAppHandler,
             handler,
             TestContext.Current.CancellationToken
         );
@@ -491,14 +514,20 @@ public class UserEndpointsTests
         // Act
         var result = await UserEndpoints.GetTwoFactorStatusAsync(
             request,
-            _registeredAppResolver,
+            _getRegisteredAppHandler,
             handler,
             TestContext.Current.CancellationToken
         );
 
         // Assert
         Assert.Equal([TwoFactorMethod.Authenticator], result.Value?.AllowedMethods);
-        A.CallTo(() => _registeredAppResolver.GetActiveAppAsync("testapp", A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+        A.CallTo(() =>
+                _getRegisteredAppHandler.GetItemAsync(
+                    A<GetRegisteredAppQuery>.That.Matches(query => query.AppName == "testapp"),
+                    A<CancellationToken>._
+                )
+            )
+            .MustHaveHappenedOnceExactly();
         A.CallTo(() => handler.GetItemAsync(new GetTwoFactorStatusQuery(TestStringHelper.UserId, _registeredApp), A<CancellationToken>._))
             .MustHaveHappenedOnceExactly();
     }
@@ -519,7 +548,7 @@ public class UserEndpointsTests
             command,
             ApiRequest.For(httpContext),
             httpContext,
-            _registeredAppResolver,
+            _getRegisteredAppHandler,
             handler,
             TestContext.Current.CancellationToken
         );
@@ -547,7 +576,7 @@ public class UserEndpointsTests
             command,
             ApiRequest.For(httpContext),
             httpContext,
-            _registeredAppResolver,
+            _getRegisteredAppHandler,
             handler,
             TestContext.Current.CancellationToken
         );
@@ -573,7 +602,7 @@ public class UserEndpointsTests
         await UserEndpoints.ResetUserTwoFactorAsync(
             command,
             request,
-            _registeredAppResolver,
+            _getRegisteredAppHandler,
             handler,
             TestContext.Current.CancellationToken
         );

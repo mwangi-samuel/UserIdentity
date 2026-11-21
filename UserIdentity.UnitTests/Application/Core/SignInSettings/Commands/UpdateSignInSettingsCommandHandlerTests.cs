@@ -1,8 +1,8 @@
 using FakeItEasy;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Time.Testing;
-using PolyzenKit.Application.Core.RegisteredApps.Shared;
 using PolyzenKit.Common.Settings;
+using PolyzenKit.Domain.Entities.RegisteredApps;
 using PolyzenKit.Persistence.Repositories;
 using UserIdentity.Application.Core.SignInSettings.Commands;
 using UserIdentity.Common.Errors;
@@ -19,7 +19,7 @@ public class UpdateSignInSettingsCommandHandlerTests
     private readonly IUnitOfWork _unitOfWork = A.Fake<IUnitOfWork>();
     private readonly IAppSignInSettingsRepository _repository = A.Fake<IAppSignInSettingsRepository>();
 
-    private readonly ActiveRegisteredApp _registeredApp = new()
+    private readonly RegisteredAppDto _registeredApp = new()
     {
         Id = 3,
         AppName = "TestApp",

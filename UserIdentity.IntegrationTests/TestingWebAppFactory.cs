@@ -10,6 +10,7 @@ using NATS.Client.JetStream;
 using Npgsql;
 using PolyzenKit.Application.Core.Interfaces;
 using PolyzenKit.Application.Core.RegisteredApps.Commands;
+using PolyzenKit.Application.Core.RegisteredApps.Queries;
 using PolyzenKit.Application.Core.RegisteredApps.Shared;
 using PolyzenKit.Application.Core.RegisteredApps.ViewModels;
 using PolyzenKit.Application.Interfaces;
@@ -136,9 +137,11 @@ public class TestingWebAppFactory : WebApplicationFactory<Program>, IAsyncLifeti
     {
         await using var scope = Services.CreateAsyncScope();
 
-        command.RegisteredApp = await scope
-            .ServiceProvider.GetRequiredService<IRegisteredAppResolver>()
-            .GetActiveAppAsync(appName, cancellationToken);
+        command.RegisteredApp = (
+            await scope
+                .ServiceProvider.GetRequiredService<IGetItemQueryHandler<GetRegisteredAppQuery, RegisteredAppViewModel>>()
+                .GetItemAsync(new GetRegisteredAppQuery { AppName = appName }, cancellationToken)
+        ).RegisteredApp;
 
         var vm = await scope
             .ServiceProvider.GetRequiredService<IUpdateItemCommandHandler<UpdateSignInSettingsCommand, SignInSettingsViewModel>>()

@@ -2,8 +2,8 @@ using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Serialization;
 using PolyzenKit.Application.Core;
 using PolyzenKit.Application.Core.Interfaces;
-using PolyzenKit.Application.Core.RegisteredApps.Shared;
 using PolyzenKit.Application.Interfaces;
+using PolyzenKit.Domain.Entities.RegisteredApps;
 using PolyzenKit.Persistence.Repositories;
 using UserIdentity.Application.Core.Users.Shared;
 using UserIdentity.Application.Core.Users.ViewModels;
@@ -19,7 +19,7 @@ namespace UserIdentity.Application.Core.Users.Commands;
 public record ResendCodeCommand : IBaseCommand, IValidatableObject
 {
     [JsonIgnore]
-    public ActiveRegisteredApp RegisteredApp { get; internal set; } = null!;
+    public RegisteredAppDto RegisteredApp { get; internal set; } = null!;
 
     public string? Ticket { get; init; }
 

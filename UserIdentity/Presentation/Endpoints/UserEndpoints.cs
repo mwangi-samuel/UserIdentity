@@ -1,7 +1,8 @@
 ﻿using Microsoft.AspNetCore.Http.HttpResults;
 using PolyzenKit.Application.Core;
 using PolyzenKit.Application.Core.Interfaces;
-using PolyzenKit.Application.Core.RegisteredApps.Shared;
+using PolyzenKit.Application.Core.RegisteredApps.Queries;
+using PolyzenKit.Application.Core.RegisteredApps.ViewModels;
 using PolyzenKit.Common.Enums;
 using PolyzenKit.Common.Utilities;
 using PolyzenKit.Domain.Dtos;
@@ -139,7 +140,7 @@ public static class UserEndpoints
     internal static async Task<JsonHttpResult<UserViewModel>> GetUserByEmailAsync(
         string email,
         ApiRequest request,
-        IRegisteredAppResolver registeredAppResolver,
+        IGetItemQueryHandler<GetRegisteredAppQuery, RegisteredAppViewModel> getRegisteredAppHandler,
         IGetItemQueryHandler<GetUserByEmailQuery, UserViewModel> handler,
         CancellationToken cancellationToken
     )
@@ -148,7 +149,7 @@ public static class UserEndpoints
             new GetUserByEmailQuery
             {
                 Email = email,
-                RegisteredApp = await AdminApp.GetAsync(request, registeredAppResolver, cancellationToken),
+                RegisteredApp = await AdminApp.GetAsync(request, getRegisteredAppHandler, cancellationToken),
                 Changer = new UserChanger(request.LoggedInUserId, request.IsGlobalAdmin),
             },
             cancellationToken
@@ -162,13 +163,13 @@ public static class UserEndpoints
         UpdateUserCommand command,
         ApiRequest request,
         HttpContext httpContext,
-        IRegisteredAppResolver registeredAppResolver,
+        IGetItemQueryHandler<GetRegisteredAppQuery, RegisteredAppViewModel> getRegisteredAppHandler,
         IUpdateItemCommandHandler<UpdateUserCommand, UserViewModel> handler,
         CancellationToken cancellationToken
     )
     {
         command.UserId = userId;
-        command.RegisteredApp = await AdminApp.GetAsync(request, registeredAppResolver, cancellationToken);
+        command.RegisteredApp = await AdminApp.GetAsync(request, getRegisteredAppHandler, cancellationToken);
         command.Changer = new UserChanger(request.LoggedInUserId, request.IsGlobalAdmin);
         command.RequestContext = RequestContextReader.Read(httpContext);
 
@@ -182,13 +183,13 @@ public static class UserEndpoints
         ChangeEmailCommand command,
         ApiRequest request,
         HttpContext httpContext,
-        IRegisteredAppResolver registeredAppResolver,
+        IGetItemQueryHandler<GetRegisteredAppQuery, RegisteredAppViewModel> getRegisteredAppHandler,
         ICreateItemCommandHandler<ChangeEmailCommand, EmailChangeViewModel> handler,
         CancellationToken cancellationToken
     )
     {
         command.UserId = userId;
-        command.RegisteredApp = await AdminApp.GetAsync(request, registeredAppResolver, cancellationToken);
+        command.RegisteredApp = await AdminApp.GetAsync(request, getRegisteredAppHandler, cancellationToken);
         command.Changer = new UserChanger(request.LoggedInUserId, request.IsGlobalAdmin);
         command.RequestContext = RequestContextReader.Read(httpContext);
 
@@ -202,13 +203,13 @@ public static class UserEndpoints
         ConfirmEmailChangeCommand command,
         ApiRequest request,
         HttpContext httpContext,
-        IRegisteredAppResolver registeredAppResolver,
+        IGetItemQueryHandler<GetRegisteredAppQuery, RegisteredAppViewModel> getRegisteredAppHandler,
         ICreateItemCommandHandler<ConfirmEmailChangeCommand, UserViewModel> handler,
         CancellationToken cancellationToken
     )
     {
         command.UserId = userId;
-        command.RegisteredApp = await AdminApp.GetAsync(request, registeredAppResolver, cancellationToken);
+        command.RegisteredApp = await AdminApp.GetAsync(request, getRegisteredAppHandler, cancellationToken);
         command.Changer = new UserChanger(request.LoggedInUserId, request.IsGlobalAdmin);
         command.RequestContext = RequestContextReader.Read(httpContext);
 
@@ -221,12 +222,12 @@ public static class UserEndpoints
         RegisterUserCommand command,
         ApiRequest request,
         HttpContext httpContext,
-        IRegisteredAppResolver registeredAppResolver,
+        IGetItemQueryHandler<GetRegisteredAppQuery, RegisteredAppViewModel> getRegisteredAppHandler,
         ICreateItemCommandHandler<RegisterUserCommand, AuthUserViewModel> handler,
         CancellationToken cancellationToken
     )
     {
-        command.RegisteredApp = await request.GetRegisteredAppAsync(registeredAppResolver, cancellationToken);
+        command.RegisteredApp = await request.GetRegisteredAppAsync(getRegisteredAppHandler, cancellationToken);
         command.RequestContext = RequestContextReader.Read(httpContext);
 
         var vm = await handler.CreateItemAsync(command, request.LoggedInUserId, cancellationToken);
@@ -237,12 +238,12 @@ public static class UserEndpoints
     internal static async Task<JsonHttpResult<UserViewModel>> CreateUserForServiceAsync(
         RegisterServiceUserCommand command,
         ApiRequest request,
-        IRegisteredAppResolver registeredAppResolver,
+        IGetItemQueryHandler<GetRegisteredAppQuery, RegisteredAppViewModel> getRegisteredAppHandler,
         ICreateItemCommandHandler<RegisterServiceUserCommand, UserViewModel> handler,
         CancellationToken cancellationToken
     )
     {
-        command.RegisteredApp = await registeredAppResolver.GetActiveAppAsync(request.AuthorizedParty, cancellationToken);
+        command.RegisteredApp = await TokenApp.GetAsync(request, getRegisteredAppHandler, cancellationToken);
 
         var vm = await handler.CreateItemAsync(command, KnownUsers.SystemId, cancellationToken);
 
@@ -253,12 +254,12 @@ public static class UserEndpoints
         LoginUserCommand command,
         ApiRequest request,
         HttpContext httpContext,
-        IRegisteredAppResolver registeredAppResolver,
+        IGetItemQueryHandler<GetRegisteredAppQuery, RegisteredAppViewModel> getRegisteredAppHandler,
         ICreateItemCommandHandler<LoginUserCommand, AuthUserViewModel> handler,
         CancellationToken cancellationToken
     )
     {
-        command.RegisteredApp = await request.GetRegisteredAppAsync(registeredAppResolver, cancellationToken);
+        command.RegisteredApp = await request.GetRegisteredAppAsync(getRegisteredAppHandler, cancellationToken);
         command.RequestContext = RequestContextReader.Read(httpContext);
 
         var vm = await handler.CreateItemAsync(command, request.LoggedInUserId, cancellationToken);
@@ -270,12 +271,12 @@ public static class UserEndpoints
         ConfirmAccountCommand command,
         ApiRequest request,
         HttpContext httpContext,
-        IRegisteredAppResolver registeredAppResolver,
+        IGetItemQueryHandler<GetRegisteredAppQuery, RegisteredAppViewModel> getRegisteredAppHandler,
         ICreateItemCommandHandler<ConfirmAccountCommand, AuthUserViewModel> handler,
         CancellationToken cancellationToken
     )
     {
-        command.RegisteredApp = await request.GetRegisteredAppAsync(registeredAppResolver, cancellationToken);
+        command.RegisteredApp = await request.GetRegisteredAppAsync(getRegisteredAppHandler, cancellationToken);
         command.RequestContext = RequestContextReader.Read(httpContext);
 
         var vm = await handler.CreateItemAsync(command, request.LoggedInUserId, cancellationToken);
@@ -286,12 +287,12 @@ public static class UserEndpoints
     internal static async Task<JsonHttpResult<ResendCodeViewModel>> ResendCodeAsync(
         ResendCodeCommand command,
         ApiRequest request,
-        IRegisteredAppResolver registeredAppResolver,
+        IGetItemQueryHandler<GetRegisteredAppQuery, RegisteredAppViewModel> getRegisteredAppHandler,
         ICreateItemCommandHandler<ResendCodeCommand, ResendCodeViewModel> handler,
         CancellationToken cancellationToken
     )
     {
-        command.RegisteredApp = await request.GetRegisteredAppAsync(registeredAppResolver, cancellationToken);
+        command.RegisteredApp = await request.GetRegisteredAppAsync(getRegisteredAppHandler, cancellationToken);
 
         var vm = await handler.CreateItemAsync(command, request.LoggedInUserId, cancellationToken);
 
@@ -346,12 +347,12 @@ public static class UserEndpoints
         ResetPasswordCommand command,
         ApiRequest request,
         HttpContext httpContext,
-        IRegisteredAppResolver registeredAppResolver,
+        IGetItemQueryHandler<GetRegisteredAppQuery, RegisteredAppViewModel> getRegisteredAppHandler,
         ICreateItemCommandHandler<ResetPasswordCommand, ResetPasswordViewModel> handler,
         CancellationToken cancellationToken
     )
     {
-        command.RegisteredApp = await request.GetRegisteredAppAsync(registeredAppResolver, cancellationToken);
+        command.RegisteredApp = await request.GetRegisteredAppAsync(getRegisteredAppHandler, cancellationToken);
         command.RequestContext = RequestContextReader.Read(httpContext);
 
         var vm = await handler.CreateItemAsync(command, request.LoggedInUserId, cancellationToken);
@@ -369,12 +370,12 @@ public static class UserEndpoints
         UpdatePasswordCommand command,
         ApiRequest request,
         HttpContext httpContext,
-        IRegisteredAppResolver registeredAppResolver,
+        IGetItemQueryHandler<GetRegisteredAppQuery, RegisteredAppViewModel> getRegisteredAppHandler,
         IUpdateItemCommandHandler<UpdatePasswordCommand, AuthUserViewModel> handler,
         CancellationToken cancellationToken
     )
     {
-        command.RegisteredApp = await request.GetRegisteredAppAsync(registeredAppResolver, cancellationToken);
+        command.RegisteredApp = await request.GetRegisteredAppAsync(getRegisteredAppHandler, cancellationToken);
         command.RequestContext = RequestContextReader.Read(httpContext);
 
         var vm = await handler.UpdateItemAsync(command, request.LoggedInUserId, cancellationToken);
@@ -384,12 +385,12 @@ public static class UserEndpoints
 
     internal static async Task<JsonHttpResult<TwoFactorStatusViewModel>> GetTwoFactorStatusAsync(
         ApiRequest request,
-        IRegisteredAppResolver registeredAppResolver,
+        IGetItemQueryHandler<GetRegisteredAppQuery, RegisteredAppViewModel> getRegisteredAppHandler,
         IGetItemQueryHandler<GetTwoFactorStatusQuery, TwoFactorStatusViewModel> handler,
         CancellationToken cancellationToken
     )
     {
-        var registeredApp = await registeredAppResolver.GetActiveAppAsync(request.AuthorizedParty, cancellationToken);
+        var registeredApp = await TokenApp.GetAsync(request, getRegisteredAppHandler, cancellationToken);
 
         var vm = await handler.GetItemAsync(new GetTwoFactorStatusQuery(request.LoggedInUserId, registeredApp), cancellationToken);
 
@@ -400,12 +401,12 @@ public static class UserEndpoints
         VerifySecondFactorCommand command,
         ApiRequest request,
         HttpContext httpContext,
-        IRegisteredAppResolver registeredAppResolver,
+        IGetItemQueryHandler<GetRegisteredAppQuery, RegisteredAppViewModel> getRegisteredAppHandler,
         ICreateItemCommandHandler<VerifySecondFactorCommand, AuthUserViewModel> handler,
         CancellationToken cancellationToken
     )
     {
-        command.RegisteredApp = await request.GetRegisteredAppAsync(registeredAppResolver, cancellationToken);
+        command.RegisteredApp = await request.GetRegisteredAppAsync(getRegisteredAppHandler, cancellationToken);
         command.RequestContext = RequestContextReader.Read(httpContext);
 
         var vm = await handler.CreateItemAsync(command, request.LoggedInUserId, cancellationToken);
@@ -417,12 +418,12 @@ public static class UserEndpoints
         StartTwoFactorSetupCommand command,
         ApiRequest request,
         HttpContext httpContext,
-        IRegisteredAppResolver registeredAppResolver,
+        IGetItemQueryHandler<GetRegisteredAppQuery, RegisteredAppViewModel> getRegisteredAppHandler,
         ICreateItemCommandHandler<StartTwoFactorSetupCommand, TwoFactorSetupViewModel> handler,
         CancellationToken cancellationToken
     )
     {
-        command.RegisteredApp = await request.GetRegisteredAppAsync(registeredAppResolver, cancellationToken);
+        command.RegisteredApp = await request.GetRegisteredAppAsync(getRegisteredAppHandler, cancellationToken);
         command.RequestContext = RequestContextReader.Read(httpContext);
 
         var vm = await handler.CreateItemAsync(command, request.LoggedInUserId, cancellationToken);
@@ -434,12 +435,12 @@ public static class UserEndpoints
         ConfirmTwoFactorSetupCommand command,
         ApiRequest request,
         HttpContext httpContext,
-        IRegisteredAppResolver registeredAppResolver,
+        IGetItemQueryHandler<GetRegisteredAppQuery, RegisteredAppViewModel> getRegisteredAppHandler,
         ICreateItemCommandHandler<ConfirmTwoFactorSetupCommand, AuthUserViewModel> handler,
         CancellationToken cancellationToken
     )
     {
-        command.RegisteredApp = await request.GetRegisteredAppAsync(registeredAppResolver, cancellationToken);
+        command.RegisteredApp = await request.GetRegisteredAppAsync(getRegisteredAppHandler, cancellationToken);
         command.RequestContext = RequestContextReader.Read(httpContext);
 
         var vm = await handler.CreateItemAsync(command, request.LoggedInUserId, cancellationToken);
@@ -451,13 +452,13 @@ public static class UserEndpoints
         ChangeTwoFactorCommand command,
         ApiRequest request,
         HttpContext httpContext,
-        IRegisteredAppResolver registeredAppResolver,
+        IGetItemQueryHandler<GetRegisteredAppQuery, RegisteredAppViewModel> getRegisteredAppHandler,
         ICreateItemCommandHandler<ChangeTwoFactorCommand, AuthUserViewModel> handler,
         CancellationToken cancellationToken
     )
     {
         command.UserId = request.LoggedInUserId;
-        command.RegisteredApp = await registeredAppResolver.GetActiveAppAsync(request.AuthorizedParty, cancellationToken);
+        command.RegisteredApp = await TokenApp.GetAsync(request, getRegisteredAppHandler, cancellationToken);
         command.RequestContext = RequestContextReader.Read(httpContext);
 
         var vm = await handler.CreateItemAsync(command, request.LoggedInUserId, cancellationToken);
@@ -468,13 +469,13 @@ public static class UserEndpoints
     internal static async Task<JsonHttpResult<RecoveryCodesViewModel>> ReplaceRecoveryCodesAsync(
         ReplaceRecoveryCodesCommand command,
         ApiRequest request,
-        IRegisteredAppResolver registeredAppResolver,
+        IGetItemQueryHandler<GetRegisteredAppQuery, RegisteredAppViewModel> getRegisteredAppHandler,
         ICreateItemCommandHandler<ReplaceRecoveryCodesCommand, RecoveryCodesViewModel> handler,
         CancellationToken cancellationToken
     )
     {
         command.UserId = request.LoggedInUserId;
-        command.RegisteredApp = await registeredAppResolver.GetActiveAppAsync(request.AuthorizedParty, cancellationToken);
+        command.RegisteredApp = await TokenApp.GetAsync(request, getRegisteredAppHandler, cancellationToken);
 
         var vm = await handler.CreateItemAsync(command, request.LoggedInUserId, cancellationToken);
 
@@ -485,13 +486,13 @@ public static class UserEndpoints
         DisableTwoFactorCommand command,
         ApiRequest request,
         HttpContext httpContext,
-        IRegisteredAppResolver registeredAppResolver,
+        IGetItemQueryHandler<GetRegisteredAppQuery, RegisteredAppViewModel> getRegisteredAppHandler,
         IUpdateItemCommandHandler<DisableTwoFactorCommand, TwoFactorStatusViewModel> handler,
         CancellationToken cancellationToken
     )
     {
         command.UserId = request.LoggedInUserId;
-        command.RegisteredApp = await registeredAppResolver.GetActiveAppAsync(request.AuthorizedParty, cancellationToken);
+        command.RegisteredApp = await TokenApp.GetAsync(request, getRegisteredAppHandler, cancellationToken);
         command.RequestContext = RequestContextReader.Read(httpContext);
 
         var vm = await handler.UpdateItemAsync(command, request.LoggedInUserId, cancellationToken);
@@ -502,12 +503,12 @@ public static class UserEndpoints
     internal static async Task<JsonHttpResult<UserViewModel>> ResetUserTwoFactorAsync(
         ResetUserTwoFactorCommand command,
         ApiRequest request,
-        IRegisteredAppResolver registeredAppResolver,
+        IGetItemQueryHandler<GetRegisteredAppQuery, RegisteredAppViewModel> getRegisteredAppHandler,
         IUpdateItemCommandHandler<ResetUserTwoFactorCommand, UserViewModel> handler,
         CancellationToken cancellationToken
     )
     {
-        command.RegisteredApp = await AdminApp.GetAsync(request, registeredAppResolver, cancellationToken);
+        command.RegisteredApp = await AdminApp.GetAsync(request, getRegisteredAppHandler, cancellationToken);
         command.Changer = new UserChanger(request.LoggedInUserId, request.IsGlobalAdmin);
 
         var vm = await handler.UpdateItemAsync(command, request.LoggedInUserId, cancellationToken);

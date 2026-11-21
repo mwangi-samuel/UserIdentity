@@ -4,7 +4,8 @@ using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
 using PolyzenKit.Application.Core;
 using PolyzenKit.Application.Core.Interfaces;
-using PolyzenKit.Application.Core.RegisteredApps.Shared;
+using PolyzenKit.Application.Core.RegisteredApps.Queries;
+using PolyzenKit.Application.Core.RegisteredApps.ViewModels;
 using PolyzenKit.Application.Interfaces;
 using PolyzenKit.Persistence.Repositories;
 using UserIdentity.Application.Core.Tokens.Shared;
@@ -32,7 +33,7 @@ public class ExchangeRefreshTokenCommandHandler(
     IUnitOfWork unitOfWork,
     IRefreshTokenRepository refreshTokenRepository,
     TimeProvider timeProvider,
-    IRegisteredAppResolver registeredAppResolver,
+    IGetItemQueryHandler<GetRegisteredAppQuery, RegisteredAppViewModel> getRegisteredAppHandler,
     IGetItemQueryHandler<GetTwoFactorStatusQuery, TwoFactorStatusViewModel> getTwoFactorStatusQueryHandler,
     ICreateItemCommandHandler<CreateAccessTokenCommand, AccessTokenViewModel> createAccessTokenCommandHandler
 )
@@ -42,7 +43,7 @@ public class ExchangeRefreshTokenCommandHandler(
     private readonly RefreshTokenSettings _refreshTokenSettings = refreshTokenSettingsOptions.Value;
     private readonly IJwtTokenHandler _jwtTokenHandler = jwtTokenHandler;
     private readonly ITokenFactory _tokenFactory = tokenFactory;
-    private readonly IRegisteredAppResolver _registeredAppResolver = registeredAppResolver;
+    private readonly IGetItemQueryHandler<GetRegisteredAppQuery, RegisteredAppViewModel> _getRegisteredAppHandler = getRegisteredAppHandler;
 
     private readonly IGetItemQueryHandler<GetTwoFactorStatusQuery, TwoFactorStatusViewModel> _getTwoFactorStatusQueryHandler =
         getTwoFactorStatusQueryHandler;
@@ -98,7 +99,9 @@ public class ExchangeRefreshTokenCommandHandler(
             throw new SecurityTokenException("Invalid refresh token provided");
         }
 
-        var registeredApp = await _registeredAppResolver.GetActiveAppAsync(azp, cancellationToken);
+        var registeredApp = (
+            await _getRegisteredAppHandler.GetItemAsync(new GetRegisteredAppQuery { AppName = azp }, cancellationToken)
+        ).RegisteredApp;
 
         var twoFactorStatus = await _getTwoFactorStatusQueryHandler.GetItemAsync(
             new GetTwoFactorStatusQuery(tokenUserId, registeredApp),

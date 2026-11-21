@@ -3,7 +3,7 @@ using FakeItEasy;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Time.Testing;
 using PolyzenKit.Application.Core.Interfaces;
-using PolyzenKit.Application.Core.RegisteredApps.Shared;
+using PolyzenKit.Domain.Entities.RegisteredApps;
 using PolyzenKit.Persistence.Repositories;
 using UserIdentity.Application.Core.SignInSettings.Queries;
 using UserIdentity.Application.Core.SignInSettings.ViewModels;
@@ -43,7 +43,7 @@ public class StartTwoFactorSetupCommandHandlerTests
         ICreateItemCommandHandler<SendLoginCodeCommand, LoginCodeViewModel>
     >();
 
-    private readonly ActiveRegisteredApp _registeredApp = new()
+    private readonly RegisteredAppDto _registeredApp = new()
     {
         Id = 1,
         AppName = "Test App",

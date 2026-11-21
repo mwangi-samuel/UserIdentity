@@ -1,9 +1,9 @@
 using FakeItEasy;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Options;
-using PolyzenKit.Application.Core.RegisteredApps.Shared;
 using PolyzenKit.Common.Exceptions;
 using PolyzenKit.Common.Settings;
+using PolyzenKit.Domain.Entities.RegisteredApps;
 using UserIdentity.Application.Core.Users.Queries;
 using UserIdentity.Application.Core.Users.Shared;
 using UserIdentity.Domain.Users;
@@ -22,7 +22,7 @@ public class GetUserByEmailQueryHandlerTests
     private readonly IUserRepository _userRepository = A.Fake<IUserRepository>();
     private readonly IUserRegisteredAppRepository _userRegisteredAppRepository = A.Fake<IUserRegisteredAppRepository>();
 
-    private readonly ActiveRegisteredApp _registeredApp = new()
+    private readonly RegisteredAppDto _registeredApp = new()
     {
         Id = 1,
         AppName = "TestApp",

@@ -4,8 +4,8 @@ using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Identity;
 using PolyzenKit.Application.Core;
 using PolyzenKit.Application.Core.Interfaces;
-using PolyzenKit.Application.Core.RegisteredApps.Shared;
 using PolyzenKit.Domain.Entities;
+using PolyzenKit.Domain.Entities.RegisteredApps;
 using PolyzenKit.Persistence.Repositories;
 using UserIdentity.Application.Core.SignInSettings.Queries;
 using UserIdentity.Application.Core.SignInSettings.ViewModels;
@@ -27,7 +27,7 @@ namespace UserIdentity.Application.Core.TwoFactor.Commands;
 public record StartTwoFactorSetupCommand : IBaseCommand, IValidatableObject
 {
     [JsonIgnore]
-    public ActiveRegisteredApp RegisteredApp { get; internal set; } = null!;
+    public RegisteredAppDto RegisteredApp { get; internal set; } = null!;
 
     [JsonIgnore]
     public RequestContext RequestContext { get; internal set; } = new();
@@ -115,7 +115,7 @@ public class StartTwoFactorSetupCommandHandler(
         return vm;
     }
 
-    private async Task<TwoFactorSetupViewModel> StartAuthenticatorAsync(IdentityUser user, ActiveRegisteredApp registeredApp)
+    private async Task<TwoFactorSetupViewModel> StartAuthenticatorAsync(IdentityUser user, RegisteredAppDto registeredApp)
     {
         IdentityResults.EnsureSucceeded(await _userManager.ResetAuthenticatorKeyAsync(user));
 

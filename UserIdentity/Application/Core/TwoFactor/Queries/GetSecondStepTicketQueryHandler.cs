@@ -2,8 +2,8 @@ using System.Security.Authentication;
 using Microsoft.AspNetCore.Identity;
 using PolyzenKit.Application.Core;
 using PolyzenKit.Application.Core.Interfaces;
-using PolyzenKit.Application.Core.RegisteredApps.Shared;
 using PolyzenKit.Application.Interfaces;
+using PolyzenKit.Domain.Entities.RegisteredApps;
 using PolyzenKit.Persistence.Repositories;
 using UserIdentity.Application.Core.AccountLimits.Queries;
 using UserIdentity.Application.Core.AccountLimits.ViewModels;
@@ -16,7 +16,7 @@ using UserIdentity.Persistence.Repositories.LoginTickets;
 
 namespace UserIdentity.Application.Core.TwoFactor.Queries;
 
-public record GetSecondStepTicketQuery(string Ticket, ActiveRegisteredApp RegisteredApp, SignInStep Step) : IBaseQuery;
+public record GetSecondStepTicketQuery(string Ticket, RegisteredAppDto RegisteredApp, SignInStep Step) : IBaseQuery;
 
 public class GetSecondStepTicketQueryHandler(
     ITokenFactory tokenFactory,

@@ -3,8 +3,8 @@ using FakeItEasy;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Time.Testing;
 using PolyzenKit.Application.Core.Interfaces;
-using PolyzenKit.Application.Core.RegisteredApps.Shared;
 using PolyzenKit.Application.Interfaces;
+using PolyzenKit.Domain.Entities.RegisteredApps;
 using PolyzenKit.Persistence.Repositories;
 using UserIdentity.Application.Core.AccountLimits.Queries;
 using UserIdentity.Application.Core.AccountLimits.ViewModels;
@@ -29,7 +29,7 @@ public class GetSecondStepTicketQueryHandlerTests
         IGetItemQueryHandler<GetAccountLimitQuery, AccountLimitViewModel>
     >();
 
-    private readonly ActiveRegisteredApp _registeredApp = new()
+    private readonly RegisteredAppDto _registeredApp = new()
     {
         Id = 1,
         AppName = "TestApp",

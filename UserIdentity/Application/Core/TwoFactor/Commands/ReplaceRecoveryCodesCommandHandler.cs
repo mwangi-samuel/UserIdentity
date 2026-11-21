@@ -4,8 +4,8 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Options;
 using PolyzenKit.Application.Core;
 using PolyzenKit.Application.Core.Interfaces;
-using PolyzenKit.Application.Core.RegisteredApps.Shared;
 using PolyzenKit.Common.Exceptions;
+using PolyzenKit.Domain.Entities.RegisteredApps;
 using UserIdentity.Application.Core.AccountLimits.ViewModels;
 using UserIdentity.Application.Core.TwoFactor.Queries;
 using UserIdentity.Application.Core.TwoFactor.Shared;
@@ -22,7 +22,7 @@ public record ReplaceRecoveryCodesCommand : IBaseCommand
     public string UserId { get; internal set; } = string.Empty;
 
     [JsonIgnore]
-    public ActiveRegisteredApp RegisteredApp { get; internal set; } = null!;
+    public RegisteredAppDto RegisteredApp { get; internal set; } = null!;
 
     [Required]
     public string Password { get; init; } = null!;

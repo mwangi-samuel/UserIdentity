@@ -3,8 +3,8 @@ using FakeItEasy;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Options;
 using PolyzenKit.Application.Core.Interfaces;
-using PolyzenKit.Application.Core.RegisteredApps.Shared;
 using PolyzenKit.Common.Settings;
+using PolyzenKit.Domain.Entities.RegisteredApps;
 using UserIdentity.Application.Core.AccountLimits.Queries;
 using UserIdentity.Application.Core.AccountLimits.ViewModels;
 using UserIdentity.Application.Core.SignInSettings.Queries;
@@ -45,7 +45,7 @@ public class SignInUserCommandHandlerTests
         ICreateItemCommandHandler<CreateLoginTicketCommand, LoginTicketViewModel>
     >();
 
-    private readonly ActiveRegisteredApp _registeredApp = new()
+    private readonly RegisteredAppDto _registeredApp = new()
     {
         Id = 1,
         AppName = "TestApp",

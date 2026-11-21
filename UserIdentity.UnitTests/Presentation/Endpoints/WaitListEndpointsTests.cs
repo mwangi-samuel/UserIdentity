@@ -1,8 +1,10 @@
 ﻿using System.Net;
 using FakeItEasy;
 using PolyzenKit.Application.Core.Interfaces;
-using PolyzenKit.Application.Core.RegisteredApps.Shared;
+using PolyzenKit.Application.Core.RegisteredApps.Queries;
+using PolyzenKit.Application.Core.RegisteredApps.ViewModels;
 using PolyzenKit.Common.Enums;
+using PolyzenKit.Domain.Entities.RegisteredApps;
 using UserIdentity.Application.Core.WaitLists.Commands;
 using UserIdentity.Application.Core.WaitLists.Queries;
 using UserIdentity.Application.Core.WaitLists.ViewModels;
@@ -17,22 +19,24 @@ public class WaitListEndpointsTests
 {
     private readonly ICreateItemCommandHandler<CreateWaitListCommand, WaitListViewModel> _createWaitListCommandHandler;
     private readonly IGetItemQueryHandler<GetWaitListQuery, WaitListViewModel> _getWaitListQueryHandler;
-    private readonly IRegisteredAppResolver _registeredAppResolver;
+    private readonly IGetItemQueryHandler<GetRegisteredAppQuery, RegisteredAppViewModel> _getRegisteredAppHandler;
 
     public WaitListEndpointsTests()
     {
         _createWaitListCommandHandler = A.Fake<ICreateItemCommandHandler<CreateWaitListCommand, WaitListViewModel>>();
         _getWaitListQueryHandler = A.Fake<IGetItemQueryHandler<GetWaitListQuery, WaitListViewModel>>();
-        _registeredAppResolver = A.Fake<IRegisteredAppResolver>();
+        _getRegisteredAppHandler = A.Fake<IGetItemQueryHandler<GetRegisteredAppQuery, RegisteredAppViewModel>>();
 
-        A.CallTo(() => _registeredAppResolver.GetActiveAppAsync(A<string>._, A<CancellationToken>._))
+        A.CallTo(() => _getRegisteredAppHandler.GetItemAsync(A<GetRegisteredAppQuery>._, A<CancellationToken>._))
             .Returns(
-                new ActiveRegisteredApp
+                new RegisteredAppViewModel
                 {
-                    Id = 4,
-                    AppName = "TestApp",
-                    AppSecretKey = "test-secret",
-                    BaseUrl = "https://app.test",
+                    RegisteredApp = new RegisteredAppDto
+                    {
+                        Id = 4,
+                        AppName = "TestApp",
+                        BaseUrl = "https://app.test",
+                    },
                 }
             );
         A.CallTo(() => _getWaitListQueryHandler.GetItemAsync(A<GetWaitListQuery>._, A<CancellationToken>._))
@@ -51,7 +55,7 @@ public class WaitListEndpointsTests
         var result = await WaitListEndpoints.GetWaitListAsync(
             1,
             request,
-            _registeredAppResolver,
+            _getRegisteredAppHandler,
             _getWaitListQueryHandler,
             TestContext.Current.CancellationToken
         );
@@ -78,7 +82,7 @@ public class WaitListEndpointsTests
         var result = await WaitListEndpoints.GetWaitListByEmailAsync(
             userEmail,
             request,
-            _registeredAppResolver,
+            _getRegisteredAppHandler,
             _getWaitListQueryHandler,
             TestContext.Current.CancellationToken
         );
@@ -104,7 +108,7 @@ public class WaitListEndpointsTests
         var result = await WaitListEndpoints.CreateWaitListAsync(
             command,
             request,
-            _registeredAppResolver,
+            _getRegisteredAppHandler,
             _createWaitListCommandHandler,
             TestContext.Current.CancellationToken
         );
@@ -114,7 +118,13 @@ public class WaitListEndpointsTests
         Assert.Equal(4, command.AppId);
         Assert.Equal(ItemStatusMessage.CreateItemSuccessful.ToText(), result.Value?.StatusMessage);
 
-        A.CallTo(() => _registeredAppResolver.GetActiveAppAsync("testapp", A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+        A.CallTo(() =>
+                _getRegisteredAppHandler.GetItemAsync(
+                    A<GetRegisteredAppQuery>.That.Matches(query => query.AppName == "testapp"),
+                    A<CancellationToken>._
+                )
+            )
+            .MustHaveHappenedOnceExactly();
         A.CallTo(() => _createWaitListCommandHandler.CreateItemAsync(command, TestStringHelper.UserId, A<CancellationToken>._))
             .MustHaveHappenedOnceExactly();
     }
@@ -130,7 +140,7 @@ public class WaitListEndpointsTests
         var result = await WaitListEndpoints.CreateWaitListAsync(
             command,
             request,
-            _registeredAppResolver,
+            _getRegisteredAppHandler,
             _createWaitListCommandHandler,
             TestContext.Current.CancellationToken
         );
