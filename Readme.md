@@ -103,8 +103,8 @@ App admins manage the scopes of their app's roles, and get 404 for any other rol
 ## Invite Codes
 An invite code lets one email address sign up to an app, and can give the new account a role. App admins manage their app's invite codes, and global admins name the app in the `X-App-Name` header.
 
-- `POST /api/v1/invite-code` with `{ "inviteCode": "...", "userEmail": "...", "role": "<app>:owner" }` creates one. The code has 10 to 255 characters and the email must be a valid address. `role` is optional. When set, it must be an existing role of the app that isn't an admin role (`<app>:admin` or any of `RoleSettings:AdminRoles`), or the request returns 400. There's one invite code per app and email.
-- `GET /api/v1/invite-code?page=1&pageSize=50&search=owner&applied=false` lists the app's invite codes, newest first, with `totalCount`. Optional `search` (email, up to 100 characters) and nullable `applied` filters are combined before counting/paging; omission retains the full list.
+- `POST /api/v1/invite-code` with `{ "inviteCode": "...", "userEmail": "...", "role": "<app>:member" }` creates one. The code has 10 to 255 characters and the email must be a valid address. `role` is optional. When set, it must be an existing role of the app that isn't an admin role (`<app>:admin` or any of `RoleSettings:AdminRoles`), or the request returns 400. There's one invite code per app and email.
+- `GET /api/v1/invite-code?page=1&pageSize=50&search=member&applied=false` lists the app's invite codes, newest first, with `totalCount`. Optional `search` (email, up to 100 characters) and nullable `applied` filters are combined before counting/paging; omission retains the full list.
 - `GET /api/v1/invite-code/{inviteCodeId}` and `GET /api/v1/invite-code/email/{email}` read one.
 - `DELETE /api/v1/invite-code/{inviteCodeId}` revokes an unused invite code. A used one returns 400, and another app's returns 404.
 

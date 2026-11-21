@@ -686,8 +686,7 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
         var resendResponse = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/resend-code", new { Ticket = ticket });
 
         await AssertCodeErrorAsync(confirmResponse, ErrorMessages.Codes.NotAccepted);
-        Assert.Equal(HttpStatusCode.OK, resendResponse.StatusCode);
-        Assert.Equal(string.Empty, await resendResponse.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
+        await AssertCodeResendRequestedAsync(resendResponse);
 
         var check = Assert.Single(StubHttpServer.ReceivedBodies(CodeCheckStub.VerifyPath));
         var resend = Assert.Single(StubHttpServer.ReceivedBodies(CodeCheckStub.RetryPath));
@@ -1322,8 +1321,7 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
         var response = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/resend-code", new { Ticket = ticket });
 
         // Assert
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Equal(string.Empty, await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
+        await AssertCodeResendRequestedAsync(response);
 
         var resend = Assert.Single(StubHttpServer.ReceivedBodies(CodeCheckStub.RetryPath));
         Assert.Equal(UserMessages.WelcomeUserAction, $"{resend["action"]}");
@@ -1334,7 +1332,7 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
     [InlineData("TooSoon", 42)]
     [InlineData("NoResendsLeft", 0)]
     [InlineData("NotFound", 0)]
-    public async Task Resend_Code_That_Isnt_Sent_Answers_The_Same_Empty_Ok(string outcome, int retryAfterSeconds)
+    public async Task Resend_Code_That_Isnt_Sent_Answers_The_Same(string outcome, int retryAfterSeconds)
     {
         // Arrange
         (_, var ticket) = await SignUpUnconfirmedAsync();
@@ -1345,8 +1343,7 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
         var response = await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/resend-code", new { Ticket = ticket });
 
         // Assert
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Equal(string.Empty, await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
+        await AssertCodeResendRequestedAsync(response);
     }
 
     [Fact]
@@ -1368,8 +1365,8 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
         );
 
         // Assert
-        Assert.Equal(HttpStatusCode.OK, ticketResponse.StatusCode);
-        Assert.Equal(HttpStatusCode.OK, resetResponse.StatusCode);
+        await AssertCodeResendRequestedAsync(ticketResponse);
+        await AssertCodeResendRequestedAsync(resetResponse);
 
         var resends = StubHttpServer.ReceivedBodies(CodeCheckStub.RetryPath);
 
@@ -2338,6 +2335,15 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         Assert.Equal(message, $"{jsonObject?["error"]?["message"]}");
+    }
+
+    private static async Task AssertCodeResendRequestedAsync(HttpResponseMessage response)
+    {
+        var jsonObject = SerDeHelper.Deserialize<JObject>(await response.ValidateRequestResponseAsync());
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("Request Successful", $"{jsonObject?["requestStatus"]}");
+        Assert.Equal("Code resend requested", $"{jsonObject?["statusMessage"]}");
     }
 
     private sealed class FailsDeletingSessionsInterceptor : DbCommandInterceptor
