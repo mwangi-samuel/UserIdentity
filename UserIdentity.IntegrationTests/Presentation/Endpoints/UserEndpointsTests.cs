@@ -126,7 +126,7 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
         await response.ValidateRequestResponseAsync();
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Equal(7, _testingWebAppFactory.SqlCommandCounter.CountFor(requestId));
+        Assert.Equal(6, _testingWebAppFactory.SqlCommandCounter.CountFor(requestId));
     }
 
     [Fact]
@@ -149,7 +149,7 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
         await response.ValidateRequestResponseAsync();
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Equal(8, _testingWebAppFactory.SqlCommandCounter.CountFor(requestId));
+        Assert.Equal(7, _testingWebAppFactory.SqlCommandCounter.CountFor(requestId));
     }
 
     [Fact]

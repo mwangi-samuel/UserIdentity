@@ -5,8 +5,10 @@ using Microsoft.Extensions.Time.Testing;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
 using PolyzenKit.Application.Core.Interfaces;
-using PolyzenKit.Application.Core.RegisteredApps.Shared;
+using PolyzenKit.Application.Core.RegisteredApps.Queries;
+using PolyzenKit.Application.Core.RegisteredApps.ViewModels;
 using PolyzenKit.Application.Interfaces;
+using PolyzenKit.Domain.Entities.RegisteredApps;
 using PolyzenKit.Persistence.Repositories;
 using UserIdentity.Application.Core.Tokens.Commands;
 using UserIdentity.Application.Core.Tokens.Shared;
@@ -42,13 +44,15 @@ public class ExchangeRefreshTokenCommandHandlerTests
         ICreateItemCommandHandler<CreateAccessTokenCommand, AccessTokenViewModel>
     >();
 
-    private readonly IRegisteredAppResolver _registeredAppResolver = A.Fake<IRegisteredAppResolver>();
+    private readonly IGetItemQueryHandler<GetRegisteredAppQuery, RegisteredAppViewModel> _getRegisteredAppHandler = A.Fake<
+        IGetItemQueryHandler<GetRegisteredAppQuery, RegisteredAppViewModel>
+    >();
 
     private readonly IGetItemQueryHandler<GetTwoFactorStatusQuery, TwoFactorStatusViewModel> _getTwoFactorStatusQueryHandler = A.Fake<
         IGetItemQueryHandler<GetTwoFactorStatusQuery, TwoFactorStatusViewModel>
     >();
 
-    private readonly ActiveRegisteredApp _registeredApp = new()
+    private readonly RegisteredAppDto _registeredApp = new()
     {
         Id = 1,
         AppName = "TestApp",
@@ -66,7 +70,13 @@ public class ExchangeRefreshTokenCommandHandlerTests
         _timeProvider.SetUtcNow(_now);
 
         A.CallTo(() => _tokenFactory.HashToken(RefreshToken)).Returns(RefreshTokenHash);
-        A.CallTo(() => _registeredAppResolver.GetActiveAppAsync("TestApp", A<CancellationToken>._)).Returns(_registeredApp);
+        A.CallTo(() =>
+                _getRegisteredAppHandler.GetItemAsync(
+                    A<GetRegisteredAppQuery>.That.Matches(query => query.AppName == "TestApp"),
+                    A<CancellationToken>._
+                )
+            )
+            .Returns(new RegisteredAppViewModel { RegisteredApp = _registeredApp });
         A.CallTo(() =>
                 _getTwoFactorStatusQueryHandler.GetItemAsync(
                     new GetTwoFactorStatusQuery(TestStringHelper.UserId, _registeredApp),
@@ -421,7 +431,7 @@ public class ExchangeRefreshTokenCommandHandlerTests
             _unitOfWork,
             _refreshTokenRepository,
             _timeProvider,
-            _registeredAppResolver,
+            _getRegisteredAppHandler,
             _getTwoFactorStatusQueryHandler,
             _createAccessTokenCommandHandler
         );

@@ -6,8 +6,8 @@ using PolyzenKit.Application.Core.Interfaces;
 using PolyzenKit.Application.Core.Messages.Commands;
 using PolyzenKit.Application.Core.Messages.Events;
 using PolyzenKit.Application.Core.Messages.ViewModels;
-using PolyzenKit.Application.Core.RegisteredApps.Shared;
 using PolyzenKit.Application.Interfaces;
+using PolyzenKit.Domain.Entities.RegisteredApps;
 using PolyzenKit.Persistence.Repositories;
 using UserIdentity.Application.Core.Users.Commands;
 using UserIdentity.Application.Core.Users.Shared;
@@ -38,11 +38,10 @@ public class ResetPasswordCommandHandlerTests
     private readonly IUserRegisteredAppRepository _userRegisteredAppRepository = A.Fake<IUserRegisteredAppRepository>();
 
     private readonly DateTime _fixedNow = new(2024, 01, 01, 10, 0, 0, DateTimeKind.Utc);
-    private readonly ActiveRegisteredApp _registeredApp = new()
+    private readonly RegisteredAppDto _registeredApp = new()
     {
         Id = 1,
         AppName = "TestApp",
-        AppSecretKey = "test-secret",
         BaseUrl = "https://app.test",
     };
 

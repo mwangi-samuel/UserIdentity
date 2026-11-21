@@ -3,8 +3,8 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Options;
 using PolyzenKit.Application.Core;
 using PolyzenKit.Application.Core.Interfaces;
-using PolyzenKit.Application.Core.RegisteredApps.Shared;
 using PolyzenKit.Common.Settings;
+using PolyzenKit.Domain.Entities.RegisteredApps;
 using UserIdentity.Application.Core.AccountLimits.Queries;
 using UserIdentity.Application.Core.AccountLimits.ViewModels;
 using UserIdentity.Application.Core.SignInSettings.Queries;
@@ -21,7 +21,7 @@ using UserIdentity.Persistence.Repositories.Users;
 
 namespace UserIdentity.Application.Core.Users.Commands;
 
-public record SignInUserCommand(IdentityUser User, ActiveRegisteredApp RegisteredApp, RequestContext RequestContext) : IBaseCommand
+public record SignInUserCommand(IdentityUser User, RegisteredAppDto RegisteredApp, RequestContext RequestContext) : IBaseCommand
 {
     public bool EmailProven { get; init; }
 

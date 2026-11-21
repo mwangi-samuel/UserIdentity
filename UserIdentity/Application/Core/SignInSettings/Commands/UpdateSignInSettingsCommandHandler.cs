@@ -3,9 +3,9 @@ using System.Text.Json.Serialization;
 using Microsoft.Extensions.Options;
 using PolyzenKit.Application.Core;
 using PolyzenKit.Application.Core.Interfaces;
-using PolyzenKit.Application.Core.RegisteredApps.Shared;
 using PolyzenKit.Common.Extensions;
 using PolyzenKit.Common.Settings;
+using PolyzenKit.Domain.Entities.RegisteredApps;
 using PolyzenKit.Persistence.Repositories;
 using UserIdentity.Application.Core.Roles.Shared;
 using UserIdentity.Application.Core.SignInSettings.ViewModels;
@@ -19,7 +19,7 @@ namespace UserIdentity.Application.Core.SignInSettings.Commands;
 public record UpdateSignInSettingsCommand : IBaseCommand, IValidatableObject
 {
     [JsonIgnore]
-    public ActiveRegisteredApp RegisteredApp { get; internal set; } = null!;
+    public RegisteredAppDto RegisteredApp { get; internal set; } = null!;
 
     public bool RequireConfirmedAccount { get; init; }
 

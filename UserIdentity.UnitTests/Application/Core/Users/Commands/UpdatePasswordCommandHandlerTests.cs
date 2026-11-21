@@ -4,8 +4,8 @@ using Microsoft.Extensions.Time.Testing;
 using PolyzenKit.Application.Core.Interfaces;
 using PolyzenKit.Application.Core.Messages.Commands;
 using PolyzenKit.Application.Core.Messages.ViewModels;
-using PolyzenKit.Application.Core.RegisteredApps.Shared;
 using PolyzenKit.Application.Interfaces;
+using PolyzenKit.Domain.Entities.RegisteredApps;
 using PolyzenKit.Persistence.Repositories;
 using UserIdentity.Application.Core.Users.Commands;
 using UserIdentity.Application.Core.Users.Shared;
@@ -43,7 +43,7 @@ public class UpdatePasswordCommandHandlerTests
     >();
     private readonly FakeTimeProvider _timeProvider = new(_now);
 
-    private readonly ActiveRegisteredApp _registeredApp = new()
+    private readonly RegisteredAppDto _registeredApp = new()
     {
         Id = 1,
         AppName = "TestApp",

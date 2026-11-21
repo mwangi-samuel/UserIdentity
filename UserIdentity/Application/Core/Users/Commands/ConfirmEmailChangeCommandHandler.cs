@@ -6,9 +6,9 @@ using PolyzenKit.Application.Core;
 using PolyzenKit.Application.Core.Interfaces;
 using PolyzenKit.Application.Core.Messages.Commands;
 using PolyzenKit.Application.Core.Messages.ViewModels;
-using PolyzenKit.Application.Core.RegisteredApps.Shared;
 using PolyzenKit.Common.Exceptions;
 using PolyzenKit.Common.Settings;
+using PolyzenKit.Domain.Entities.RegisteredApps;
 using PolyzenKit.Persistence.Repositories;
 using UserIdentity.Application.Core.Users.Shared;
 using UserIdentity.Application.Core.Users.ViewModels;
@@ -28,7 +28,7 @@ public record ConfirmEmailChangeCommand : IBaseCommand
     public string UserId { get; internal set; } = string.Empty;
 
     [JsonIgnore]
-    public ActiveRegisteredApp RegisteredApp { get; internal set; } = null!;
+    public RegisteredAppDto RegisteredApp { get; internal set; } = null!;
 
     [JsonIgnore]
     public UserChanger Changer { get; internal set; } = null!;

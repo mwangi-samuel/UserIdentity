@@ -2,8 +2,10 @@
 using FakeItEasy;
 using PolyzenKit.Application.Core;
 using PolyzenKit.Application.Core.Interfaces;
-using PolyzenKit.Application.Core.RegisteredApps.Shared;
+using PolyzenKit.Application.Core.RegisteredApps.Queries;
+using PolyzenKit.Application.Core.RegisteredApps.ViewModels;
 using PolyzenKit.Common.Enums;
+using PolyzenKit.Domain.Entities.RegisteredApps;
 using UserIdentity.Application.Core.InviteCodes.Commands;
 using UserIdentity.Application.Core.InviteCodes.Queries;
 using UserIdentity.Application.Core.InviteCodes.ViewModels;
@@ -20,7 +22,7 @@ public class InviteCodeEndpointsTests
     private readonly IGetItemQueryHandler<GetInviteCodeQuery, InviteCodeViewModel> _getInviteCodeQueryHandler;
     private readonly IGetItemsQueryHandler<GetInviteCodesQuery, InviteCodesViewModel> _getInviteCodesQueryHandler;
     private readonly IDeleteItemCommandHandler<DeleteInviteCodeCommand, DeleteRecordViewModel> _deleteInviteCodeCommandHandler;
-    private readonly IRegisteredAppResolver _registeredAppResolver;
+    private readonly IGetItemQueryHandler<GetRegisteredAppQuery, RegisteredAppViewModel> _getRegisteredAppHandler;
 
     public InviteCodeEndpointsTests()
     {
@@ -28,16 +30,18 @@ public class InviteCodeEndpointsTests
         _getInviteCodeQueryHandler = A.Fake<IGetItemQueryHandler<GetInviteCodeQuery, InviteCodeViewModel>>();
         _getInviteCodesQueryHandler = A.Fake<IGetItemsQueryHandler<GetInviteCodesQuery, InviteCodesViewModel>>();
         _deleteInviteCodeCommandHandler = A.Fake<IDeleteItemCommandHandler<DeleteInviteCodeCommand, DeleteRecordViewModel>>();
-        _registeredAppResolver = A.Fake<IRegisteredAppResolver>();
+        _getRegisteredAppHandler = A.Fake<IGetItemQueryHandler<GetRegisteredAppQuery, RegisteredAppViewModel>>();
 
-        A.CallTo(() => _registeredAppResolver.GetActiveAppAsync(A<string>._, A<CancellationToken>._))
+        A.CallTo(() => _getRegisteredAppHandler.GetItemAsync(A<GetRegisteredAppQuery>._, A<CancellationToken>._))
             .Returns(
-                new ActiveRegisteredApp
+                new RegisteredAppViewModel
                 {
-                    Id = 4,
-                    AppName = "TestApp",
-                    AppSecretKey = "test-secret",
-                    BaseUrl = "https://app.test",
+                    RegisteredApp = new RegisteredAppDto
+                    {
+                        Id = 4,
+                        AppName = "TestApp",
+                        BaseUrl = "https://app.test",
+                    },
                 }
             );
     }
@@ -55,7 +59,7 @@ public class InviteCodeEndpointsTests
         var result = await InviteCodeEndpoints.GetInviteCodeAsync(
             1,
             request,
-            _registeredAppResolver,
+            _getRegisteredAppHandler,
             _getInviteCodeQueryHandler,
             TestContext.Current.CancellationToken
         );
@@ -88,7 +92,7 @@ public class InviteCodeEndpointsTests
         var result = await InviteCodeEndpoints.GetInviteCodeByEmailAsync(
             userEmail,
             request,
-            _registeredAppResolver,
+            _getRegisteredAppHandler,
             _getInviteCodeQueryHandler,
             TestContext.Current.CancellationToken
         );
@@ -129,7 +133,7 @@ public class InviteCodeEndpointsTests
         var result = await InviteCodeEndpoints.CreateInviteCodeAsync(
             command,
             request,
-            _registeredAppResolver,
+            _getRegisteredAppHandler,
             _createInviteCodeCommandHandler,
             TestContext.Current.CancellationToken
         );
@@ -156,7 +160,7 @@ public class InviteCodeEndpointsTests
         // Act
         var result = await InviteCodeEndpoints.GetInviteCodesAsync(
             request,
-            _registeredAppResolver,
+            _getRegisteredAppHandler,
             _getInviteCodesQueryHandler,
             TestContext.Current.CancellationToken,
             2,
@@ -204,7 +208,7 @@ public class InviteCodeEndpointsTests
         var result = await InviteCodeEndpoints.DeleteInviteCodeAsync(
             7,
             request,
-            _registeredAppResolver,
+            _getRegisteredAppHandler,
             _deleteInviteCodeCommandHandler,
             TestContext.Current.CancellationToken
         );

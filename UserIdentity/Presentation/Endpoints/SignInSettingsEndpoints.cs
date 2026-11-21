@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Http.HttpResults;
 using PolyzenKit.Application.Core.Interfaces;
-using PolyzenKit.Application.Core.RegisteredApps.Shared;
+using PolyzenKit.Application.Core.RegisteredApps.Queries;
+using PolyzenKit.Application.Core.RegisteredApps.ViewModels;
 using PolyzenKit.Common.Utilities;
 using PolyzenKit.Presentation.Endpoints;
 using UserIdentity.Application.Core.SignInSettings.Commands;
@@ -23,12 +24,12 @@ public static class SignInSettingsEndpoints
 
     internal static async Task<JsonHttpResult<SignInSettingsViewModel>> GetSignInSettingsAsync(
         ApiRequest request,
-        IRegisteredAppResolver registeredAppResolver,
+        IGetItemQueryHandler<GetRegisteredAppQuery, RegisteredAppViewModel> getRegisteredAppHandler,
         IGetItemQueryHandler<GetSignInSettingsQuery, SignInSettingsViewModel> handler,
         CancellationToken cancellationToken
     )
     {
-        var registeredApp = await AdminApp.GetAsync(request, registeredAppResolver, cancellationToken);
+        var registeredApp = await AdminApp.GetAsync(request, getRegisteredAppHandler, cancellationToken);
 
         var vm = await handler.GetItemAsync(new GetSignInSettingsQuery(registeredApp.Id), cancellationToken);
 
@@ -38,12 +39,12 @@ public static class SignInSettingsEndpoints
     internal static async Task<JsonHttpResult<SignInSettingsViewModel>> UpdateSignInSettingsAsync(
         UpdateSignInSettingsCommand command,
         ApiRequest request,
-        IRegisteredAppResolver registeredAppResolver,
+        IGetItemQueryHandler<GetRegisteredAppQuery, RegisteredAppViewModel> getRegisteredAppHandler,
         IUpdateItemCommandHandler<UpdateSignInSettingsCommand, SignInSettingsViewModel> handler,
         CancellationToken cancellationToken
     )
     {
-        command.RegisteredApp = await AdminApp.GetAsync(request, registeredAppResolver, cancellationToken);
+        command.RegisteredApp = await AdminApp.GetAsync(request, getRegisteredAppHandler, cancellationToken);
 
         var vm = await handler.UpdateItemAsync(command, request.LoggedInUserId, cancellationToken);
 

@@ -2,9 +2,9 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Options;
 using PolyzenKit.Application.Core;
 using PolyzenKit.Application.Core.Interfaces;
-using PolyzenKit.Application.Core.RegisteredApps.Shared;
 using PolyzenKit.Common.Exceptions;
 using PolyzenKit.Common.Settings;
+using PolyzenKit.Domain.Entities.RegisteredApps;
 using UserIdentity.Application.Core.SignInSettings.Queries;
 using UserIdentity.Application.Core.SignInSettings.ViewModels;
 using UserIdentity.Application.Core.TwoFactor.Shared;
@@ -13,7 +13,7 @@ using UserIdentity.Persistence.Repositories.Users;
 
 namespace UserIdentity.Application.Core.TwoFactor.Queries;
 
-public record GetTwoFactorStatusQuery(string UserId, ActiveRegisteredApp RegisteredApp) : IBaseQuery;
+public record GetTwoFactorStatusQuery(string UserId, RegisteredAppDto RegisteredApp) : IBaseQuery;
 
 public class GetTwoFactorStatusQueryHandler(
     IOptions<RoleSettings> roleSettingsOptions,

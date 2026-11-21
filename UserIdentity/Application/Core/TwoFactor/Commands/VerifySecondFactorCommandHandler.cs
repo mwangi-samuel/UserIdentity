@@ -3,7 +3,7 @@ using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Identity;
 using PolyzenKit.Application.Core;
 using PolyzenKit.Application.Core.Interfaces;
-using PolyzenKit.Application.Core.RegisteredApps.Shared;
+using PolyzenKit.Domain.Entities.RegisteredApps;
 using PolyzenKit.Persistence.Repositories;
 using UserIdentity.Application.Core.AccountLimits.ViewModels;
 using UserIdentity.Application.Core.SignInSettings.Queries;
@@ -26,7 +26,7 @@ namespace UserIdentity.Application.Core.TwoFactor.Commands;
 public record VerifySecondFactorCommand : IBaseCommand, IValidatableObject
 {
     [JsonIgnore]
-    public ActiveRegisteredApp RegisteredApp { get; internal set; } = null!;
+    public RegisteredAppDto RegisteredApp { get; internal set; } = null!;
 
     [JsonIgnore]
     public RequestContext RequestContext { get; internal set; } = new();

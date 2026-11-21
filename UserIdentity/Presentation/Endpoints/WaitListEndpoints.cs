@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Http.HttpResults;
 using PolyzenKit.Application.Core.Interfaces;
-using PolyzenKit.Application.Core.RegisteredApps.Shared;
+using PolyzenKit.Application.Core.RegisteredApps.Queries;
+using PolyzenKit.Application.Core.RegisteredApps.ViewModels;
 using PolyzenKit.Common.Utilities;
 using PolyzenKit.Presentation.Captcha;
 using PolyzenKit.Presentation.Endpoints;
@@ -38,12 +39,12 @@ public static class WaitListEndpoints
     internal static async Task<JsonHttpResult<WaitListViewModel>> GetWaitListAsync(
         long waitListId,
         ApiRequest request,
-        IRegisteredAppResolver registeredAppResolver,
+        IGetItemQueryHandler<GetRegisteredAppQuery, RegisteredAppViewModel> getRegisteredAppHandler,
         IGetItemQueryHandler<GetWaitListQuery, WaitListViewModel> handler,
         CancellationToken cancellationToken
     )
     {
-        var registeredApp = await AdminApp.GetAsync(request, registeredAppResolver, cancellationToken);
+        var registeredApp = await AdminApp.GetAsync(request, getRegisteredAppHandler, cancellationToken);
 
         var vm = await handler.GetItemAsync(new GetWaitListQuery { WaitListId = waitListId, AppId = registeredApp.Id }, cancellationToken);
 
@@ -53,12 +54,12 @@ public static class WaitListEndpoints
     internal static async Task<JsonHttpResult<WaitListViewModel>> GetWaitListByEmailAsync(
         string email,
         ApiRequest request,
-        IRegisteredAppResolver registeredAppResolver,
+        IGetItemQueryHandler<GetRegisteredAppQuery, RegisteredAppViewModel> getRegisteredAppHandler,
         IGetItemQueryHandler<GetWaitListQuery, WaitListViewModel> handler,
         CancellationToken cancellationToken
     )
     {
-        var registeredApp = await AdminApp.GetAsync(request, registeredAppResolver, cancellationToken);
+        var registeredApp = await AdminApp.GetAsync(request, getRegisteredAppHandler, cancellationToken);
 
         var vm = await handler.GetItemAsync(new GetWaitListQuery { UserEmail = email, AppId = registeredApp.Id }, cancellationToken);
 
@@ -68,12 +69,12 @@ public static class WaitListEndpoints
     internal static async Task<JsonHttpResult<WaitListViewModel>> CreateWaitListAsync(
         CreateWaitListCommand command,
         ApiRequest request,
-        IRegisteredAppResolver registeredAppResolver,
+        IGetItemQueryHandler<GetRegisteredAppQuery, RegisteredAppViewModel> getRegisteredAppHandler,
         ICreateItemCommandHandler<CreateWaitListCommand, WaitListViewModel> handler,
         CancellationToken cancellationToken
     )
     {
-        var registeredApp = await request.GetRegisteredAppAsync(registeredAppResolver, cancellationToken);
+        var registeredApp = await request.GetRegisteredAppAsync(getRegisteredAppHandler, cancellationToken);
 
         command.AppId = registeredApp.Id;
 

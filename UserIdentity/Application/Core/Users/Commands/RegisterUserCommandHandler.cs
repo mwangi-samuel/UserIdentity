@@ -4,11 +4,11 @@ using PolyzenKit.Application.Core;
 using PolyzenKit.Application.Core.Interfaces;
 using PolyzenKit.Application.Core.Messages.Commands;
 using PolyzenKit.Application.Core.Messages.ViewModels;
-using PolyzenKit.Application.Core.RegisteredApps.Shared;
 using PolyzenKit.Application.Interfaces;
 using PolyzenKit.Common.Exceptions;
 using PolyzenKit.Domain.Dtos;
 using PolyzenKit.Domain.Entities;
+using PolyzenKit.Domain.Entities.RegisteredApps;
 using PolyzenKit.Persistence.Repositories;
 using UserIdentity.Application.Core.AccountLimits.Commands;
 using UserIdentity.Application.Core.AccountLimits.ViewModels;
@@ -34,7 +34,7 @@ namespace UserIdentity.Application.Core.Users.Commands;
 public record RegisterUserCommand : RegisterUserInput, IBaseCommand
 {
     [JsonIgnore]
-    public ActiveRegisteredApp RegisteredApp { get; internal set; } = null!;
+    public RegisteredAppDto RegisteredApp { get; internal set; } = null!;
 
     [JsonIgnore]
     public RequestContext RequestContext { get; internal set; } = new();
@@ -43,7 +43,7 @@ public record RegisterUserCommand : RegisterUserInput, IBaseCommand
 public record RegisterServiceUserCommand : RegisterUserInput, IBaseCommand
 {
     [JsonIgnore]
-    public ActiveRegisteredApp RegisteredApp { get; internal set; } = null!;
+    public RegisteredAppDto RegisteredApp { get; internal set; } = null!;
 }
 
 public class RegisterUserCommandHandler(
@@ -163,15 +163,12 @@ public class RegisterUserCommandHandler(
         }
     }
 
-    private async Task<AppSignInSettingsDto> GetSignInSettingsAsync(
-        ActiveRegisteredApp registeredApp,
-        CancellationToken cancellationToken
-    ) =>
+    private async Task<AppSignInSettingsDto> GetSignInSettingsAsync(RegisteredAppDto registeredApp, CancellationToken cancellationToken) =>
         (await _getSignInSettingsQueryHandler.GetItemAsync(new GetSignInSettingsQuery(registeredApp.Id), cancellationToken)).SignInSettings;
 
     private async Task<(IdentityUser NewUser, InviteCodeEntity? InviteCode)> PrepareUserAsync(
         RegisterUserInput input,
-        ActiveRegisteredApp registeredApp,
+        RegisteredAppDto registeredApp,
         AppSignInSettingsDto signInSettings,
         CancellationToken cancellationToken
     )
@@ -345,7 +342,7 @@ public class RegisterUserCommandHandler(
 
     private async Task<UserEntity> CreateAccountAsync(
         RegisterUserInput input,
-        ActiveRegisteredApp registeredApp,
+        RegisteredAppDto registeredApp,
         AppSignInSettingsDto signInSettings,
         IdentityUser newUser,
         InviteCodeEntity? inviteCodeEntity,
