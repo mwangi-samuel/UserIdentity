@@ -233,14 +233,14 @@ public class VerifySecondFactorCommandHandlerTests
             .Returns(redeemed ? IdentityResult.Success : IdentityResult.Failed());
 
         // Act
-        var verify = () =>
+        Task<AuthUserViewModel> verify() =>
             GetHandler().CreateItemAsync(GetCommand(recoveryCode: "aaaa-1111"), string.Empty, TestContext.Current.CancellationToken);
 
         // Assert
         if (redeemed)
             await verify();
         else
-            await Assert.ThrowsAsync<InvalidDataException>(verify);
+            await Assert.ThrowsAsync<InvalidDataException>((Func<Task<AuthUserViewModel>>)verify);
 
         A.CallTo(() => _codeCheckService.CheckAsync(A<string>._, A<string>._, A<string>._, A<string>._, A<CancellationToken>._))
             .MustNotHaveHappened();

@@ -41,13 +41,12 @@ public class GetSecondStepTicketQueryHandler(
             cancellationToken
         );
 
-        var user = LoginTicketValidity.IsUsable(loginTicket, query.Step, _timeProvider.GetUtcNow().UtcDateTime)
-            ? await _userManager.FindByIdAsync(loginTicket.UserId)
-            : null;
-
-        if (user is null)
-            throw new InvalidDataException(ErrorMessages.Codes.NotAccepted);
-
+        var user =
+            (
+                LoginTicketValidity.IsUsable(loginTicket, query.Step, _timeProvider.GetUtcNow().UtcDateTime)
+                    ? await _userManager.FindByIdAsync(loginTicket.UserId)
+                    : null
+            ) ?? throw new InvalidDataException(ErrorMessages.Codes.NotAccepted);
         if (await _userManager.IsLockedOutAsync(user))
             throw new InvalidCredentialException($"User {user.Id} is locked out");
 

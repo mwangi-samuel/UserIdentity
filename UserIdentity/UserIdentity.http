@@ -57,6 +57,13 @@ Authorization: Bearer {{adminLogin.response.body.$.userToken.accessToken.token}}
 
 ###
 
+GET {{UserIdentity_HostAddress}}/api/v1/user/email/{{user.response.body.$.user.email}}
+X-Api-Key: {{ApiKey}}
+X-App-Name: {{AppName}}
+Authorization: Bearer {{adminLogin.response.body.$.userToken.accessToken.token}}
+
+###
+
 # @name role
 POST {{UserIdentity_HostAddress}}/api/v1/role
 X-Api-Key: {{ApiKey}}

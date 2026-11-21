@@ -170,6 +170,80 @@ public class UserDetailsEndpointsTests(TestingWebAppFactory testingWebAppFactory
     }
 
     [Fact]
+    public async Task An_App_Admin_Finds_An_Account_Of_The_App_By_Its_Email()
+    {
+        // Arrange
+        TestDbHelper.SeedDatabase();
+        TestDbHelper.ConfigureIdentityUserAsAdmin();
+
+        var targetUserId = TestDbHelper.CreateUserOfApp(RegisteredApp.AppName);
+
+        // Act
+        var response = await GetAsUserAsync($"/email/{Uri.EscapeDataString(OtherUserEmail)}");
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.Response.StatusCode);
+        Assert.Equal(targetUserId, $"{response.Body["user"]?["id"]}");
+        Assert.Equal(OtherUserEmail, $"{response.Body["user"]?["email"]}");
+    }
+
+    [Theory]
+    [InlineData("unknown")]
+    [InlineData("other-app")]
+    [InlineData("admin")]
+    public async Task An_App_Admin_Gets_The_Same_404_For_An_Unknown_Email_Another_Apps_Account_Or_An_Admin(string target)
+    {
+        // Arrange
+        TestDbHelper.SeedDatabase();
+        TestDbHelper.ConfigureIdentityUserAsAdmin();
+
+        if (target == "other-app")
+            TestDbHelper.CreateUserOfApp(TestingWebAppFactory.OtherAppName);
+
+        if (target == "admin")
+            TestDbHelper.CreateIdentityUserRole(TestDbHelper.AdminRoles.First(), TestDbHelper.CreateUserOfApp(RegisteredApp.AppName));
+
+        // Act
+        var response = await GetAsUserAsync($"/email/{Uri.EscapeDataString(OtherUserEmail)}");
+
+        // Assert
+        Assert.Equal(HttpStatusCode.NotFound, response.Response.StatusCode);
+    }
+
+    [Fact]
+    public async Task A_Global_Admin_Finds_An_Admin_Account_By_Its_Email()
+    {
+        // Arrange
+        TestDbHelper.SeedDatabase();
+        TestDbHelper.ConfigureIdentityUserAsAdmin();
+        TestDbHelper.ConfigureIdentityUserAsGlobalAdmin();
+
+        var targetUserId = TestDbHelper.CreateUserOfApp(RegisteredApp.AppName);
+        TestDbHelper.CreateIdentityUserRole(TestDbHelper.AdminRoles.First(), targetUserId);
+
+        // Act
+        var response = await GetAsUserAsync($"/email/{Uri.EscapeDataString(OtherUserEmail)}");
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.Response.StatusCode);
+        Assert.Equal(targetUserId, $"{response.Body["user"]?["id"]}");
+    }
+
+    [Fact]
+    public async Task A_User_Who_Is_Not_An_Admin_Cant_Find_Accounts_By_Email()
+    {
+        // Arrange
+        TestDbHelper.SeedDatabase();
+        TestDbHelper.CreateUserOfApp(RegisteredApp.AppName);
+
+        // Act
+        var response = await GetAsUserAsync($"/email/{Uri.EscapeDataString(OtherUserEmail)}");
+
+        // Assert
+        Assert.Equal(HttpStatusCode.Forbidden, response.Response.StatusCode);
+    }
+
+    [Fact]
     public async Task A_User_Cant_Change_Another_User()
     {
         // Arrange
@@ -394,6 +468,18 @@ public class UserDetailsEndpointsTests(TestingWebAppFactory testingWebAppFactory
         (var accessToken, _) = await HttpClient.LoginUserAsync(loginName, UserSettingHelper.UserPassword);
 
         return await SendWithTokenAsync(method, path, accessToken, body);
+    }
+
+    private async Task<(HttpResponseMessage Response, JObject Body)> GetAsUserAsync(string path)
+    {
+        (var accessToken, _) = await HttpClient.LoginUserAsync(UserSettingHelper.UserName, UserSettingHelper.UserPassword);
+
+        var httpRequest = ApiRequestHelper.CreateHttpRequestMessage(HttpMethod.Get, BaseUri + path);
+        httpRequest.AddAuthHeader(accessToken);
+
+        var response = await HttpClient.SendAsync(httpRequest, TestContext.Current.CancellationToken);
+
+        return (response, SerDeHelper.Deserialize<JObject>(await response.ValidateRequestResponseAsync()) ?? []);
     }
 
     private async Task<(HttpResponseMessage Response, JObject Body)> SendWithTokenAsync(
