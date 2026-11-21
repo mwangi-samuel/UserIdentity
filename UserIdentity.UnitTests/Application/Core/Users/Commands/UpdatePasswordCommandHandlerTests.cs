@@ -118,7 +118,7 @@ public class UpdatePasswordCommandHandlerTests
             .Then(A.CallTo(() => _unitOfWork.BeginTransactionAsync(A<CancellationToken>._)).MustHaveHappenedOnceExactly())
             .Then(A.CallTo(() => _userManager.ResetPasswordAsync(_user, "reset-token", "N3wP@ssword")).MustHaveHappenedOnceExactly())
             .Then(
-                A.CallTo(() => _refreshTokenRepository.DeleteEntityItemsAsync(_user.Id, A<CancellationToken>._))
+                A.CallTo(() => _refreshTokenRepository.DeleteEntityItemsAsync(_user.Id, null, null, null, A<CancellationToken>._))
                     .MustHaveHappenedOnceExactly()
             )
             .Then(

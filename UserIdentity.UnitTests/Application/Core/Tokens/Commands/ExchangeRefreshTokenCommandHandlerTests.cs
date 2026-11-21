@@ -15,6 +15,7 @@ using UserIdentity.Application.Core.Tokens.Shared;
 using UserIdentity.Application.Core.Tokens.ViewModels;
 using UserIdentity.Application.Core.TwoFactor.Queries;
 using UserIdentity.Application.Core.TwoFactor.ViewModels;
+using UserIdentity.Application.Core.Users.Shared;
 using UserIdentity.Common.Enums;
 using UserIdentity.Domain.RefreshTokens;
 using UserIdentity.Persistence.Repositories.RefreshTokens;
@@ -129,7 +130,7 @@ public class ExchangeRefreshTokenCommandHandlerTests
 
         SetUpValidAccessToken(command);
         SetUpRefreshTokenLookup((dbRefreshToken, true));
-        SetUpNewAccessToken("new-access-token", 180);
+        SetUpNewAccessToken("new-access-token", 180, dbRefreshToken.Id);
         A.CallTo(() => _getTwoFactorStatusQueryHandler.GetItemAsync(A<GetTwoFactorStatusQuery>._, A<CancellationToken>._))
             .Returns(
                 new TwoFactorStatusViewModel
@@ -297,7 +298,7 @@ public class ExchangeRefreshTokenCommandHandlerTests
 
         SetUpValidAccessToken(command);
         SetUpRefreshTokenLookup((dbRefreshToken, true));
-        SetUpNewAccessToken(newAccesToken, newAccesstokenExpiresIn);
+        SetUpNewAccessToken(newAccesToken, newAccesstokenExpiresIn, dbRefreshToken.Id);
 
         A.CallTo(() => _tokenFactory.GenerateToken(32)).Returns(updatedRefreshToken);
         A.CallTo(() => _tokenFactory.HashToken(updatedRefreshToken)).Returns(updatedRefreshTokenHash);
@@ -341,7 +342,7 @@ public class ExchangeRefreshTokenCommandHandlerTests
 
         SetUpValidAccessToken(command);
         SetUpRefreshTokenLookup((dbRefreshToken, true));
-        SetUpNewAccessToken("new-access-token", 180);
+        SetUpNewAccessToken("new-access-token", 180, dbRefreshToken.Id);
 
         A.CallTo(() => _unitOfWork.SaveChangesAsync(A<CancellationToken>._)).ThrowsAsync(new DbUpdateConcurrencyException());
 
@@ -359,7 +360,7 @@ public class ExchangeRefreshTokenCommandHandlerTests
     }
 
     [Fact]
-    public async Task ExchangeRefreshToken_For_An_App_The_User_Isnt_Registered_For_Removes_The_Session_And_Throws_SecurityTokenException()
+    public async Task ExchangeRefreshToken_For_A_Session_That_Isnt_Of_The_Tokens_App_Removes_The_Session_And_Throws_SecurityTokenException()
     {
         // Arrange
         var command = GetExchangeRefreshTokenCommand();
@@ -368,6 +369,7 @@ public class ExchangeRefreshTokenCommandHandlerTests
         {
             Id = Guid.NewGuid(),
             UserId = TestStringHelper.UserId,
+            AppId = 2,
             Token = RefreshTokenHash,
             Expires = _now.AddMinutes(5),
         };
@@ -378,12 +380,63 @@ public class ExchangeRefreshTokenCommandHandlerTests
         var hanndler = GetExchangeRefreshTokenCommandHandler();
 
         // Act & Assert
-        await Assert.ThrowsAsync<SecurityTokenException>(() =>
+        var exception = await Assert.ThrowsAsync<SecurityTokenException>(() =>
             hanndler.UpdateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken)
         );
 
+        Assert.Equal("Invalid refresh token provided", exception.Message);
         A.CallTo(() => _refreshTokenRepository.RemoveEntityItem(dbRefreshToken)).MustHaveHappenedOnceExactly();
+        A.CallTo(() => _unitOfWork.SaveChangesAsync(A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+        A.CallTo(() => _createAccessTokenCommandHandler.CreateItemAsync(A<CreateAccessTokenCommand>._, A<string>._, A<CancellationToken>._))
+            .MustNotHaveHappened();
         A.CallTo(() => _tokenFactory.GenerateToken(A<int>._)).MustNotHaveHappened();
+    }
+
+    [Fact]
+    public async Task ExchangeRefreshToken_Records_The_Requests_Address_And_Device_And_Keeps_The_Session_Id()
+    {
+        // Arrange
+        var command = new ExchangeRefreshTokenCommand
+        {
+            AccessToken = AccessToken,
+            RefreshToken = RefreshToken,
+            RequestContext = RequestContext.Create("203.0.113.7", "Test Browser"),
+        };
+
+        var sessionId = Guid.CreateVersion7();
+        var dbRefreshToken = new RefreshTokenEntity
+        {
+            Id = sessionId,
+            UserId = TestStringHelper.UserId,
+            AppId = _registeredApp.Id,
+            Token = RefreshTokenHash,
+            Expires = _now.AddMinutes(5),
+            IpAddress = "198.51.100.20",
+            Device = "Old Browser",
+        };
+
+        SetUpValidAccessToken(command);
+        SetUpRefreshTokenLookup((dbRefreshToken, true));
+        SetUpNewAccessToken("new-access-token", 180, sessionId);
+
+        // Act
+        var vm = await GetExchangeRefreshTokenCommandHandler()
+            .UpdateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal("new-access-token", vm.UserToken.AccessToken.Token);
+        Assert.Equal(sessionId, dbRefreshToken.Id);
+        Assert.Equal("203.0.113.7", dbRefreshToken.IpAddress);
+        Assert.Equal("Test Browser", dbRefreshToken.Device);
+        A.CallTo(() =>
+                _createAccessTokenCommandHandler.CreateItemAsync(
+                    new CreateAccessTokenCommand(TestStringHelper.UserId, TestStringHelper.UserName, "TestApp", sessionId),
+                    TestStringHelper.UserId,
+                    A<CancellationToken>._
+                )
+            )
+            .MustHaveHappenedOnceExactly();
+        A.CallTo(() => _refreshTokenRepository.UpdateEntityItem(dbRefreshToken)).MustHaveHappenedOnceExactly();
     }
 
     private static ExchangeRefreshTokenCommand GetExchangeRefreshTokenCommand() =>
@@ -401,16 +454,16 @@ public class ExchangeRefreshTokenCommandHandlerTests
         A.CallTo(() => _jwtTokenHandler.ResolveTokenValue<string?>(tokenValidationResult, JwtRegisteredClaimNames.Azp)).Returns("TestApp");
     }
 
-    private void SetUpRefreshTokenLookup((RefreshTokenEntity Entity, bool IsUserRegisteredForApp)? lookup) =>
+    private void SetUpRefreshTokenLookup((RefreshTokenEntity Entity, bool IsForApp)? lookup) =>
         A.CallTo(() =>
                 _refreshTokenRepository.GetEntityForAppAsync(TestStringHelper.UserId, RefreshTokenHash, "TestApp", A<CancellationToken>._)
             )
             .Returns(lookup);
 
-    private void SetUpNewAccessToken(string token, int expiresIn) =>
+    private void SetUpNewAccessToken(string token, int expiresIn, Guid sessionId) =>
         A.CallTo(() =>
                 _createAccessTokenCommandHandler.CreateItemAsync(
-                    new CreateAccessTokenCommand(TestStringHelper.UserId, TestStringHelper.UserName, "TestApp"),
+                    new CreateAccessTokenCommand(TestStringHelper.UserId, TestStringHelper.UserName, "TestApp", sessionId),
                     A<string>._,
                     A<CancellationToken>._
                 )

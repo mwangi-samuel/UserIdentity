@@ -96,7 +96,7 @@ public class ResetUserTwoFactorCommandHandler(
             userDetails.TwoFactorMethod = null;
             userDetails.UpdateEntityAuditFields(userId, now);
 
-            await _refreshTokenRepository.DeleteEntityItemsAsync(user.Id, cancellationToken);
+            await _refreshTokenRepository.DeleteEntityItemsAsync(user.Id, cancellationToken: cancellationToken);
             await _loginTicketRepository.DeleteEntityItemsAsync(user.Id, cancellationToken);
 
             await _createOutboxMessageCommandHandler.CreateItemAsync(

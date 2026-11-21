@@ -8,6 +8,8 @@ namespace UserIdentity.Persistence.Repositories.WaitLists;
 
 public class WaitListRepository(AppDbContext dbContext) : EntityRepository<WaitListEntity, long>(dbContext), IWaitListRepository
 {
+    private readonly AppDbContext _dbContext = dbContext;
+
     public async Task<WaitListEntity?> GetEntityByAlternateIdAsync(
         WaitListEntity entity,
         QueryCondition queryCondition,
@@ -34,4 +36,12 @@ public class WaitListRepository(AppDbContext dbContext) : EntityRepository<WaitL
             .Where(e => e.AppId == appId && e.UserEmail == userEmail)
             .Select(WaitListDto.Detailed)
             .SingleOrDefaultAsync(cancellationToken);
+
+    public async Task<int> DeleteEntityItemsForUserAsync(string userId, CancellationToken cancellationToken = default) =>
+        await DbSet
+            .Where(e =>
+                _dbContext.UserRegisteredApp.Any(registration => registration.UserId == userId && registration.AppId == e.AppId)
+                && _dbContext.Users.Any(user => user.Id == userId && user.Email == e.UserEmail)
+            )
+            .ExecuteDeleteAsync(cancellationToken);
 }

@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
@@ -12,6 +13,7 @@ using UserIdentity.Application.Core.Tokens.Shared;
 using UserIdentity.Application.Core.Tokens.ViewModels;
 using UserIdentity.Application.Core.TwoFactor.Queries;
 using UserIdentity.Application.Core.TwoFactor.ViewModels;
+using UserIdentity.Application.Core.Users.Shared;
 using UserIdentity.Domain.RefreshTokens;
 using UserIdentity.Persistence.Repositories.RefreshTokens;
 
@@ -24,6 +26,9 @@ public record ExchangeRefreshTokenCommand : IBaseCommand
 
     [Required]
     public string RefreshToken { get; init; } = null!;
+
+    [JsonIgnore]
+    public RequestContext RequestContext { get; internal set; } = new();
 }
 
 public class ExchangeRefreshTokenCommandHandler(
@@ -82,7 +87,7 @@ public class ExchangeRefreshTokenCommandHandler(
             throw new SecurityTokenException("Invalid refresh token provided");
         }
 
-        (var existingEntity, var isUserRegisteredForApp) = existing.Value;
+        (var existingEntity, var isForApp) = existing.Value;
 
         if (existingEntity.Expires <= TimeProvider.GetUtcNow().UtcDateTime)
         {
@@ -91,8 +96,7 @@ public class ExchangeRefreshTokenCommandHandler(
             throw new SecurityTokenException("Expired refresh token provided");
         }
 
-        // Ends sessions from logins to apps the user isn't registered for
-        if (!isUserRegisteredForApp)
+        if (!isForApp)
         {
             await RemoveRefreshTokenAsync(existingEntity, cancellationToken);
 
@@ -116,7 +120,7 @@ public class ExchangeRefreshTokenCommandHandler(
         }
 
         var accessToken = await _createAccessTokenCommandHandler.CreateItemAsync(
-            new CreateAccessTokenCommand(tokenUserId, tokenUserName, azp),
+            new CreateAccessTokenCommand(tokenUserId, tokenUserName, azp, existingEntity.Id),
             tokenUserId,
             cancellationToken
         );
@@ -126,6 +130,8 @@ public class ExchangeRefreshTokenCommandHandler(
         existingEntity.PreviousToken = existingEntity.Token;
         existingEntity.Token = _tokenFactory.HashToken(updateRefreshToken);
         existingEntity.Expires = TimeProvider.GetUtcNow().UtcDateTime.AddSeconds(_refreshTokenSettings.ValidForSeconds);
+        existingEntity.IpAddress = command.RequestContext.IpAddress;
+        existingEntity.Device = command.RequestContext.Device;
         existingEntity.Version = Guid.NewGuid();
 
         await UpdateEntityItemAsync(existingEntity, tokenUserId, cancellationToken);

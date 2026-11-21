@@ -19,6 +19,8 @@ public static class ErrorMessages
         public const string PhoneUsedForTwoFactor =
             "This phone number receives your two-step sign-in codes. Change your two-step sign-in method first.";
         public const string TooManyCodes = "Too many codes were sent today. Try again tomorrow.";
+        public const string PasswordRequiredToDeleteAccount = "Your password is required to delete your account.";
+        public const string LastGlobalAdmin = "This is the only global admin account, so it can't be deleted.";
 
         public static string InviteRoleMissing(string role) => $"The role {role} granted by the invite code doesn't exist.";
 

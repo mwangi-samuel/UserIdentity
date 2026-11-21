@@ -70,7 +70,8 @@ public class ResetUserTwoFactorCommandHandlerTests
         Assert.Equal(_user.Id, vm.User.Id);
         Assert.Null(_userDetails.TwoFactorMethod);
         A.CallTo(() => _userManager.SetTwoFactorEnabledAsync(_user, false)).MustHaveHappenedOnceExactly();
-        A.CallTo(() => _refreshTokenRepository.DeleteEntityItemsAsync(_user.Id, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+        A.CallTo(() => _refreshTokenRepository.DeleteEntityItemsAsync(_user.Id, null, null, null, A<CancellationToken>._))
+            .MustHaveHappenedOnceExactly();
         A.CallTo(() => _loginTicketRepository.DeleteEntityItemsAsync(_user.Id, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
         A.CallTo(() =>
                 _createOutboxMessageCommandHandler.CreateItemAsync(

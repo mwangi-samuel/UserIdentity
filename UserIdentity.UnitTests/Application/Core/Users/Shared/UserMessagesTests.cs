@@ -168,6 +168,24 @@ public class UserMessagesTests
     }
 
     [Fact]
+    public void AccountDeletion_Is_Correlated_By_The_User_Id_And_Carries_When_It_Was_Deleted()
+    {
+        // Act
+        var message = UserMessages.AccountDeletion(_user, _userDetails, "TestApp", _requestContext, Now);
+
+        // Assert
+        Assert.Equal("AccountDeleted", message.Action);
+        Assert.Equal("user-id", message.CorrelationId);
+        Assert.Equal("TestApp", message.RegisteredApp);
+        Assert.Null(message.ExpiresAt);
+        AssertAccountRecipient(message);
+        Assert.Equal(
+            """{"firstName":"Test","deletedAt":"2026-11-18T12:00:00Z","ipAddress":"203.0.113.7","device":"Test Browser"}""",
+            message.Data.GetRawText()
+        );
+    }
+
+    [Fact]
     public void Messages_Carry_No_Locale_Or_Notify_Subject()
     {
         // Act

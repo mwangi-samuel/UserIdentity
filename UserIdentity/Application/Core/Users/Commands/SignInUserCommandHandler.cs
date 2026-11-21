@@ -112,7 +112,7 @@ public class SignInUserCommandHandler(
         IdentityResults.EnsureSucceeded(await _userManager.ResetAccessFailedCountAsync(user));
 
         var session = await _startSessionCommandHandler.CreateItemAsync(
-            new StartSessionCommand(user.Id, user.UserName!, command.RegisteredApp.AppName),
+            new StartSessionCommand(user.Id, user.UserName!, command.RegisteredApp, command.RequestContext),
             user.Id,
             cancellationToken
         );

@@ -121,7 +121,7 @@ public class UpdatePasswordCommandHandler(
 
             await UpdateEntityItemAsync(passwordReset, user.Id, cancellationToken);
 
-            await _refreshTokenRepository.DeleteEntityItemsAsync(user.Id, cancellationToken);
+            await _refreshTokenRepository.DeleteEntityItemsAsync(user.Id, cancellationToken: cancellationToken);
             await _loginTicketRepository.DeleteEntityItemsAsync(user.Id, cancellationToken);
 
             var userDetails = await _userRepository.GetUserDtoAsync(user.Id, null, cancellationToken) ?? new UserDto();

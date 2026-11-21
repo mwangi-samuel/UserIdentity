@@ -153,7 +153,7 @@ public class ConfirmTwoFactorSetupCommandHandlerTests
                 )
             )
             .MustHaveHappenedOnceExactly();
-        A.CallTo(() => _refreshTokenRepository.DeleteEntityItemsAsync(_user.Id, A<CancellationToken>._))
+        A.CallTo(() => _refreshTokenRepository.DeleteEntityItemsAsync(_user.Id, null, null, null, A<CancellationToken>._))
             .MustHaveHappenedOnceExactly()
             .Then(A.CallTo(() => _loginTicketRepository.RemoveEntityItem(_loginTicket)).MustHaveHappenedOnceExactly())
             .Then(

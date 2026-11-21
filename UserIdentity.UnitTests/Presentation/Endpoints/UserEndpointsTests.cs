@@ -10,6 +10,7 @@ using PolyzenKit.Common.Utilities;
 using PolyzenKit.Domain.Entities.RegisteredApps;
 using PolyzenKit.Presentation.Endpoints;
 using UserIdentity.Application.Core.Tokens.Commands;
+using UserIdentity.Application.Core.Tokens.Queries;
 using UserIdentity.Application.Core.Tokens.ViewModels;
 using UserIdentity.Application.Core.TwoFactor.Commands;
 using UserIdentity.Application.Core.TwoFactor.Queries;
@@ -224,7 +225,7 @@ public class UserEndpointsTests
     }
 
     [Fact]
-    public async Task Refresh_Token_Grants_Edit_Only_And_Answers_Refresh_Token_Generated()
+    public async Task Refresh_Token_Passes_The_Request_Context_Grants_Edit_Only_And_Answers_Refresh_Token_Generated()
     {
         // Arrange
         ExchangeRefreshTokenCommand command = new() { AccessToken = "access-token", RefreshToken = "refresh-token" };
@@ -242,16 +243,23 @@ public class UserEndpointsTests
                 }
             );
 
-        var request = ApiRequestFactory.Create("user", userId: TestStringHelper.UserId);
+        var httpContext = GetClientHttpContext();
 
         // Act
-        var result = await UserEndpoints.ExchangeRefreshTokenAsync(command, request, handler, TestContext.Current.CancellationToken);
+        var result = await UserEndpoints.ExchangeRefreshTokenAsync(
+            command,
+            ApiRequest.For(httpContext),
+            httpContext,
+            handler,
+            TestContext.Current.CancellationToken
+        );
 
         // Assert
         Assert.Equal((int)HttpStatusCode.OK, result.StatusCode);
         Assert.True(result.Value?.EditEnabled);
         Assert.False(result.Value?.DeleteEnabled);
         Assert.Equal("Refresh token generated successfully", result.Value?.StatusMessage);
+        Assert.Equal(RequestContext.Create("203.0.113.7", "Test Browser"), command.RequestContext);
     }
 
     [Fact]
@@ -610,6 +618,242 @@ public class UserEndpointsTests
         // Assert
         Assert.Same(_registeredApp, command.RegisteredApp);
         Assert.Equal(new UserChanger(TestStringHelper.UserId, false), command.Changer);
+    }
+
+    [Fact]
+    public async Task Get_Sessions_Passes_The_Target_The_Callers_App_Who_Asks_And_The_Callers_Session()
+    {
+        // Arrange
+        var sessionId = Guid.CreateVersion7();
+        var handler = A.Fake<IGetItemsQueryHandler<GetSessionsQuery, SessionsViewModel>>();
+
+        A.CallTo(() => handler.GetItemsAsync(A<GetSessionsQuery>._, A<CancellationToken>._))
+            .Returns(new SessionsViewModel { Sessions = [] });
+
+        var httpContext = ApiRequestFactory.CreateHttpContext("user", userId: TestStringHelper.UserId, sessionId: sessionId);
+
+        // Act
+        var result = await UserEndpoints.GetSessionsAsync(
+            TestStringHelper.UserId,
+            ApiRequest.For(httpContext),
+            httpContext,
+            _getRegisteredAppHandler,
+            handler,
+            TestContext.Current.CancellationToken
+        );
+
+        // Assert
+        Assert.Equal((int)HttpStatusCode.OK, result.StatusCode);
+        Assert.Equal(ItemStatusMessage.FetchItemsSuccessful.ToText(), result.Value?.StatusMessage);
+        A.CallTo(() =>
+                _getRegisteredAppHandler.GetItemAsync(
+                    A<GetRegisteredAppQuery>.That.Matches(query => query.AppName == "testapp"),
+                    A<CancellationToken>._
+                )
+            )
+            .MustHaveHappenedOnceExactly();
+        A.CallTo(() =>
+                handler.GetItemsAsync(
+                    new GetSessionsQuery
+                    {
+                        UserId = TestStringHelper.UserId,
+                        RegisteredApp = _registeredApp,
+                        Changer = new UserChanger(TestStringHelper.UserId, false),
+                        CurrentSessionId = sessionId,
+                    },
+                    A<CancellationToken>._
+                )
+            )
+            .MustHaveHappenedOnceExactly();
+    }
+
+    [Fact]
+    public async Task Get_Sessions_With_A_Token_Without_A_Session_Has_No_Current_Session()
+    {
+        // Arrange
+        var handler = A.Fake<IGetItemsQueryHandler<GetSessionsQuery, SessionsViewModel>>();
+
+        A.CallTo(() => handler.GetItemsAsync(A<GetSessionsQuery>._, A<CancellationToken>._))
+            .Returns(new SessionsViewModel { Sessions = [] });
+
+        var httpContext = ApiRequestFactory.CreateHttpContext("user", userId: "admin-id", roles: ["testapp:admin"]);
+
+        // Act
+        await UserEndpoints.GetSessionsAsync(
+            "target-id",
+            ApiRequest.For(httpContext),
+            httpContext,
+            _getRegisteredAppHandler,
+            handler,
+            TestContext.Current.CancellationToken
+        );
+
+        // Assert
+        A.CallTo(() =>
+                handler.GetItemsAsync(
+                    A<GetSessionsQuery>.That.Matches(query =>
+                        query.UserId == "target-id" && query.Changer == new UserChanger("admin-id", false) && query.CurrentSessionId == null
+                    ),
+                    A<CancellationToken>._
+                )
+            )
+            .MustHaveHappenedOnceExactly();
+    }
+
+    [Fact]
+    public async Task End_Session_Passes_The_Target_The_Session_The_Callers_App_And_Who_Ends_It()
+    {
+        // Arrange
+        var sessionId = Guid.CreateVersion7();
+        var handler = A.Fake<IDeleteItemCommandHandler<EndSessionCommand, DeleteRecordViewModel>>();
+
+        A.CallTo(() => handler.DeleteItemAsync(A<EndSessionCommand>._, A<string>._, A<CancellationToken>._))
+            .Returns(new DeleteRecordViewModel());
+
+        var request = ApiRequestFactory.Create("user", userId: TestStringHelper.UserId);
+
+        // Act
+        var result = await UserEndpoints.EndSessionAsync(
+            TestStringHelper.UserId,
+            sessionId,
+            request,
+            _getRegisteredAppHandler,
+            handler,
+            TestContext.Current.CancellationToken
+        );
+
+        // Assert
+        Assert.Equal((int)HttpStatusCode.OK, result.StatusCode);
+        Assert.Equal(ItemStatusMessage.DeleteItemSuccessful.ToText(), result.Value?.StatusMessage);
+        A.CallTo(() =>
+                handler.DeleteItemAsync(
+                    new EndSessionCommand(
+                        TestStringHelper.UserId,
+                        sessionId,
+                        _registeredApp,
+                        new UserChanger(TestStringHelper.UserId, false)
+                    ),
+                    TestStringHelper.UserId,
+                    A<CancellationToken>._
+                )
+            )
+            .MustHaveHappenedOnceExactly();
+    }
+
+    [Fact]
+    public async Task End_Sessions_Passes_The_Callers_Session_To_Keep()
+    {
+        // Arrange
+        var sessionId = Guid.CreateVersion7();
+        var handler = A.Fake<IDeleteItemCommandHandler<EndSessionsCommand, DeleteRecordViewModel>>();
+
+        A.CallTo(() => handler.DeleteItemAsync(A<EndSessionsCommand>._, A<string>._, A<CancellationToken>._))
+            .Returns(new DeleteRecordViewModel());
+
+        var httpContext = ApiRequestFactory.CreateHttpContext("user", userId: TestStringHelper.UserId, sessionId: sessionId);
+
+        // Act
+        var result = await UserEndpoints.EndSessionsAsync(
+            TestStringHelper.UserId,
+            ApiRequest.For(httpContext),
+            httpContext,
+            _getRegisteredAppHandler,
+            handler,
+            TestContext.Current.CancellationToken
+        );
+
+        // Assert
+        Assert.Equal((int)HttpStatusCode.OK, result.StatusCode);
+        A.CallTo(() =>
+                handler.DeleteItemAsync(
+                    new EndSessionsCommand(
+                        TestStringHelper.UserId,
+                        _registeredApp,
+                        new UserChanger(TestStringHelper.UserId, false),
+                        sessionId
+                    ),
+                    TestStringHelper.UserId,
+                    A<CancellationToken>._
+                )
+            )
+            .MustHaveHappenedOnceExactly();
+    }
+
+    [Fact]
+    public async Task Delete_User_Passes_The_Target_The_Callers_App_Who_Deletes_And_The_Request_Context()
+    {
+        // Arrange
+        DeleteUserCommand command = new() { Password = "password" };
+        var handler = A.Fake<IDeleteItemCommandHandler<DeleteUserCommand, DeleteRecordViewModel>>();
+
+        A.CallTo(() => handler.DeleteItemAsync(command, A<string>._, A<CancellationToken>._)).Returns(new DeleteRecordViewModel());
+
+        var httpContext = GetClientHttpContext(userId: TestStringHelper.UserId);
+
+        // Act
+        var result = await UserEndpoints.DeleteUserAsync(
+            TestStringHelper.UserId,
+            command,
+            ApiRequest.For(httpContext),
+            httpContext,
+            _getRegisteredAppHandler,
+            handler,
+            TestContext.Current.CancellationToken
+        );
+
+        // Assert
+        Assert.Equal((int)HttpStatusCode.OK, result.StatusCode);
+        Assert.Equal(ItemStatusMessage.DeleteItemSuccessful.ToText(), result.Value?.StatusMessage);
+        Assert.Equal(TestStringHelper.UserId, command.UserId);
+        Assert.Same(_registeredApp, command.RegisteredApp);
+        Assert.Equal(new UserChanger(TestStringHelper.UserId, false), command.Changer);
+        Assert.Equal(RequestContext.Create("203.0.113.7", "Test Browser"), command.RequestContext);
+        A.CallTo(() => handler.DeleteItemAsync(command, TestStringHelper.UserId, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+    }
+
+    [Fact]
+    public async Task Delete_User_By_A_Global_Admin_Without_A_Body_Uses_The_Named_App_And_No_Password()
+    {
+        // Arrange
+        var handler = A.Fake<IDeleteItemCommandHandler<DeleteUserCommand, DeleteRecordViewModel>>();
+
+        A.CallTo(() => handler.DeleteItemAsync(A<DeleteUserCommand>._, A<string>._, A<CancellationToken>._))
+            .Returns(new DeleteRecordViewModel());
+
+        var httpContext = ApiRequestFactory.CreateHttpContext("user", userId: "admin-id", appName: "test-app", roles: ["global:admin"]);
+
+        // Act
+        await UserEndpoints.DeleteUserAsync(
+            "target-id",
+            null,
+            ApiRequest.For(httpContext),
+            httpContext,
+            _getRegisteredAppHandler,
+            handler,
+            TestContext.Current.CancellationToken
+        );
+
+        // Assert
+        A.CallTo(() =>
+                _getRegisteredAppHandler.GetItemAsync(
+                    A<GetRegisteredAppQuery>.That.Matches(query => query.AppName == "test-app"),
+                    A<CancellationToken>._
+                )
+            )
+            .MustHaveHappenedOnceExactly();
+        A.CallTo(() =>
+                handler.DeleteItemAsync(
+                    A<DeleteUserCommand>.That.Matches(c =>
+                        c.UserId == "target-id"
+                        && c.Password == null
+                        && c.RegisteredApp == _registeredApp
+                        && c.Changer == new UserChanger("admin-id", true)
+                    ),
+                    "admin-id",
+                    A<CancellationToken>._
+                )
+            )
+            .MustHaveHappenedOnceExactly();
     }
 
     [Fact]

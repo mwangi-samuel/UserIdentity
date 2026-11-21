@@ -24,7 +24,7 @@ public class RefreshTokenRepository(AppDbContext appDbContext)
         return queryCondition.Apply(existingEntity, entity.UserId);
     }
 
-    public async Task<(RefreshTokenEntity Entity, bool IsUserRegisteredForApp)?> GetEntityForAppAsync(
+    public async Task<(RefreshTokenEntity Entity, bool IsForApp)?> GetEntityForAppAsync(
         string userId,
         string token,
         string appName,
@@ -36,14 +36,29 @@ public class RefreshTokenRepository(AppDbContext appDbContext)
             .Select(e => new
             {
                 Entity = e,
-                IsUserRegisteredForApp = _appDbContext.UserRegisteredApp.Any(registration =>
-                    registration.UserId == e.UserId && registration.App.AppName == appName && !registration.App.IsDeleted
+                IsForApp = _appDbContext.UserRegisteredApp.Any(registration =>
+                    registration.UserId == e.UserId
+                    && registration.AppId == e.AppId
+                    && registration.App.AppName == appName
+                    && !registration.App.IsDeleted
                 ),
             })
             .SingleOrDefaultAsync(cancellationToken);
 
-        return result is null ? null : (result.Entity, result.IsUserRegisteredForApp);
+        return result is null ? null : (result.Entity, result.IsForApp);
     }
+
+    public async Task<List<RefreshTokenEntity>> GetEntityItemsAsync(
+        string userId,
+        int appId,
+        DateTime expiresAfter,
+        CancellationToken cancellationToken = default
+    ) =>
+        await _appDbContext
+            .RefreshToken.AsNoTracking()
+            .Where(e => e.UserId == userId && e.AppId == appId && e.Expires > expiresAfter)
+            .OrderByDescending(e => e.UpdatedAt ?? e.CreatedAt)
+            .ToListAsync(cancellationToken);
 
     public async Task<RefreshTokenEntity?> GetEntityByPreviousTokenAsync(
         string userId,
@@ -68,6 +83,19 @@ public class RefreshTokenRepository(AppDbContext appDbContext)
             .ExecuteDeleteAsync(cancellationToken);
     }
 
-    public async Task DeleteEntityItemsAsync(string userId, CancellationToken cancellationToken = default) =>
-        await _appDbContext.RefreshToken.Where(e => e.UserId == userId).ExecuteDeleteAsync(cancellationToken);
+    public async Task<int> DeleteEntityItemsAsync(
+        string userId,
+        int? appId = null,
+        Guid? id = null,
+        Guid? exceptId = null,
+        CancellationToken cancellationToken = default
+    ) =>
+        await _appDbContext
+            .RefreshToken.Where(e =>
+                e.UserId == userId
+                && (appId == null || e.AppId == appId)
+                && (id == null || e.Id == id)
+                && (exceptId == null || e.Id != exceptId)
+            )
+            .ExecuteDeleteAsync(cancellationToken);
 }

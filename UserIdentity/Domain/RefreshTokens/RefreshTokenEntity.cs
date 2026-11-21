@@ -15,6 +15,14 @@ public class RefreshTokenEntity : BaseAuditableEntity<Guid>
 
     public string UserId { get; set; } = null!;
 
+    public int AppId { get; set; }
+
+    [MaxLength(RefreshTokenLimits.IpAddressMaxLength)]
+    public string? IpAddress { get; set; }
+
+    [MaxLength(RefreshTokenLimits.DeviceMaxLength)]
+    public string? Device { get; set; }
+
     [ConcurrencyCheck]
     public Guid Version { get; set; }
 }

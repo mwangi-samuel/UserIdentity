@@ -1,4 +1,6 @@
 ﻿using Microsoft.AspNetCore.Http.HttpResults;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.IdentityModel.JsonWebTokens;
 using PolyzenKit.Application.Core;
 using PolyzenKit.Application.Core.Interfaces;
 using PolyzenKit.Application.Core.RegisteredApps.Queries;
@@ -10,6 +12,7 @@ using PolyzenKit.Presentation.Captcha;
 using PolyzenKit.Presentation.Endpoints;
 using PolyzenKit.Presentation.Settings;
 using UserIdentity.Application.Core.Tokens.Commands;
+using UserIdentity.Application.Core.Tokens.Queries;
 using UserIdentity.Application.Core.Tokens.ViewModels;
 using UserIdentity.Application.Core.TwoFactor.Commands;
 using UserIdentity.Application.Core.TwoFactor.Queries;
@@ -40,6 +43,23 @@ public static class UserEndpoints
             .MapPut("{userId}", UpdateUserAsync)
             .RequireAuthorization(AuthorizationPolicies.AdminGlobalAdminOrSameUser)
             .Produces<UserViewModel>();
+        group
+            .MapDelete("{userId}", DeleteUserAsync)
+            .RequireAuthorization(AuthorizationPolicies.AdminGlobalAdminOrSameUser)
+            .AddEndpointFilter<PasswordHashingFilter>()
+            .Produces<DeleteRecordViewModel>();
+        group
+            .MapGet("{userId}/sessions", GetSessionsAsync)
+            .RequireAuthorization(AuthorizationPolicies.AdminGlobalAdminOrSameUser)
+            .Produces<SessionsViewModel>();
+        group
+            .MapDelete("{userId}/sessions/{sessionId:guid}", EndSessionAsync)
+            .RequireAuthorization(AuthorizationPolicies.AdminGlobalAdminOrSameUser)
+            .Produces<DeleteRecordViewModel>();
+        group
+            .MapDelete("{userId}/sessions", EndSessionsAsync)
+            .RequireAuthorization(AuthorizationPolicies.AdminGlobalAdminOrSameUser)
+            .Produces<DeleteRecordViewModel>();
         group
             .MapPost("{userId}/email", ChangeEmailAsync)
             .RequireAuthorization(AuthorizationPolicies.AdminGlobalAdminOrSameUser)
@@ -308,10 +328,13 @@ public static class UserEndpoints
     internal static async Task<JsonHttpResult<ExchangeRefreshTokenViewModel>> ExchangeRefreshTokenAsync(
         ExchangeRefreshTokenCommand command,
         ApiRequest request,
+        HttpContext httpContext,
         IUpdateItemCommandHandler<ExchangeRefreshTokenCommand, ExchangeRefreshTokenViewModel> handler,
         CancellationToken cancellationToken
     )
     {
+        command.RequestContext = RequestContextReader.Read(httpContext);
+
         var vm = await handler.UpdateItemAsync(command, request.LoggedInUserId, cancellationToken);
 
         vm.EditEnabled = true;
@@ -515,4 +538,94 @@ public static class UserEndpoints
 
         return ViewModelResults.UpdateItem(request, vm);
     }
+
+    internal static async Task<JsonHttpResult<DeleteRecordViewModel>> DeleteUserAsync(
+        string userId,
+        [FromBody] DeleteUserCommand? command,
+        ApiRequest request,
+        HttpContext httpContext,
+        IGetItemQueryHandler<GetRegisteredAppQuery, RegisteredAppViewModel> getRegisteredAppHandler,
+        IDeleteItemCommandHandler<DeleteUserCommand, DeleteRecordViewModel> handler,
+        CancellationToken cancellationToken
+    )
+    {
+        var deleteCommand = command ?? new DeleteUserCommand();
+
+        deleteCommand.UserId = userId;
+        deleteCommand.RegisteredApp = await AdminApp.GetAsync(request, getRegisteredAppHandler, cancellationToken);
+        deleteCommand.Changer = new UserChanger(request.LoggedInUserId, request.IsGlobalAdmin);
+        deleteCommand.RequestContext = RequestContextReader.Read(httpContext);
+
+        var vm = await handler.DeleteItemAsync(deleteCommand, request.LoggedInUserId, cancellationToken);
+
+        return ViewModelResults.DeleteItem(vm);
+    }
+
+    internal static async Task<JsonHttpResult<SessionsViewModel>> GetSessionsAsync(
+        string userId,
+        ApiRequest request,
+        HttpContext httpContext,
+        IGetItemQueryHandler<GetRegisteredAppQuery, RegisteredAppViewModel> getRegisteredAppHandler,
+        IGetItemsQueryHandler<GetSessionsQuery, SessionsViewModel> handler,
+        CancellationToken cancellationToken
+    )
+    {
+        var vm = await handler.GetItemsAsync(
+            new GetSessionsQuery
+            {
+                UserId = userId,
+                RegisteredApp = await AdminApp.GetAsync(request, getRegisteredAppHandler, cancellationToken),
+                Changer = new UserChanger(request.LoggedInUserId, request.IsGlobalAdmin),
+                CurrentSessionId = CurrentSessionId(httpContext),
+            },
+            cancellationToken
+        );
+
+        return ViewModelResults.GetItems(request, vm, userId == request.LoggedInUserId);
+    }
+
+    internal static async Task<JsonHttpResult<DeleteRecordViewModel>> EndSessionAsync(
+        string userId,
+        Guid sessionId,
+        ApiRequest request,
+        IGetItemQueryHandler<GetRegisteredAppQuery, RegisteredAppViewModel> getRegisteredAppHandler,
+        IDeleteItemCommandHandler<EndSessionCommand, DeleteRecordViewModel> handler,
+        CancellationToken cancellationToken
+    )
+    {
+        var registeredApp = await AdminApp.GetAsync(request, getRegisteredAppHandler, cancellationToken);
+        var changer = new UserChanger(request.LoggedInUserId, request.IsGlobalAdmin);
+
+        var vm = await handler.DeleteItemAsync(
+            new EndSessionCommand(userId, sessionId, registeredApp, changer),
+            request.LoggedInUserId,
+            cancellationToken
+        );
+
+        return ViewModelResults.DeleteItem(vm);
+    }
+
+    internal static async Task<JsonHttpResult<DeleteRecordViewModel>> EndSessionsAsync(
+        string userId,
+        ApiRequest request,
+        HttpContext httpContext,
+        IGetItemQueryHandler<GetRegisteredAppQuery, RegisteredAppViewModel> getRegisteredAppHandler,
+        IDeleteItemCommandHandler<EndSessionsCommand, DeleteRecordViewModel> handler,
+        CancellationToken cancellationToken
+    )
+    {
+        var registeredApp = await AdminApp.GetAsync(request, getRegisteredAppHandler, cancellationToken);
+        var changer = new UserChanger(request.LoggedInUserId, request.IsGlobalAdmin);
+
+        var vm = await handler.DeleteItemAsync(
+            new EndSessionsCommand(userId, registeredApp, changer, CurrentSessionId(httpContext)),
+            request.LoggedInUserId,
+            cancellationToken
+        );
+
+        return ViewModelResults.DeleteItem(vm);
+    }
+
+    private static Guid? CurrentSessionId(HttpContext httpContext) =>
+        Guid.TryParse(httpContext.User.FindFirst(JwtRegisteredClaimNames.Sid)?.Value, out var sessionId) ? sessionId : null;
 }

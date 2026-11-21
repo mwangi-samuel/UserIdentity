@@ -61,6 +61,8 @@ public class SignInUserCommandHandlerTests
         EmailConfirmed = true,
     };
 
+    private readonly RequestContext _requestContext = RequestContext.Create("203.0.113.7", "Test Browser");
+
     private readonly UserDto _userDto;
     private readonly UserTokenDto _userToken = new()
     {
@@ -284,7 +286,7 @@ public class SignInUserCommandHandlerTests
         Assert.Same(_userToken, vm.UserToken);
         A.CallTo(() =>
                 _startSessionCommandHandler.CreateItemAsync(
-                    new StartSessionCommand(_user.Id, _user.UserName!, _registeredApp.AppName),
+                    new StartSessionCommand(_user.Id, _user.UserName!, _registeredApp, _requestContext),
                     _user.Id,
                     A<CancellationToken>._
                 )
@@ -431,7 +433,7 @@ public class SignInUserCommandHandlerTests
         A.CallTo(() => _startSessionCommandHandler.CreateItemAsync(A<StartSessionCommand>._, A<string>._, A<CancellationToken>._))
             .MustNotHaveHappened();
 
-    private SignInUserCommand GetCommand() => new(_user, _registeredApp, new RequestContext());
+    private SignInUserCommand GetCommand() => new(_user, _registeredApp, _requestContext);
 
     private SignInUserCommandHandler GetHandler() =>
         new(
