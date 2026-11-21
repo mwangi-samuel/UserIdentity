@@ -32,6 +32,10 @@ public static class UserEndpoints
             .RequireAuthorization(AuthorizationPolicies.AdminGlobalAdminOrSameUser)
             .Produces<UserViewModel>();
         group
+            .MapGet("email/{email}", GetUserByEmailAsync)
+            .RequireAuthorization(AuthorizationPolicies.AdminOrGlobalAdmin)
+            .Produces<UserViewModel>();
+        group
             .MapPut("{userId}", UpdateUserAsync)
             .RequireAuthorization(AuthorizationPolicies.AdminGlobalAdminOrSameUser)
             .Produces<UserViewModel>();
@@ -127,6 +131,27 @@ public static class UserEndpoints
     )
     {
         var vm = await handler.GetItemAsync(new GetUserQuery { UserId = userId, AppName = AdminApp.GetName(request) }, cancellationToken);
+
+        return ViewModelResults.GetItem(request, vm, vm.User.OwnedByLoggedInUser(request.LoggedInUserId));
+    }
+
+    internal static async Task<JsonHttpResult<UserViewModel>> GetUserByEmailAsync(
+        string email,
+        ApiRequest request,
+        IRegisteredAppResolver registeredAppResolver,
+        IGetItemQueryHandler<GetUserByEmailQuery, UserViewModel> handler,
+        CancellationToken cancellationToken
+    )
+    {
+        var vm = await handler.GetItemAsync(
+            new GetUserByEmailQuery
+            {
+                Email = email,
+                RegisteredApp = await AdminApp.GetAsync(request, registeredAppResolver, cancellationToken),
+                Changer = new UserChanger(request.LoggedInUserId, request.IsGlobalAdmin),
+            },
+            cancellationToken
+        );
 
         return ViewModelResults.GetItem(request, vm, vm.User.OwnedByLoggedInUser(request.LoggedInUserId));
     }

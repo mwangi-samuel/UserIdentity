@@ -97,11 +97,12 @@ public class ResetUserTwoFactorCommandHandlerTests
         A.CallTo(() => _userManager.GetRolesAsync(_user)).Returns(["testapp:admin"]);
 
         // Act
-        var reset = () => GetHandler().UpdateItemAsync(GetCommand(isGlobalAdmin), "admin-id", TestContext.Current.CancellationToken);
+        Task<UserIdentity.Application.Core.Users.ViewModels.UserViewModel> reset() =>
+            GetHandler().UpdateItemAsync(GetCommand(isGlobalAdmin), "admin-id", TestContext.Current.CancellationToken);
 
         // Assert
         if (refused)
-            await Assert.ThrowsAsync<NoRecordException>(reset);
+            await Assert.ThrowsAsync<NoRecordException>((Func<Task<UserIdentity.Application.Core.Users.ViewModels.UserViewModel>>)reset);
         else
             await reset();
 

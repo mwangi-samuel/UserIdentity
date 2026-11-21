@@ -75,6 +75,48 @@ public class UserEndpointsTests
     }
 
     [Fact]
+    public async Task Get_User_By_Email_Passes_The_Admins_App_And_Who_Asks()
+    {
+        // Arrange
+        var handler = A.Fake<IGetItemQueryHandler<GetUserByEmailQuery, UserViewModel>>();
+
+        A.CallTo(() => handler.GetItemAsync(A<GetUserByEmailQuery>._, A<CancellationToken>._))
+            .Returns(
+                new UserViewModel
+                {
+                    User = new UserDto { Id = "user-id", Email = "user@test.com" },
+                }
+            );
+
+        var request = ApiRequestFactory.Create("user", userId: TestStringHelper.UserId, roles: ["testapp:admin"]);
+
+        // Act
+        var result = await UserEndpoints.GetUserByEmailAsync(
+            "user@test.com",
+            request,
+            _registeredAppResolver,
+            handler,
+            TestContext.Current.CancellationToken
+        );
+
+        // Assert
+        Assert.Equal((int)HttpStatusCode.OK, result.StatusCode);
+        Assert.Equal("user-id", result.Value?.User.Id);
+        A.CallTo(() => _registeredAppResolver.GetActiveAppAsync("testapp", A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+        A.CallTo(() =>
+                handler.GetItemAsync(
+                    A<GetUserByEmailQuery>.That.Matches(q =>
+                        q.Email == "user@test.com"
+                        && q.RegisteredApp == _registeredApp
+                        && q.Changer == new UserChanger(TestStringHelper.UserId, false)
+                    ),
+                    A<CancellationToken>._
+                )
+            )
+            .MustHaveHappenedOnceExactly();
+    }
+
+    [Fact]
     public async Task Create_User_Passes_The_Requests_App_And_Context_And_Returns_Created()
     {
         // Arrange
