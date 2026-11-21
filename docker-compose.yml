@@ -82,12 +82,6 @@ services:
       CodeCheckSettings__ResendUrl: http://code-service:1080/api/v1/message/retry
       EDDSA_PRIVATE_KEY:
       EDDSA_PUBLIC_KEY:
-      BootstrapAdminSettings__AppName:
-      BootstrapAdminSettings__AppBaseUrl:
-      BootstrapAdminSettings__UserName:
-      BootstrapAdminSettings__FirstName:
-      BootstrapAdminSettings__Email:
-      BootstrapAdminSettings__Password:
       RateLimitSettings__PermitLimit: 5
       ASPNETCORE_ENVIRONMENT: Development
       Logging__LogLevel__Default: Information

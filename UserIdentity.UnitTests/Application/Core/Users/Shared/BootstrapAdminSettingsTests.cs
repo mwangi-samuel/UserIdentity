@@ -40,6 +40,7 @@ public class BootstrapAdminSettingsTests
     [InlineData("AppBaseUrl")]
     [InlineData("UserName")]
     [InlineData("FirstName")]
+    [InlineData("LastName")]
     [InlineData("Email")]
     [InlineData("Password")]
     public void A_Missing_Setting_Fails_Validation_Once_Any_Is_Set(string missingSetting)
@@ -52,6 +53,36 @@ public class BootstrapAdminSettingsTests
         // Act & Assert
         var exception = Assert.Throws<OptionsValidationException>(configuration.GetRequiredSetting<BootstrapAdminSettings>);
         Assert.Equal([$"{missingSetting}: {ErrorMessages.Users.BootstrapAdminIncomplete([missingSetting])}"], exception.Failures);
+    }
+
+    [Fact]
+    public void A_Missing_Phone_Number_Passes_Validation_And_Stays_Enabled()
+    {
+        // Arrange
+        var values = CompleteSettings();
+        values["PhoneNumber"] = string.Empty;
+        var configuration = BuildConfiguration(values);
+
+        // Act
+        var settings = configuration.GetRequiredSetting<BootstrapAdminSettings>();
+
+        // Assert
+        Assert.True(settings.IsEnabled);
+    }
+
+    [Fact]
+    public void A_Phone_Number_Alone_Passes_Validation_And_Is_Disabled()
+    {
+        // Arrange
+        var values = CompleteSettings().ToDictionary(setting => setting.Key, _ => (string?)string.Empty);
+        values["PhoneNumber"] = "+254700000001";
+        var configuration = BuildConfiguration(values);
+
+        // Act
+        var settings = configuration.GetRequiredSetting<BootstrapAdminSettings>();
+
+        // Assert
+        Assert.False(settings.IsEnabled);
     }
 
     [Fact]
@@ -74,7 +105,9 @@ public class BootstrapAdminSettingsTests
             ["AppBaseUrl"] = "https://bootstrap.test",
             ["UserName"] = "bootstrap.admin",
             ["FirstName"] = "Boot",
+            ["LastName"] = "Strap",
             ["Email"] = "bootstrap.admin@example.com",
+            ["PhoneNumber"] = "+254700000001",
             ["Password"] = "Adm1n@P@ss",
         };
 

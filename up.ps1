@@ -9,15 +9,6 @@ $keyFolder = Join-Path $HOME '.local-eddsa-keys'
 $keyPassPhrase = 'TestKeyPassPhrase-For-Local-Use-Only'
 $opensslImage = 'alpine/openssl:3.5.8'
 
-$bootstrapAdmin = [ordered]@{
-  AppName    = 'TestApp'
-  AppBaseUrl = 'http://localhost:3000'
-  UserName   = 'admin'
-  FirstName  = 'Admin'
-  Email      = 'admin@example.com'
-  Password   = 'Adm1n@P@ss'
-}
-
 function Import-LocalKeyPair {
   $privateKeyPath = Join-Path $keyFolder 'private.pem'
   $publicKeyPath = Join-Path $keyFolder 'public.pem'
@@ -42,14 +33,7 @@ function Import-LocalKeyPair {
   $env:EDDSA_PUBLIC_KEY = [IO.File]::ReadAllText($publicKeyPath)
 }
 
-function Set-BootstrapAdmin {
-  foreach ($setting in $bootstrapAdmin.GetEnumerator()) {
-    Set-Item "env:BootstrapAdminSettings__$($setting.Key)" $setting.Value
-  }
-}
-
 Import-LocalKeyPair
-Set-BootstrapAdmin
 
 if ($UseLocal) {
 
@@ -74,5 +58,5 @@ else {
     exit $LASTEXITCODE
   }
 
-  Write-Host "The bootstrap admin $($bootstrapAdmin.UserName) ($($bootstrapAdmin.Password)) is the global admin and an admin of $($bootstrapAdmin.AppName)."
+  Write-Host 'The bootstrap admin from appsettings.json, admin@example.com, is the global admin and an admin of TestApp.'
 }

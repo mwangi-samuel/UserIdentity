@@ -43,7 +43,9 @@ public class BootstrapAdminCommandHandlerTests
         AppBaseUrl = "https://bootstrap.test",
         UserName = "bootstrap.admin",
         FirstName = "Boot",
+        LastName = "Strap",
         Email = "bootstrap.admin@example.com",
+        PhoneNumber = "+254700000001",
         Password = "Adm1n@P@ss",
     };
 
@@ -165,6 +167,8 @@ public class BootstrapAdminCommandHandlerTests
         Assert.Equal(_settings.UserName, createdUser.UserName);
         Assert.Equal(_settings.Email, createdUser.Email);
         Assert.True(createdUser.EmailConfirmed);
+        Assert.Equal(_settings.PhoneNumber, createdUser.PhoneNumber);
+        Assert.False(createdUser.PhoneNumberConfirmed);
 
         A.CallTo(() =>
                 _createRegisteredAppCommandHandler.CreateItemAsync(
@@ -182,12 +186,48 @@ public class BootstrapAdminCommandHandlerTests
         A.CallTo(() =>
                 _userRepository.CreateEntityItem(
                     A<UserEntity>.That.Matches(user =>
-                        user.Id == createdUser.Id && user.FirstName == _settings.FirstName && user.CreatedAt == _fixedNow
+                        user.Id == createdUser.Id
+                        && user.FirstName == _settings.FirstName
+                        && user.LastName == _settings.LastName
+                        && user.CreatedAt == _fixedNow
                     )
                 )
             )
             .MustHaveHappenedOnceExactly();
         A.CallTo(() => _unitOfWork.CommitTransactionAsync(A<CancellationToken>._)).MustHaveHappenedOnceExactly();
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task CreateItemAsync_Stores_A_Blank_Phone_Number_As_Null(string? phoneNumber)
+    {
+        // Arrange
+        IdentityUser? createdUser = null;
+        var settings = new BootstrapAdminSettings
+        {
+            AppName = _settings.AppName,
+            AppBaseUrl = _settings.AppBaseUrl,
+            UserName = _settings.UserName,
+            FirstName = _settings.FirstName,
+            LastName = _settings.LastName,
+            Email = _settings.Email,
+            PhoneNumber = phoneNumber,
+            Password = _settings.Password,
+        };
+
+        A.CallTo(() => _userManager.CreateAsync(A<IdentityUser>._, _settings.Password!))
+            .Invokes((IdentityUser user, string _) => createdUser = user)
+            .Returns(IdentityResult.Success);
+
+        // Act
+        await CreateHandler(settings).CreateItemAsync(new BootstrapAdminCommand(), "system", TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.NotNull(createdUser);
+        Assert.Null(createdUser.PhoneNumber);
+        Assert.False(createdUser.PhoneNumberConfirmed);
     }
 
     [Fact]

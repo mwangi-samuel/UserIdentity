@@ -20,7 +20,7 @@ GET {{UserIdentity_HostAddress}}/api/v1/jwks/keys
 
 ###
 
-# up.ps1 starts the service with a bootstrap admin, who is the global admin and an admin of the app
+# The bootstrap admin from appsettings.json is the global admin and an admin of the app
 # @name adminLogin
 POST {{UserIdentity_HostAddress}}/api/v1/user/login
 X-Api-Key: {{ApiKey}}

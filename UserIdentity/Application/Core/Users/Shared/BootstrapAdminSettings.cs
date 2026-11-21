@@ -20,8 +20,14 @@ public sealed class BootstrapAdminSettings : IValidatableObject
     [StringLength(UserLimits.FirstNameMaxLength)]
     public string? FirstName { get; init; }
 
+    [StringLength(UserLimits.LastNameMaxLength)]
+    public string? LastName { get; init; }
+
     [StringLength(UserLimits.EmailMaxLength), RegularExpression(ValidationPatterns.Email, ErrorMessage = ErrorMessages.Users.InvalidEmail)]
     public string? Email { get; init; }
+
+    [StringLength(UserLimits.PhoneNumberMaxLength)]
+    public string? PhoneNumber { get; init; }
 
     public string? Password { get; init; }
 
@@ -33,6 +39,7 @@ public sealed class BootstrapAdminSettings : IValidatableObject
             (nameof(AppBaseUrl), AppBaseUrl),
             (nameof(UserName), UserName),
             (nameof(FirstName), FirstName),
+            (nameof(LastName), LastName),
             (nameof(Email), Email),
             (nameof(Password), Password),
         ];

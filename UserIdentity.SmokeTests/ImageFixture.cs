@@ -269,7 +269,9 @@ public sealed class ImageFixture : IAsyncLifetime
             .WithEnvironment("BootstrapAdminSettings__AppBaseUrl", AppBaseUrl)
             .WithEnvironment("BootstrapAdminSettings__UserName", BootstrapAdminUserName)
             .WithEnvironment("BootstrapAdminSettings__FirstName", "Smoke")
+            .WithEnvironment("BootstrapAdminSettings__LastName", "Admin")
             .WithEnvironment("BootstrapAdminSettings__Email", "smoke.admin@example.com")
+            .WithEnvironment("BootstrapAdminSettings__PhoneNumber", "+254700000002")
             .WithEnvironment("BootstrapAdminSettings__Password", BootstrapAdminPassword)
             .WithCreateParameterModifier(parameters =>
             {

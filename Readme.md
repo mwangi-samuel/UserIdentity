@@ -22,7 +22,7 @@ UserIdentity is an easy-to-use RESTful API that simplifies user management by pr
 
 The first run of `up.ps1` on a machine generates an Ed25519 key pair with a pinned openssl image, encrypted with the passphrase in `appsettings.json` (`TestKeyPassPhrase-For-Local-Use-Only`), and saves it in `~/.local-eddsa-keys`. Every run reads it from there into `EDDSA_PRIVATE_KEY` and `EDDSA_PUBLIC_KEY`, which `docker-compose.yml` passes to the container and `-UseLocal` to the app. Other local stacks that use the folder share the pair, so tokens issued here work there. Delete the folder to get a new pair, then log in again. Start the stack with `up.ps1`, not `docker compose up` alone, so the keys are set.
 
-`up.ps1` also sets the [bootstrap admin](#the-first-admin), which `docker-compose.yml` passes to the container and `-UseLocal` to the app: on its first start, UserIdentity registers the app `TestApp` and creates `admin` (password `Adm1n@P@ss`), who is the global admin and `testapp:admin`. A database that already has a global admin keeps its users as they are. Every local client uses the API key `TestApiKey-For-Local-Use-Only-0123456789`.
+The key pair is the only thing `up.ps1` generates. The [bootstrap admin](#the-first-admin) comes from `appsettings.json`, in Docker and from source alike: on its first start, UserIdentity registers the app `TestApp` and creates `admin` (`admin@example.com`, password `Adm1n@P@ss`), who is the global admin and `testapp:admin`. A database that already has a global admin keeps its users as they are. Every local client uses the API key `TestApiKey-For-Local-Use-Only-0123456789`.
 
 NATS monitoring is on http://localhost:8222, and NUI, a web UI for browsing streams and messages, is on http://localhost:31311 (add a connection to `nats://nats:4222` with NUI's own user, `ui`, password `ui-local`, which has full rights in this local stack only). UserIdentity's NATS user, `useridentity` (password `useridentity-local`), may only publish to UserIdentity's own subjects and create or update its own stream, and receives answers only on its own inboxes (`_INBOX_useridentity.>`): UserIdentity reads no subjects.
 
@@ -83,9 +83,12 @@ No user starts as an admin. The `BootstrapAdminSettings` create the first one wh
 | Setting | Meaning |
 |---|---|
 | `BootstrapAdminSettings__AppName`, `BootstrapAdminSettings__AppBaseUrl` | The app the admin logs in through. Unless an app of that name exists, it's registered without a secret and without sign-in settings, so confirmation is off and there's no default role |
-| `BootstrapAdminSettings__UserName`, `BootstrapAdminSettings__FirstName`, `BootstrapAdminSettings__Email`, `BootstrapAdminSettings__Password` | The admin's account, created confirmed. The password must follow the password rules |
+| `BootstrapAdminSettings__UserName`, `BootstrapAdminSettings__FirstName`, `BootstrapAdminSettings__LastName`, `BootstrapAdminSettings__Email`, `BootstrapAdminSettings__Password` | The admin's account, created confirmed. The password must follow the password rules |
+| `BootstrapAdminSettings__PhoneNumber` | Optional. The admin's phone number, stored unconfirmed |
 
-Setting any of them requires all of them. The bootstrap runs only while no user has the global admin role, so later starts change nothing. It creates the account, gives it the global admin role and `<app>:admin`, and stops the app from starting if the user name or email is taken, so an account someone else signed up with never becomes an admin. Once the admin has logged in, remove the settings, or at least the password, from the environment.
+Setting any of the first seven requires all seven; the phone number alone turns nothing on. The bootstrap runs only while no user has the global admin role, so later starts change nothing. It creates the account, gives it the global admin role and `<app>:admin`, and stops the app from starting if the user name or email is taken, so an account someone else signed up with never becomes an admin.
+
+`appsettings.json` holds a local admin for development: the app `TestApp` (`http://localhost:3000`), the user `admin`, named Admin User, with the email `admin@example.com`, no phone number and the password `Adm1n@P@ss`. Every deployment must override all eight settings with its own admin, or set them all to empty to turn the bootstrap off. A deployment that leaves them as they are creates that known admin, whose password is in this repo. Once the admin has logged in, set the settings to empty rather than removing them, since removing them brings back the local admin.
 
 After that, admins grant roles with `POST /api/v1/role/user`. If no user holds the global admin role any more, setting the bootstrap settings again, with a new user name and email, creates a new global admin at the next start.
 
@@ -327,7 +330,7 @@ Every setting has a default in `appsettings.json` that works locally. In product
 | `CodeCheckSettings__ServiceName` | The code service's name, which the scope of UserIdentity's service tokens names (`<name>-message:create`) |
 | `ExternalServicesSettings__ExternalServices__CodeCheck__DefaultHeaders__X-Api-Key` | The code service's API key |
 | `CaptchaSettings__Enabled`, `CaptchaSettings__SecretKey`, `CaptchaSettings__VerifyUrl` | Turns on the Turnstile check (see [Captcha](#captcha)) with the widget's secret key, at Turnstile's `siteverify` address. Keep the key in a secret store, and leave `CaptchaSettings__AcceptTestKeys` off |
-| `BootstrapAdminSettings__*` | The first admin and the app they log in through, until a global admin exists (see [The First Admin](#the-first-admin)) |
+| `BootstrapAdminSettings__*` | The first admin and the app they log in through, until a global admin exists. `appsettings.json` holds a local admin, so set all eight, to your own admin or to empty (see [The First Admin](#the-first-admin)) |
 | `DatabaseSettings__*` | Database connection |
 | `MessagingSettings__NatsUrl` | The NATS server, without credentials |
 | `MessagingSettings__NatsUser`, `MessagingSettings__NatsPassword` | UserIdentity's own NATS user. Keep the password in a secret store |

@@ -76,6 +76,8 @@ public class BootstrapAdminCommandHandler(
                 UserName = settings.UserName,
                 Email = settings.Email,
                 EmailConfirmed = true,
+                PhoneNumber = string.IsNullOrWhiteSpace(settings.PhoneNumber) ? null : settings.PhoneNumber,
+                PhoneNumberConfirmed = false,
             };
 
             var identityResult = await _userManager.CreateAsync(admin, settings.Password!);
@@ -86,7 +88,12 @@ public class BootstrapAdminCommandHandler(
             var appId = await GetOrCreateAppIdAsync(admin.Id, cancellationToken);
             var now = _timeProvider.GetUtcNow().UtcDateTime;
 
-            var userDetails = new UserEntity { Id = admin.Id, FirstName = settings.FirstName! };
+            var userDetails = new UserEntity
+            {
+                Id = admin.Id,
+                FirstName = settings.FirstName!,
+                LastName = settings.LastName!,
+            };
             userDetails.SetEntityAuditFields(admin.Id, now);
             _userRepository.CreateEntityItem(userDetails);
 

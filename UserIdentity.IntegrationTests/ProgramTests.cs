@@ -20,6 +20,8 @@ public class ProgramTests(TestingWebAppFactory testingWebAppFactory, ITestOutput
     private const string BootstrapAppName = "BootstrapApp";
     private const string BootstrapUserName = "bootstrap.admin";
     private const string BootstrapPassword = "B00tstr@p-Adm1n";
+    private const string BootstrapLastName = "Strap";
+    private const string BootstrapPhoneNumber = "+254700000001";
 
     private readonly TestingWebAppFactory _testingWebAppFactory = testingWebAppFactory;
 
@@ -122,6 +124,17 @@ public class ProgramTests(TestingWebAppFactory testingWebAppFactory, ITestOutput
         Assert.Equal("Session", $"{jsonObject?["nextStep"]}");
 
         var context = ServiceProvider.GetRequiredService<AppDbContext>();
+        var bootstrapUser = await context
+            .Users.AsNoTracking()
+            .SingleAsync(user => user.UserName == BootstrapUserName, TestContext.Current.CancellationToken);
+        var bootstrapUserDetails = await context
+            .AppUser.AsNoTracking()
+            .SingleAsync(user => user.Id == bootstrapUser.Id, TestContext.Current.CancellationToken);
+
+        Assert.Equal(BootstrapPhoneNumber, bootstrapUser.PhoneNumber);
+        Assert.False(bootstrapUser.PhoneNumberConfirmed);
+        Assert.Equal(BootstrapLastName, bootstrapUserDetails.LastName);
+
         var bootstrapApp = await context
             .RegisteredApp.AsNoTracking()
             .SingleAsync(app => app.AppName == BootstrapAppName, TestContext.Current.CancellationToken);
@@ -161,7 +174,9 @@ public class ProgramTests(TestingWebAppFactory testingWebAppFactory, ITestOutput
             builder.UseSetting($"{nameof(BootstrapAdminSettings)}:{nameof(BootstrapAdminSettings.AppBaseUrl)}", "http://localhost:3003");
             builder.UseSetting($"{nameof(BootstrapAdminSettings)}:{nameof(BootstrapAdminSettings.UserName)}", BootstrapUserName);
             builder.UseSetting($"{nameof(BootstrapAdminSettings)}:{nameof(BootstrapAdminSettings.FirstName)}", "Boot");
+            builder.UseSetting($"{nameof(BootstrapAdminSettings)}:{nameof(BootstrapAdminSettings.LastName)}", BootstrapLastName);
             builder.UseSetting($"{nameof(BootstrapAdminSettings)}:{nameof(BootstrapAdminSettings.Email)}", "bootstrap.admin@example.com");
+            builder.UseSetting($"{nameof(BootstrapAdminSettings)}:{nameof(BootstrapAdminSettings.PhoneNumber)}", BootstrapPhoneNumber);
             builder.UseSetting($"{nameof(BootstrapAdminSettings)}:{nameof(BootstrapAdminSettings.Password)}", BootstrapPassword);
         });
 }
