@@ -43,7 +43,7 @@ public class UserDetailsEndpointsTests(TestingWebAppFactory testingWebAppFactory
         Assert.Equal(HttpStatusCode.OK, response.Response.StatusCode);
         Assert.Equal("Renamed", $"{response.Body["user"]?["firstName"]}");
         Assert.Equal(NewPhoneNumber, $"{response.Body["user"]?["phoneNumber"]}");
-        Assert.Equal("Renamed", TestDbHelper.GetUserEntity(UserSettingHelper.UserId)?.FirstName);
+        Assert.Equal("Renamed", TestDbHelper.GetUserEntityWithNoTracking(UserSettingHelper.UserId)?.FirstName);
 
         var updatedUser = TestDbHelper.GetIdentityUserWithNoTracking(UserSettingHelper.UserId);
 
@@ -74,7 +74,7 @@ public class UserDetailsEndpointsTests(TestingWebAppFactory testingWebAppFactory
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.Response.StatusCode);
-        Assert.Null(TestDbHelper.GetUserEntity(UserSettingHelper.UserId)?.LastName);
+        Assert.Null(TestDbHelper.GetUserEntityWithNoTracking(UserSettingHelper.UserId)?.LastName);
         Assert.Null(
             await FindMessageSentToAsync(NatsTestHelper.ContactChangedSubject, UserSettingHelper.UserEmail, TimeSpan.FromSeconds(1))
         );
@@ -121,7 +121,7 @@ public class UserDetailsEndpointsTests(TestingWebAppFactory testingWebAppFactory
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.Response.StatusCode);
-        Assert.Equal("Helped", TestDbHelper.GetUserEntity(targetUserId)?.FirstName);
+        Assert.Equal("Helped", TestDbHelper.GetUserEntityWithNoTracking(targetUserId)?.FirstName);
 
         var data = (await FindMessageSentToAsync(NatsTestHelper.ContactChangedSubject, OtherUserEmail))?.GetData<UserMessageData>();
 
@@ -150,7 +150,7 @@ public class UserDetailsEndpointsTests(TestingWebAppFactory testingWebAppFactory
 
         // Assert
         Assert.Equal(statusCode, response.Response.StatusCode);
-        Assert.Equal(callerIsGlobalAdmin ? "Changed" : "Other", TestDbHelper.GetUserEntity(targetUserId)?.FirstName);
+        Assert.Equal(callerIsGlobalAdmin ? "Changed" : "Other", TestDbHelper.GetUserEntityWithNoTracking(targetUserId)?.FirstName);
     }
 
     [Fact]
