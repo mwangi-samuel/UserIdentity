@@ -203,6 +203,26 @@ public class TestingWebAppFactory : WebApplicationFactory<Program>, IAsyncLifeti
 
         // Override Rate Limit Settings
         builder.UseSetting($"{nameof(RateLimitSettings)}:{nameof(RateLimitSettings.Enabled)}", "false");
+
+        TurnOffBootstrapAdmin(builder);
+    }
+
+    public static void TurnOffBootstrapAdmin(IWebHostBuilder builder)
+    {
+        string[] bootstrapAdminSettings =
+        [
+            nameof(BootstrapAdminSettings.AppName),
+            nameof(BootstrapAdminSettings.AppBaseUrl),
+            nameof(BootstrapAdminSettings.UserName),
+            nameof(BootstrapAdminSettings.FirstName),
+            nameof(BootstrapAdminSettings.LastName),
+            nameof(BootstrapAdminSettings.Email),
+            nameof(BootstrapAdminSettings.PhoneNumber),
+            nameof(BootstrapAdminSettings.Password),
+        ];
+
+        foreach (var setting in bootstrapAdminSettings)
+            builder.UseSetting($"{nameof(BootstrapAdminSettings)}:{setting}", string.Empty);
     }
 
     public async Task ResetDatabaseAsync(CancellationToken cancellationToken)

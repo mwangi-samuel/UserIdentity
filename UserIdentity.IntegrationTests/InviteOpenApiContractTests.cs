@@ -85,6 +85,7 @@ public class InviteOpenApiContractTests
             builder.UseSetting("EDDSA_PUBLIC_KEY", TestUtils.EdDsaHelper.ConvertToPem(keys.Public));
             builder.UseSetting($"{nameof(KeySetSettings)}:{nameof(KeySetSettings.PrivateKeyPath)}", "EDDSA_PRIVATE_KEY");
             builder.UseSetting($"{nameof(KeySetSettings)}:{nameof(KeySetSettings.PrivateKeyPassPhrase)}", phrase);
+            TestingWebAppFactory.TurnOffBootstrapAdmin(builder);
             builder.ConfigureTestServices(services =>
             {
                 services.RemoveAll<DbContext>();
