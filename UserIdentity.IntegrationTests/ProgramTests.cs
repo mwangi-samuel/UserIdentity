@@ -101,15 +101,13 @@ public class ProgramTests(TestingWebAppFactory testingWebAppFactory, ITestOutput
         await using var factory = CreateBootstrapFactory();
         using var httpClient = factory.CreateClient();
 
-        var httpRequest = new HttpRequestMessage(HttpMethod.Post, ApiRequestHelper.loginUrl)
-        {
-            Content = SerDeHelper.ConvertToHttpContent(new { UserName = BootstrapUserName, Password = BootstrapPassword }),
-        };
-        httpRequest.AddXApiKey();
-        httpRequest.Headers.Add("X-App-Name", BootstrapAppName);
-
         // Act
-        var response = await httpClient.SendAsync(httpRequest, TestContext.Current.CancellationToken);
+        var response = await httpClient.SendNoAuthRequestAsync(
+            HttpMethod.Post,
+            ApiRequestHelper.loginUrl,
+            new { UserName = BootstrapUserName, Password = BootstrapPassword },
+            BootstrapAppName
+        );
 
         // Assert
         var jsonObject = SerDeHelper.Deserialize<JObject>(await response.ValidateRequestResponseAsync());

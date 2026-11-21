@@ -793,16 +793,7 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
 
         // Act
         foreach (var payload in payloads)
-        {
-            var httpRequest = new HttpRequestMessage(HttpMethod.Post, _baseUri + "/register")
-            {
-                Content = SerDeHelper.ConvertToHttpContent(payload),
-            };
-            httpRequest.AddXApiKey();
-            httpRequest.Headers.Add("X-App-Name", openAppName);
-
-            responses.Add(await HttpClient.SendAsync(httpRequest, TestContext.Current.CancellationToken));
-        }
+            responses.Add(await HttpClient.SendNoAuthRequestAsync(HttpMethod.Post, _baseUri + "/register", payload, openAppName));
 
         // Assert
         foreach (var response in responses)
@@ -1178,15 +1169,13 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
 
         StubHttpServer.AnswerVerify("Verified");
 
-        var httpRequest = new HttpRequestMessage(HttpMethod.Post, _baseUri + "/confirm")
-        {
-            Content = SerDeHelper.ConvertToHttpContent(new { Ticket = ticket, Code = "123456" }),
-        };
-        httpRequest.AddXApiKey();
-        httpRequest.Headers.Add("X-App-Name", TestingWebAppFactory.OtherAppName);
-
         // Act
-        var response = await HttpClient.SendAsync(httpRequest, TestContext.Current.CancellationToken);
+        var response = await HttpClient.SendNoAuthRequestAsync(
+            HttpMethod.Post,
+            _baseUri + "/confirm",
+            new { Ticket = ticket, Code = "123456" },
+            TestingWebAppFactory.OtherAppName
+        );
 
         // Assert
         await AssertCodeErrorAsync(response, ErrorMessages.Codes.NotAccepted);
@@ -2243,22 +2232,18 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
         var resetRequestId = RandomStrings.Generate(32);
         var passwordReset = TestDbHelper.CreatePasswordResetEntity(resetRequestId);
 
-        var httpRequest = new HttpRequestMessage(HttpMethod.Post, _baseUri + "/update-password")
-        {
-            Content = SerDeHelper.ConvertToHttpContent(
-                new
-                {
-                    ResetRequestId = resetRequestId,
-                    Code = "123456",
-                    NewPassword = "N3wP@ssword!",
-                }
-            ),
-        };
-        httpRequest.AddXApiKey();
-        httpRequest.Headers.Add("X-App-Name", TestingWebAppFactory.OtherAppName);
-
         // Act
-        var response = await HttpClient.SendAsync(httpRequest, TestContext.Current.CancellationToken);
+        var response = await HttpClient.SendNoAuthRequestAsync(
+            HttpMethod.Post,
+            _baseUri + "/update-password",
+            new
+            {
+                ResetRequestId = resetRequestId,
+                Code = "123456",
+                NewPassword = "N3wP@ssword!",
+            },
+            TestingWebAppFactory.OtherAppName
+        );
 
         // Assert
         await AssertCodeErrorAsync(response, ErrorMessages.Codes.NotAccepted);
