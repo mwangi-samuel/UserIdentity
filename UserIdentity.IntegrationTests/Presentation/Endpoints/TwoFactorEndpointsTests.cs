@@ -152,7 +152,7 @@ public class TwoFactorEndpointsTests(TestingWebAppFactory testingWebAppFactory, 
         Assert.Equal("Session", $"{session["nextStep"]}");
         Assert.Equal(HttpStatusCode.BadRequest, secondResponse.StatusCode);
 
-        var status = await SendWithTokenAsync(HttpMethod.Get, "/two-factor", $"{session["userToken"]?["accessToken"]?["token"]}");
+        var status = await SendWithTokenAsync(HttpMethod.Get, "/two-factor", AccessTokenOf(session));
 
         Assert.Equal(9, status.Body["recoveryCodesLeft"]?.Value<int>());
     }

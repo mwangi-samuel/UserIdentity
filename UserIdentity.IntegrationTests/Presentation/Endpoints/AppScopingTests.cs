@@ -18,15 +18,13 @@ public class AppScopingTests(TestingWebAppFactory testingWebAppFactory, ITestOut
         // Arrange
         TestDbHelper.SeedDatabase();
 
-        var httpRequest = new HttpRequestMessage(HttpMethod.Post, ApiRequestHelper.loginUrl)
-        {
-            Content = SerDeHelper.ConvertToHttpContent(new { UserSettingHelper.UserName, Password = UserSettingHelper.UserPassword }),
-        };
-        httpRequest.AddXApiKey();
-        httpRequest.Headers.Add("X-App-Name", TestingWebAppFactory.OtherAppName);
-
         // Act
-        var response = await HttpClient.SendAsync(httpRequest, TestContext.Current.CancellationToken);
+        var response = await HttpClient.SendNoAuthRequestAsync(
+            HttpMethod.Post,
+            ApiRequestHelper.loginUrl,
+            new { UserSettingHelper.UserName, Password = UserSettingHelper.UserPassword },
+            TestingWebAppFactory.OtherAppName
+        );
 
         // Assert
         await response.ValidateRequestResponseAsync();

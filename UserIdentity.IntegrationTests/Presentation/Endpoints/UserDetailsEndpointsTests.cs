@@ -16,6 +16,7 @@ public class UserDetailsEndpointsTests(TestingWebAppFactory testingWebAppFactory
     private const string NewPhoneNumber = "0700000999";
     private const string OtherUserEmail = "other.app.user@example.com";
     private const string Device = "TestBrowser/1.0";
+    private static readonly string OtherUserEmailUri = $"{BaseUri}/email/{Uri.EscapeDataString(OtherUserEmail)}";
 
     [Fact]
     public async Task A_User_Updates_Their_Names_And_Phone_And_The_New_Phone_Is_Unconfirmed()
@@ -87,13 +88,10 @@ public class UserDetailsEndpointsTests(TestingWebAppFactory testingWebAppFactory
         TestDbHelper.SeedDatabase();
         TestDbHelper.SetTwoFactorMethod(UserSettingHelper.UserId, TwoFactorMethod.Sms);
 
-        var accessToken = await LoginWithoutSecondStepAsync();
-
         // Act
-        var response = await SendWithTokenAsync(
+        var response = await SendAsUserAsync(
             HttpMethod.Put,
             $"/{UserSettingHelper.UserId}",
-            accessToken,
             new { UserSettingHelper.FirstName, PhoneNumber = NewPhoneNumber }
         );
 
@@ -179,12 +177,14 @@ public class UserDetailsEndpointsTests(TestingWebAppFactory testingWebAppFactory
         var targetUserId = TestDbHelper.CreateUserOfApp(RegisteredApp.AppName);
 
         // Act
-        var response = await GetAsUserAsync($"/email/{Uri.EscapeDataString(OtherUserEmail)}");
+        var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Get, OtherUserEmailUri);
 
         // Assert
-        Assert.Equal(HttpStatusCode.OK, response.Response.StatusCode);
-        Assert.Equal(targetUserId, $"{response.Body["user"]?["id"]}");
-        Assert.Equal(OtherUserEmail, $"{response.Body["user"]?["email"]}");
+        var user = SerDeHelper.Deserialize<JObject>(await response.ValidateRequestResponseAsync())?["user"];
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(targetUserId, $"{user?["id"]}");
+        Assert.Equal(OtherUserEmail, $"{user?["email"]}");
     }
 
     [Theory]
@@ -204,10 +204,10 @@ public class UserDetailsEndpointsTests(TestingWebAppFactory testingWebAppFactory
             TestDbHelper.CreateIdentityUserRole(TestDbHelper.AdminRoles.First(), TestDbHelper.CreateUserOfApp(RegisteredApp.AppName));
 
         // Act
-        var response = await GetAsUserAsync($"/email/{Uri.EscapeDataString(OtherUserEmail)}");
+        var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Get, OtherUserEmailUri);
 
         // Assert
-        Assert.Equal(HttpStatusCode.NotFound, response.Response.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
     [Fact]
@@ -222,11 +222,13 @@ public class UserDetailsEndpointsTests(TestingWebAppFactory testingWebAppFactory
         TestDbHelper.CreateIdentityUserRole(TestDbHelper.AdminRoles.First(), targetUserId);
 
         // Act
-        var response = await GetAsUserAsync($"/email/{Uri.EscapeDataString(OtherUserEmail)}");
+        var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Get, OtherUserEmailUri);
 
         // Assert
-        Assert.Equal(HttpStatusCode.OK, response.Response.StatusCode);
-        Assert.Equal(targetUserId, $"{response.Body["user"]?["id"]}");
+        var user = SerDeHelper.Deserialize<JObject>(await response.ValidateRequestResponseAsync())?["user"];
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(targetUserId, $"{user?["id"]}");
     }
 
     [Fact]
@@ -237,10 +239,10 @@ public class UserDetailsEndpointsTests(TestingWebAppFactory testingWebAppFactory
         TestDbHelper.CreateUserOfApp(RegisteredApp.AppName);
 
         // Act
-        var response = await GetAsUserAsync($"/email/{Uri.EscapeDataString(OtherUserEmail)}");
+        var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Get, OtherUserEmailUri);
 
         // Assert
-        Assert.Equal(HttpStatusCode.Forbidden, response.Response.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
 
     [Fact]
@@ -454,41 +456,12 @@ public class UserDetailsEndpointsTests(TestingWebAppFactory testingWebAppFactory
         TestDbHelper.UpdateIdentityUser(user);
     }
 
-    private async Task<string> LoginWithoutSecondStepAsync()
-    {
-        (var accessToken, _) = await HttpClient.LoginUserAsync(UserSettingHelper.UserName, UserSettingHelper.UserPassword);
-
-        return accessToken;
-    }
-
     private async Task<(HttpResponseMessage Response, JObject Body)> SendAsUserAsync(HttpMethod method, string path, object body)
     {
         var loginName = TestDbHelper.GetIdentityUserWithNoTracking(UserSettingHelper.UserId)?.UserName ?? UserSettingHelper.UserName;
 
         (var accessToken, _) = await HttpClient.LoginUserAsync(loginName, UserSettingHelper.UserPassword);
 
-        return await SendWithTokenAsync(method, path, accessToken, body);
-    }
-
-    private async Task<(HttpResponseMessage Response, JObject Body)> GetAsUserAsync(string path)
-    {
-        (var accessToken, _) = await HttpClient.LoginUserAsync(UserSettingHelper.UserName, UserSettingHelper.UserPassword);
-
-        var httpRequest = ApiRequestHelper.CreateHttpRequestMessage(HttpMethod.Get, BaseUri + path);
-        httpRequest.AddAuthHeader(accessToken);
-
-        var response = await HttpClient.SendAsync(httpRequest, TestContext.Current.CancellationToken);
-
-        return (response, SerDeHelper.Deserialize<JObject>(await response.ValidateRequestResponseAsync()) ?? []);
-    }
-
-    private async Task<(HttpResponseMessage Response, JObject Body)> SendWithTokenAsync(
-        HttpMethod method,
-        string path,
-        string accessToken,
-        object body
-    )
-    {
         var httpRequest = ApiRequestHelper.CreateHttpRequestMessage(method, BaseUri + path);
         httpRequest.AddAuthHeader(accessToken);
         httpRequest.Headers.UserAgent.ParseAdd(Device);

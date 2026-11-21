@@ -20,8 +20,8 @@ internal static class ApiRequestHelper
         var httpRequest = CreateHttpRequestMessage(HttpMethod.Post, loginUrl);
         httpRequest.Content = SerDeHelper.ConvertToHttpContent(requestPayload);
 
-        var response = await httpClient.SendAsync(httpRequest);
-        var responseString = await response.Content.ReadAsStringAsync();
+        var response = await httpClient.SendAsync(httpRequest, TestContext.Current.CancellationToken);
+        var responseString = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
 
         var jsonObject = SerDeHelper.Deserialize<JObject>(responseString);
 
@@ -39,11 +39,11 @@ internal static class ApiRequestHelper
         return (token, refreshToken);
     }
 
-    public static HttpRequestMessage CreateHttpRequestMessage(HttpMethod httpMethod, string uri)
+    public static HttpRequestMessage CreateHttpRequestMessage(HttpMethod httpMethod, string uri, string appName = AppName)
     {
         var httpReuest = new HttpRequestMessage(new HttpMethod(httpMethod.Method), uri);
         httpReuest.AddXApiKey();
-        httpReuest.AddXAppName();
+        httpReuest.AddXAppName(appName);
 
         return httpReuest;
     }
@@ -55,17 +55,18 @@ internal static class ApiRequestHelper
 
     public static void AddXApiKey(this HttpRequestMessage httpRequest) => httpRequest.AddXApiKey(ApiKey);
 
-    public static void AddXAppName(this HttpRequestMessage httpRequest) => httpRequest.Headers.Add("X-App-Name", AppName);
+    public static void AddXAppName(this HttpRequestMessage httpRequest, string appName) => httpRequest.Headers.Add("X-App-Name", appName);
 
     public static async Task<HttpRequestMessage> CreateAuthorizedHttpRequestMessageAsync(
         this HttpClient httpClient,
         HttpMethod httpMethod,
-        string uri
+        string uri,
+        string appName = AppName
     )
     {
         (var userToken, _) = await httpClient.LoginUserAsync(UserSettingHelper.UserName, UserSettingHelper.UserPassword);
 
-        var httpRequest = CreateHttpRequestMessage(httpMethod, uri);
+        var httpRequest = CreateHttpRequestMessage(httpMethod, uri, appName);
 
         httpRequest.AddAuthHeader(userToken);
 
@@ -76,30 +77,32 @@ internal static class ApiRequestHelper
         this HttpClient httpClient,
         HttpMethod httpMethod,
         string uri,
-        object? httpBody = null
+        object? httpBody = null,
+        string appName = AppName
     )
     {
-        var httpRequest = CreateHttpRequestMessage(httpMethod, uri);
+        var httpRequest = CreateHttpRequestMessage(httpMethod, uri, appName);
 
         if (httpBody != null)
             httpRequest.Content = SerDeHelper.ConvertToHttpContent(httpBody);
 
-        return await httpClient.SendAsync(httpRequest);
+        return await httpClient.SendAsync(httpRequest, TestContext.Current.CancellationToken);
     }
 
     public static async Task<HttpResponseMessage> SendValidAuthRequestAsync(
         this HttpClient httpClient,
         HttpMethod httpMethod,
         string uri,
-        object? httpBody = null
+        object? httpBody = null,
+        string appName = AppName
     )
     {
-        var httpRequest = await CreateAuthorizedHttpRequestMessageAsync(httpClient, httpMethod, uri);
+        var httpRequest = await CreateAuthorizedHttpRequestMessageAsync(httpClient, httpMethod, uri, appName);
 
         if (httpBody != null)
             httpRequest.Content = SerDeHelper.ConvertToHttpContent(httpBody);
 
-        return await httpClient.SendAsync(httpRequest);
+        return await httpClient.SendAsync(httpRequest, TestContext.Current.CancellationToken);
     }
 
     public static async Task<HttpResponseMessage> SendInvalidAuthRequestAsync(
@@ -116,7 +119,7 @@ internal static class ApiRequestHelper
         if (httpBody != null)
             httpRequest.Content = SerDeHelper.ConvertToHttpContent(httpBody);
 
-        return await httpClient.SendAsync(httpRequest);
+        return await httpClient.SendAsync(httpRequest, TestContext.Current.CancellationToken);
     }
 
     public static async Task<string> ValidateRequestResponseAsync(this HttpResponseMessage httpResponse)

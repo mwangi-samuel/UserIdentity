@@ -56,12 +56,8 @@ public class SignInSettingsEndpointsTests(TestingWebAppFactory testingWebAppFact
                 TestContext.Current.CancellationToken
             );
 
-        var httpRequest = await HttpClient.CreateAuthorizedHttpRequestMessageAsync(HttpMethod.Get, BaseUri);
-        httpRequest.Headers.Remove("X-App-Name");
-        httpRequest.Headers.Add("X-App-Name", appName);
-
         // Act
-        var response = await HttpClient.SendAsync(httpRequest, TestContext.Current.CancellationToken);
+        var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Get, BaseUri, appName: appName);
 
         // Assert
         var settings = SerDeHelper.Deserialize<JObject>(await response.ValidateRequestResponseAsync())?["signInSettings"];
