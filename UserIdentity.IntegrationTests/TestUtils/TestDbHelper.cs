@@ -225,6 +225,9 @@ public sealed class TestDbHelper(
 
     public UserEntity? GetUserEntity(string userId) => _appDbContext.AppUser.FirstOrDefault(x => x.Id == userId);
 
+    public UserEntity? GetUserEntityWithNoTracking(string userId) =>
+        _appDbContext.AppUser.AsNoTracking().FirstOrDefault(x => x.Id == userId);
+
     public void UpdateUserEntity(UserEntity user)
     {
         _appDbContext.AppUser.Update(user);

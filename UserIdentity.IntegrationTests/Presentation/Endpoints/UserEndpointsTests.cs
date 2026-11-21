@@ -487,13 +487,14 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
             _baseUri + "/reset-password",
             new { UserName = UserSettingHelper.UserEmail }
         );
-        var resetRequestId = SerDeHelper
-            .Deserialize<JObject>(await resetResponse.ValidateRequestResponseAsync())
-            ?["resetPasswordDetails"]?["resetRequestId"]?.ToString();
 
-        Assert.NotNull(resetRequestId);
+        Assert.Equal(HttpStatusCode.OK, resetResponse.StatusCode);
 
-        var message = await NatsTestHelper.FindMessageAsync(NatsTestHelper.PasswordResetRequestedSubject, resetRequestId);
+        var passwordReset = TestDbHelper.GetPasswordResetEntityWithNoTracking(UserSettingHelper.UserId);
+
+        Assert.NotNull(passwordReset);
+
+        var message = await NatsTestHelper.FindMessageAsync(NatsTestHelper.PasswordResetRequestedSubject, passwordReset.Id.ToString());
 
         Assert.Equal(UserSettingHelper.UserEmail, message?.Recipient?.Email);
     }

@@ -93,13 +93,11 @@ public class SignInSettingsEndpointsTests(TestingWebAppFactory testingWebAppFact
                 AllowAuthenticatorTwoFactor = true,
             }
         );
-        var readResponse = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Get, BaseUri);
 
         // Assert
+        var settings = SerDeHelper.Deserialize<JObject>(await response.ValidateRequestResponseAsync())?["signInSettings"];
+
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-
-        var settings = SerDeHelper.Deserialize<JObject>(await readResponse.ValidateRequestResponseAsync())?["signInSettings"];
-
         Assert.Equal("False", $"{settings?["requireConfirmedAccount"]}");
         Assert.Equal("True", $"{settings?["requireInviteCode"]}");
         Assert.Equal("member", $"{settings?["defaultRole"]}");
