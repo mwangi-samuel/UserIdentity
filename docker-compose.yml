@@ -4,7 +4,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql
     ports:
-      - 127.0.0.1:5432:5432
+      - 5432:5432
     environment:
       POSTGRES_PASSWORD: postgres
     healthcheck:
@@ -18,8 +18,8 @@ services:
     volumes:
       - nats_data:/data
     ports:
-      - 127.0.0.1:4222:4222
-      - 127.0.0.1:8222:8222
+      - 4222:4222
+      - 8222:8222
     configs:
       - source: nats_config
         target: /etc/nats/nats-server.conf
@@ -35,7 +35,7 @@ services:
     volumes:
       - nats_ui_data:/db
     ports:
-      - 127.0.0.1:31311:31311
+      - 31311:31311
     configs:
       - source: nats_ui_context
         target: /nats-cli-contexts/local.json
@@ -43,12 +43,22 @@ services:
       nats:
         condition: service_healthy
 
+  code-service:
+    image: mockserver/mockserver:9.2.0
+    ports:
+      - 1080:1080
+    environment:
+      MOCKSERVER_INITIALIZATION_JSON_PATH: /config/code-service.json
+    configs:
+      - source: code_service_expectations
+        target: /config/code-service.json
+
   lgtm:
     image: grafana/otel-lgtm:0.38.1
     volumes:
       - lgtm_data:/data
     ports:
-      - 127.0.0.1:3030:3000
+      - 3030:3000
     healthcheck:
       test: ["CMD", "/otel-lgtm/docker/healthcheck.sh"]
       interval: 5s
@@ -64,12 +74,12 @@ services:
       context: .
       dockerfile: UserIdentity/Dockerfile
     ports:
-      - 127.0.0.1:5050:8080
+      - 5050:8080
     environment:
       DatabaseSettings__Host: db
       MessagingSettings__NatsUrl: nats://nats:4222
-      CodeCheckSettings__VerifyUrl: http://code-service.invalid/api/v1/message/verify
-      CodeCheckSettings__ResendUrl: http://code-service.invalid/api/v1/message/retry
+      CodeCheckSettings__VerifyUrl: http://code-service:1080/api/v1/message/verify
+      CodeCheckSettings__ResendUrl: http://code-service:1080/api/v1/message/retry
       EDDSA_PRIVATE_KEY:
       EDDSA_PUBLIC_KEY:
       BootstrapAdminSettings__AppName:
@@ -93,6 +103,8 @@ services:
         condition: service_healthy
       nats:
         condition: service_healthy
+      code-service:
+        condition: service_started
       lgtm:
         condition: service_healthy
     restart: on-failure:5
@@ -145,3 +157,37 @@ configs:
           { user: ui, password: ui-local }
         ]
       }
+
+  code_service_expectations:
+    content: |
+      [
+        {
+          "priority": 1,
+          "httpRequest": {
+            "method": "POST",
+            "path": "/api/v1/message/verify",
+            "body": { "type": "JSON", "json": { "code": "123456" } }
+          },
+          "httpResponse": {
+            "statusCode": 200,
+            "headers": { "Content-Type": ["application/json"] },
+            "body": { "outcome": "Verified" }
+          }
+        },
+        {
+          "httpRequest": { "method": "POST", "path": "/api/v1/message/verify" },
+          "httpResponse": {
+            "statusCode": 200,
+            "headers": { "Content-Type": ["application/json"] },
+            "body": { "outcome": "WrongCode" }
+          }
+        },
+        {
+          "httpRequest": { "method": "POST", "path": "/api/v1/message/retry" },
+          "httpResponse": {
+            "statusCode": 200,
+            "headers": { "Content-Type": ["application/json"] },
+            "body": { "outcome": "Sent" }
+          }
+        }
+      ]

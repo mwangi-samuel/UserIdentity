@@ -59,6 +59,9 @@ if ($UseLocal) {
     exit $LASTEXITCODE
   }
 
+  $env:CodeCheckSettings__VerifyUrl = 'http://localhost:1080/api/v1/message/verify'
+  $env:CodeCheckSettings__ResendUrl = 'http://localhost:1080/api/v1/message/retry'
+
   dotnet run --project (Join-Path $PSScriptRoot 'UserIdentity/UserIdentity.csproj') --launch-profile UserIdentity
   exit $LASTEXITCODE
 }

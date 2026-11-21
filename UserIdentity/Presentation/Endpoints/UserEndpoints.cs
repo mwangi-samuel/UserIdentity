@@ -76,7 +76,8 @@ public static class UserEndpoints
             .MapPost("resend-code", ResendCodeAsync)
             .AllowAnonymous()
             .RequireRateLimiting(RateLimitSettings.ClientIpPolicy)
-            .RequireCaptcha("resend-code");
+            .RequireCaptcha("resend-code")
+            .Produces<ResendCodeViewModel>();
         group.MapPost("logout", LogoutUserAsync).Produces<DeleteRecordViewModel>();
         group
             .MapPost("reset-password", ResetPasswordAsync)
@@ -282,7 +283,7 @@ public static class UserEndpoints
         return ViewModelResults.GetItem(request, vm, true, "Account confirmed");
     }
 
-    internal static async Task<Ok> ResendCodeAsync(
+    internal static async Task<JsonHttpResult<ResendCodeViewModel>> ResendCodeAsync(
         ResendCodeCommand command,
         ApiRequest request,
         IRegisteredAppResolver registeredAppResolver,
@@ -292,9 +293,15 @@ public static class UserEndpoints
     {
         command.RegisteredApp = await request.GetRegisteredAppAsync(registeredAppResolver, cancellationToken);
 
-        await handler.CreateItemAsync(command, request.LoggedInUserId, cancellationToken);
+        var vm = await handler.CreateItemAsync(command, request.LoggedInUserId, cancellationToken);
 
-        return TypedResults.Ok();
+        return ViewModelResults.Status(
+            vm,
+            StatusCodes.Status200OK,
+            RequestStatus.Successful,
+            ItemStatusMessage.CreateItemSuccessful,
+            "Code resend requested"
+        );
     }
 
     internal static async Task<JsonHttpResult<ExchangeRefreshTokenViewModel>> ExchangeRefreshTokenAsync(

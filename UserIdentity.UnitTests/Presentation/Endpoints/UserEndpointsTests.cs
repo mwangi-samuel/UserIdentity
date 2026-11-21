@@ -266,11 +266,12 @@ public class UserEndpointsTests
     }
 
     [Fact]
-    public async Task Resend_Code_Passes_The_Requests_App_And_Answers_Ok_With_No_Body()
+    public async Task Resend_Code_Passes_The_Requests_App_And_Answers_Code_Resend_Requested()
     {
         // Arrange
         ResendCodeCommand command = new() { Ticket = "ticket" };
         var handler = A.Fake<ICreateItemCommandHandler<ResendCodeCommand, ResendCodeViewModel>>();
+        A.CallTo(() => handler.CreateItemAsync(command, A<string>._, A<CancellationToken>._)).Returns(new ResendCodeViewModel());
 
         var request = ApiRequestFactory.Create("user", appName: "test-app");
 
@@ -286,6 +287,7 @@ public class UserEndpointsTests
         // Assert
         Assert.Equal((int)HttpStatusCode.OK, result.StatusCode);
         Assert.Same(_registeredApp, command.RegisteredApp);
+        Assert.Equal("Code resend requested", result.Value?.StatusMessage);
         A.CallTo(() => handler.CreateItemAsync(command, A<string>._, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
     }
 

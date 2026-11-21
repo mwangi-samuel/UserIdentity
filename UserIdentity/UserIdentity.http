@@ -6,7 +6,7 @@
 @UserPassword = P@ssW1rd
 @NewUserPassword = N3w@P@ssW1rd
 @CaptchaToken = XXXX.DUMMY.TOKEN.XXXX
-@Code = 000000
+@Code = 123456
 
 GET {{UserIdentity_HostAddress}}/health
 

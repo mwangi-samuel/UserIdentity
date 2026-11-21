@@ -13,9 +13,9 @@ UserIdentity is an easy-to-use RESTful API that simplifies user management by pr
   Locally, `up.ps1` provides one (see below).
 
 ### Instructions
-`docker-compose.yml` starts PostgreSQL, NATS (with JetStream), Grafana's LGTM stack and UserIdentity.
+`docker-compose.yml` starts PostgreSQL, NATS (with JetStream), a stand-in code service (MockServer), Grafana's LGTM stack and UserIdentity.
 
-- `.\up.ps1 -UseLocal` starts PostgreSQL, NATS and the LGTM stack, waits for them to be healthy, then runs UserIdentity from source on http://localhost:5050 with the `UserIdentity` launch profile. The OpenAPI document is at http://localhost:5050/openapi/v1.json.
+- `.\up.ps1 -UseLocal` starts PostgreSQL, NATS, the stand-in code service and the LGTM stack, waits for them to be healthy, then runs UserIdentity from source on http://localhost:5050 with the `UserIdentity` launch profile. The OpenAPI document is at http://localhost:5050/openapi/v1.json.
 - `.\up.ps1 -Build` builds the image, runs everything in Docker and waits for it to be healthy. UserIdentity is on http://localhost:5050.
 - `.\up.ps1` does the same without rebuilding.
 - `.\down.ps1` stops the stack and preserves its named volumes for the next run.
@@ -24,9 +24,9 @@ The first run of `up.ps1` on a machine generates an Ed25519 key pair with a pinn
 
 `up.ps1` also sets the [bootstrap admin](#the-first-admin), which `docker-compose.yml` passes to the container and `-UseLocal` to the app: on its first start, UserIdentity registers the app `TestApp` and creates `admin` (password `Adm1n@P@ss`), who is the global admin and `testapp:admin`. A database that already has a global admin keeps its users as they are. Every local client uses the API key `TestApiKey-For-Local-Use-Only-0123456789`.
 
-NATS monitoring is on http://localhost:8222, and NUI, a web UI for browsing streams and messages, is on http://localhost:31311 (add a connection to `nats://nats:4222` with NUI's own user, `ui`, password `ui-local`, which has full rights in this local stack only). UserIdentity's NATS user, `useridentity` (password `useridentity-local`), may only publish to UserIdentity's own subjects and create or update its own stream, and receives answers only on its own inboxes (`_INBOX_useridentity.>`): UserIdentity reads no subjects. Every published port is on 127.0.0.1 only.
+NATS monitoring is on http://localhost:8222, and NUI, a web UI for browsing streams and messages, is on http://localhost:31311 (add a connection to `nats://nats:4222` with NUI's own user, `ui`, password `ui-local`, which has full rights in this local stack only). UserIdentity's NATS user, `useridentity` (password `useridentity-local`), may only publish to UserIdentity's own subjects and create or update its own stream, and receives answers only on its own inboxes (`_INBOX_useridentity.>`): UserIdentity reads no subjects.
 
-The stack doesn't run a code service, so `docker-compose.yml` points `CodeCheckSettings` at a placeholder address, and anything that checks or resends a code (see [Codes](#codes)) answers 500 until it's pointed at one.
+The stack's code service (see [Codes](#codes)) is a MockServer stand-in on http://localhost:1080, which `docker-compose.yml` and `-UseLocal` point `CodeCheckSettings` at. It sends no emails or texts: it accepts `123456` as the right code for every check, answers `WrongCode` to any other code, and `Sent` to every resend. Every request UserIdentity sends it, with its headers (the service token included) and body, appears in MockServer's dashboard at http://localhost:1080/mockserver/dashboard.
 
 The LGTM stack (`grafana/otel-lgtm`: Grafana, with Loki for logs, Tempo for traces and Prometheus for metrics) collects UserIdentity's telemetry. Open Grafana on http://localhost:3030 and sign in as `admin` with the password `admin`. Loki, Tempo and Prometheus are already added as data sources; use **Explore** or **Drilldown** to search them.
 
@@ -168,7 +168,7 @@ Codes prove that the user holds an email address or a phone number. UserIdentity
 - **The calls:** `POST CodeCheckSettings:VerifyUrl` with `{ "action", "correlationId", "code" }`, which answers `200` with `outcome` `Verified`, `WrongCode`, `Expired`, `NoAttemptsLeft` or `NotFound`, and `POST CodeCheckSettings:ResendUrl` with `{ "action", "correlationId" }`, which answers `Sent`, `TooSoon`, `NoResendsLeft` or `NotFound`. Anything else, such as a timeout, another status or an unknown outcome, fails the request with a 500 and changes nothing.
 - **Who asks:** each call carries a service token that UserIdentity signs for the app (`azp`), with the `service:internal` role, the scope `<CodeCheckSettings:ServiceName>-message:create`, and UserIdentity's own `RoleSettings:ServiceName` in lower case as `sub`, which is also its subject prefix. The code service only checks codes that the caller asked for itself, and `KeySetSettings:ServiceCanGenerateTokens` must stay on. The `X-Api-Key` header comes from the `CodeCheck` entry of `ExternalServicesSettings`.
 - **What users see:** every code that fails, whether wrong, expired, used up or unknown, and every unknown or expired ticket or reset request, answers 400 `That code didn't work. Check it, or send a new code.` The answer never says how many tries are left or how long to wait, so a decoy ticket (see [Signing Up](#signing-up)) can't be told from a real one. Unknown tickets still make a code check with a random correlation id, so they take as long.
-- **Resending:** `POST /api/v1/user/resend-code` with the `X-App-Name` header and `{ "ticket": "..." }` or `{ "resetRequestId": "..." }` asks the code service to resend the code that ticket or reset waits for. It always answers `200` with an empty body, whatever happened. Clients show their own countdown before offering it again.
+- **Resending:** `POST /api/v1/user/resend-code` with the `X-App-Name` header and `{ "ticket": "..." }` or `{ "resetRequestId": "..." }` asks the code service to resend the code that ticket or reset waits for. It always answers `200` with the same body (`statusMessage` "Code resend requested"), whatever happened. Clients show their own countdown before offering it again.
 - **Limits:** the code service allows a few tries per code and a few resends per correlation id. On top of that, UserIdentity's daily caps limit the second-step failures and the sign-in codes of each account (see [Two-Step Sign-in](#two-step-sign-in)).
 
 ## Signing Up
@@ -335,7 +335,7 @@ Settings are checked at startup. An invalid setting stops the app with every fai
 - Requests that use an earlier response, such as an admin's token or a ticket, need that request sent first.
 - New users, roles, invites, wait list entries and registered apps are named after the current time, so the requests can be sent again.
 - Access tokens last 3 minutes (`JwtIssuerSettings:ValidForSeconds`). When a request answers 401, send the admin's login again.
-- The requests that check or resend a code need a code service, which this repo's stack doesn't run; set `Code` to the code it delivered, or to the authenticator app's code. `TestApp` has no sign-in settings, so its new accounts sign in at once. Start with the admin's login: the bootstrap admin is the global admin and `testapp:admin`.
+- `Code` is `123456`, which the stack's stand-in code service accepts for every emailed or texted code (see [Instructions](#instructions)). For the authenticator method, set it to the authenticator app's code. `TestApp` has no sign-in settings, so its new accounts sign in at once. Start with the admin's login: the bootstrap admin is the global admin and `testapp:admin`.
 
 ## Running the Tests
 The tests use xUnit v3 on Microsoft Testing Platform (selected in `global.json`). The unit tests call each endpoint method directly with faked handlers. The integration tests send requests to the whole app and start PostgreSQL and NATS with Testcontainers, so Docker must be running. The smoke tests build the Docker image, run it as it's published (trimmed, single file) beside PostgreSQL and NATS, and reach it only over HTTP and NATS.
