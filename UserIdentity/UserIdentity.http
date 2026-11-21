@@ -461,6 +461,29 @@ Content-Type: application/json
 
 ###
 
+GET {{UserIdentity_HostAddress}}/api/v1/user/{{demoSignUp.response.body.$.user.id}}/sessions
+X-Api-Key: {{ApiKey}}
+Authorization: Bearer {{demoSecondStep.response.body.$.userToken.accessToken.token}}
+
+###
+
+DELETE {{UserIdentity_HostAddress}}/api/v1/user/{{demoSignUp.response.body.$.user.id}}/sessions
+X-Api-Key: {{ApiKey}}
+Authorization: Bearer {{demoSecondStep.response.body.$.userToken.accessToken.token}}
+
+###
+
+DELETE {{UserIdentity_HostAddress}}/api/v1/user/{{demoSignUp.response.body.$.user.id}}
+X-Api-Key: {{ApiKey}}
+Authorization: Bearer {{demoSecondStep.response.body.$.userToken.accessToken.token}}
+Content-Type: application/json
+
+{
+  "password": "{{UserPassword}}"
+}
+
+###
+
 DELETE {{UserIdentity_HostAddress}}/api/v1/registered-app/{{registeredApp.response.body.$.registeredApp.id}}
 X-Api-Key: {{ApiKey}}
 Authorization: Bearer {{adminLogin.response.body.$.userToken.accessToken.token}}

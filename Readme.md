@@ -161,6 +161,16 @@ A right sign-up, reset or emailed code marks the email confirmed, so a confirmed
 - `POST /api/v1/user/refresh-token` answers 401 and ends the session when two-step sign-in is required for the account and it has no method, which catches sessions that started before the requirement (the app switched it on, or the user became an admin). The next sign-in leads to setup.
 - `POST /api/v1/user/logout` with the access token and `{ "refreshToken": "..." }` ends that session. The access token keeps working until it expires.
 - Five failures in a row lock an account for five minutes: wrong passwords and wrong second-step codes of any method count together. A right password alone doesn't reset the count; only starting a session does. A locked account gets the same 401 as a wrong password.
+- Each session belongs to the app it signed in through, and its refresh token works only through that app. It records the client's address and `User-Agent` (cut to 256 characters) at sign-in, and again at each refresh. Access tokens carry the session's id in the `sid` claim.
+
+### Seeing and Ending Sessions
+These follow the rule of `GET /api/v1/user/{userId}`: the user themselves, an app admin for accounts of their app that hold no admin role, or a global admin who names the app in `X-App-Name`. Anything else answers 404. They cover the sessions of the app the request works on.
+
+- `GET /api/v1/user/{userId}/sessions` lists the unexpired sessions, most recently active first: `{ "sessions": [ { "id", "signedInAt", "lastActiveAt", "expiresAt", "ipAddress", "device", "current" } ] }`. `current` marks the session whose access token made the request.
+- `DELETE /api/v1/user/{userId}/sessions/{sessionId}` ends one session. An unknown id, or another account's or app's, answers 404.
+- `DELETE /api/v1/user/{userId}/sessions` ends every session but the one making the request. For an admin acting on someone else's account, that's all of them.
+
+Ending a session deletes its refresh token. Its last access token keeps working until it expires (`JwtIssuerSettings:ValidForSeconds`, 3 minutes by default), since services check access tokens without asking UserIdentity. Ending a session sends no notice.
 
 ## Codes
 Codes prove that the user holds an email address or a phone number. UserIdentity asks for a code by sending a message over NATS JetStream, through its outbox; the code service that receives it sends the code and keeps it. When the user types the code, UserIdentity asks the code service whether it's right and acts on the answer in the same request. Resending goes the same way.
@@ -241,6 +251,15 @@ Both endpoints use the rule `GET /api/v1/user/{userId}` uses: the user themselve
   - **An admin's change** applies at once, with the email unconfirmed; the user proves it at their next sign-in. A taken email answers 400 `We couldn't change this email.`
   - Either way, a user name that was the old email changes with it, and the **old** address gets `ContactChanged` with the change `Email`, which doesn't say who made it.
 
+## Deleting an Account
+`DELETE /api/v1/user/{userId}` deletes the account at once. It follows the rule of [Updating User Details](#updating-user-details): the user themselves, an app admin for accounts of their app that hold no admin role, or a global admin who names the app in `X-App-Name`.
+
+- **The user themselves** sends `{ "password": "..." }`. A missing password answers 400 `Your password is required to delete your account.`, and a wrong one counts toward the lockout and answers 400 `That password isn't right.` (or `Too many failed attempts. Try again later.` while the account is locked).
+- **Admins** send no body.
+- The last account holding the global admin role can't be deleted: 406.
+
+In one transaction, UserIdentity deletes the invite codes and wait list entries that hold the account's email in its apps, adds an `AccountDeleted` notice to its outbox (see [Messages](#messages)), and deletes the account with its details, sessions, tickets, resets, email changes, app links, roles and two-step sign-in. The notice's correlation id is the deleted user's id, so other services that keep data about the user can act on it. Its last access token keeps working until it expires.
+
 ## Accounts Created by an App's Backend
 `POST /api/v1/user/register-for-service` lets an app's own backend create accounts, for example while moving its existing users to UserIdentity as they next sign in. It takes the same body as `register`, plus the `X-Api-Key` header, and no token: the backend signs the request with its own Ed25519 key.
 
@@ -271,8 +290,9 @@ UserIdentity adds these messages to its outbox in the same transaction as the ch
 | `useridentity.sign-up.attempted` | `SignUpAttempted` | Notice | A new id | None | The existing account | `firstName`, `attemptedAt`, `ipAddress`, `device` |
 | `useridentity.two-factor.changed` | `TwoFactorChanged` | Notice | A new id | None | The account's email and phone | `firstName`, `change` (`SetUp`, `Changed`, `TurnedOff`, `Reset`), `method`, `changedAt`, `ipAddress`, `device` |
 | `useridentity.contact.changed` | `ContactChanged` | Notice | A new id | None | The old email for an email change, the email for a phone change | `firstName`, `change` (`Email`, `Phone`), `changedAt`, `ipAddress`, `device` |
+| `useridentity.user.deleted` | `AccountDeleted` | Notice | The user id | None | The account's email and phone | `firstName`, `deletedAt`, `ipAddress`, `device` |
 
-`requestedAt`, `attemptedAt` and `changedAt` are UTC times, `ipAddress` is the client's address (behind a proxy, see [Rate Limiting](#rate-limiting)) and `device` its `User-Agent` header, cut to 256 characters. Changes made by staff carry no address or device. Code templates should tell users never to share the code, say when and from where it was requested, and say what to do if it wasn't them; notices should say what changed, when and from where.
+`requestedAt`, `attemptedAt`, `changedAt` and `deletedAt` are UTC times, `ipAddress` is the client's address (behind a proxy, see [Rate Limiting](#rate-limiting)) and `device` its `User-Agent` header, cut to 256 characters. Changes made by staff carry no address or device. Code templates should tell users never to share the code, say when and from where it was requested, and say what to do if it wasn't them; notices should say what changed, when and from where.
 
 UserIdentity only publishes: it reads no subjects.
 
@@ -329,7 +349,7 @@ These have defaults that suit most deployments:
 Settings are checked at startup. An invalid setting stops the app with every failure listed, such as `ValidForSeconds: The field ValidForSeconds must be between 1 and 2147483647.`
 
 ## API Requests
-`UserIdentity/UserIdentity.http` holds requests for sending by hand, in an order that works from top to bottom: health, the OpenAPI document and the key set, logging in the admin, a user, roles with their scopes and users, invite codes, the wait list, the entities that scopes can name, registered apps, an app's sign-in settings with sign-up, confirmation, two-step setup and sign-in, a user's names and email, a password reset, a refresh and a logout. It leaves out `register-for-service`, which needs a signed request. Open it in Visual Studio 2022 (17.8 or later), or in VS Code with the [REST Client](https://marketplace.visualstudio.com/items?itemName=humao.rest-client) extension, and select **Send Request** above a request. The tests are the automated checks.
+`UserIdentity/UserIdentity.http` holds requests for sending by hand, in an order that works from top to bottom: health, the OpenAPI document and the key set, logging in the admin, a user, roles with their scopes and users, invite codes, the wait list, the entities that scopes can name, registered apps, an app's sign-in settings with sign-up, confirmation, two-step setup and sign-in, a user's names and email, their sessions and the deletion of their account, a password reset, a refresh and a logout. It leaves out `register-for-service`, which needs a signed request. Open it in Visual Studio 2022 (17.8 or later), or in VS Code with the [REST Client](https://marketplace.visualstudio.com/items?itemName=humao.rest-client) extension, and select **Send Request** above a request. The tests are the automated checks.
 
 - No environment needs selecting: the settings (URL, API key, app name, the admin's details and the code to send) are variables at the top of the file.
 - Requests that use an earlier response, such as an admin's token or a ticket, need that request sent first.

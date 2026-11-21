@@ -124,12 +124,13 @@ public class UserCleanupTests(TestingWebAppFactory testingWebAppFactory, ITestOu
         // Arrange
         TestDbHelper.CreateIdentityUser();
         var now = DateTime.UtcNow;
+        var appId = TestDbHelper.GetRegisteredAppEntityByAppName(RegisteredApp.AppName).Id;
         var context = ServiceProvider.GetRequiredService<AppDbContext>();
 
         context.RefreshToken.AddRange(
-            Enumerable.Range(0, CleanupBatch.Size + 20).Select(index => BuildRefreshToken(now.AddMinutes(-index - 1)))
+            Enumerable.Range(0, CleanupBatch.Size + 20).Select(index => BuildRefreshToken(appId, now.AddMinutes(-index - 1)))
         );
-        context.RefreshToken.AddRange(Enumerable.Range(0, 3).Select(index => BuildRefreshToken(now.AddDays(index + 1))));
+        context.RefreshToken.AddRange(Enumerable.Range(0, 3).Select(index => BuildRefreshToken(appId, now.AddDays(index + 1))));
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
         // Act
@@ -237,11 +238,12 @@ public class UserCleanupTests(TestingWebAppFactory testingWebAppFactory, ITestOu
             CreatedAt = DateTime.UtcNow,
         };
 
-    private static RefreshTokenEntity BuildRefreshToken(DateTime expires) =>
+    private static RefreshTokenEntity BuildRefreshToken(int appId, DateTime expires) =>
         new()
         {
             Id = Guid.CreateVersion7(),
             UserId = UserSettingHelper.UserId,
+            AppId = appId,
             Token = Guid.NewGuid().ToString("N"),
             Expires = expires,
             CreatedBy = UserSettingHelper.UserId,

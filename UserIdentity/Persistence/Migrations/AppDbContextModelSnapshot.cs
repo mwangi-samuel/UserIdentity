@@ -880,6 +880,10 @@ namespace UserIdentity.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<int>("AppId")
+                        .HasColumnType("integer")
+                        .HasColumnName("app_id");
+
                     b.Property<DateTime?>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
@@ -889,9 +893,19 @@ namespace UserIdentity.Persistence.Migrations
                         .HasColumnType("character varying(50)")
                         .HasColumnName("created_by");
 
+                    b.Property<string>("Device")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("device");
+
                     b.Property<DateTime>("Expires")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("expires");
+
+                    b.Property<string>("IpAddress")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("ip_address");
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean")
@@ -930,6 +944,9 @@ namespace UserIdentity.Persistence.Migrations
                     b.HasKey("Id")
                         .HasName("pk_refresh_tokens");
 
+                    b.HasIndex("AppId")
+                        .HasDatabaseName("ix_refresh_tokens_app_id");
+
                     b.HasIndex("Expires")
                         .HasDatabaseName("ix_refresh_tokens_expires");
 
@@ -941,8 +958,8 @@ namespace UserIdentity.Persistence.Migrations
                         .IsUnique()
                         .HasDatabaseName("ix_refresh_tokens_token");
 
-                    b.HasIndex("UserId")
-                        .HasDatabaseName("ix_refresh_tokens_user_id");
+                    b.HasIndex("UserId", "AppId")
+                        .HasDatabaseName("ix_refresh_tokens_user_id_app_id");
 
                     b.ToTable("refresh_tokens", (string)null);
                 });
@@ -1250,6 +1267,13 @@ namespace UserIdentity.Persistence.Migrations
 
             modelBuilder.Entity("UserIdentity.Domain.RefreshTokens.RefreshTokenEntity", b =>
                 {
+                    b.HasOne("PolyzenKit.Domain.Entities.RegisteredApps.RegisteredAppEntity", null)
+                        .WithMany()
+                        .HasForeignKey("AppId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_refresh_tokens_registered_app_app_id");
+
                     b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser", null)
                         .WithMany()
                         .HasForeignKey("UserId")

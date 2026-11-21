@@ -9,4 +9,6 @@ public interface IWaitListRepository
         IItemEntityDtoRepository<WaitListDto, long>
 {
     Task<WaitListDto?> GetEntityDtoByEmailAsync(int appId, string userEmail, CancellationToken cancellationToken = default);
+
+    Task<int> DeleteEntityItemsForUserAsync(string userId, CancellationToken cancellationToken = default);
 }

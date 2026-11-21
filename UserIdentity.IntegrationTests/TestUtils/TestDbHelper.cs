@@ -279,6 +279,7 @@ public sealed class TestDbHelper(
         {
             Id = Guid.CreateVersion7(),
             UserId = UserSettingHelper.UserId.ToString(),
+            AppId = _appDbContext.RegisteredApp.Single(a => a.AppName == _currentAppNameNormalized).Id,
             Token = RandomStrings.Generate(32),
             CreatedBy = UserSettingHelper.UserId.ToString(),
             CreatedAt = DateTime.UtcNow,
@@ -298,6 +299,7 @@ public sealed class TestDbHelper(
         {
             Id = Guid.CreateVersion7(),
             UserId = userId,
+            AppId = _appDbContext.RegisteredApp.Single(a => a.AppName == _currentAppNameNormalized).Id,
             Token = RandomStrings.Generate(32),
             Expires = DateTime.UtcNow.AddDays(1),
             CreatedBy = userId,

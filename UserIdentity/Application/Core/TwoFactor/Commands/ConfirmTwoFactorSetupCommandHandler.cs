@@ -126,7 +126,7 @@ public class ConfirmTwoFactorSetupCommandHandler(
         {
             var recoveryCodes = await SaveMethodAsync(command, user, loginTicket, method, cancellationToken);
 
-            await _refreshTokenRepository.DeleteEntityItemsAsync(user.Id, cancellationToken);
+            await _refreshTokenRepository.DeleteEntityItemsAsync(user.Id, cancellationToken: cancellationToken);
 
             _loginTicketRepository.RemoveEntityItem(loginTicket);
 

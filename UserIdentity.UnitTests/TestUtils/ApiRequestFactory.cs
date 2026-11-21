@@ -16,21 +16,26 @@ internal static class ApiRequestFactory
         string? userId = null,
         string? appName = null,
         string? authorizedParty = "testapp",
-        string[]? roles = null
-    ) => ApiRequest.For(CreateHttpContext(entityName, userId, appName, authorizedParty, roles));
+        string[]? roles = null,
+        Guid? sessionId = null
+    ) => ApiRequest.For(CreateHttpContext(entityName, userId, appName, authorizedParty, roles, sessionId));
 
     public static HttpContext CreateHttpContext(
         string entityName,
         string? userId = null,
         string? appName = null,
         string? authorizedParty = "testapp",
-        string[]? roles = null
+        string[]? roles = null,
+        Guid? sessionId = null
     )
     {
         List<Claim> claims = [];
 
         if (userId is not null)
             claims.Add(new Claim(JwtRegisteredClaimNames.Sub, userId));
+
+        if (sessionId is not null)
+            claims.Add(new Claim(JwtRegisteredClaimNames.Sid, sessionId.Value.ToString()));
 
         if (authorizedParty is not null)
             claims.Add(new Claim(JwtRegisteredClaimNames.Azp, authorizedParty));

@@ -145,17 +145,20 @@ public class RefreshTokenRepositoryTests
     }
 
     [Theory]
-    [InlineData("TestApp", true)]
-    [InlineData("OtherApp", false)]
-    [InlineData("DeletedApp", false)]
-    public async Task GetEntityForAppAsync_Returns_The_Tracked_Token_And_Whether_Its_User_Is_Registered_For_The_App(
+    [InlineData(1, "TestApp", true)]
+    [InlineData(1, "SecondApp", false)]
+    [InlineData(2, "OtherApp", false)]
+    [InlineData(3, "DeletedApp", false)]
+    public async Task GetEntityForAppAsync_Returns_The_Tracked_Token_And_Whether_It_Is_A_Session_Of_The_Named_App_Its_User_Belongs_To(
+        int tokenAppId,
         string appName,
-        bool isUserRegisteredForApp
+        bool isForApp
     )
     {
         // Arrange
         var context = AppDbContextTestFactory.GetAppDbContext();
         var refreshToken = BuildRefreshToken();
+        refreshToken.AppId = tokenAppId;
         context.RefreshToken.Add(refreshToken);
         context.RegisteredApp.AddRange(
             new RegisteredAppEntity
@@ -179,11 +182,19 @@ public class RefreshTokenRepositoryTests
                 AppSecretKey = "secret-key",
                 BaseUrl = "https://deleted.test",
                 IsDeleted = true,
+            },
+            new RegisteredAppEntity
+            {
+                Id = 4,
+                AppName = "SecondApp",
+                AppSecretKey = "secret-key",
+                BaseUrl = "https://second.test",
             }
         );
         context.UserRegisteredApp.AddRange(
             new UserRegisteredAppEntity { UserId = refreshToken.UserId, AppId = 1 },
             new UserRegisteredAppEntity { UserId = refreshToken.UserId, AppId = 3 },
+            new UserRegisteredAppEntity { UserId = refreshToken.UserId, AppId = 4 },
             new UserRegisteredAppEntity { UserId = Guid.NewGuid().ToString(), AppId = 2 }
         );
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
@@ -200,7 +211,7 @@ public class RefreshTokenRepositoryTests
         // Assert
         Assert.NotNull(result);
         Assert.Equal(refreshToken.Id, result.Value.Entity.Id);
-        Assert.Equal(isUserRegisteredForApp, result.Value.IsUserRegisteredForApp);
+        Assert.Equal(isForApp, result.Value.IsForApp);
         Assert.Equal(EntityState.Unchanged, context.Entry(result.Value.Entity).State);
     }
 
@@ -225,12 +236,53 @@ public class RefreshTokenRepositoryTests
         Assert.Null(result);
     }
 
+    [Fact]
+    public async Task GetEntityItemsAsync_Returns_The_Users_Unexpired_Tokens_Of_The_App_Last_Used_First_Untracked()
+    {
+        // Arrange
+        var now = DateTime.UtcNow;
+        var context = AppDbContextTestFactory.GetAppDbContext();
+
+        var usedLater = BuildRefreshToken();
+        usedLater.CreatedAt = now.AddHours(-5);
+        usedLater.UpdatedAt = now.AddHours(-1);
+
+        var neverRefreshed = BuildRefreshToken();
+        neverRefreshed.UserId = usedLater.UserId;
+        neverRefreshed.CreatedAt = now.AddHours(-2);
+
+        var expired = BuildRefreshToken();
+        expired.UserId = usedLater.UserId;
+        expired.Expires = now;
+
+        var otherApp = BuildRefreshToken();
+        otherApp.UserId = usedLater.UserId;
+        otherApp.AppId = 2;
+
+        context.RefreshToken.AddRange(usedLater, neverRefreshed, expired, otherApp, BuildRefreshToken());
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+        context.ChangeTracker.Clear();
+
+        // Act
+        var result = await new RefreshTokenRepository(context).GetEntityItemsAsync(
+            usedLater.UserId,
+            1,
+            now,
+            TestContext.Current.CancellationToken
+        );
+
+        // Assert
+        Assert.Equal([usedLater.Id, neverRefreshed.Id], result.Select(token => token.Id));
+        Assert.All(result, token => Assert.Equal(EntityState.Detached, context.Entry(token).State));
+    }
+
     private static RefreshTokenEntity BuildRefreshToken()
     {
         return new RefreshTokenEntity
         {
             Id = Guid.NewGuid(),
             UserId = Guid.NewGuid().ToString(),
+            AppId = 1,
             Token = Guid.NewGuid().ToString(),
             CreatedBy = Guid.NewGuid().ToString(),
             Expires = DateTime.UtcNow.AddMinutes(10),

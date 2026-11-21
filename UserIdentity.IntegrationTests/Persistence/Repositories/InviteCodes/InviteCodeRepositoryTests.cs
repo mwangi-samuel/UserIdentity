@@ -56,6 +56,33 @@ public class InviteCodeRepositoryTests(TestingWebAppFactory testingWebAppFactory
     }
 
     [Fact]
+    public async Task DeleteEntityItemsForUserAsync_Deletes_The_Invites_Holding_The_Users_Email_In_The_Users_Apps_Only()
+    {
+        // Arrange
+        TestDbHelper.CreateIdentityUser();
+        TestDbHelper.CreateUserEntity();
+
+        var ownInvite = TestDbHelper.CreateInviteCodeEntity(UserSettingHelper.UserEmail.ToUpperInvariant(), RegisteredApp.AppName);
+        var otherAppInvite = BuildInvite(UserSettingHelper.UserEmail, TestingWebAppFactory.OtherAppName);
+        var otherEmailInvite = BuildInvite("someone@example.com", RegisteredApp.AppName);
+
+        var appDbContext = ServiceProvider.GetRequiredService<AppDbContext>();
+        appDbContext.InviteCode.AddRange(otherAppInvite, otherEmailInvite);
+        await appDbContext.SaveChangesAsync(TestContext.Current.CancellationToken);
+
+        var repository = ServiceProvider.GetRequiredService<IInviteCodeRepository>();
+
+        // Act
+        var deleted = await repository.DeleteEntityItemsForUserAsync(UserSettingHelper.UserId, TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(1, deleted);
+        Assert.Null(TestDbHelper.GetInviteCodeEntityWithNoTracking(ownInvite.Id));
+        Assert.NotNull(TestDbHelper.GetInviteCodeEntityWithNoTracking(otherAppInvite.Id));
+        Assert.NotNull(TestDbHelper.GetInviteCodeEntityWithNoTracking(otherEmailInvite.Id));
+    }
+
+    [Fact]
     public async Task SearchEntityDtosByAppIdAsync_Filters_The_Whole_App_Before_Paging()
     {
         // Arrange

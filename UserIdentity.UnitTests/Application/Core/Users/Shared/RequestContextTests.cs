@@ -1,4 +1,5 @@
 using UserIdentity.Application.Core.Users.Shared;
+using UserIdentity.Domain.RefreshTokens;
 using Xunit;
 
 namespace UserIdentity.UnitTests.Application.Core.Users.Shared;
@@ -20,10 +21,10 @@ public class RequestContextTests
     public void Create_Cuts_A_Long_User_Agent_To_The_Device_Limit()
     {
         // Act
-        var requestContext = RequestContext.Create("203.0.113.7", new string('a', RequestContext.DeviceMaxLength + 50));
+        var requestContext = RequestContext.Create("203.0.113.7", new string('a', RefreshTokenLimits.DeviceMaxLength + 50));
 
         // Assert
-        Assert.Equal(new string('a', RequestContext.DeviceMaxLength), requestContext.Device);
+        Assert.Equal(new string('a', RefreshTokenLimits.DeviceMaxLength), requestContext.Device);
     }
 
     [Theory]

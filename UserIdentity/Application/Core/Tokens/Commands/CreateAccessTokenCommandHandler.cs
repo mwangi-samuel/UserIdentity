@@ -1,4 +1,6 @@
+using System.Security.Claims;
 using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.JsonWebTokens;
 using PolyzenKit.Application.Core;
 using PolyzenKit.Application.Core.Interfaces;
 using PolyzenKit.Application.Interfaces;
@@ -9,7 +11,7 @@ using UserIdentity.Persistence.Repositories.Roles;
 
 namespace UserIdentity.Application.Core.Tokens.Commands;
 
-public record CreateAccessTokenCommand(string UserId, string UserName, string AppName) : IBaseCommand;
+public record CreateAccessTokenCommand(string UserId, string UserName, string AppName, Guid SessionId) : IBaseCommand;
 
 public class CreateAccessTokenCommandHandler(
     IOptions<RoleSettings> roleSettingsOptions,
@@ -31,7 +33,14 @@ public class CreateAccessTokenCommandHandler(
         var roles = AppRoleNames.ForApp(roleScopes.Keys, command.AppName, _roleSettings.GlobalAdminRole);
         HashSet<string> scopes = [.. roles.SelectMany(role => roleScopes[role])];
 
-        (var token, var expiresIn) = _jwtTokenHandler.CreateToken(command.UserId, command.UserName, command.AppName, [.. roles], scopes);
+        (var token, var expiresIn) = _jwtTokenHandler.CreateToken(
+            command.UserId,
+            command.UserName,
+            command.AppName,
+            [.. roles],
+            scopes,
+            [new Claim(JwtRegisteredClaimNames.Sid, command.SessionId.ToString())]
+        );
 
         return new AccessTokenViewModel
         {

@@ -240,6 +240,43 @@ public class AppScopingTests(TestingWebAppFactory testingWebAppFactory, ITestOut
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
+    [Theory]
+    [InlineData("GET")]
+    [InlineData("DELETE")]
+    public async Task Another_Apps_Users_Sessions_Are_Not_Found_For_An_App_Admin(string method)
+    {
+        // Arrange
+        SeedAppAdmin();
+        var otherAppUserId = TestDbHelper.CreateUserOfApp(TestingWebAppFactory.OtherAppName);
+        TestDbHelper.CreateRefreshTokenEntity(otherAppUserId);
+
+        // Act
+        var response = await HttpClient.SendValidAuthRequestAsync(new HttpMethod(method), $"/api/v1/user/{otherAppUserId}/sessions");
+
+        // Assert
+        await response.ValidateRequestResponseAsync();
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Single(TestDbHelper.GetRefreshTokenEntitiesWithNoTracking(otherAppUserId));
+    }
+
+    [Fact]
+    public async Task Deleting_Another_Apps_User_As_An_App_Admin_Returns_Not_Found()
+    {
+        // Arrange
+        SeedAppAdmin();
+        var otherAppUserId = TestDbHelper.CreateUserOfApp(TestingWebAppFactory.OtherAppName);
+
+        // Act
+        var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Delete, $"/api/v1/user/{otherAppUserId}");
+
+        // Assert
+        await response.ValidateRequestResponseAsync();
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.NotNull(TestDbHelper.GetIdentityUserWithNoTracking(otherAppUserId));
+    }
+
     [Fact]
     public async Task Another_Apps_Users_Roles_Are_Not_Found_For_An_App_Admin()
     {

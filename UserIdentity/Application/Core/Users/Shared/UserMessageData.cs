@@ -18,6 +18,8 @@ public sealed record UserMessageData
 
     public DateTime? ChangedAt { get; init; }
 
+    public DateTime? DeletedAt { get; init; }
+
     public string? IpAddress { get; init; }
 
     public string? Device { get; init; }

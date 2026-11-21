@@ -57,6 +57,14 @@ public class InviteCodeRepository(AppDbContext dbContext) : EntityRepository<Inv
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<int> DeleteEntityItemsForUserAsync(string userId, CancellationToken cancellationToken = default) =>
+        await _dbContext
+            .InviteCode.Where(invite =>
+                _dbContext.UserRegisteredApp.Any(registration => registration.UserId == userId && registration.AppId == invite.AppId)
+                && _dbContext.Users.Any(user => user.Id == userId && user.Email == invite.UserEmail)
+            )
+            .ExecuteDeleteAsync(cancellationToken);
+
     public async Task<PagedList<InviteCodeDto>> SearchEntityDtosByAppIdAsync(
         int appId,
         string? search,

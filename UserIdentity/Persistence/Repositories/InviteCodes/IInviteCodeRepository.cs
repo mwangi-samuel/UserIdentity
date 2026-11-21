@@ -15,6 +15,8 @@ public interface IInviteCodeRepository
 
     Task<List<InviteCodeEntity>> GetAppliedEntityItemsForUserAsync(string userId, CancellationToken cancellationToken = default);
 
+    Task<int> DeleteEntityItemsForUserAsync(string userId, CancellationToken cancellationToken = default);
+
     Task<PagedList<InviteCodeDto>> SearchEntityDtosByAppIdAsync(
         int appId,
         string? search,

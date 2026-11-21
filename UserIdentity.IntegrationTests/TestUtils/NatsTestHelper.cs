@@ -17,6 +17,7 @@ public sealed class NatsTestHelper(INatsJSContext jetStream)
     public const string SignUpAttemptedSubject = "useridentity.sign-up.attempted";
     public const string TwoFactorChangedSubject = "useridentity.two-factor.changed";
     public const string ContactChangedSubject = "useridentity.contact.changed";
+    public const string UserDeletedSubject = "useridentity.user.deleted";
 
     private static readonly TimeSpan _waitTime = TimeSpan.FromSeconds(10);
 

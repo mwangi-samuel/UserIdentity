@@ -22,6 +22,8 @@ public static class UserMessages
 
     public const string ContactChanged = "contact.changed";
 
+    public const string UserDeleted = "user.deleted";
+
     public const string WelcomeUserAction = "WelcomeUser";
 
     public const string PasswordResetAction = "PasswordReset";
@@ -35,6 +37,8 @@ public static class UserMessages
     public const string TwoFactorChangedAction = "TwoFactorChanged";
 
     public const string ContactChangedAction = "ContactChanged";
+
+    public const string AccountDeletedAction = "AccountDeleted";
 
     public static MessageEvent Welcome(
         IdentityUser user,
@@ -179,6 +183,24 @@ public static class UserMessages
                 ChangedAt = changedAt,
             },
             Recipient(email, phoneNumber, userDetails)
+        );
+
+    public static MessageEvent AccountDeletion(
+        IdentityUser user,
+        UserEntity userDetails,
+        string appName,
+        RequestContext requestContext,
+        DateTime deletedAt
+    ) =>
+        MessageEventFactory.Create(
+            user.Id,
+            appName,
+            AccountDeletedAction,
+            Data(userDetails, requestContext) with
+            {
+                DeletedAt = deletedAt,
+            },
+            Recipient(user.Email, user.PhoneNumber, userDetails)
         );
 
     private static string NewCorrelationId() => Guid.CreateVersion7().ToString();

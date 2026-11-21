@@ -49,6 +49,8 @@ public class AppDbContextTests
             RefreshTokenLimits.PreviousTokenMaxLength,
             MaxLength<RefreshTokenEntity>(model, nameof(RefreshTokenEntity.PreviousToken))
         );
+        Assert.Equal(RefreshTokenLimits.IpAddressMaxLength, MaxLength<RefreshTokenEntity>(model, nameof(RefreshTokenEntity.IpAddress)));
+        Assert.Equal(RefreshTokenLimits.DeviceMaxLength, MaxLength<RefreshTokenEntity>(model, nameof(RefreshTokenEntity.Device)));
         Assert.Equal(PasswordResetLimits.RequestIdMaxLength, MaxLength<PasswordResetEntity>(model, nameof(PasswordResetEntity.RequestId)));
     }
 
