@@ -807,6 +807,7 @@ public class UserEndpointsTests
         Assert.Equal(TestStringHelper.UserId, command.UserId);
         Assert.Same(_registeredApp, command.RegisteredApp);
         Assert.Equal(new UserChanger(TestStringHelper.UserId, false), command.Changer);
+        Assert.Equal(_registeredApp.Id, command.ChangerAppId);
         Assert.Equal(RequestContext.Create("203.0.113.7", "Test Browser"), command.RequestContext);
         A.CallTo(() => handler.DeleteItemAsync(command, TestStringHelper.UserId, A<CancellationToken>._)).MustHaveHappenedOnceExactly();
     }
@@ -846,6 +847,7 @@ public class UserEndpointsTests
                     A<DeleteUserCommand>.That.Matches(c =>
                         c.UserId == "target-id"
                         && c.Password == null
+                        && c.Ticket == null
                         && c.RegisteredApp == _registeredApp
                         && c.Changer == new UserChanger("admin-id", true)
                     ),
@@ -854,6 +856,175 @@ public class UserEndpointsTests
                 )
             )
             .MustHaveHappenedOnceExactly();
+    }
+
+    [Fact]
+    public async Task Delete_User_Passes_The_Ticket_With_The_App_Of_The_Callers_Token()
+    {
+        // Arrange
+        DeleteUserCommand command = new() { Ticket = "ticket" };
+        var handler = A.Fake<IDeleteItemCommandHandler<DeleteUserCommand, DeleteRecordViewModel>>();
+        var tokenApp = new RegisteredAppDto
+        {
+            Id = 7,
+            AppName = "testapp",
+            BaseUrl = "https://token.app.test",
+        };
+
+        A.CallTo(() =>
+                _getRegisteredAppHandler.GetItemAsync(
+                    A<GetRegisteredAppQuery>.That.Matches(query => query.AppName == "testapp"),
+                    A<CancellationToken>._
+                )
+            )
+            .Returns(new RegisteredAppViewModel { RegisteredApp = tokenApp });
+        A.CallTo(() => handler.DeleteItemAsync(command, A<string>._, A<CancellationToken>._)).Returns(new DeleteRecordViewModel());
+
+        var httpContext = ApiRequestFactory.CreateHttpContext("user", userId: "admin-id", appName: "test-app", roles: ["global:admin"]);
+
+        // Act
+        await UserEndpoints.DeleteUserAsync(
+            "target-id",
+            command,
+            ApiRequest.For(httpContext),
+            httpContext,
+            _getRegisteredAppHandler,
+            handler,
+            TestContext.Current.CancellationToken
+        );
+
+        // Assert
+        Assert.Equal("ticket", command.Ticket);
+        Assert.Same(_registeredApp, command.RegisteredApp);
+        Assert.Equal(7, command.ChangerAppId);
+    }
+
+    [Fact]
+    public async Task Get_Users_Passes_The_Admins_App_Who_Asks_And_The_Filters()
+    {
+        // Arrange
+        var handler = A.Fake<IGetItemsQueryHandler<GetUsersQuery, UsersViewModel>>();
+
+        A.CallTo(() => handler.GetItemsAsync(A<GetUsersQuery>._, A<CancellationToken>._))
+            .Returns(new UsersViewModel { Users = [], TotalCount = 0 });
+
+        var request = ApiRequestFactory.Create("user", userId: "admin-id", appName: "test-app", roles: ["global:admin"]);
+
+        // Act
+        var result = await UserEndpoints.GetUsersAsync(
+            request,
+            _getRegisteredAppHandler,
+            handler,
+            TestContext.Current.CancellationToken,
+            page: 2,
+            pageSize: 10,
+            search: "test",
+            role: "test-app:owner",
+            emailConfirmed: false
+        );
+
+        // Assert
+        Assert.Equal((int)HttpStatusCode.OK, result.StatusCode);
+        Assert.Equal(ItemStatusMessage.FetchItemsSuccessful.ToText(), result.Value?.StatusMessage);
+        A.CallTo(() =>
+                _getRegisteredAppHandler.GetItemAsync(
+                    A<GetRegisteredAppQuery>.That.Matches(query => query.AppName == "test-app"),
+                    A<CancellationToken>._
+                )
+            )
+            .MustHaveHappenedOnceExactly();
+        A.CallTo(() =>
+                handler.GetItemsAsync(
+                    new GetUsersQuery
+                    {
+                        RegisteredApp = _registeredApp,
+                        Changer = new UserChanger("admin-id", true),
+                        Search = "test",
+                        Role = "test-app:owner",
+                        EmailConfirmed = false,
+                        Page = 2,
+                        PageSize = 10,
+                    },
+                    A<CancellationToken>._
+                )
+            )
+            .MustHaveHappenedOnceExactly();
+    }
+
+    [Fact]
+    public async Task Send_Step_Up_Code_Is_For_The_Callers_Own_Account_In_The_Tokens_App()
+    {
+        // Arrange
+        var handler = A.Fake<ICreateItemCommandHandler<SendStepUpCodeCommand, StepUpCodeViewModel>>();
+
+        A.CallTo(() => handler.CreateItemAsync(A<SendStepUpCodeCommand>._, A<string>._, A<CancellationToken>._))
+            .Returns(new StepUpCodeViewModel { Method = TwoFactorMethod.Email, CodeSentTo = "a***@test.com" });
+
+        var httpContext = GetClientHttpContext(userId: "admin-id");
+
+        // Act
+        var result = await UserEndpoints.SendStepUpCodeAsync(
+            ApiRequest.For(httpContext),
+            httpContext,
+            _getRegisteredAppHandler,
+            handler,
+            TestContext.Current.CancellationToken
+        );
+
+        // Assert
+        Assert.Equal((int)HttpStatusCode.OK, result.StatusCode);
+        Assert.Equal("a***@test.com", result.Value?.CodeSentTo);
+        A.CallTo(() =>
+                _getRegisteredAppHandler.GetItemAsync(
+                    A<GetRegisteredAppQuery>.That.Matches(query => query.AppName == "testapp"),
+                    A<CancellationToken>._
+                )
+            )
+            .MustHaveHappenedOnceExactly();
+        A.CallTo(() =>
+                handler.CreateItemAsync(
+                    new SendStepUpCodeCommand("admin-id", _registeredApp, RequestContext.Create("203.0.113.7", "Test Browser")),
+                    "admin-id",
+                    A<CancellationToken>._
+                )
+            )
+            .MustHaveHappenedOnceExactly();
+    }
+
+    [Fact]
+    public async Task Create_Step_Up_Is_For_The_Callers_Own_Account_In_The_Tokens_App()
+    {
+        // Arrange
+        CreateStepUpCommand command = new() { Code = "123456" };
+        var handler = A.Fake<ICreateItemCommandHandler<CreateStepUpCommand, StepUpViewModel>>();
+
+        A.CallTo(() => handler.CreateItemAsync(command, A<string>._, A<CancellationToken>._))
+            .Returns(new StepUpViewModel { Ticket = "ticket", ExpiresAt = DateTime.UtcNow.AddMinutes(5) });
+
+        var request = ApiRequestFactory.Create("user", userId: "admin-id", appName: "test-app", roles: ["global:admin"]);
+
+        // Act
+        var result = await UserEndpoints.CreateStepUpAsync(
+            command,
+            request,
+            _getRegisteredAppHandler,
+            handler,
+            TestContext.Current.CancellationToken
+        );
+
+        // Assert
+        Assert.Equal((int)HttpStatusCode.OK, result.StatusCode);
+        Assert.Equal("ticket", result.Value?.Ticket);
+        Assert.Equal("admin-id", command.UserId);
+        Assert.Same(_registeredApp, command.RegisteredApp);
+        A.CallTo(() =>
+                _getRegisteredAppHandler.GetItemAsync(
+                    A<GetRegisteredAppQuery>.That.Matches(query => query.AppName == "testapp"),
+                    A<CancellationToken>._
+                )
+            )
+            .MustHaveHappenedOnceExactly();
+        A.CallTo(() => handler.CreateItemAsync(command, "admin-id", A<CancellationToken>._)).MustHaveHappenedOnceExactly();
     }
 
     [Fact]

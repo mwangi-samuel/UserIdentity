@@ -7,6 +7,7 @@ using PolyzenKit.Infrastructure.Configurations;
 using PolyzenKit.Persistence.Settings;
 using UserIdentity.Application.Core.AccountLimits.Commands;
 using UserIdentity.Application.Core.Tokens.Commands;
+using UserIdentity.Application.Core.TwoFactor.Commands;
 using UserIdentity.Application.Core.Users.Commands;
 using UserIdentity.Application.Core.Users.Shared;
 using UserIdentity.Application.Core.Users.ViewModels;
@@ -47,6 +48,7 @@ public static class Extensions
 
         services.AddAppPeriodicDeleteCommand<DeleteExpiredRefreshTokensCommand>(interval);
         services.AddAppPeriodicDeleteCommand<DeleteExpiredLoginTicketsCommand>(interval);
+        services.AddAppPeriodicDeleteCommand<DeleteExpiredStepUpsCommand>(interval);
         services.AddAppPeriodicDeleteCommand<DeleteExpiredPasswordResetsCommand>(interval);
         services.AddAppPeriodicDeleteCommand<DeleteUnconfirmedUsersCommand>(interval);
         services.AddAppPeriodicDeleteCommand<DeleteExpiredEmailChangesCommand>(interval);

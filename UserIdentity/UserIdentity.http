@@ -64,6 +64,13 @@ Authorization: Bearer {{adminLogin.response.body.$.userToken.accessToken.token}}
 
 ###
 
+GET {{UserIdentity_HostAddress}}/api/v1/user?page=1&pageSize=50&search=user&emailConfirmed=false
+X-Api-Key: {{ApiKey}}
+X-App-Name: {{AppName}}
+Authorization: Bearer {{adminLogin.response.body.$.userToken.accessToken.token}}
+
+###
+
 # @name role
 POST {{UserIdentity_HostAddress}}/api/v1/role
 X-Api-Key: {{ApiKey}}
@@ -473,9 +480,110 @@ Authorization: Bearer {{demoSecondStep.response.body.$.userToken.accessToken.tok
 
 ###
 
+# @name demoAdminRole
+POST {{UserIdentity_HostAddress}}/api/v1/role
+X-Api-Key: {{ApiKey}}
+Authorization: Bearer {{adminLogin.response.body.$.userToken.accessToken.token}}
+Content-Type: application/json
+
+{
+  "roleName": "{{registeredApp.response.body.$.registeredApp.appName}}:admin"
+}
+
+###
+
+POST {{UserIdentity_HostAddress}}/api/v1/role/user
+X-Api-Key: {{ApiKey}}
+Authorization: Bearer {{adminLogin.response.body.$.userToken.accessToken.token}}
+Content-Type: application/json
+
+{
+  "userId": "{{demoSignUp.response.body.$.user.id}}",
+  "roleId": "{{demoAdminRole.response.body.$.role.id}}"
+}
+
+###
+
+# @name demoAdminLogin
+POST {{UserIdentity_HostAddress}}/api/v1/user/login
+X-Api-Key: {{ApiKey}}
+X-App-Name: {{registeredApp.response.body.$.registeredApp.appName}}
+Content-Type: application/json
+
+{
+  "userName": "{{demoSignUp.response.body.$.user.userName}}",
+  "password": "{{UserPassword}}"
+}
+
+###
+
+# @name demoAdmin
+POST {{UserIdentity_HostAddress}}/api/v1/user/two-factor/verify
+X-Api-Key: {{ApiKey}}
+X-App-Name: {{registeredApp.response.body.$.registeredApp.appName}}
+Content-Type: application/json
+
+{
+  "ticket": "{{demoAdminLogin.response.body.$.ticket}}",
+  "code": "{{Code}}"
+}
+
+###
+
+# @name demoBot
+POST {{UserIdentity_HostAddress}}/api/v1/user/register
+X-Api-Key: {{ApiKey}}
+X-App-Name: {{registeredApp.response.body.$.registeredApp.appName}}
+X-Captcha-Token: {{CaptchaToken}}
+Content-Type: application/json
+
+{
+  "firstName": "Bot",
+  "userName": "bot{{$timestamp}}",
+  "userEmail": "bot{{$timestamp}}@example.com",
+  "userPassword": "{{UserPassword}}"
+}
+
+###
+
+GET {{UserIdentity_HostAddress}}/api/v1/user?page=1&pageSize=50&search=bot
+X-Api-Key: {{ApiKey}}
+Authorization: Bearer {{demoAdmin.response.body.$.userToken.accessToken.token}}
+
+###
+
+POST {{UserIdentity_HostAddress}}/api/v1/user/step-up/code
+X-Api-Key: {{ApiKey}}
+Authorization: Bearer {{demoAdmin.response.body.$.userToken.accessToken.token}}
+
+###
+
+# @name demoStepUp
+POST {{UserIdentity_HostAddress}}/api/v1/user/step-up
+X-Api-Key: {{ApiKey}}
+Authorization: Bearer {{demoAdmin.response.body.$.userToken.accessToken.token}}
+Content-Type: application/json
+
+{
+  "code": "{{Code}}"
+}
+
+###
+
+DELETE {{UserIdentity_HostAddress}}/api/v1/user/{{demoBot.response.body.$.user.id}}
+X-Api-Key: {{ApiKey}}
+Authorization: Bearer {{demoAdmin.response.body.$.userToken.accessToken.token}}
+Content-Type: application/json
+
+{
+  "ticket": "{{demoStepUp.response.body.$.ticket}}"
+}
+
+###
+
 DELETE {{UserIdentity_HostAddress}}/api/v1/user/{{demoSignUp.response.body.$.user.id}}
 X-Api-Key: {{ApiKey}}
-Authorization: Bearer {{demoSecondStep.response.body.$.userToken.accessToken.token}}
+Authorization: Bearer {{demoAdmin.response.body.$.userToken.accessToken.token}}
 Content-Type: application/json
 
 {

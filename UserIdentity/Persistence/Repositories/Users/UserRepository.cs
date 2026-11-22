@@ -1,4 +1,7 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using System.Linq.Expressions;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
+using PolyzenKit.Common.Paging;
 using PolyzenKit.Persistence.Repositories;
 using UserIdentity.Domain.Users;
 
@@ -6,6 +9,24 @@ namespace UserIdentity.Persistence.Repositories.Users;
 
 public class UserRepository(AppDbContext appDbContext) : EntityRepository<UserEntity, string>(appDbContext), IUserRepository
 {
+    private static readonly Expression<Func<IdentityUser, UserEntity, UserDto>> _userDto = (user, details) =>
+        new UserDto
+        {
+            Id = user.Id,
+            UserName = user.UserName,
+            Email = user.Email,
+            EmailConfirmed = user.EmailConfirmed,
+            PhoneNumber = user.PhoneNumber,
+            LockoutEnd = user.LockoutEnd,
+            FirstName = details.FirstName,
+            LastName = details.LastName,
+            TwoFactorMethod = details.TwoFactorMethod,
+            CreatedBy = details.CreatedBy,
+            CreatedAt = details.CreatedAt,
+            UpdatedBy = details.UpdatedBy,
+            UpdatedAt = details.UpdatedAt,
+        };
+
     private readonly AppDbContext _appDbContext = appDbContext;
 
     public async Task<UserDto?> GetUserDtoAsync(string userId, string? appName, CancellationToken cancellationToken = default)
@@ -18,27 +39,47 @@ public class UserRepository(AppDbContext appDbContext) : EntityRepository<UserEn
                     registration.UserId == user.Id && registration.App.AppName == appName && !registration.App.IsDeleted
                 )
             )
-            .Join(
-                _appDbContext.AppUser,
-                user => user.Id,
-                details => details.Id,
-                (user, details) =>
-                    new UserDto
-                    {
-                        Id = user.Id,
-                        UserName = user.UserName,
-                        Email = user.Email,
-                        PhoneNumber = user.PhoneNumber,
-                        FirstName = details.FirstName,
-                        LastName = details.LastName,
-                        TwoFactorMethod = details.TwoFactorMethod,
-                        CreatedBy = details.CreatedBy,
-                        CreatedAt = details.CreatedAt,
-                        UpdatedBy = details.UpdatedBy,
-                        UpdatedAt = details.UpdatedAt,
-                    }
-            )
+            .Join(_appDbContext.AppUser, user => user.Id, details => details.Id, _userDto)
             .SingleOrDefaultAsync(cancellationToken);
+    }
+
+    public async Task<PagedList<UserDto>> SearchUserDtosByAppIdAsync(
+        int appId,
+        string? search,
+        string? roleName,
+        bool? emailConfirmed,
+        int page,
+        int pageSize,
+        CancellationToken cancellationToken = default
+    )
+    {
+        var searchPattern = LikePattern.Containing(search);
+        var normalizedRoleName = roleName?.ToUpperInvariant();
+
+        return await _appDbContext
+            .Users.Where(user =>
+                _appDbContext.UserRegisteredApp.Any(registration => registration.UserId == user.Id && registration.AppId == appId)
+            )
+            .Where(user => emailConfirmed == null || user.EmailConfirmed == emailConfirmed)
+            .Where(user =>
+                normalizedRoleName == null
+                || _appDbContext.UserRoles.Any(userRole =>
+                    userRole.UserId == user.Id
+                    && _appDbContext.Roles.Any(role => role.Id == userRole.RoleId && role.NormalizedName == normalizedRoleName)
+                )
+            )
+            .Join(_appDbContext.AppUser, user => user.Id, details => details.Id, _userDto)
+            .Where(user =>
+                searchPattern == null
+                || EF.Functions.ILike(user.Email!, searchPattern, LikePattern.EscapeCharacter)
+                || EF.Functions.ILike(user.UserName!, searchPattern, LikePattern.EscapeCharacter)
+                || EF.Functions.ILike(user.FirstName!, searchPattern, LikePattern.EscapeCharacter)
+                || EF.Functions.ILike(user.LastName!, searchPattern, LikePattern.EscapeCharacter)
+                || EF.Functions.ILike(user.PhoneNumber!, searchPattern, LikePattern.EscapeCharacter)
+            )
+            .OrderByDescending(user => user.CreatedAt)
+            .ThenByDescending(user => user.Id)
+            .ToPageAsync(page, pageSize, cancellationToken);
     }
 
     public async Task<UserEntity?> GetEntityItemForUpdateAsync(string userId, CancellationToken cancellationToken = default)

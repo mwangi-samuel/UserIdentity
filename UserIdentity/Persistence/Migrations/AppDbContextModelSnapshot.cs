@@ -964,6 +964,72 @@ namespace UserIdentity.Persistence.Migrations
                     b.ToTable("refresh_tokens", (string)null);
                 });
 
+            modelBuilder.Entity("UserIdentity.Domain.StepUps.StepUpEntity", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<int>("AppId")
+                        .HasColumnType("integer")
+                        .HasColumnName("app_id");
+
+                    b.Property<DateTime?>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTime>("Expires")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_deleted");
+
+                    b.Property<string>("Ticket")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("ticket");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("updated_by");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_step_ups");
+
+                    b.HasIndex("AppId")
+                        .HasDatabaseName("ix_step_ups_app_id");
+
+                    b.HasIndex("Expires")
+                        .HasDatabaseName("ix_step_ups_expires");
+
+                    b.HasIndex("Ticket")
+                        .IsUnique()
+                        .HasDatabaseName("ix_step_ups_ticket");
+
+                    b.HasIndex("UserId", "AppId")
+                        .HasDatabaseName("ix_step_ups_user_id_app_id");
+
+                    b.ToTable("step_ups", (string)null);
+                });
+
             modelBuilder.Entity("UserIdentity.Domain.UserRegisteredApps.UserRegisteredAppEntity", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1280,6 +1346,23 @@ namespace UserIdentity.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_refresh_tokens_asp_net_users_user_id");
+                });
+
+            modelBuilder.Entity("UserIdentity.Domain.StepUps.StepUpEntity", b =>
+                {
+                    b.HasOne("PolyzenKit.Domain.Entities.RegisteredApps.RegisteredAppEntity", null)
+                        .WithMany()
+                        .HasForeignKey("AppId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_step_ups_registered_apps_app_id");
+
+                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_step_ups_asp_net_users_user_id");
                 });
 
             modelBuilder.Entity("UserIdentity.Domain.UserRegisteredApps.UserRegisteredAppEntity", b =>

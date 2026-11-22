@@ -25,6 +25,12 @@ public interface IRefreshTokenRepository : IEntityRepository<RefreshTokenEntity,
         CancellationToken cancellationToken = default
     );
 
+    Task<Dictionary<string, DateTime?>> GetLastActiveAtByUserIdAsync(
+        int appId,
+        IReadOnlyCollection<string> userIds,
+        CancellationToken cancellationToken = default
+    );
+
     Task<int> DeleteEntityItemsAsync(
         string userId,
         int? appId = null,

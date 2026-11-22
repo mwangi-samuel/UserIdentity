@@ -14,6 +14,7 @@ using UserIdentity.Domain.InviteCodes;
 using UserIdentity.Domain.LoginTickets;
 using UserIdentity.Domain.PasswordResets;
 using UserIdentity.Domain.RefreshTokens;
+using UserIdentity.Domain.StepUps;
 using UserIdentity.Domain.UserRegisteredApps;
 using UserIdentity.Domain.Users;
 using UserIdentity.Domain.WaitLists;
@@ -193,15 +194,16 @@ public sealed class TestDbHelper(
         return user;
     }
 
-    public string CreateUserOfApp(string appName)
+    public string CreateUserOfApp(string appName, string userName = "other.app.user")
     {
+        var email = $"{userName}@example.com";
         var user = new IdentityUser
         {
             Id = Guid.CreateVersion7().ToString(),
-            UserName = "other.app.user",
-            NormalizedUserName = "OTHER.APP.USER",
-            Email = "other.app.user@example.com",
-            NormalizedEmail = "OTHER.APP.USER@EXAMPLE.COM",
+            UserName = userName,
+            NormalizedUserName = userName.ToUpperInvariant(),
+            Email = email,
+            NormalizedEmail = email.ToUpperInvariant(),
         };
 
         _appDbContext.Users.Add(user);
@@ -367,6 +369,17 @@ public sealed class TestDbHelper(
 
     public List<LoginTicketEntity> GetLoginTicketEntitiesWithNoTracking(string userId) =>
         [.. _appDbContext.LoginTicket.AsNoTracking().Where(x => x.UserId == userId)];
+
+    public List<StepUpEntity> GetStepUpEntitiesWithNoTracking(string userId) =>
+        [.. _appDbContext.StepUp.AsNoTracking().Where(x => x.UserId == userId)];
+
+    public void ExpireStepUpEntities(string userId)
+    {
+        foreach (var stepUp in _appDbContext.StepUp.Where(x => x.UserId == userId))
+            stepUp.Expires = DateTime.UtcNow.AddMinutes(-1);
+
+        _appDbContext.SaveChanges();
+    }
 
     public int CountPasswordResetEntities(string userId) => _appDbContext.PasswordReset.AsNoTracking().Count(x => x.UserId == userId);
 

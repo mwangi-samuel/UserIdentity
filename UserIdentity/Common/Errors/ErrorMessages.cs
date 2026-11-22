@@ -42,6 +42,8 @@ public static class ErrorMessages
         public const string CodeRequired = "Enter the code to finish setting up two-step sign-in.";
         public const string Required = "Two-step sign-in is required for this account, so it can't be turned off.";
         public const string NotOn = "Two-step sign-in isn't on for this account.";
+        public const string SetUpToConfirm = "Set up two-step sign-in to confirm this.";
+        public const string ConfirmFirst = "Confirm with your sign-in code first.";
     }
 
     public static class SignInSettings

@@ -5,6 +5,7 @@ using PolyzenKit.Application.Core;
 using PolyzenKit.Application.Core.Interfaces;
 using PolyzenKit.Application.Core.Messages.Commands;
 using PolyzenKit.Application.Core.Messages.ViewModels;
+using PolyzenKit.Application.Interfaces;
 using PolyzenKit.Common.Exceptions;
 using PolyzenKit.Common.Extensions;
 using PolyzenKit.Common.Settings;
@@ -13,7 +14,9 @@ using PolyzenKit.Persistence.Repositories;
 using UserIdentity.Application.Core.AccountLimits.ViewModels;
 using UserIdentity.Application.Core.Users.Shared;
 using UserIdentity.Common.Errors;
+using UserIdentity.Domain.StepUps;
 using UserIdentity.Persistence.Repositories.InviteCodes;
+using UserIdentity.Persistence.Repositories.StepUps;
 using UserIdentity.Persistence.Repositories.UserRegisteredApps;
 using UserIdentity.Persistence.Repositories.Users;
 using UserIdentity.Persistence.Repositories.WaitLists;
@@ -32,9 +35,14 @@ public record DeleteUserCommand : IBaseCommand
     public UserChanger Changer { get; internal set; } = null!;
 
     [JsonIgnore]
+    public int ChangerAppId { get; internal set; }
+
+    [JsonIgnore]
     public RequestContext RequestContext { get; internal set; } = new();
 
     public string? Password { get; init; }
+
+    public string? Ticket { get; init; }
 }
 
 public class DeleteUserCommandHandler(
@@ -45,6 +53,8 @@ public class DeleteUserCommandHandler(
     IUserRegisteredAppRepository userRegisteredAppRepository,
     IInviteCodeRepository inviteCodeRepository,
     IWaitListRepository waitListRepository,
+    IStepUpRepository stepUpRepository,
+    ITokenFactory tokenFactory,
     ICreateItemCommandHandler<RecordFailedSignInCommand, AccountLimitViewModel> recordFailedSignInCommandHandler,
     ICreateItemCommandHandler<CreateOutboxMessageCommand, OutboxMessageViewModel> createOutboxMessageCommandHandler,
     TimeProvider timeProvider
@@ -57,6 +67,8 @@ public class DeleteUserCommandHandler(
     private readonly IUserRegisteredAppRepository _userRegisteredAppRepository = userRegisteredAppRepository;
     private readonly IInviteCodeRepository _inviteCodeRepository = inviteCodeRepository;
     private readonly IWaitListRepository _waitListRepository = waitListRepository;
+    private readonly IStepUpRepository _stepUpRepository = stepUpRepository;
+    private readonly ITokenFactory _tokenFactory = tokenFactory;
     private readonly ICreateItemCommandHandler<RecordFailedSignInCommand, AccountLimitViewModel> _recordFailedSignInCommandHandler =
         recordFailedSignInCommandHandler;
     private readonly ICreateItemCommandHandler<CreateOutboxMessageCommand, OutboxMessageViewModel> _createOutboxMessageCommandHandler =
@@ -82,6 +94,8 @@ public class DeleteUserCommandHandler(
             cancellationToken
         );
 
+        var now = _timeProvider.GetUtcNow().UtcDateTime;
+
         if (command.Changer.IsUser(user.Id))
         {
             if (string.IsNullOrWhiteSpace(command.Password))
@@ -89,6 +103,8 @@ public class DeleteUserCommandHandler(
 
             await PasswordCheck.EnsureAsync(_userManager, _recordFailedSignInCommandHandler, user, command.Password, cancellationToken);
         }
+        else
+            await EnsureStepUpAsync(command, now, cancellationToken);
 
         var globalAdminRole = _roleSettings.GlobalAdminRole.TrimAndLowerInvariant();
 
@@ -96,7 +112,6 @@ public class DeleteUserCommandHandler(
             throw new IllegalOperationException(ErrorMessages.Users.LastGlobalAdmin);
 
         var userDetails = await _userRepository.GetEntityItemAsync(user.Id, cancellationToken);
-        var now = _timeProvider.GetUtcNow().UtcDateTime;
 
         await _unitOfWork.BeginTransactionAsync(cancellationToken);
 
@@ -133,5 +148,19 @@ public class DeleteUserCommandHandler(
         }
 
         return new DeleteRecordViewModel();
+    }
+
+    private async Task EnsureStepUpAsync(DeleteUserCommand command, DateTime now, CancellationToken cancellationToken)
+    {
+        var stepUp = string.IsNullOrWhiteSpace(command.Ticket)
+            ? null
+            : await _stepUpRepository.GetEntityByAlternateIdAsync(
+                new StepUpEntity { Ticket = _tokenFactory.HashToken(command.Ticket), AppId = command.ChangerAppId },
+                QueryCondition.MayOrMayNotExist,
+                cancellationToken
+            );
+
+        if (stepUp is null || stepUp.UserId != command.Changer.UserId || stepUp.Expires <= now)
+            throw new IllegalOperationException(ErrorMessages.TwoFactor.ConfirmFirst);
     }
 }

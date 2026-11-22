@@ -8,4 +8,5 @@ public static class UserLimits
     public const int EmailMaxLength = 256;
     public const int PhoneNumberMaxLength = 20;
     public const int TwoFactorMethodMaxLength = 20;
+    public const int SearchMaxLength = 100;
 }

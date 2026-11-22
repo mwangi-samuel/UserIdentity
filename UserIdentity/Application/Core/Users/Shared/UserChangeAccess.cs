@@ -22,14 +22,18 @@ public static class UserChangeAccess
         if (
             user is null
             || !await userRegisteredAppRepository.IsUserRegisteredForAppAsync(user.Id, appName, cancellationToken)
-            || (
-                !changer.IsGlobalAdmin
-                && !changer.IsUser(user.Id)
-                && AppRoleNames.HoldsAdminRole(await userManager.GetRolesAsync(user), appName, roleSettings)
-            )
+            || !IsAllowed(changer, user.Id, await userManager.GetRolesAsync(user), appName, roleSettings)
         )
             throw NoRecordException.ForIdentifier(identifier);
 
         return user;
     }
+
+    public static bool IsAllowed(
+        UserChanger changer,
+        string userId,
+        IEnumerable<string> roles,
+        string appName,
+        RoleSettings roleSettings
+    ) => changer.IsGlobalAdmin || changer.IsUser(userId) || !AppRoleNames.HoldsAdminRole(roles, appName, roleSettings);
 }

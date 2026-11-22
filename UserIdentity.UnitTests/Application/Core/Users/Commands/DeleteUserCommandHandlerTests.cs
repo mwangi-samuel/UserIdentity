@@ -6,6 +6,7 @@ using PolyzenKit.Application.Core.Interfaces;
 using PolyzenKit.Application.Core.Messages.Commands;
 using PolyzenKit.Application.Core.Messages.Events;
 using PolyzenKit.Application.Core.Messages.ViewModels;
+using PolyzenKit.Application.Interfaces;
 using PolyzenKit.Common.Exceptions;
 using PolyzenKit.Common.Settings;
 using PolyzenKit.Domain.Entities.RegisteredApps;
@@ -14,8 +15,10 @@ using UserIdentity.Application.Core.AccountLimits.ViewModels;
 using UserIdentity.Application.Core.Users.Commands;
 using UserIdentity.Application.Core.Users.Shared;
 using UserIdentity.Common.Errors;
+using UserIdentity.Domain.StepUps;
 using UserIdentity.Domain.Users;
 using UserIdentity.Persistence.Repositories.InviteCodes;
+using UserIdentity.Persistence.Repositories.StepUps;
 using UserIdentity.Persistence.Repositories.UserRegisteredApps;
 using UserIdentity.Persistence.Repositories.Users;
 using UserIdentity.Persistence.Repositories.WaitLists;
@@ -36,6 +39,8 @@ public class DeleteUserCommandHandlerTests
     private readonly IUserRegisteredAppRepository _userRegisteredAppRepository = A.Fake<IUserRegisteredAppRepository>();
     private readonly IInviteCodeRepository _inviteCodeRepository = A.Fake<IInviteCodeRepository>();
     private readonly IWaitListRepository _waitListRepository = A.Fake<IWaitListRepository>();
+    private readonly IStepUpRepository _stepUpRepository = A.Fake<IStepUpRepository>();
+    private readonly ITokenFactory _tokenFactory = A.Fake<ITokenFactory>();
     private readonly ICreateItemCommandHandler<RecordFailedSignInCommand, AccountLimitViewModel> _recordFailedSignInCommandHandler = A.Fake<
         ICreateItemCommandHandler<RecordFailedSignInCommand, AccountLimitViewModel>
     >();
@@ -66,6 +71,15 @@ public class DeleteUserCommandHandlerTests
 
     private readonly RequestContext _requestContext = RequestContext.Create("203.0.113.7", "Test Browser");
 
+    private readonly StepUpEntity _stepUp = new()
+    {
+        Id = Guid.CreateVersion7(),
+        UserId = "admin-id",
+        AppId = 7,
+        Ticket = "hashed-ticket",
+        Expires = _now.AddMinutes(5),
+    };
+
     private CreateOutboxMessageCommand? _outboxMessage;
 
     public DeleteUserCommandHandlerTests()
@@ -78,6 +92,15 @@ public class DeleteUserCommandHandlerTests
         A.CallTo(() => _userManager.IsInRoleAsync(_user, GlobalAdminRole)).Returns(false);
         A.CallTo(() => _userRegisteredAppRepository.IsUserRegisteredForAppAsync(_user.Id, "TestApp", A<CancellationToken>._)).Returns(true);
         A.CallTo(() => _userRepository.GetEntityItemAsync(_user.Id, A<CancellationToken>._)).Returns(_userDetails);
+        A.CallTo(() => _tokenFactory.HashToken("ticket")).Returns("hashed-ticket");
+        A.CallTo(() =>
+                _stepUpRepository.GetEntityByAlternateIdAsync(
+                    A<StepUpEntity>.That.Matches(e => e.Ticket == "hashed-ticket" && e.AppId == 7),
+                    QueryCondition.MayOrMayNotExist,
+                    A<CancellationToken>._
+                )
+            )
+            .Returns(_stepUp);
         A.CallTo(() =>
                 _createOutboxMessageCommandHandler.CreateItemAsync(A<CreateOutboxMessageCommand>._, A<string>._, A<CancellationToken>._)
             )
@@ -207,6 +230,118 @@ public class DeleteUserCommandHandlerTests
         Assert.Null(data?.Device);
     }
 
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData(" ")]
+    public async Task A_Staff_Deletion_Without_A_Ticket_Asks_For_The_Sign_In_Code_First(string? ticket)
+    {
+        // Act & Assert
+        var exception = await Assert.ThrowsAsync<IllegalOperationException>(() =>
+            GetHandler().DeleteItemAsync(GetStaffCommand(ticket), "admin-id", TestContext.Current.CancellationToken)
+        );
+
+        Assert.Equal(ErrorMessages.TwoFactor.ConfirmFirst, exception.Message);
+        A.CallTo(() => _stepUpRepository.GetEntityByAlternateIdAsync(A<StepUpEntity>._, A<QueryCondition>._, A<CancellationToken>._))
+            .MustNotHaveHappened();
+        AssertNothingDeleted();
+    }
+
+    [Fact]
+    public async Task A_Staff_Deletion_With_An_Unknown_Ticket_Is_Refused()
+    {
+        // Arrange
+        A.CallTo(() => _tokenFactory.HashToken("unknown")).Returns("hashed-unknown");
+        A.CallTo(() =>
+                _stepUpRepository.GetEntityByAlternateIdAsync(
+                    A<StepUpEntity>.That.Matches(e => e.Ticket == "hashed-unknown"),
+                    A<QueryCondition>._,
+                    A<CancellationToken>._
+                )
+            )
+            .Returns((StepUpEntity?)null);
+
+        // Act & Assert
+        var exception = await Assert.ThrowsAsync<IllegalOperationException>(() =>
+            GetHandler().DeleteItemAsync(GetStaffCommand("unknown"), "admin-id", TestContext.Current.CancellationToken)
+        );
+
+        Assert.Equal(ErrorMessages.TwoFactor.ConfirmFirst, exception.Message);
+        AssertNothingDeleted();
+    }
+
+    [Fact]
+    public async Task A_Staff_Deletion_With_An_Expired_Ticket_Is_Refused()
+    {
+        // Arrange
+        _stepUp.Expires = _now;
+
+        // Act & Assert
+        var exception = await Assert.ThrowsAsync<IllegalOperationException>(() =>
+            GetHandler().DeleteItemAsync(GetStaffCommand(), "admin-id", TestContext.Current.CancellationToken)
+        );
+
+        Assert.Equal(ErrorMessages.TwoFactor.ConfirmFirst, exception.Message);
+        AssertNothingDeleted();
+    }
+
+    [Fact]
+    public async Task A_Staff_Deletion_With_Another_Admins_Ticket_Is_Refused()
+    {
+        // Arrange
+        _stepUp.UserId = "other-admin-id";
+
+        // Act & Assert
+        var exception = await Assert.ThrowsAsync<IllegalOperationException>(() =>
+            GetHandler().DeleteItemAsync(GetStaffCommand(), "admin-id", TestContext.Current.CancellationToken)
+        );
+
+        Assert.Equal(ErrorMessages.TwoFactor.ConfirmFirst, exception.Message);
+        AssertNothingDeleted();
+    }
+
+    [Fact]
+    public async Task A_Staff_Deletion_Looks_The_Ticket_Up_By_Its_Hash_In_The_Admins_Own_App()
+    {
+        // Act
+        await GetHandler().DeleteItemAsync(GetStaffCommand(), "admin-id", TestContext.Current.CancellationToken);
+
+        // Assert
+        A.CallTo(() =>
+                _stepUpRepository.GetEntityByAlternateIdAsync(
+                    A<StepUpEntity>.That.Matches(e => e.Ticket == "hashed-ticket" && e.AppId == 7),
+                    QueryCondition.MayOrMayNotExist,
+                    A<CancellationToken>._
+                )
+            )
+            .MustHaveHappenedOnceExactly();
+        A.CallTo(() => _userManager.DeleteAsync(_user)).MustHaveHappenedOnceExactly();
+    }
+
+    [Fact]
+    public async Task A_Ticket_Works_Again_Until_It_Expires()
+    {
+        // Act
+        await GetHandler().DeleteItemAsync(GetStaffCommand(), "admin-id", TestContext.Current.CancellationToken);
+        await GetHandler().DeleteItemAsync(GetStaffCommand(), "admin-id", TestContext.Current.CancellationToken);
+
+        // Assert
+        A.CallTo(() => _userManager.DeleteAsync(_user)).MustHaveHappenedTwiceExactly();
+        A.CallTo(() => _stepUpRepository.RemoveEntityItem(A<StepUpEntity>._)).MustNotHaveHappened();
+    }
+
+    [Fact]
+    public async Task Own_Deletion_Needs_No_Ticket()
+    {
+        // Act
+        await GetHandler().DeleteItemAsync(GetOwnCommand("right"), _user.Id, TestContext.Current.CancellationToken);
+
+        // Assert
+        A.CallTo(() => _stepUpRepository.GetEntityByAlternateIdAsync(A<StepUpEntity>._, A<QueryCondition>._, A<CancellationToken>._))
+            .MustNotHaveHappened();
+        A.CallTo(() => _userManager.DeleteAsync(_user)).MustHaveHappenedOnceExactly();
+    }
+
     [Fact]
     public async Task An_App_Admin_Cant_Delete_An_Admin_Account()
     {
@@ -290,13 +425,15 @@ public class DeleteUserCommandHandlerTests
             Password = password,
         };
 
-    private DeleteUserCommand GetStaffCommand() =>
+    private DeleteUserCommand GetStaffCommand(string? ticket = "ticket") =>
         new()
         {
             UserId = _user.Id,
             RegisteredApp = _registeredApp,
             Changer = new UserChanger("admin-id", false),
+            ChangerAppId = 7,
             RequestContext = _requestContext,
+            Ticket = ticket,
         };
 
     private DeleteUserCommandHandler GetHandler() =>
@@ -308,6 +445,8 @@ public class DeleteUserCommandHandlerTests
             _userRegisteredAppRepository,
             _inviteCodeRepository,
             _waitListRepository,
+            _stepUpRepository,
+            _tokenFactory,
             _recordFailedSignInCommandHandler,
             _createOutboxMessageCommandHandler,
             new FakeTimeProvider(_now)

@@ -8,5 +8,9 @@ public class UserDto : UserEntity, IBaseAuditableEntityDto<string>
 
     public string? Email { get; init; }
 
+    public bool EmailConfirmed { get; init; }
+
     public string? PhoneNumber { get; init; }
+
+    public DateTimeOffset? LockoutEnd { get; init; }
 }

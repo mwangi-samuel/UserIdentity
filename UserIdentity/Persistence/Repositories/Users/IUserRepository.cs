@@ -1,4 +1,5 @@
-﻿using PolyzenKit.Persistence.Repositories;
+﻿using PolyzenKit.Common.Paging;
+using PolyzenKit.Persistence.Repositories;
 using UserIdentity.Domain.Users;
 
 namespace UserIdentity.Persistence.Repositories.Users;
@@ -6,6 +7,16 @@ namespace UserIdentity.Persistence.Repositories.Users;
 public interface IUserRepository : IEntityRepository<UserEntity, string>
 {
     Task<UserDto?> GetUserDtoAsync(string userId, string? appName, CancellationToken cancellationToken = default);
+
+    Task<PagedList<UserDto>> SearchUserDtosByAppIdAsync(
+        int appId,
+        string? search,
+        string? roleName,
+        bool? emailConfirmed,
+        int page,
+        int pageSize,
+        CancellationToken cancellationToken = default
+    );
 
     Task<UserEntity?> GetEntityItemForUpdateAsync(string userId, CancellationToken cancellationToken = default);
 

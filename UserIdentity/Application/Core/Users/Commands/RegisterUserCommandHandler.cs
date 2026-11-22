@@ -418,6 +418,7 @@ public class RegisterUserCommandHandler(
             FirstName = userDetails.FirstName,
             LastName = userDetails.LastName,
             Email = user.Email,
+            EmailConfirmed = user.EmailConfirmed,
             PhoneNumber = user.PhoneNumber,
         };
 

@@ -9,4 +9,7 @@ public sealed class TwoFactorSettings
 
     [Range(1, int.MaxValue)]
     public int RecoveryCodeCount { get; init; } = 10;
+
+    [Range(1, int.MaxValue)]
+    public int StepUpTicketLifetimeSeconds { get; init; } = 300;
 }
