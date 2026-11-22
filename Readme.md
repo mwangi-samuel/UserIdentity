@@ -48,7 +48,7 @@ Each account belongs to the app it registered with. Logging in, refreshing a tok
 
 There are two kinds of admin:
 
-- **App admins** have the `<app>:admin` role. They manage their app's roles (names must start with `<app>:`, and are stored in lower case) and those roles' scopes, give those roles to their app's users, read and change their app's users, reset their two-step sign-in, and manage their app's invite codes and wait list. Anything belonging to another app returns 404, or 400 for a role name outside the prefix.
+- **App admins** have the `<app>:admin` role. They manage their app's roles (names must start with `<app>:`, and are stored in lower case) and those roles' scopes, give those roles to their app's users, list, read and change their app's users, reset their two-step sign-in, and manage their app's invite codes and wait list. Anything belonging to another app returns 404, or 400 for a role name outside the prefix.
 - **Global admins** have `RoleSettings:GlobalAdminRole` (default `global:admin`), whatever app they log in through. They manage registered apps and their sign-in settings, and every app's roles, role scopes and users. For invite codes, wait list entries, sign-in settings and user changes they name the app in the `X-App-Name` header. The app names `global` and `service` are reserved.
 
 ### Registered Apps
@@ -232,6 +232,19 @@ These need a signed-in user of the app. The ones that take the password count a 
 ### Account Help
 `POST /api/v1/user/two-factor/reset` with `{ "email": "..." }`, for app admins and global admins (who name the app in `X-App-Name`), removes the user's method, key and recovery codes, ends their sessions and sends `TwoFactorChanged` with the change `Reset`, which doesn't say who reset it. It answers the user. An unknown email, an account of another app, or an admin account when the caller is an app admin, all answer 404; only a global admin can reset an admin account.
 
+### Confirming an Admin Action
+An admin deleting someone else's account first confirms it with a fresh second step (a step-up), which gives a short-lived ticket that covers every deletion until it expires, so a batch needs one code. The step-up uses the admin's own method in the app they signed in to (their token's app), so the admin needs two-step sign-in set up. Recovery codes don't work here.
+
+1. `POST /api/v1/user/step-up/code`, for app admins and global admins, with no body:
+   - **Email or text:** a `LoginCode` with the purpose `ConfirmAction` goes to the admin's email, or to their phone, as at sign-in. The answer is `{ "method": "Email", "codeSentTo": "a***@example.com" }`. The code lasts `TwoFactorSettings:TicketLifetimeSeconds`, and a new request replaces it. The daily sign-in code cap applies (406 `Too many codes were sent today. Try again tomorrow.`).
+   - **Authenticator:** nothing is sent, and the answer is `{ "method": "Authenticator" }`. The admin types the authenticator's current code.
+   - **No method**, or one the app no longer allows: 406 `Set up two-step sign-in to confirm this.`
+2. `POST /api/v1/user/step-up` with `{ "code": "123456" }` checks the code: an authenticator code with Identity, an emailed or texted one with the code service. A wrong code counts toward the lockout and the daily cap of failed second steps, as at sign-in, and every failed or expired code answers 400 `That code didn't work. Check it, or send a new code.` The right code answers `{ "ticket": "...", "expiresAt": "..." }`.
+
+Both answer 400 `Too many failed attempts. Try again later.` while the admin's account is locked or past the daily cap of failed second steps.
+
+The step-up ticket is a random 256-bit token. Only its hash is stored, with the admin and their app, and it works as many times as needed for `TwoFactorSettings:StepUpTicketLifetimeSeconds` (default 5 minutes). See [Deleting an Account](#deleting-an-account) for how it's sent.
+
 ### At Rest and the Code Window
 ASP.NET Core Identity keeps the authenticator key and the recovery codes in its `user_tokens` table. UserIdentity's user store encrypts both with the `AppSecretSettings` keys (AES-256-GCM), so a database read doesn't give them away. Keep every key that encrypted something: a lost key makes those keys and codes unreadable, and the users need an [account reset](#account-help).
 
@@ -243,6 +256,29 @@ Identity accepts an authenticator code for about two and a half minutes, and the
 3. `POST /api/v1/user/update-password` with the `X-App-Name` header and `{ "resetRequestId": "...", "code": "123456", "newPassword": "..." }`. A new password that breaks the password rules answers 400 before the code is checked. An unknown, expired (`PasswordResetSettings:ValidForSeconds`, default 15 minutes), used or other app's reset still makes a code check, then answers the one failed-code message. With the right code, the password changes, any lockout is lifted, all of the user's sessions and tickets end, and a `PasswordChanged` notice tells the user. The answer follows the step table with the email proved: `Session` for a user without a method or with the email method (or `SetUpSecondFactor` when it's required), `SecondFactor` for authenticator and text users.
 
 The new password applies before the second step. Someone with only the inbox can change the password but can't sign in past an authenticator or text method, and the owner gets `PasswordChanged`. A profile's change of password uses the same flow.
+
+## Listing Users
+`GET /api/v1/user?page=1&pageSize=50&search=smith&role=testapp:owner&emailConfirmed=false`, for app admins and global admins (who name the app in `X-App-Name`), lists the app's accounts, newest first, with `totalCount`. The filters are optional and apply before counting and paging:
+
+- `search` (up to 100 characters) matches the email, user name, first name, last name or phone number, ignoring case.
+- `role` is one of the app's roles, named with its prefix as `GET /api/v1/role` names them. A role of another app, the global admin role included, answers 400.
+- `emailConfirmed` keeps only accounts whose email is, or isn't, confirmed.
+
+```
+{
+  "users": [ { "id", "userName", "firstName", "lastName", "email", "emailConfirmed", "phoneNumber", "twoFactorMethod", "createdAt", "roles", "lastActiveAt", "lockedOut", "deleteEnabled" } ],
+  "totalCount": 1
+}
+```
+
+- `roles` are the account's roles of the app, plus the global admin role, as `GET /api/v1/role/user/{userId}` gives them.
+- `lastActiveAt` is the latest sign-in or refresh of any of the account's sessions in the app, or null without one.
+- `lockedOut` says the account is locked after failed attempts.
+- `deleteEnabled` says whether the caller may delete the account: never their own here (they delete it with their password), and for an app admin no account holding an admin role.
+
+A page takes three queries: the accounts, their roles and their sessions' activity.
+
+`GET /api/v1/user/{userId}` reads one account, with `emailConfirmed`, and `lockoutEnd` once the account has been locked.
 
 ## Updating User Details
 Both endpoints use the rule `GET /api/v1/user/{userId}` uses: the user themselves, an app admin of the account's app, or a global admin who names the app in `X-App-Name`. An app admin can't change an account holding an admin role or the global admin role, other than their own; that, an unknown user and another app's user all answer 404.
@@ -258,10 +294,10 @@ Both endpoints use the rule `GET /api/v1/user/{userId}` uses: the user themselve
 `DELETE /api/v1/user/{userId}` deletes the account at once. It follows the rule of [Updating User Details](#updating-user-details): the user themselves, an app admin for accounts of their app that hold no admin role, or a global admin who names the app in `X-App-Name`.
 
 - **The user themselves** sends `{ "password": "..." }`. A missing password answers 400 `Your password is required to delete your account.`, and a wrong one counts toward the lockout and answers 400 `That password isn't right.` (or `Too many failed attempts. Try again later.` while the account is locked).
-- **Admins** send no body.
+- **Admins** send `{ "ticket": "..." }`, the ticket of their [step-up](#confirming-an-admin-action), and no password. A missing, unknown or expired ticket, or one of another admin or app, answers 406 `Confirm with your sign-in code first.` An account the admin can't delete answers 404 before the ticket is checked.
 - The last account holding the global admin role can't be deleted: 406.
 
-In one transaction, UserIdentity deletes the invite codes and wait list entries that hold the account's email in its apps, adds an `AccountDeleted` notice to its outbox (see [Messages](#messages)), and deletes the account with its details, sessions, tickets, resets, email changes, app links, roles and two-step sign-in. The notice's correlation id is the deleted user's id, so other services that keep data about the user can act on it. Its last access token keeps working until it expires.
+In one transaction, UserIdentity deletes the invite codes and wait list entries that hold the account's email in its apps, adds an `AccountDeleted` notice to its outbox (see [Messages](#messages)), and deletes the account with its details, sessions, tickets, step-ups, resets, email changes, app links, roles and two-step sign-in. The notice's correlation id is the deleted user's id, so other services that keep data about the user can act on it. Its last access token keeps working until it expires.
 
 ## Accounts Created by an App's Backend
 `POST /api/v1/user/register-for-service` lets an app's own backend create accounts, for example while moving its existing users to UserIdentity as they next sign in. It takes the same body as `register`, plus the `X-Api-Key` header, and no token: the backend signs the request with its own Ed25519 key.
@@ -288,7 +324,7 @@ UserIdentity adds these messages to its outbox in the same transaction as the ch
 |---|---|---|---|---|---|---|
 | `useridentity.user.registered` | `WelcomeUser` | Code | The user id | None | The account's email and phone | `firstName`, `requestedAt`, `ipAddress`, `device` |
 | `useridentity.password-reset.requested` | `PasswordReset` | Code | The reset's id | The reset's expiry | The account's email and phone | `firstName`, `requestedAt`, `ipAddress`, `device` |
-| `useridentity.login-code.requested` | `LoginCode` | Code | The ticket's id, or the pending email change's id | The ticket's or the change's expiry | The email for email methods and email proof, the phone for text, the new address for an email change | `firstName`, `purpose` (`SignIn`, `ConfirmEmail`, `SetUp`, `ChangeEmail`), `requestedAt`, `ipAddress`, `device` |
+| `useridentity.login-code.requested` | `LoginCode` | Code | The ticket's id, the pending email change's id, or the step-up's id | The ticket's, the change's or the step-up code's expiry | The email for email methods and email proof, the phone for text, the new address for an email change | `firstName`, `purpose` (`SignIn`, `ConfirmEmail`, `SetUp`, `ChangeEmail`, `ConfirmAction` for an admin's [step-up](#confirming-an-admin-action)), `requestedAt`, `ipAddress`, `device` |
 | `useridentity.password.changed` | `PasswordChanged` | Notice | A new id | None | The account's email and phone | `firstName`, `changedAt`, `ipAddress`, `device` |
 | `useridentity.sign-up.attempted` | `SignUpAttempted` | Notice | A new id | None | The existing account | `firstName`, `attemptedAt`, `ipAddress`, `device` |
 | `useridentity.two-factor.changed` | `TwoFactorChanged` | Notice | A new id | None | The account's email and phone | `firstName`, `change` (`SetUp`, `Changed`, `TurnedOff`, `Reset`), `method`, `changedAt`, `ipAddress`, `device` |
@@ -300,7 +336,7 @@ UserIdentity adds these messages to its outbox in the same transaction as the ch
 UserIdentity only publishes: it reads no subjects.
 
 ## Rate Limiting
-Register, login, confirm, resend-code, reset-password, update-password, two-factor verify, setup and setup confirm, and the wait list sign-up allow `RateLimitSettings:PermitLimit` requests per `RateLimitSettings:WindowSeconds` (default 10 per minute) for each client IP and endpoint. Requests over the limit get a 429 with a `Retry-After` header.
+Register, login, confirm, resend-code, reset-password, update-password, two-factor verify, setup and setup confirm, the step-up code and step-up, and the wait list sign-up allow `RateLimitSettings:PermitLimit` requests per `RateLimitSettings:WindowSeconds` (default 10 per minute) for each client IP and endpoint. Requests over the limit get a 429 with a `Retry-After` header.
 
 Behind a reverse proxy, set `ForwardedHeadersSettings__KnownNetworks` to the proxy's network (comma-separated CIDR ranges). Otherwise every request appears to come from the proxy, and all clients share one limit.
 
@@ -316,7 +352,7 @@ The check is off by default. `appsettings.json` holds Cloudflare's always-pass t
 Request bodies are limited to 64 KiB. Larger ones get a 413.
 
 ## Cleanup
-Every `CleanupSettings:IntervalInMinutes` (default 60), expired refresh tokens, tickets and pending email changes are deleted, and so are password resets a day after they expire (kept that long for the daily cap) and the account limit events of the daily caps once they're a day old. Accounts still unconfirmed after `CleanupSettings:UnconfirmedUserLifetimeInDays` (default 30) are deleted too when every app they belong to requires confirmed accounts (an app without sign-in settings doesn't), along with their details, sessions, tickets, resets, app links and roles, and the invite code they used for their app can be used again.
+Every `CleanupSettings:IntervalInMinutes` (default 60), expired refresh tokens, tickets, step-ups and pending email changes are deleted, and so are password resets a day after they expire (kept that long for the daily cap) and the account limit events of the daily caps once they're a day old. Accounts still unconfirmed after `CleanupSettings:UnconfirmedUserLifetimeInDays` (default 30) are deleted too when every app they belong to requires confirmed accounts (an app without sign-in settings doesn't), along with their details, sessions, tickets, resets, app links and roles, and the invite code they used for their app can be used again.
 
 ## Settings
 Every setting has a default in `appsettings.json` that works locally. In production, set at least these:
@@ -342,6 +378,7 @@ These have defaults that suit most deployments:
 |---|---|---|
 | `TwoFactorSettings__TicketLifetimeSeconds` | 600 | How long a ticket (other than a sign-up's) and a pending email change last |
 | `TwoFactorSettings__RecoveryCodeCount` | 10 | Recovery codes made for each method |
+| `TwoFactorSettings__StepUpTicketLifetimeSeconds` | 300 | How long an admin's step-up ticket lasts |
 | `AccountLimitSettings__MaxFailedSecondStepsPerDay` | 10 | Failed second steps per account in 24 hours |
 | `AccountLimitSettings__MaxLoginCodesPerDay` | 10 | Sign-in codes per account in 24 hours |
 | `AccountLimitSettings__SignUpAttemptNoticeCooldownSeconds`, `AccountLimitSettings__MaxSignUpAttemptNoticesPerDay` | 60, 5 | How often a `SignUpAttempted` notice can go to one account |
@@ -352,13 +389,14 @@ These have defaults that suit most deployments:
 Settings are checked at startup. An invalid setting stops the app with every failure listed, such as `ValidForSeconds: The field ValidForSeconds must be between 1 and 2147483647.`
 
 ## API Requests
-`UserIdentity/UserIdentity.http` holds requests for sending by hand, in an order that works from top to bottom: health, the OpenAPI document and the key set, logging in the admin, a user, roles with their scopes and users, invite codes, the wait list, the entities that scopes can name, registered apps, an app's sign-in settings with sign-up, confirmation, two-step setup and sign-in, a user's names and email, their sessions and the deletion of their account, a password reset, a refresh and a logout. It leaves out `register-for-service`, which needs a signed request. Open it in Visual Studio 2022 (17.8 or later), or in VS Code with the [REST Client](https://marketplace.visualstudio.com/items?itemName=humao.rest-client) extension, and select **Send Request** above a request. The tests are the automated checks.
+`UserIdentity/UserIdentity.http` holds requests for sending by hand, in an order that works from top to bottom: health, the OpenAPI document and the key set, logging in the admin, a user and the list of users, roles with their scopes and users, invite codes, the wait list, the entities that scopes can name, registered apps, an app's sign-in settings with sign-up, confirmation, two-step setup and sign-in, a user's names and email, their sessions, an admin's step-up and deletion of another account, the deletion of their own account, a password reset, a refresh and a logout. It leaves out `register-for-service`, which needs a signed request. Open it in Visual Studio 2022 (17.8 or later), or in VS Code with the [REST Client](https://marketplace.visualstudio.com/items?itemName=humao.rest-client) extension, and select **Send Request** above a request. The tests are the automated checks.
 
 - No environment needs selecting: the settings (URL, API key, app name, the admin's details and the code to send) are variables at the top of the file.
 - Requests that use an earlier response, such as an admin's token or a ticket, need that request sent first.
 - New users, roles, invites, wait list entries and registered apps are named after the current time, so the requests can be sent again.
 - Access tokens last 3 minutes (`JwtIssuerSettings:ValidForSeconds`). When a request answers 401, send the admin's login again.
 - `Code` is `123456`, which the stack's stand-in code service accepts for every emailed or texted code (see [Instructions](#instructions)). For the authenticator method, set it to the authenticator app's code. `TestApp` has no sign-in settings, so its new accounts sign in at once. Start with the admin's login: the bootstrap admin is the global admin and `testapp:admin`.
+- The bootstrap admin has no two-step method, so the step-up requests make the demo app's user, who set up an authenticator, an admin of the demo app, sign them in again, and delete another account of that app with one authenticator code.
 
 ## Running the Tests
 The tests use xUnit v3 on Microsoft Testing Platform (selected in `global.json`). The unit tests call each endpoint method directly with faked handlers. The integration tests send requests to the whole app and start PostgreSQL and NATS with Testcontainers, so Docker must be running. The smoke tests build the Docker image, run it as it's published (trimmed, single file) beside PostgreSQL and NATS, and reach it only over HTTP and NATS.

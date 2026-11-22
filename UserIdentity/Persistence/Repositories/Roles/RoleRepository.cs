@@ -42,4 +42,20 @@ public class RoleRepository(AppDbContext appDbContext) : IRoleRepository
                 group => group.Where(roleScope => roleScope.Scope is not null).Select(roleScope => roleScope.Scope!).ToHashSet()
             );
     }
+
+    public async Task<Dictionary<string, List<string>>> GetRoleNamesByUserIdAsync(
+        IReadOnlyCollection<string> userIds,
+        CancellationToken cancellationToken = default
+    )
+    {
+        var userRoles = await _appDbContext
+            .UserRoles.Where(userRole => userIds.Contains(userRole.UserId))
+            .Join(_appDbContext.Roles, userRole => userRole.RoleId, role => role.Id, (userRole, role) => new { userRole.UserId, role.Name })
+            .OrderBy(userRole => userRole.Name)
+            .ToListAsync(cancellationToken);
+
+        return userRoles
+            .GroupBy(userRole => userRole.UserId)
+            .ToDictionary(group => group.Key, group => group.Select(userRole => userRole.Name!).ToList());
+    }
 }

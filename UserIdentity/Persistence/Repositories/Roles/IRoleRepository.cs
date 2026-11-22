@@ -7,4 +7,9 @@ public interface IRoleRepository
     Task<List<RoleDto>> GetRoleDtosAsync(string? namePrefix, CancellationToken cancellationToken = default);
 
     Task<Dictionary<string, HashSet<string>>> GetUserRoleScopesAsync(string userId, CancellationToken cancellationToken = default);
+
+    Task<Dictionary<string, List<string>>> GetRoleNamesByUserIdAsync(
+        IReadOnlyCollection<string> userIds,
+        CancellationToken cancellationToken = default
+    );
 }

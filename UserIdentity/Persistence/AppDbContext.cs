@@ -12,6 +12,7 @@ using UserIdentity.Domain.InviteCodes;
 using UserIdentity.Domain.LoginTickets;
 using UserIdentity.Domain.PasswordResets;
 using UserIdentity.Domain.RefreshTokens;
+using UserIdentity.Domain.StepUps;
 using UserIdentity.Domain.UserRegisteredApps;
 using UserIdentity.Domain.Users;
 using UserIdentity.Domain.WaitLists;
@@ -57,6 +58,8 @@ public class AppDbContext : IdentityDbContext<IdentityUser>
 
     public DbSet<EmailChangeEntity> EmailChange => Set<EmailChangeEntity>();
 
+    public DbSet<StepUpEntity> StepUp => Set<StepUpEntity>();
+
     public DbSet<OutboxMessageEntity> OutboxMessage => Set<OutboxMessageEntity>();
 
     protected override void OnModelCreating(ModelBuilder builder)
@@ -78,6 +81,7 @@ public class AppDbContext : IdentityDbContext<IdentityUser>
         builder.ApplyConfiguration(new LoginTicketConfiguration());
         builder.ApplyConfiguration(new AccountLimitEventConfiguration());
         builder.ApplyConfiguration(new EmailChangeConfiguration());
+        builder.ApplyConfiguration(new StepUpConfiguration());
         builder.ApplyConfiguration(new OutboxMessageConfiguration());
 
         builder.HasCollation(CaseInsensitiveCollation, locale: "und-u-ks-level2", provider: "icu", deterministic: false);
@@ -96,6 +100,7 @@ public class AppDbContext : IdentityDbContext<IdentityUser>
         builder.Entity<LoginTicketEntity>().ToTable("login_tickets");
         builder.Entity<AccountLimitEventEntity>().ToTable("account_limit_events");
         builder.Entity<EmailChangeEntity>().ToTable("email_changes");
+        builder.Entity<StepUpEntity>().ToTable("step_ups");
         builder.Entity<OutboxMessageEntity>().ToTable("outbox_messages");
 
         builder.Entity<IdentityUser>().ToTable("users");

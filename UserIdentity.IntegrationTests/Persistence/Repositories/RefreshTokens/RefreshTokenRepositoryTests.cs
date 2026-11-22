@@ -139,6 +139,42 @@ public class RefreshTokenRepositoryTests(TestingWebAppFactory testingWebAppFacto
         Assert.Equal([current.Id], TestDbHelper.GetRefreshTokenEntitiesWithNoTracking(UserSettingHelper.UserId).Select(t => t.Id));
     }
 
+    [Fact]
+    public async Task GetLastActiveAtByUserIdAsync_Gives_Each_Users_Latest_Activity_In_The_App()
+    {
+        // Arrange
+        var otherUserId = CreateUsers();
+        var testAppId = AppId(RegisteredApp.AppName);
+        var latest = DateTime.UtcNow.AddMinutes(-1);
+
+        var refreshed = BuildRefreshToken(UserSettingHelper.UserId, testAppId);
+        refreshed.UpdatedAt = latest;
+
+        var neverRefreshed = BuildRefreshToken(UserSettingHelper.UserId, testAppId);
+        neverRefreshed.CreatedAt = latest.AddMinutes(-10);
+        neverRefreshed.UpdatedAt = null;
+
+        var otherApp = BuildRefreshToken(otherUserId, AppId(TestingWebAppFactory.OtherAppName));
+        otherApp.UpdatedAt = DateTime.UtcNow;
+
+        await AddRefreshTokensAsync(refreshed, neverRefreshed, otherApp);
+
+        var repository = ServiceProvider.GetRequiredService<IRefreshTokenRepository>();
+
+        // Act
+        var lastActiveAt = await repository.GetLastActiveAtByUserIdAsync(
+            testAppId,
+            [UserSettingHelper.UserId, otherUserId],
+            TestContext.Current.CancellationToken
+        );
+
+        // Assert
+        var userLastActiveAt = Assert.Single(lastActiveAt).Value;
+
+        Assert.NotNull(userLastActiveAt);
+        Assert.Equal(latest, userLastActiveAt.Value, TimeSpan.FromMilliseconds(1));
+    }
+
     private string CreateUsers()
     {
         TestDbHelper.CreateIdentityUser();

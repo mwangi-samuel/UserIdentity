@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Http.HttpResults;
+﻿using System.ComponentModel.DataAnnotations;
+using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.JsonWebTokens;
 using PolyzenKit.Application.Core;
@@ -6,6 +7,7 @@ using PolyzenKit.Application.Core.Interfaces;
 using PolyzenKit.Application.Core.RegisteredApps.Queries;
 using PolyzenKit.Application.Core.RegisteredApps.ViewModels;
 using PolyzenKit.Common.Enums;
+using PolyzenKit.Common.Paging;
 using PolyzenKit.Common.Utilities;
 using PolyzenKit.Domain.Dtos;
 using PolyzenKit.Presentation.Captcha;
@@ -21,6 +23,8 @@ using UserIdentity.Application.Core.Users.Commands;
 using UserIdentity.Application.Core.Users.Queries;
 using UserIdentity.Application.Core.Users.Shared;
 using UserIdentity.Application.Core.Users.ViewModels;
+using UserIdentity.Domain.Roles;
+using UserIdentity.Domain.Users;
 using UserIdentity.Presentation.Filters;
 
 namespace UserIdentity.Presentation.Endpoints;
@@ -31,6 +35,7 @@ public static class UserEndpoints
     {
         var group = endpoints.MapApiGroup("User").RequireAuthorization();
 
+        group.MapGet("", GetUsersAsync).RequireAuthorization(AuthorizationPolicies.AdminOrGlobalAdmin).Produces<UsersViewModel>();
         group
             .MapGet("{userId}", GetUserAsync)
             .RequireAuthorization(AuthorizationPolicies.AdminGlobalAdminOrSameUser)
@@ -48,6 +53,16 @@ public static class UserEndpoints
             .RequireAuthorization(AuthorizationPolicies.AdminGlobalAdminOrSameUser)
             .AddEndpointFilter<PasswordHashingFilter>()
             .Produces<DeleteRecordViewModel>();
+        group
+            .MapPost("step-up/code", SendStepUpCodeAsync)
+            .RequireAuthorization(AuthorizationPolicies.AdminOrGlobalAdmin)
+            .RequireRateLimiting(RateLimitSettings.ClientIpPolicy)
+            .Produces<StepUpCodeViewModel>();
+        group
+            .MapPost("step-up", CreateStepUpAsync)
+            .RequireAuthorization(AuthorizationPolicies.AdminOrGlobalAdmin)
+            .RequireRateLimiting(RateLimitSettings.ClientIpPolicy)
+            .Produces<StepUpViewModel>();
         group
             .MapGet("{userId}/sessions", GetSessionsAsync)
             .RequireAuthorization(AuthorizationPolicies.AdminGlobalAdminOrSameUser)
@@ -143,6 +158,34 @@ public static class UserEndpoints
             .Produces<UserViewModel>();
 
         return group;
+    }
+
+    internal static async Task<JsonHttpResult<UsersViewModel>> GetUsersAsync(
+        ApiRequest request,
+        IGetItemQueryHandler<GetRegisteredAppQuery, RegisteredAppViewModel> getRegisteredAppHandler,
+        IGetItemsQueryHandler<GetUsersQuery, UsersViewModel> handler,
+        CancellationToken cancellationToken,
+        [FromQuery, Range(1, PagingLimits.MaxPage)] int page = 1,
+        [FromQuery, Range(1, PagingLimits.MaxPageSize)] int pageSize = PagingLimits.DefaultPageSize,
+        [FromQuery, MaxLength(UserLimits.SearchMaxLength)] string? search = null,
+        [FromQuery, MaxLength(RoleLimits.NameMaxLength)] string? role = null,
+        [FromQuery] bool? emailConfirmed = null
+    )
+    {
+        var query = new GetUsersQuery
+        {
+            RegisteredApp = await AdminApp.GetAsync(request, getRegisteredAppHandler, cancellationToken),
+            Changer = new UserChanger(request.LoggedInUserId, request.IsGlobalAdmin),
+            Search = search,
+            Role = role,
+            EmailConfirmed = emailConfirmed,
+            Page = page,
+            PageSize = pageSize,
+        };
+
+        var vm = await handler.GetItemsAsync(query, cancellationToken);
+
+        return ViewModelResults.GetItems(request, vm);
     }
 
     internal static async Task<JsonHttpResult<UserViewModel>> GetUserAsync(
@@ -554,11 +597,47 @@ public static class UserEndpoints
         deleteCommand.UserId = userId;
         deleteCommand.RegisteredApp = await AdminApp.GetAsync(request, getRegisteredAppHandler, cancellationToken);
         deleteCommand.Changer = new UserChanger(request.LoggedInUserId, request.IsGlobalAdmin);
+        deleteCommand.ChangerAppId = (await TokenApp.GetAsync(request, getRegisteredAppHandler, cancellationToken)).Id;
         deleteCommand.RequestContext = RequestContextReader.Read(httpContext);
 
         var vm = await handler.DeleteItemAsync(deleteCommand, request.LoggedInUserId, cancellationToken);
 
         return ViewModelResults.DeleteItem(vm);
+    }
+
+    internal static async Task<JsonHttpResult<StepUpCodeViewModel>> SendStepUpCodeAsync(
+        ApiRequest request,
+        HttpContext httpContext,
+        IGetItemQueryHandler<GetRegisteredAppQuery, RegisteredAppViewModel> getRegisteredAppHandler,
+        ICreateItemCommandHandler<SendStepUpCodeCommand, StepUpCodeViewModel> handler,
+        CancellationToken cancellationToken
+    )
+    {
+        var registeredApp = await TokenApp.GetAsync(request, getRegisteredAppHandler, cancellationToken);
+
+        var vm = await handler.CreateItemAsync(
+            new SendStepUpCodeCommand(request.LoggedInUserId, registeredApp, RequestContextReader.Read(httpContext)),
+            request.LoggedInUserId,
+            cancellationToken
+        );
+
+        return ViewModelResults.Status(vm, StatusCodes.Status200OK, RequestStatus.Successful, ItemStatusMessage.CreateItemSuccessful);
+    }
+
+    internal static async Task<JsonHttpResult<StepUpViewModel>> CreateStepUpAsync(
+        CreateStepUpCommand command,
+        ApiRequest request,
+        IGetItemQueryHandler<GetRegisteredAppQuery, RegisteredAppViewModel> getRegisteredAppHandler,
+        ICreateItemCommandHandler<CreateStepUpCommand, StepUpViewModel> handler,
+        CancellationToken cancellationToken
+    )
+    {
+        command.UserId = request.LoggedInUserId;
+        command.RegisteredApp = await TokenApp.GetAsync(request, getRegisteredAppHandler, cancellationToken);
+
+        var vm = await handler.CreateItemAsync(command, request.LoggedInUserId, cancellationToken);
+
+        return ViewModelResults.Status(vm, StatusCodes.Status200OK, RequestStatus.Successful, ItemStatusMessage.CreateItemSuccessful);
     }
 
     internal static async Task<JsonHttpResult<SessionsViewModel>> GetSessionsAsync(

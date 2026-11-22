@@ -6,4 +6,5 @@ public enum LoginCodePurpose
     ConfirmEmail,
     SetUp,
     ChangeEmail,
+    ConfirmAction,
 }

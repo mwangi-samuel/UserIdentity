@@ -60,6 +60,17 @@ public class RefreshTokenRepository(AppDbContext appDbContext)
             .OrderByDescending(e => e.UpdatedAt ?? e.CreatedAt)
             .ToListAsync(cancellationToken);
 
+    public async Task<Dictionary<string, DateTime?>> GetLastActiveAtByUserIdAsync(
+        int appId,
+        IReadOnlyCollection<string> userIds,
+        CancellationToken cancellationToken = default
+    ) =>
+        await _appDbContext
+            .RefreshToken.Where(e => e.AppId == appId && userIds.Contains(e.UserId))
+            .GroupBy(e => e.UserId)
+            .Select(group => new { UserId = group.Key, LastActiveAt = group.Max(e => e.UpdatedAt ?? e.CreatedAt) })
+            .ToDictionaryAsync(row => row.UserId, row => row.LastActiveAt, cancellationToken);
+
     public async Task<RefreshTokenEntity?> GetEntityByPreviousTokenAsync(
         string userId,
         string previousToken,

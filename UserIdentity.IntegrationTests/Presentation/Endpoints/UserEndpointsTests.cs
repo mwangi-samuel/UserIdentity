@@ -81,11 +81,24 @@ public class UserEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
 
         Assert.NotNull(user);
         Assert.Equal(
-            ["createdAt", "createdBy", "email", "firstName", "id", "lastName", "phoneNumber", "updatedAt", "updatedBy", "userName"],
+            [
+                "createdAt",
+                "createdBy",
+                "email",
+                "emailConfirmed",
+                "firstName",
+                "id",
+                "lastName",
+                "phoneNumber",
+                "updatedAt",
+                "updatedBy",
+                "userName",
+            ],
             user.Properties().Select(property => property.Name).Order()
         );
         Assert.Equal(UserSettingHelper.UserId, $"{user["id"]}");
         Assert.Equal(UserSettingHelper.PhoneNumber, $"{user["phoneNumber"]}");
+        Assert.True(user["emailConfirmed"]?.Value<bool>());
     }
 
     [Fact]
