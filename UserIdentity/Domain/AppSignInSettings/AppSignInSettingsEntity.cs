@@ -23,4 +23,7 @@ public class AppSignInSettingsEntity : BaseAuditableEntity<Guid>
     public bool AllowEmailTwoFactor { get; set; }
 
     public bool AllowSmsTwoFactor { get; set; }
+
+    [ConcurrencyCheck]
+    public Guid Version { get; set; }
 }

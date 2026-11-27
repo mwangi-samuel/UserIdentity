@@ -7,6 +7,7 @@ using PolyzenKit.Common.Utilities;
 using UserIdentity.Application.Core.Roles.Commands;
 using UserIdentity.Application.Core.Roles.Queries;
 using UserIdentity.Application.Core.Roles.ViewModels;
+using UserIdentity.Application.Core.Users.Shared;
 using UserIdentity.Domain.RoleClaims;
 using UserIdentity.Domain.Roles;
 using UserIdentity.Presentation.Endpoints;
@@ -200,6 +201,63 @@ public class RoleEndpointsTests
         A.CallTo(() =>
                 _deleteRoleCommandHandler.DeleteItemAsync(
                     new DeleteRoleCommand { RoleId = "role-id", AppName = "testapp" },
+                    TestStringHelper.UserId,
+                    A<CancellationToken>._
+                )
+            )
+            .MustHaveHappenedOnceExactly();
+    }
+
+    [Fact]
+    public async Task Delete_User_Role_Passes_The_Route_User_And_Role_With_The_Callers_App_And_Rights()
+    {
+        // Arrange
+        var handler = A.Fake<IDeleteItemCommandHandler<DeleteUserRoleCommand, DeleteRecordViewModel>>();
+        var request = ApiRequestFactory.Create("role", userId: TestStringHelper.UserId);
+
+        // Act
+        var result = await RoleEndpoints.DeleteUserRoleAsync(
+            "member-id",
+            "role-id",
+            request,
+            handler,
+            TestContext.Current.CancellationToken
+        );
+
+        // Assert
+        Assert.Equal((int)HttpStatusCode.OK, result.StatusCode);
+        Assert.Equal(ItemStatusMessage.DeleteItemSuccessful.ToText(), result.Value?.StatusMessage);
+
+        A.CallTo(() =>
+                handler.DeleteItemAsync(
+                    new DeleteUserRoleCommand
+                    {
+                        UserId = "member-id",
+                        RoleId = "role-id",
+                        AppName = "testapp",
+                        Changer = new UserChanger(TestStringHelper.UserId, false),
+                    },
+                    TestStringHelper.UserId,
+                    A<CancellationToken>._
+                )
+            )
+            .MustHaveHappenedOnceExactly();
+    }
+
+    [Fact]
+    public async Task Delete_User_Role_For_A_Global_Admin_Passes_No_App_Name()
+    {
+        // Arrange
+        var handler = A.Fake<IDeleteItemCommandHandler<DeleteUserRoleCommand, DeleteRecordViewModel>>();
+        var request = ApiRequestFactory.Create("role", userId: TestStringHelper.UserId, roles: [KnownRoles.GlobalAdmin]);
+
+        // Act
+        await RoleEndpoints.DeleteUserRoleAsync("member-id", "role-id", request, handler, TestContext.Current.CancellationToken);
+
+        // Assert
+        A.CallTo(() =>
+                handler.DeleteItemAsync(
+                    A<DeleteUserRoleCommand>.That.Matches(command => command.AppName == null && command.Changer.IsGlobalAdmin),
                     TestStringHelper.UserId,
                     A<CancellationToken>._
                 )

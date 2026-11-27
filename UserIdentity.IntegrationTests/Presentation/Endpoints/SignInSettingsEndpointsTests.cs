@@ -75,6 +75,7 @@ public class SignInSettingsEndpointsTests(TestingWebAppFactory testingWebAppFact
         // Arrange
         TestDbHelper.SeedDatabase();
         TestDbHelper.ConfigureIdentityUserAsGlobalAdmin();
+        var version = await GetVersionAsync();
 
         // Act
         var response = await HttpClient.SendValidAuthRequestAsync(
@@ -87,6 +88,7 @@ public class SignInSettingsEndpointsTests(TestingWebAppFactory testingWebAppFact
                 DefaultRole = "Member",
                 RequireTwoFactorForAdmins = true,
                 AllowAuthenticatorTwoFactor = true,
+                Version = version,
             }
         );
 
@@ -94,6 +96,7 @@ public class SignInSettingsEndpointsTests(TestingWebAppFactory testingWebAppFact
         var settings = SerDeHelper.Deserialize<JObject>(await response.ValidateRequestResponseAsync())?["signInSettings"];
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.NotEqual($"{version}", $"{settings?["version"]}");
         Assert.Equal("False", $"{settings?["requireConfirmedAccount"]}");
         Assert.Equal("True", $"{settings?["requireInviteCode"]}");
         Assert.Equal("member", $"{settings?["defaultRole"]}");
@@ -112,7 +115,11 @@ public class SignInSettingsEndpointsTests(TestingWebAppFactory testingWebAppFact
         TestDbHelper.ConfigureIdentityUserAsGlobalAdmin();
 
         // Act
-        var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Put, BaseUri, new { DefaultRole = "Admin" });
+        var response = await HttpClient.SendValidAuthRequestAsync(
+            HttpMethod.Put,
+            BaseUri,
+            new { DefaultRole = "Admin", Version = await GetVersionAsync() }
+        );
 
         // Assert
         var jsonObject = SerDeHelper.Deserialize<JObject>(await response.ValidateRequestResponseAsync());
@@ -131,7 +138,11 @@ public class SignInSettingsEndpointsTests(TestingWebAppFactory testingWebAppFact
         TestDbHelper.ConfigureIdentityUserAsGlobalAdmin();
 
         // Act
-        var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Put, BaseUri, new { DefaultRole = defaultRole });
+        var response = await HttpClient.SendValidAuthRequestAsync(
+            HttpMethod.Put,
+            BaseUri,
+            new { DefaultRole = defaultRole, Version = await GetVersionAsync() }
+        );
 
         // Assert
         var errorList = SerDeHelper
@@ -163,7 +174,12 @@ public class SignInSettingsEndpointsTests(TestingWebAppFactory testingWebAppFact
         var response = await HttpClient.SendValidAuthRequestAsync(
             HttpMethod.Put,
             BaseUri,
-            new { RequireTwoFactor = requireTwoFactor, RequireTwoFactorForAdmins = requireTwoFactorForAdmins }
+            new
+            {
+                RequireTwoFactor = requireTwoFactor,
+                RequireTwoFactorForAdmins = requireTwoFactorForAdmins,
+                Version = await GetVersionAsync(),
+            }
         );
 
         // Assert
@@ -173,6 +189,63 @@ public class SignInSettingsEndpointsTests(TestingWebAppFactory testingWebAppFact
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         Assert.Contains(errorList ?? [], error => error.Message == ErrorMessages.SignInSettings.TwoFactorWithoutMethod);
+    }
+
+    [Fact]
+    public async Task Update_With_A_Version_Another_Update_Has_Replaced_Is_Refused_With_A_Conflict()
+    {
+        // Arrange
+        TestDbHelper.SeedDatabase();
+        TestDbHelper.ConfigureIdentityUserAsGlobalAdmin();
+        var version = await GetVersionAsync();
+
+        await HttpClient.SendValidAuthRequestAsync(
+            HttpMethod.Put,
+            BaseUri,
+            new
+            {
+                RequireConfirmedAccount = true,
+                DefaultRole = "member",
+                Version = version,
+            }
+        );
+
+        // Act
+        var response = await HttpClient.SendValidAuthRequestAsync(
+            HttpMethod.Put,
+            BaseUri,
+            new
+            {
+                RequireConfirmedAccount = false,
+                DefaultRole = "user",
+                Version = version,
+            }
+        );
+
+        // Assert
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        var stored = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Get, BaseUri);
+        var settings = SerDeHelper.Deserialize<JObject>(await stored.ValidateRequestResponseAsync())?["signInSettings"];
+        Assert.Equal("member", $"{settings?["defaultRole"]}");
+    }
+
+    [Fact]
+    public async Task Update_Without_A_Version_Returns_A_Validation_Error()
+    {
+        // Arrange
+        TestDbHelper.SeedDatabase();
+        TestDbHelper.ConfigureIdentityUserAsGlobalAdmin();
+
+        // Act
+        var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Put, BaseUri, new { RequireConfirmedAccount = false });
+
+        // Assert
+        var errorList = SerDeHelper
+            .Deserialize<JObject>(await response.ValidateRequestResponseAsync())
+            ?["error"]?["errorList"]?.ToObject<List<ValidationError>>();
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains(errorList ?? [], error => error.Field == "Version");
     }
 
     [Theory]
@@ -201,7 +274,12 @@ public class SignInSettingsEndpointsTests(TestingWebAppFactory testingWebAppFact
         await HttpClient.SendValidAuthRequestAsync(
             HttpMethod.Put,
             BaseUri,
-            new { RequireConfirmedAccount = false, DefaultRole = "member" }
+            new
+            {
+                RequireConfirmedAccount = false,
+                DefaultRole = "member",
+                Version = await GetVersionAsync(),
+            }
         );
 
         // Act
@@ -226,5 +304,13 @@ public class SignInSettingsEndpointsTests(TestingWebAppFactory testingWebAppFact
         Assert.False(string.IsNullOrEmpty($"{jsonObject?["userToken"]?["accessToken"]?["token"]}"));
         Assert.NotNull(TestDbHelper.GetIdentityUserRole("testapp:member", userId));
         Assert.Null(await NatsTestHelper.FindMessageAsync(NatsTestHelper.UserRegisteredSubject, userId, TimeSpan.FromSeconds(1)));
+    }
+
+    private async Task<Guid> GetVersionAsync()
+    {
+        var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Get, BaseUri);
+        var settings = SerDeHelper.Deserialize<JObject>(await response.ValidateRequestResponseAsync())?["signInSettings"];
+
+        return settings?["version"]?.ToObject<Guid>() ?? Guid.Empty;
     }
 }

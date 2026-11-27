@@ -7,6 +7,7 @@ using PolyzenKit.Presentation.Endpoints;
 using UserIdentity.Application.Core.Roles.Commands;
 using UserIdentity.Application.Core.Roles.Queries;
 using UserIdentity.Application.Core.Roles.ViewModels;
+using UserIdentity.Application.Core.Users.Shared;
 
 namespace UserIdentity.Presentation.Endpoints;
 
@@ -32,6 +33,10 @@ public static class RoleEndpoints
             .MapPost("user", CreateUserRoleAsync)
             .RequireAuthorization(AuthorizationPolicies.AdminOrGlobalAdmin)
             .Produces<UserRolesViewModel>();
+        group
+            .MapDelete("user/{userId}/{roleId}", DeleteUserRoleAsync)
+            .RequireAuthorization(AuthorizationPolicies.AdminOrGlobalAdmin)
+            .Produces<DeleteRecordViewModel>();
         group
             .MapPost("claim", CreateRoleClaimAsync)
             .RequireAuthorization(AuthorizationPolicies.AdminOrGlobalAdmin)
@@ -144,6 +149,29 @@ public static class RoleEndpoints
         var vm = await handler.CreateItemAsync(command, request.LoggedInUserId, cancellationToken);
 
         return ViewModelResults.CreateItems(request, vm, request.IsGlobalAdmin);
+    }
+
+    internal static async Task<JsonHttpResult<DeleteRecordViewModel>> DeleteUserRoleAsync(
+        string userId,
+        string roleId,
+        ApiRequest request,
+        IDeleteItemCommandHandler<DeleteUserRoleCommand, DeleteRecordViewModel> handler,
+        CancellationToken cancellationToken
+    )
+    {
+        var vm = await handler.DeleteItemAsync(
+            new DeleteUserRoleCommand
+            {
+                UserId = userId,
+                RoleId = roleId,
+                AppName = AdminApp.GetName(request),
+                Changer = new UserChanger(request.LoggedInUserId, request.IsGlobalAdmin),
+            },
+            request.LoggedInUserId,
+            cancellationToken
+        );
+
+        return ViewModelResults.DeleteItem(vm);
     }
 
     internal static async Task<JsonHttpResult<RoleClaimViewModel>> CreateRoleClaimAsync(

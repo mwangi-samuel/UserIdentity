@@ -1,4 +1,5 @@
 ﻿using FakeItEasy;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Time.Testing;
@@ -40,6 +41,7 @@ public class ExchangeRefreshTokenCommandHandlerTests
     private readonly IUnitOfWork _unitOfWork;
     private readonly IRefreshTokenRepository _refreshTokenRepository;
     private readonly FakeTimeProvider _timeProvider;
+    private readonly UserManager<IdentityUser> _userManager = IdentityFakes.UserManager();
 
     private readonly ICreateItemCommandHandler<CreateAccessTokenCommand, AccessTokenViewModel> _createAccessTokenCommandHandler = A.Fake<
         ICreateItemCommandHandler<CreateAccessTokenCommand, AccessTokenViewModel>
@@ -71,6 +73,8 @@ public class ExchangeRefreshTokenCommandHandlerTests
         _timeProvider.SetUtcNow(_now);
 
         A.CallTo(() => _tokenFactory.HashToken(RefreshToken)).Returns(RefreshTokenHash);
+        A.CallTo(() => _userManager.FindByIdAsync(TestStringHelper.UserId))
+            .Returns(new IdentityUser { Id = TestStringHelper.UserId, UserName = TestStringHelper.UserName });
         A.CallTo(() =>
                 _getRegisteredAppHandler.GetItemAsync(
                     A<GetRegisteredAppQuery>.That.Matches(query => query.AppName == "TestApp"),
@@ -151,12 +155,12 @@ public class ExchangeRefreshTokenCommandHandlerTests
     }
 
     [Theory]
-    [InlineData(null, "valid-user-name")]
+    [InlineData(null, "TestApp")]
     [InlineData("valid-user-id", null)]
     [InlineData(null, null)]
-    public async Task ExchangeRefreshToken_With_Refresh_Token_With_No_Id_Or_Subject_Throws_SecurityTokenException(
+    public async Task ExchangeRefreshToken_With_An_Access_Token_Without_A_Subject_Or_An_App_Throws_SecurityTokenException(
         string? userId,
-        string? userName
+        string? appName
     )
     {
         // Arrange
@@ -170,9 +174,7 @@ public class ExchangeRefreshTokenCommandHandlerTests
 
         A.CallTo(() => _jwtTokenHandler.ValidateTokenAsync(command.AccessToken, false)).Returns(Task.FromResult(tokenValidationResult));
         A.CallTo(() => _jwtTokenHandler.ResolveTokenValue<string?>(tokenValidationResult, JwtRegisteredClaimNames.Sub)).Returns(userId);
-        A.CallTo(() => _jwtTokenHandler.ResolveTokenValue<string?>(tokenValidationResult, JwtRegisteredClaimNames.Name)).Returns(userName);
-        A.CallTo(() => _jwtTokenHandler.ResolveTokenValue<string?>(tokenValidationResult, JwtRegisteredClaimNames.Azp))
-            .Returns((string?)null);
+        A.CallTo(() => _jwtTokenHandler.ResolveTokenValue<string?>(tokenValidationResult, JwtRegisteredClaimNames.Azp)).Returns(appName);
 
         var hanndler = GetExchangeRefreshTokenCommandHandler();
 
@@ -439,6 +441,64 @@ public class ExchangeRefreshTokenCommandHandlerTests
         A.CallTo(() => _refreshTokenRepository.UpdateEntityItem(dbRefreshToken)).MustHaveHappenedOnceExactly();
     }
 
+    [Fact]
+    public async Task ExchangeRefreshToken_Names_The_Accounts_Current_User_Name_Not_The_One_In_The_Old_Token()
+    {
+        // Arrange
+        var command = GetExchangeRefreshTokenCommand();
+        var dbRefreshToken = new RefreshTokenEntity
+        {
+            Id = Guid.NewGuid(),
+            UserId = TestStringHelper.UserId,
+            Token = RefreshTokenHash,
+            Expires = _now.AddMinutes(5),
+        };
+
+        SetUpValidAccessToken(command);
+        SetUpRefreshTokenLookup((dbRefreshToken, true));
+        SetUpNewAccessToken("new-access-token", 180, dbRefreshToken.Id);
+
+        // Act
+        await GetExchangeRefreshTokenCommandHandler()
+            .UpdateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken);
+
+        // Assert
+        A.CallTo(() =>
+                _createAccessTokenCommandHandler.CreateItemAsync(
+                    A<CreateAccessTokenCommand>.That.Matches(token => token.UserName == TestStringHelper.UserName),
+                    TestStringHelper.UserId,
+                    A<CancellationToken>._
+                )
+            )
+            .MustHaveHappenedOnceExactly();
+    }
+
+    [Fact]
+    public async Task ExchangeRefreshToken_For_An_Account_That_No_Longer_Exists_Throws_SecurityTokenException()
+    {
+        // Arrange
+        var command = GetExchangeRefreshTokenCommand();
+        var dbRefreshToken = new RefreshTokenEntity
+        {
+            Id = Guid.NewGuid(),
+            UserId = TestStringHelper.UserId,
+            Token = RefreshTokenHash,
+            Expires = _now.AddMinutes(5),
+        };
+
+        SetUpValidAccessToken(command);
+        SetUpRefreshTokenLookup((dbRefreshToken, true));
+        A.CallTo(() => _userManager.FindByIdAsync(TestStringHelper.UserId)).Returns((IdentityUser?)null);
+
+        // Act & Assert
+        await Assert.ThrowsAsync<SecurityTokenException>(() =>
+            GetExchangeRefreshTokenCommandHandler().UpdateItemAsync(command, TestStringHelper.UserId, TestContext.Current.CancellationToken)
+        );
+
+        A.CallTo(() => _createAccessTokenCommandHandler.CreateItemAsync(A<CreateAccessTokenCommand>._, A<string>._, A<CancellationToken>._))
+            .MustNotHaveHappened();
+    }
+
     private static ExchangeRefreshTokenCommand GetExchangeRefreshTokenCommand() =>
         new() { AccessToken = AccessToken, RefreshToken = RefreshToken };
 
@@ -450,7 +510,7 @@ public class ExchangeRefreshTokenCommandHandlerTests
         A.CallTo(() => _jwtTokenHandler.ResolveTokenValue<string?>(tokenValidationResult, JwtRegisteredClaimNames.Sub))
             .Returns(TestStringHelper.UserId);
         A.CallTo(() => _jwtTokenHandler.ResolveTokenValue<string?>(tokenValidationResult, JwtRegisteredClaimNames.Name))
-            .Returns(TestStringHelper.UserName);
+            .Returns("old-user-name@example.com");
         A.CallTo(() => _jwtTokenHandler.ResolveTokenValue<string?>(tokenValidationResult, JwtRegisteredClaimNames.Azp)).Returns("TestApp");
     }
 
@@ -484,6 +544,7 @@ public class ExchangeRefreshTokenCommandHandlerTests
             _unitOfWork,
             _refreshTokenRepository,
             _timeProvider,
+            _userManager,
             _getRegisteredAppHandler,
             _getTwoFactorStatusQueryHandler,
             _createAccessTokenCommandHandler

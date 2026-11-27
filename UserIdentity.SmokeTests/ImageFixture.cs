@@ -198,10 +198,21 @@ public sealed class ImageFixture : IAsyncLifetime
         using var client = new ServiceClient(ServiceUrl);
         await client.SignInAsBootstrapAdminAsync(cancellationToken);
 
+        var settings = await ServiceClient.ReadAsync(
+            await client.GetAsync("/api/v1/sign-in-settings", cancellationToken),
+            HttpStatusCode.OK,
+            cancellationToken
+        );
+
         await ServiceClient.ReadAsync(
             await client.PutAsync(
                 "/api/v1/sign-in-settings",
-                new { requireConfirmedAccount = true, defaultRole = "user" },
+                new
+                {
+                    requireConfirmedAccount = true,
+                    defaultRole = "user",
+                    version = settings["signInSettings"]!["version"]!.GetValue<string>(),
+                },
                 cancellationToken
             ),
             HttpStatusCode.OK,
@@ -227,6 +238,7 @@ public sealed class ImageFixture : IAsyncLifetime
                 {
                     appName = ServiceClient.AppName,
                     baseUrl = AppBaseUrl,
+                    version = app["registeredApp"]!["version"]!.GetValue<string>(),
                     backends = new[] { new { name = backendName, publicKey = publicKeyPem } },
                 },
                 cancellationToken

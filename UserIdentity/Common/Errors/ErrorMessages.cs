@@ -50,6 +50,7 @@ public static class ErrorMessages
     {
         public const string DefaultRoleFormat = "The {0} field must be a role name without the app prefix, spaces or colons.";
         public const string TwoFactorWithoutMethod = "Allow at least one two-step sign-in method before requiring two-step sign-in.";
+        public const string StaleVersion = "The sign-in settings' Version is not the current one.";
 
         public static string AdminDefaultRole(string defaultRole) =>
             $"The default role {defaultRole} is an admin role, which sign-up can't grant.";
@@ -60,6 +61,7 @@ public static class ErrorMessages
         public const string GlobalAdminRoleScopes = "Scopes can't be added to the global admin role";
         public const string GrantedByUnusedInvites = "A role that unused invite codes grant can't be deleted";
         public const string InvalidScopeAction = "Action must be create, read, edit, delete, download or all";
+        public const string LastGlobalAdminRole = "This is the only global admin account, so its global admin role can't be taken away.";
 
         public static string NameOutsideApp(string appPrefix) => $"Role names must start with {appPrefix}";
     }

@@ -1,6 +1,7 @@
 FROM mcr.microsoft.com/dotnet/runtime-deps:10.0-alpine AS base
 WORKDIR /app
 EXPOSE 8080
+ENV PGGSSENCMODE=disable
 
 FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0-alpine AS build
 ARG TARGETARCH

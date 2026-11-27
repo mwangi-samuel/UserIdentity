@@ -18,6 +18,7 @@ public class AppSignInSettingsDto : AppSignInSettingsEntity, IBaseAuditableEntit
             AllowAuthenticatorTwoFactor = entity.AllowAuthenticatorTwoFactor,
             AllowEmailTwoFactor = entity.AllowEmailTwoFactor,
             AllowSmsTwoFactor = entity.AllowSmsTwoFactor,
+            Version = entity.Version,
             CreatedBy = entity.CreatedBy,
             CreatedAt = entity.CreatedAt,
             UpdatedBy = entity.UpdatedBy,
