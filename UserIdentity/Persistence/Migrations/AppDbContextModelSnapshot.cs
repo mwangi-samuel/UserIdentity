@@ -457,6 +457,11 @@ namespace UserIdentity.Persistence.Migrations
                         .HasColumnType("character varying(50)")
                         .HasColumnName("updated_by");
 
+                    b.Property<Guid>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uuid")
+                        .HasColumnName("version");
+
                     b.HasKey("Id")
                         .HasName("pk_registered_apps");
 
@@ -566,6 +571,11 @@ namespace UserIdentity.Persistence.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)")
                         .HasColumnName("updated_by");
+
+                    b.Property<Guid>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uuid")
+                        .HasColumnName("version");
 
                     b.HasKey("Id")
                         .HasName("pk_app_sign_in_settings");

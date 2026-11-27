@@ -132,6 +132,12 @@ Authorization: Bearer {{adminLogin.response.body.$.userToken.accessToken.token}}
 
 ###
 
+DELETE {{UserIdentity_HostAddress}}/api/v1/role/user/{{user.response.body.$.user.id}}/{{role.response.body.$.role.id}}
+X-Api-Key: {{ApiKey}}
+Authorization: Bearer {{adminLogin.response.body.$.userToken.accessToken.token}}
+
+###
+
 # @name invite
 POST {{UserIdentity_HostAddress}}/api/v1/invite-code
 X-Api-Key: {{ApiKey}}
@@ -278,11 +284,13 @@ Content-Type: application/json
 {
   "appName": "{{registeredApp.response.body.$.registeredApp.appName}}",
   "baseUrl": "http://localhost:3001",
-  "description": "A demo app"
+  "description": "A demo app",
+  "version": "{{registeredApp.response.body.$.registeredApp.version}}"
 }
 
 ###
 
+# @name signInSettings
 GET {{UserIdentity_HostAddress}}/api/v1/sign-in-settings
 X-Api-Key: {{ApiKey}}
 X-App-Name: {{registeredApp.response.body.$.registeredApp.appName}}
@@ -304,7 +312,8 @@ Content-Type: application/json
   "requireTwoFactorForAdmins": false,
   "allowAuthenticatorTwoFactor": true,
   "allowEmailTwoFactor": true,
-  "allowSmsTwoFactor": false
+  "allowSmsTwoFactor": false,
+  "version": "{{signInSettings.response.body.$.signInSettings.version}}"
 }
 
 ###

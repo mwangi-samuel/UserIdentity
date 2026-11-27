@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Serialization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
@@ -38,6 +39,7 @@ public class ExchangeRefreshTokenCommandHandler(
     IUnitOfWork unitOfWork,
     IRefreshTokenRepository refreshTokenRepository,
     TimeProvider timeProvider,
+    UserManager<IdentityUser> userManager,
     IGetItemQueryHandler<GetRegisteredAppQuery, RegisteredAppViewModel> getRegisteredAppHandler,
     IGetItemQueryHandler<GetTwoFactorStatusQuery, TwoFactorStatusViewModel> getTwoFactorStatusQueryHandler,
     ICreateItemCommandHandler<CreateAccessTokenCommand, AccessTokenViewModel> createAccessTokenCommandHandler
@@ -48,6 +50,7 @@ public class ExchangeRefreshTokenCommandHandler(
     private readonly RefreshTokenSettings _refreshTokenSettings = refreshTokenSettingsOptions.Value;
     private readonly IJwtTokenHandler _jwtTokenHandler = jwtTokenHandler;
     private readonly ITokenFactory _tokenFactory = tokenFactory;
+    private readonly UserManager<IdentityUser> _userManager = userManager;
     private readonly IGetItemQueryHandler<GetRegisteredAppQuery, RegisteredAppViewModel> _getRegisteredAppHandler = getRegisteredAppHandler;
 
     private readonly IGetItemQueryHandler<GetTwoFactorStatusQuery, TwoFactorStatusViewModel> _getTwoFactorStatusQueryHandler =
@@ -66,10 +69,9 @@ public class ExchangeRefreshTokenCommandHandler(
         var tokenValidationResult = await _jwtTokenHandler.ValidateTokenAsync(command.AccessToken, validateLifetime: false);
 
         var tokenUserId = _jwtTokenHandler.ResolveTokenValue<string?>(tokenValidationResult, JwtRegisteredClaimNames.Sub);
-        var tokenUserName = _jwtTokenHandler.ResolveTokenValue<string?>(tokenValidationResult, JwtRegisteredClaimNames.Name);
         var azp = _jwtTokenHandler.ResolveTokenValue<string?>(tokenValidationResult, JwtRegisteredClaimNames.Azp);
 
-        if (tokenUserId == null || tokenUserName == null || azp == null)
+        if (tokenUserId == null || azp == null)
             throw new SecurityTokenException("Invalid access token provided");
 
         var requestRefreshTokenHash = _tokenFactory.HashToken(command.RefreshToken);
@@ -119,8 +121,10 @@ public class ExchangeRefreshTokenCommandHandler(
             throw new SecurityTokenException("Two-step sign-in is required and not set up");
         }
 
+        var user = await _userManager.FindByIdAsync(tokenUserId) ?? throw new SecurityTokenException("Invalid access token provided");
+
         var accessToken = await _createAccessTokenCommandHandler.CreateItemAsync(
-            new CreateAccessTokenCommand(tokenUserId, tokenUserName, azp, existingEntity.Id),
+            new CreateAccessTokenCommand(tokenUserId, user.UserName!, azp, existingEntity.Id),
             tokenUserId,
             cancellationToken
         );

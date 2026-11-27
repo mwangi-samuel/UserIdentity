@@ -1,11 +1,11 @@
-using System.Globalization;
 using System.Net.Http.Headers;
 using System.Net.Mime;
 using System.Text;
 using Newtonsoft.Json;
 using Org.BouncyCastle.Crypto;
-using Org.BouncyCastle.Crypto.Signers;
-using PolyzenKit.Common.Utilities;
+using Org.BouncyCastle.Crypto.Parameters;
+using PolyzenKit.Infrastructure.Security.AppSignatures;
+using Xunit;
 
 namespace UserIdentity.IntegrationTests.TestUtils;
 
@@ -13,11 +13,13 @@ public sealed class TestBackend
 {
     public const string Name = "otherservice";
 
+    private static readonly Uri _serviceAddress = new("http://localhost");
+
     private readonly AsymmetricCipherKeyPair _keyPair = EdDsaHelper.GenerateEd25519KeyPair();
 
     public string PublicKeyPem => EdDsaHelper.ConvertToPem(_keyPair.Public);
 
-    public HttpRequestMessage CreateSignedRequest(
+    public async Task<HttpRequestMessage> CreateSignedRequestAsync(
         HttpMethod method,
         string path,
         object body,
@@ -26,29 +28,21 @@ public sealed class TestBackend
         DateTimeOffset? signedAt = null
     )
     {
-        var bodyBytes = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(body));
-        var timestamp = (signedAt ?? DateTimeOffset.UtcNow).ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture);
-
-        var httpRequest = new HttpRequestMessage(method, path) { Content = new ByteArrayContent(bodyBytes) };
+        var httpRequest = new HttpRequestMessage(method, new Uri(_serviceAddress, path))
+        {
+            Content = new ByteArrayContent(Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(body))),
+        };
         httpRequest.Content.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeNames.Application.Json);
         httpRequest.AddXApiKey();
-        httpRequest.Headers.Add(CustomHeaderNames.AppName, appName);
-        httpRequest.Headers.Add(CustomHeaderNames.AppBackend, backendName);
-        httpRequest.Headers.Add(CustomHeaderNames.Timestamp, timestamp);
-        httpRequest.Headers.Add(
-            CustomHeaderNames.Signature,
-            Sign([.. Encoding.UTF8.GetBytes($"{timestamp}\n{method.Method}\n{path}\n"), .. bodyBytes])
+
+        await new AppRequestSigner((Ed25519PrivateKeyParameters)_keyPair.Private).SignAsync(
+            httpRequest,
+            appName,
+            backendName,
+            signedAt ?? DateTimeOffset.UtcNow,
+            TestContext.Current.CancellationToken
         );
 
         return httpRequest;
-    }
-
-    private string Sign(byte[] signedBytes)
-    {
-        Ed25519Signer signer = new();
-        signer.Init(true, _keyPair.Private);
-        signer.BlockUpdate(signedBytes, 0, signedBytes.Length);
-
-        return Convert.ToBase64String(signer.GenerateSignature());
     }
 }

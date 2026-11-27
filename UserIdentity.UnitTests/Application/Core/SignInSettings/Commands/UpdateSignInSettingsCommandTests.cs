@@ -14,7 +14,7 @@ public class UpdateSignInSettingsCommandTests
     public void A_Role_Name_Without_Spaces_Or_Colons_Is_Accepted(string? defaultRole)
     {
         // Arrange
-        var command = new UpdateSignInSettingsCommand { DefaultRole = defaultRole };
+        var command = new UpdateSignInSettingsCommand { DefaultRole = defaultRole, Version = Guid.Empty };
 
         // Act & Assert
         Assert.Empty(Validate(command));
@@ -27,7 +27,7 @@ public class UpdateSignInSettingsCommandTests
     public void A_Default_Role_With_A_Prefix_Or_Spaces_Is_Refused(string defaultRole)
     {
         // Arrange
-        var command = new UpdateSignInSettingsCommand { DefaultRole = defaultRole };
+        var command = new UpdateSignInSettingsCommand { DefaultRole = defaultRole, Version = Guid.Empty };
 
         // Act & Assert
         Assert.NotEmpty(Validate(command));
@@ -37,7 +37,7 @@ public class UpdateSignInSettingsCommandTests
     public void A_Default_Role_Longer_Than_The_Role_Name_Allows_After_The_App_Prefix_Is_Refused()
     {
         // Arrange
-        var command = new UpdateSignInSettingsCommand { DefaultRole = new string('a', 156) };
+        var command = new UpdateSignInSettingsCommand { DefaultRole = new string('a', 156), Version = Guid.Empty };
 
         // Act & Assert
         Assert.NotEmpty(Validate(command));
@@ -53,6 +53,7 @@ public class UpdateSignInSettingsCommandTests
         {
             RequireTwoFactor = requireTwoFactor,
             RequireTwoFactorForAdmins = requireTwoFactorForAdmins,
+            Version = Guid.Empty,
         };
 
         // Act
@@ -67,10 +68,25 @@ public class UpdateSignInSettingsCommandTests
     public void Requiring_Two_Step_Sign_In_With_A_Method_Allowed_Is_Accepted()
     {
         // Arrange
-        var command = new UpdateSignInSettingsCommand { RequireTwoFactor = true, AllowSmsTwoFactor = true };
+        var command = new UpdateSignInSettingsCommand
+        {
+            RequireTwoFactor = true,
+            AllowSmsTwoFactor = true,
+            Version = Guid.Empty,
+        };
 
         // Act & Assert
         Assert.Empty(Validate(command));
+    }
+
+    [Fact]
+    public void A_Command_Without_The_Version_It_Read_Is_Refused()
+    {
+        // Arrange
+        var command = new UpdateSignInSettingsCommand { RequireConfirmedAccount = true };
+
+        // Act & Assert
+        Assert.Contains(Validate(command), result => result.MemberNames.Contains(nameof(UpdateSignInSettingsCommand.Version)));
     }
 
     private static List<ValidationResult> Validate(UpdateSignInSettingsCommand command)

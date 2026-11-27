@@ -102,8 +102,6 @@ app.UseExceptionHandler();
 
 app.UseStatusCodePages();
 
-app.UseHttpsRedirection();
-
 app.UseRateLimiter();
 
 app.UseAuthentication();
@@ -127,5 +125,3 @@ await app.AppReencryptRegisteredAppSecretsAsync();
 await app.AppBootstrapAdminAsync();
 
 app.Run();
-
-public partial class Program { }

@@ -52,10 +52,10 @@ There are two kinds of admin:
 - **Global admins** have `RoleSettings:GlobalAdminRole` (default `global:admin`), whatever app they log in through. They manage registered apps and their sign-in settings, and every app's roles, role scopes and users. For invite codes, wait list entries, sign-in settings and user changes they name the app in the `X-App-Name` header. The app names `global` and `service` are reserved.
 
 ### Registered Apps
-Global admins register apps with `/api/v1/registered-app`: the app's name, base URL and branding, and its backends, each with a name and an Ed25519 public key (see [Accounts Created by an App's Backend](#accounts-created-by-an-apps-backend)). `appSecretKey` is optional. The sign-in rules aren't part of the registered app: UserIdentity keeps them per app in its own [sign-in settings](#sign-in-settings).
+Global admins register apps with `/api/v1/registered-app`: the app's name, base URL and branding, and its backends, each with a name and an Ed25519 public key (see [Accounts Created by an App's Backend](#accounts-created-by-an-apps-backend)). `appSecretKey` is optional. Every app has a `version` that changes with each update: an update sends back the `version` it read, and gets a 409 when another update came first. The sign-in rules aren't part of the registered app: UserIdentity keeps them per app in its own [sign-in settings](#sign-in-settings).
 
 ### Sign-in Settings
-`GET /api/v1/sign-in-settings` and `PUT /api/v1/sign-in-settings`, for global admins, act on the app named in the `X-App-Name` header. A `PUT` replaces every setting, so it sends all of them. An app without saved settings has every switch off and no default role, which is what a new app needs.
+`GET /api/v1/sign-in-settings` and `PUT /api/v1/sign-in-settings`, for global admins, act on the app named in the `X-App-Name` header. A `PUT` replaces every setting, so it sends all of them, with the `version` the `GET` returned; a 409 means another admin saved first, so read the settings again. An app without saved settings has every switch off, no default role and the empty version (`00000000-0000-0000-0000-000000000000`), which is what a new app needs.
 
 | Setting | Meaning |
 |---|---|
@@ -70,10 +70,10 @@ Global admins register apps with `/api/v1/registered-app`: the app's name, base 
 PUT /api/v1/sign-in-settings
 X-App-Name: testapp
 
-{ "requireConfirmedAccount": true, "requireInviteCode": false, "defaultRole": "user", "requireTwoFactor": false, "requireTwoFactorForAdmins": true, "allowAuthenticatorTwoFactor": true, "allowEmailTwoFactor": true, "allowSmsTwoFactor": false }
+{ "requireConfirmedAccount": true, "requireInviteCode": false, "defaultRole": "user", "requireTwoFactor": false, "requireTwoFactorForAdmins": true, "allowAuthenticatorTwoFactor": true, "allowEmailTwoFactor": true, "allowSmsTwoFactor": false, "version": "00000000-0000-0000-0000-000000000000" }
 ```
 
-Both answer `{ "signInSettings": { "appId": 1, "requireConfirmedAccount": true, ... } }`.
+Both answer `{ "signInSettings": { "appId": 1, "requireConfirmedAccount": true, ..., "version": "..." } }`.
 
 An app that doesn't require confirmed accounts can't hide which emails have accounts: a new sign-up signs in at once, so a taken email gets an error (see [Signing Up](#signing-up)). Requiring confirmed accounts is the fix.
 
@@ -90,9 +90,9 @@ Setting any of the first seven requires all seven; the phone number alone turns 
 
 `appsettings.json` holds a local admin for development: the app `TestApp` (`http://localhost:3000`), the user `admin`, named Admin User, with the email `admin@example.com`, no phone number and the password `Adm1n@P@ss`. Every deployment must override all eight settings with its own admin, or set them all to empty to turn the bootstrap off. A deployment that leaves them as they are creates that known admin, whose password is in this repo. Once the admin has logged in, set the settings to empty rather than removing them, since removing them brings back the local admin.
 
-After that, admins grant roles with `POST /api/v1/role/user`. If no user holds the global admin role any more, setting the bootstrap settings again, with a new user name and email, creates a new global admin at the next start.
+After that, admins grant roles with `POST /api/v1/role/user`, and take one from a person with `DELETE /api/v1/role/user/{userId}/{roleId}`. App admins take roles only from their own account or accounts of their app that hold no admin role, and get 404 for any other; global admins take any role from anyone, but not the global admin role from its last holder (406). If no user holds the global admin role any more, setting the bootstrap settings again, with a new user name and email, creates a new global admin at the next start.
 
-Roles are read into the token at login, so the user has to log in again to get an admin token.
+Roles are read into each token at login and at every refresh, so a role given or taken reaches the user's next token, at most `JwtIssuerSettings:ValidForSeconds` (3 minutes by default) later.
 
 ### Role Scopes
 A role can carry scopes, which give its users access to specific actions in other services without making them admins. A scope is `<resource>:<action>`, where a service's resources are `<service>-<entity>` and the entity is its route segment, such as `catalog-option-definition:create` for `/api/v1/option-definition` in a `catalog` service. The actions are `create`, `read`, `edit`, `delete`, `download` and `all`.
@@ -161,6 +161,7 @@ A right sign-up, reset or emailed code marks the email confirmed, so a confirmed
 ## Sessions
 - Each refresh returns a new refresh token, and the one sent can't be used again. If a replaced refresh token is sent again, UserIdentity treats it as copied and ends that session. Clients must keep the newest refresh token, and must not send the same refresh token twice at once (for example, from two tabs): the second of two simultaneous refreshes gets a 409.
 - A session lasts `RefreshTokenSettings:ValidForSeconds` (default 30 days) and each refresh extends it. Only hashes of refresh tokens are stored.
+- A refreshed token carries the account's current user name and roles, so an email change that also changed the user name reaches the next token without signing in again.
 - `POST /api/v1/user/refresh-token` answers 401 and ends the session when two-step sign-in is required for the account and it has no method, which catches sessions that started before the requirement (the app switched it on, or the user became an admin). The next sign-in leads to setup.
 - `POST /api/v1/user/logout` with the access token and `{ "refreshToken": "..." }` ends that session. The access token keeps working until it expires.
 - Five failures in a row lock an account for five minutes: wrong passwords and wrong second-step codes of any method count together. A right password alone doesn't reset the count; only starting a session does. A locked account gets the same 401 as a wrong password.

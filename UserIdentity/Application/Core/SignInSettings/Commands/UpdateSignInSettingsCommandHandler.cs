@@ -39,6 +39,9 @@ public record UpdateSignInSettingsCommand : IBaseCommand, IValidatableObject
 
     public bool AllowSmsTwoFactor { get; init; }
 
+    [Required]
+    public Guid? Version { get; init; }
+
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {
         if ((RequireTwoFactor || RequireTwoFactorForAdmins) && !AllowAuthenticatorTwoFactor && !AllowEmailTwoFactor && !AllowSmsTwoFactor)
@@ -82,6 +85,9 @@ public class UpdateSignInSettingsCommandHandler(
             cancellationToken
         );
 
+        if ((entity?.Version ?? Guid.Empty) != command.Version)
+            throw new Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException(ErrorMessages.SignInSettings.StaleVersion);
+
         var isNew = entity is null;
 
         entity ??= new AppSignInSettingsEntity { AppId = command.RegisteredApp.Id };
@@ -93,6 +99,7 @@ public class UpdateSignInSettingsCommandHandler(
         entity.AllowAuthenticatorTwoFactor = command.AllowAuthenticatorTwoFactor;
         entity.AllowEmailTwoFactor = command.AllowEmailTwoFactor;
         entity.AllowSmsTwoFactor = command.AllowSmsTwoFactor;
+        entity.Version = Guid.NewGuid();
 
         if (isNew)
             await CreateEntityItemAsync(entity, userId, cancellationToken);

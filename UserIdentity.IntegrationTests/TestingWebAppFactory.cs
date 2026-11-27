@@ -27,6 +27,7 @@ using Respawn;
 using Testcontainers.Nats;
 using Testcontainers.PostgreSql;
 using UserIdentity.Application.Core.SignInSettings.Commands;
+using UserIdentity.Application.Core.SignInSettings.Queries;
 using UserIdentity.Application.Core.SignInSettings.ViewModels;
 using UserIdentity.Application.Core.Users.Shared;
 using UserIdentity.Domain.AppSignInSettings;
@@ -137,15 +138,21 @@ public class TestingWebAppFactory : WebApplicationFactory<Program>, IAsyncLifeti
     {
         await using var scope = Services.CreateAsyncScope();
 
-        command.RegisteredApp = (
+        var registeredApp = (
             await scope
                 .ServiceProvider.GetRequiredService<IGetItemQueryHandler<GetRegisteredAppQuery, RegisteredAppViewModel>>()
                 .GetItemAsync(new GetRegisteredAppQuery { AppName = appName }, cancellationToken)
         ).RegisteredApp;
+        var current = await scope
+            .ServiceProvider.GetRequiredService<IGetItemQueryHandler<GetSignInSettingsQuery, SignInSettingsViewModel>>()
+            .GetItemAsync(new GetSignInSettingsQuery(registeredApp.Id), cancellationToken);
+
+        var versionedCommand = command with { Version = current.SignInSettings.Version };
+        versionedCommand.RegisteredApp = registeredApp;
 
         var vm = await scope
             .ServiceProvider.GetRequiredService<IUpdateItemCommandHandler<UpdateSignInSettingsCommand, SignInSettingsViewModel>>()
-            .UpdateItemAsync(command, KnownUsers.SystemId, cancellationToken);
+            .UpdateItemAsync(versionedCommand, KnownUsers.SystemId, cancellationToken);
 
         return vm.SignInSettings;
     }

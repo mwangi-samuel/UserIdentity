@@ -1,4 +1,5 @@
 using FakeItEasy;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Time.Testing;
 using PolyzenKit.Common.Settings;
@@ -49,6 +50,7 @@ public class UpdateSignInSettingsCommandHandlerTests
                     DefaultRole = " Member ",
                     RequireTwoFactorForAdmins = true,
                     AllowAuthenticatorTwoFactor = true,
+                    Version = Guid.Empty,
                 },
                 "admin-id",
                 TestContext.Current.CancellationToken
@@ -60,6 +62,7 @@ public class UpdateSignInSettingsCommandHandlerTests
         Assert.Equal("member", vm.SignInSettings.DefaultRole);
         Assert.True(vm.SignInSettings.RequireTwoFactorForAdmins);
         Assert.Equal("admin-id", vm.SignInSettings.CreatedBy);
+        Assert.NotEqual(Guid.Empty, vm.SignInSettings.Version);
         A.CallTo(() => _repository.CreateEntityItem(A<AppSignInSettingsEntity>.That.Matches(e => e.AppId == 3)))
             .MustHaveHappenedOnceExactly();
     }
@@ -68,6 +71,7 @@ public class UpdateSignInSettingsCommandHandlerTests
     public async Task Saving_Replaces_Every_Existing_Setting()
     {
         // Arrange
+        var storedVersion = Guid.NewGuid();
         var existing = new AppSignInSettingsEntity
         {
             AppId = 3,
@@ -75,6 +79,7 @@ public class UpdateSignInSettingsCommandHandlerTests
             RequireInviteCode = true,
             DefaultRole = "member",
             AllowEmailTwoFactor = true,
+            Version = storedVersion,
         };
         A.CallTo(() => _repository.GetEntityByAlternateIdAsync(A<AppSignInSettingsEntity>._, A<QueryCondition>._, A<CancellationToken>._))
             .Returns(existing);
@@ -82,7 +87,12 @@ public class UpdateSignInSettingsCommandHandlerTests
         // Act
         await GetHandler()
             .UpdateItemAsync(
-                new UpdateSignInSettingsCommand { RegisteredApp = _registeredApp, AllowSmsTwoFactor = true },
+                new UpdateSignInSettingsCommand
+                {
+                    RegisteredApp = _registeredApp,
+                    AllowSmsTwoFactor = true,
+                    Version = storedVersion,
+                },
                 "admin-id",
                 TestContext.Current.CancellationToken
             );
@@ -94,6 +104,7 @@ public class UpdateSignInSettingsCommandHandlerTests
         Assert.False(existing.AllowEmailTwoFactor);
         Assert.True(existing.AllowSmsTwoFactor);
         Assert.Equal(_now, existing.UpdatedAt);
+        Assert.NotEqual(storedVersion, existing.Version);
         A.CallTo(() => _repository.UpdateEntityItem(existing)).MustHaveHappenedOnceExactly();
         A.CallTo(() => _unitOfWork.SaveChangesAsync(A<CancellationToken>._)).MustHaveHappenedOnceExactly();
     }
@@ -115,6 +126,53 @@ public class UpdateSignInSettingsCommandHandlerTests
 
         Assert.Equal(ErrorMessages.SignInSettings.AdminDefaultRole(defaultRole), exception.Message);
         A.CallTo(() => _unitOfWork.SaveChangesAsync(A<CancellationToken>._)).MustNotHaveHappened();
+    }
+
+    [Fact]
+    public async Task Saving_With_A_Version_Another_Save_Has_Replaced_Throws_DbUpdateConcurrencyException()
+    {
+        // Arrange
+        var existing = new AppSignInSettingsEntity
+        {
+            AppId = 3,
+            RequireConfirmedAccount = true,
+            Version = Guid.NewGuid(),
+        };
+        A.CallTo(() => _repository.GetEntityByAlternateIdAsync(A<AppSignInSettingsEntity>._, A<QueryCondition>._, A<CancellationToken>._))
+            .Returns(existing);
+
+        // Act & Assert
+        await Assert.ThrowsAsync<DbUpdateConcurrencyException>(() =>
+            GetHandler()
+                .UpdateItemAsync(
+                    new UpdateSignInSettingsCommand { RegisteredApp = _registeredApp, Version = Guid.NewGuid() },
+                    "admin-id",
+                    TestContext.Current.CancellationToken
+                )
+        );
+
+        Assert.True(existing.RequireConfirmedAccount);
+        A.CallTo(() => _unitOfWork.SaveChangesAsync(A<CancellationToken>._)).MustNotHaveHappened();
+    }
+
+    [Fact]
+    public async Task Saving_For_An_App_Without_Settings_With_A_Version_Throws_DbUpdateConcurrencyException()
+    {
+        // Arrange
+        A.CallTo(() => _repository.GetEntityByAlternateIdAsync(A<AppSignInSettingsEntity>._, A<QueryCondition>._, A<CancellationToken>._))
+            .Returns((AppSignInSettingsEntity?)null);
+
+        // Act & Assert
+        await Assert.ThrowsAsync<DbUpdateConcurrencyException>(() =>
+            GetHandler()
+                .UpdateItemAsync(
+                    new UpdateSignInSettingsCommand { RegisteredApp = _registeredApp, Version = Guid.NewGuid() },
+                    "admin-id",
+                    TestContext.Current.CancellationToken
+                )
+        );
+
+        A.CallTo(() => _repository.CreateEntityItem(A<AppSignInSettingsEntity>._)).MustNotHaveHappened();
     }
 
     private UpdateSignInSettingsCommandHandler GetHandler() =>

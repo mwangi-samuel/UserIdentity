@@ -2,6 +2,7 @@
 using Newtonsoft.Json.Linq;
 using PolyzenKit.Common.Utilities;
 using PolyzenKit.Presentation.Validation;
+using UserIdentity.Common.Errors;
 using UserIdentity.Domain.RoleClaims;
 using UserIdentity.Domain.Roles;
 using UserIdentity.IntegrationTests.TestUtils;
@@ -1629,5 +1630,138 @@ public class RoleEndpointsTests(TestingWebAppFactory testingWebAppFactory, ITest
         await response.ValidateRequestResponseAsync();
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Delete_User_Role_Takes_The_Role_From_That_User_Only()
+    {
+        // Arrange
+        TestDbHelper.SeedDatabase();
+        TestDbHelper.CreateIdentityRole(TestDbHelper.AdminRoles.First());
+        TestDbHelper.ConfigureIdentityUserAsAdmin();
+
+        var roleName = "testapp:additionalrole";
+        var role = TestDbHelper.CreateIdentityRole(roleName);
+        var memberId = TestDbHelper.CreateUserOfApp(RegisteredApp.AppName, "member.one");
+        var otherMemberId = TestDbHelper.CreateUserOfApp(RegisteredApp.AppName, "member.two");
+        TestDbHelper.CreateIdentityUserRole(roleName, memberId);
+        TestDbHelper.CreateIdentityUserRole(roleName, otherMemberId);
+
+        // Act
+        var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Delete, $"{_baseUri}/user/{memberId}/{role.Id}");
+
+        // Assert
+        var jsonObject = SerDeHelper.Deserialize<JObject>(await response.ValidateRequestResponseAsync());
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("Item deleted successfully", $"{jsonObject?["statusMessage"]}");
+        Assert.Null(TestDbHelper.GetIdentityUserRole(roleName, memberId));
+        Assert.NotNull(TestDbHelper.GetIdentityUserRole(roleName, otherMemberId));
+        Assert.NotNull(TestDbHelper.GetIdentityRole(roleName));
+    }
+
+    [Fact]
+    public async Task Delete_User_Role_From_Another_Admin_Is_Not_Found_For_An_App_Admin()
+    {
+        // Arrange
+        TestDbHelper.SeedDatabase();
+        var adminRoleName = TestDbHelper.AdminRoles.First();
+        var adminRole = TestDbHelper.CreateIdentityRole(adminRoleName);
+        TestDbHelper.ConfigureIdentityUserAsAdmin();
+
+        var otherAdminId = TestDbHelper.CreateUserOfApp(RegisteredApp.AppName, "other.admin");
+        TestDbHelper.CreateIdentityUserRole(adminRoleName, otherAdminId);
+
+        // Act
+        var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Delete, $"{_baseUri}/user/{otherAdminId}/{adminRole.Id}");
+
+        // Assert
+        await response.ValidateRequestResponseAsync();
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.NotNull(TestDbHelper.GetIdentityUserRole(adminRoleName, otherAdminId));
+    }
+
+    [Fact]
+    public async Task Delete_User_Role_Of_Another_Apps_User_Is_Not_Found_For_An_App_Admin()
+    {
+        // Arrange
+        TestDbHelper.SeedDatabase();
+        TestDbHelper.CreateIdentityRole(TestDbHelper.AdminRoles.First());
+        TestDbHelper.ConfigureIdentityUserAsAdmin();
+
+        var roleName = "testapp:additionalrole";
+        var role = TestDbHelper.CreateIdentityRole(roleName);
+        var otherAppUserId = TestDbHelper.CreateUserOfApp(TestingWebAppFactory.OtherAppName);
+        TestDbHelper.CreateIdentityUserRole(roleName, otherAppUserId);
+
+        // Act
+        var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Delete, $"{_baseUri}/user/{otherAppUserId}/{role.Id}");
+
+        // Assert
+        await response.ValidateRequestResponseAsync();
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.NotNull(TestDbHelper.GetIdentityUserRole(roleName, otherAppUserId));
+    }
+
+    [Fact]
+    public async Task Delete_User_Role_The_User_Does_Not_Hold_Is_Not_Found()
+    {
+        // Arrange
+        TestDbHelper.SeedDatabase();
+        TestDbHelper.CreateIdentityRole(TestDbHelper.AdminRoles.First());
+        TestDbHelper.ConfigureIdentityUserAsAdmin();
+
+        var role = TestDbHelper.CreateIdentityRole("testapp:additionalrole");
+        var memberId = TestDbHelper.CreateUserOfApp(RegisteredApp.AppName, "member.one");
+
+        // Act
+        var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Delete, $"{_baseUri}/user/{memberId}/{role.Id}");
+
+        // Assert
+        await response.ValidateRequestResponseAsync();
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Delete_User_Role_Refuses_To_Take_The_Global_Admin_Role_From_Its_Last_Holder()
+    {
+        // Arrange
+        TestDbHelper.SeedDatabase();
+        var globalAdminRole = TestDbHelper.ConfigureIdentityUserAsGlobalAdmin();
+
+        // Act
+        var response = await HttpClient.SendValidAuthRequestAsync(
+            HttpMethod.Delete,
+            $"{_baseUri}/user/{UserSettingHelper.UserId}/{globalAdminRole.RoleId}"
+        );
+
+        // Assert
+        var jsonObject = SerDeHelper.Deserialize<JObject>(await response.ValidateRequestResponseAsync());
+
+        Assert.Equal(HttpStatusCode.NotAcceptable, response.StatusCode);
+        Assert.Equal(ErrorMessages.Roles.LastGlobalAdminRole, $"{jsonObject?["error"]?["message"]}");
+    }
+
+    [Fact]
+    public async Task Delete_User_Role_With_Invalid_Permissions_Returns_Auth_Error()
+    {
+        // Arrange
+        TestDbHelper.SeedDatabase();
+        var roleName = "testapp:additionalrole";
+        var role = TestDbHelper.CreateIdentityRole(roleName);
+        var memberId = TestDbHelper.CreateUserOfApp(RegisteredApp.AppName, "member.one");
+        TestDbHelper.CreateIdentityUserRole(roleName, memberId);
+
+        // Act
+        var response = await HttpClient.SendValidAuthRequestAsync(HttpMethod.Delete, $"{_baseUri}/user/{memberId}/{role.Id}");
+
+        // Assert
+        await response.ValidateRequestResponseAsync();
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.NotNull(TestDbHelper.GetIdentityUserRole(roleName, memberId));
     }
 }

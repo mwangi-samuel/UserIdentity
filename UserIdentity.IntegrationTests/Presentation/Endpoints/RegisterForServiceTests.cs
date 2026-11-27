@@ -21,7 +21,12 @@ public class RegisterForServiceTests(TestingWebAppFactory testingWebAppFactory, 
     public async Task A_Request_Signed_By_The_Apps_Backend_Creates_The_Account_Without_A_Session_Ticket_Or_Message()
     {
         // Arrange
-        var httpRequest = TestBackend.CreateSignedRequest(HttpMethod.Post, RegisterForServiceUri, SignUpBody(), RegisteredApp.AppName);
+        var httpRequest = await TestBackend.CreateSignedRequestAsync(
+            HttpMethod.Post,
+            RegisterForServiceUri,
+            SignUpBody(),
+            RegisteredApp.AppName
+        );
 
         // Act
         var response = await HttpClient.SendAsync(httpRequest, TestContext.Current.CancellationToken);
@@ -48,7 +53,7 @@ public class RegisterForServiceTests(TestingWebAppFactory testingWebAppFactory, 
     {
         // Arrange
         await HttpClient.SendAsync(
-            TestBackend.CreateSignedRequest(HttpMethod.Post, RegisterForServiceUri, SignUpBody(), RegisteredApp.AppName),
+            await TestBackend.CreateSignedRequestAsync(HttpMethod.Post, RegisterForServiceUri, SignUpBody(), RegisteredApp.AppName),
             TestContext.Current.CancellationToken
         );
 
@@ -73,13 +78,18 @@ public class RegisterForServiceTests(TestingWebAppFactory testingWebAppFactory, 
     {
         // Arrange
         await HttpClient.SendAsync(
-            TestBackend.CreateSignedRequest(HttpMethod.Post, RegisterForServiceUri, SignUpBody(), RegisteredApp.AppName),
+            await TestBackend.CreateSignedRequestAsync(HttpMethod.Post, RegisterForServiceUri, SignUpBody(), RegisteredApp.AppName),
             TestContext.Current.CancellationToken
         );
 
         // Act
         var response = await HttpClient.SendAsync(
-            TestBackend.CreateSignedRequest(HttpMethod.Post, RegisterForServiceUri, SignUpBody("another.name"), RegisteredApp.AppName),
+            await TestBackend.CreateSignedRequestAsync(
+                HttpMethod.Post,
+                RegisterForServiceUri,
+                SignUpBody("another.name"),
+                RegisteredApp.AppName
+            ),
             TestContext.Current.CancellationToken
         );
 
@@ -108,7 +118,7 @@ public class RegisterForServiceTests(TestingWebAppFactory testingWebAppFactory, 
 
         // Act
         var response = await HttpClient.SendAsync(
-            TestBackend.CreateSignedRequest(HttpMethod.Post, RegisterForServiceUri, SignUpBody(), RegisteredApp.AppName),
+            await TestBackend.CreateSignedRequestAsync(HttpMethod.Post, RegisterForServiceUri, SignUpBody(), RegisteredApp.AppName),
             TestContext.Current.CancellationToken
         );
 
@@ -124,7 +134,7 @@ public class RegisterForServiceTests(TestingWebAppFactory testingWebAppFactory, 
     public async Task A_Stale_Signature_Is_Refused()
     {
         // Arrange
-        var httpRequest = TestBackend.CreateSignedRequest(
+        var httpRequest = await TestBackend.CreateSignedRequestAsync(
             HttpMethod.Post,
             RegisterForServiceUri,
             SignUpBody(),
@@ -144,7 +154,12 @@ public class RegisterForServiceTests(TestingWebAppFactory testingWebAppFactory, 
     public async Task A_Changed_Body_Is_Refused()
     {
         // Arrange
-        var httpRequest = TestBackend.CreateSignedRequest(HttpMethod.Post, RegisterForServiceUri, SignUpBody(), RegisteredApp.AppName);
+        var httpRequest = await TestBackend.CreateSignedRequestAsync(
+            HttpMethod.Post,
+            RegisterForServiceUri,
+            SignUpBody(),
+            RegisteredApp.AppName
+        );
         httpRequest.Content = new StringContent(JsonConvert.SerializeObject(SignUpBody("changed.name")), Encoding.UTF8, "application/json");
 
         // Act
@@ -159,15 +174,20 @@ public class RegisterForServiceTests(TestingWebAppFactory testingWebAppFactory, 
     public async Task An_Unknown_Backend_Or_Another_Key_Is_Refused()
     {
         // Arrange
-        var unknownBackend = TestBackend.CreateSignedRequest(
+        var unknownBackend = await TestBackend.CreateSignedRequestAsync(
             HttpMethod.Post,
             RegisterForServiceUri,
             SignUpBody(),
             RegisteredApp.AppName,
             backendName: "unknownservice"
         );
-        var otherKey = new TestBackend().CreateSignedRequest(HttpMethod.Post, RegisterForServiceUri, SignUpBody(), RegisteredApp.AppName);
-        var otherApp = TestBackend.CreateSignedRequest(
+        var otherKey = await new TestBackend().CreateSignedRequestAsync(
+            HttpMethod.Post,
+            RegisterForServiceUri,
+            SignUpBody(),
+            RegisteredApp.AppName
+        );
+        var otherApp = await TestBackend.CreateSignedRequestAsync(
             HttpMethod.Post,
             RegisterForServiceUri,
             SignUpBody(),
